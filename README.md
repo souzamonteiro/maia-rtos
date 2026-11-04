@@ -1,5 +1,7 @@
 # MaiaRTOS
 
+![alt text](<images/MaiaRTOS_ Sistema em Tempo Real.png>)
+
 **Independent, bare-metal, SMP-capable real-time operating system** for embedded C and C++ applications. First target: **Espressif ESP32-P4 / M5Stack Tab5**. Future ports are intended.
 
 > **Status: architectural bootstrap, NOT a working RTOS.** No scheduler, board bring-up, bootloader, driver, or hardware support is claimed as implemented.
