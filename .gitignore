@@ -1,0 +1,11 @@
+build/
+build-*/
+*.elf
+*.bin
+*.map
+*.o
+*.a
+*.log
+.DS_Store
+.idea/
+.vscode/

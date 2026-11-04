@@ -1,0 +1,22 @@
+name: Host contract checks
+on:
+  push:
+  pull_request:
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Forbidden runtime dependency scan
+        shell: bash
+        run: |
+          if grep -RInE '#[[:space:]]*include[[:space:]]*[<"](freertos/|Arduino\.h)|(^|[[:space:]])(idf_component_register|app_main)[[:space:]]*\(' --include='*.c' --include='*.h' --include='*.cpp' --include='CMakeLists.txt' arch soc boards kernel drivers services include examples 2>/dev/null; then
+            echo 'Forbidden runtime integration detected'; exit 1
+          fi
+          echo 'Source dependency scan passed (not a binary linkage audit)'
