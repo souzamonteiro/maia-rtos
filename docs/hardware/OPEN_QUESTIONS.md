@@ -1,12 +1,12 @@
-# Hardware unknowns — resolve before implementation
+# Hardware unknowns — status register
 
-- [ ] Exact Tab5 PCB revision and ESP32-P4 silicon revision.
-- [ ] Official TRM revision and definitive CPU ISA/ABI/privilege details.
-- [ ] ROM image format, boot modes, flash access and second-stage boot requirements.
-- [ ] Exact interrupt controller, timer and inter-processor interrupt mechanism.
-- [ ] Secondary core startup/release protocol.
-- [ ] Cache, PSRAM and DMA coherency restrictions.
-- [ ] Board UART pins and serial console wiring.
-- [ ] Display, touch and external keyboard controller/interface.
-- [ ] Required flashing image tools and independent runtime linkage audit.
-- [ ] Hardware debug and recovery path for unbootable images.
+- [x] **UQ-001 (Silicon & PCB Revision — RESOLVED on hardware):** Physical M5Stack Tab5 unit confirmed via `esptool.py flash_id` as **ESP32-P4 revision v1.3** (`ESP32-P4NRW32`, 32 MB in-package Octal PSRAM, MAC `30:ed:a0:e3:6c:2b`, 16 MB SPI Flash `0x184020`, USB VID:PID `303a:1001` on `/dev/cu.usbmodem1301`).
+- [x] **UQ-002 (TRM Register Offsets & CPU CSRs — RESOLVED & HARDWARE-TESTED):** Exact register base addresses and bitmasks verified against `esp-idf/components/soc/esp32p4/register/soc/*` and tested on Tab5 hardware in `include/maia/soc/esp32p4_regs.h` (`UART0=0x500CA000`, `USB_SERIAL_JTAG=0x500D2000`, `TIMG0=0x500C2000`, `TIMG1=0x500C3000`, `SYSTIMER=0x500C6000`, `INTERRUPT_CORE0=0x500D6000`, `HP_SYS_CLKRST=0x500E6000`, `LP_WDT=0x50116000`, `CLIC=0x20800000`, `CLIC_CTRL=0x20801000`). Verified CLIC `mcause` aliasing of `MPP[29:28]`, `MPIE[27]`, and `MPIL[23:16]` (`0x38000000`) on `mret`.
+- [x] **UQ-003 (ROM Image Format & Direct RAM/Flash Load — RESOLVED & HARDWARE-TESTED):** Confirmed `esptool.py --chip esp32p4 elf2image` (`chip_id = 0x0012`) + `esptool.py load_ram` loads single-segment bare-metal ELF images directly into `L2MEM_LOW` (`0x4FF00000..0x4FF28000`, below the ROM reserved window `0x4FF296B8..0x4FF40000`) and jumps to `_start` (`0x4FF00000`) without touching SPI Flash.
+- [x] **UQ-004 (Console & Debug Routing on Tab5 — RESOLVED & HARDWARE-TESTED):** Confirmed M5Stack Tab5 USB Type-C port connects directly to the ESP32-P4 internal `USB-Serial/JTAG` controller (`0x500D2000`, `EP1_REG=0x500D2000`, `EP1_CONF_REG=0x500D2004`). Dual-sink/source driver in `soc/espressif/esp32p4/soc_console.c` verified with bidirectional interactive `MaiaShell` I/O on `/dev/cu.usbmodem1301`.
+- [ ] **UQ-005 (Executable Memory Matrix):** Exact instruction-fetch (`X`) permissions and cache mapping windows for mapped SPI Flash (XIP) and 32 MB Octal PSRAM, plus required `fence.i` and L1/L2 cache writeback/invalidation instructions before executing dynamically loaded `.mobj` code (`L2MEM_LOW` execution at `0x4FF00000` is now `HARDWARE-TESTED`).
+- [ ] **UQ-006 (Secondary Core Bring-Up & IPI):** Exact register sequence in `HP_SYS_CLKRST` (`HP_SYS_CLKRST_SOC_CLK_CTRL0_REG` bit 4 `CORE1_CPU_CLK_EN`, `HP_SYS_CLKRST_HP_RST_EN0_REG` bit 8 `RST_EN_CORE1_GLOBAL`) and `ets_set_appcpu_boot_addr` to boot HP Core 1 and trigger cross-core Software Interrupts (IPI) via CLIC.
+- [ ] **UQ-007 (Cache, PSRAM & DMA Coherency):** Octal PSRAM initialization sequence (MSPI controller + cache MMU mapping) and DMA alignment/cacheline size (64-byte L2 cache line) constraints.
+- [ ] **UQ-008 (Tab5 Peripheral Power & Reset Sequencing):** Exact `PI4IOE5V6408` I2C0 (GPIO31/GPIO32) expander I2C addresses and bit masks for LCD backlight, MIPI-DSI bridge (`ILI9881C` / `ST7123`), touch (`GT911` / `ST7123`), audio (`ES8388` / `ES7210`), and SD card slot power rails.
+- [x] **UQ-009 (Toolchain Installation & Verification — RESOLVED):** Verified `riscv32-esp-elf-gcc` (`esp-14.2.0_20241119`, `14.2.0`, SHA-256 `2bc6b93e97fbe3b5662655bafab65377a84c2850fff1f2abda97abeb91f5690b`) and `esptool.py` (`v4.12.0`, SHA-256 `8ec1e4d5736e97248bc0eac713d94fba5a002b725d74d9d4c850d570e50ded5a`) in `/Users/roberto/.espressif` and configured `cmake/toolchains/riscv32-esp32p4-elf.cmake`.
+- [x] **UQ-010 (Hardware Recovery Path — RESOLVED):** Verified non-destructive RAM execution (`esptool.py load_ram`) and automatic USB-Serial/JTAG reset (`default_reset`) on `/dev/cu.usbmodem1301`, plus early watchdog disarm (`TIMG0_WDT`, `TIMG1_WDT`, `LP_WDT`, `SWD`) in `soc/espressif/esp32p4/soc_early_init.c`.
