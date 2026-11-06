@@ -330,6 +330,15 @@ public:
         return false;
     }
 
+    static const maia_display_api_t *&get_global_display_api() {
+        static const maia_display_api_t *s_disp = nullptr;
+        return s_disp;
+    }
+
+    static void set_display_driver(const maia_display_api_t *disp) {
+        get_global_display_api() = disp;
+    }
+
     bool unset_var(const char *key) {
         if (!key) return false;
         for (int i = 0; i < MSH_MAX_VARS; ++i) {
@@ -950,6 +959,9 @@ public:
         else if (strcmp(cmd, "touch") == 0)    ret = cmd_touch(argc, argv);
         else if (strcmp(cmd, "write") == 0)    ret = cmd_write(argc, argv);
         else if (strcmp(cmd, "hexwrite") == 0) ret = cmd_hexwrite(argc, argv);
+        else if (strcmp(cmd, "hexread") == 0)  ret = cmd_hexread(argc, argv);
+        else if (strcmp(cmd, "hexdump") == 0)  ret = cmd_hexdump(argc, argv);
+        else if (strcmp(cmd, "jobs") == 0)     ret = cmd_jobs(argc, argv);
         else {
             char test_path[128];
             resolve_path(cmd, test_path, sizeof(test_path));
@@ -1125,7 +1137,7 @@ public:
         return -1;
     }
 
-    int execute_pipeline(const char *cmd_line) {
+    int execute_pipeline_sync(const char *cmd_line) {
         if (!cmd_line || !*cmd_line) return 0;
 
         // Check if '|' is present outside quotes
@@ -1250,6 +1262,95 @@ public:
         get_global_pipe_in().pos = 0;
 
         return last_rc;
+    }
+
+    struct ShellJob {
+        int id;
+        char cmd[64];
+        bool active;
+        int exit_code;
+    };
+    static const int MAX_JOBS = 8;
+
+    static ShellJob *get_job_table() {
+        static ShellJob s_jobs[MAX_JOBS] = {};
+        return s_jobs;
+    }
+
+    static int &get_next_job_id() {
+        static int s_next_id = 0;
+        return s_next_id;
+    }
+
+    int launch_background_job(const char *clean_cmd) {
+        ShellJob *jobs = get_job_table();
+        int job_id = ++get_next_job_id();
+        int slot = -1;
+        for (int j = 0; j < MAX_JOBS; ++j) {
+            if (!jobs[j].active) { slot = j; break; }
+        }
+        if (slot < 0) slot = 0;
+        jobs[slot].id = job_id;
+        strncpy(jobs[slot].cmd, clean_cmd, sizeof(jobs[slot].cmd) - 1);
+        jobs[slot].cmd[sizeof(jobs[slot].cmd) - 1] = '\0';
+        jobs[slot].active = true;
+        jobs[slot].exit_code = 0;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "[%d] %s &", job_id, jobs[slot].cmd);
+        println(msg);
+
+#if defined(ESP_PLATFORM)
+        struct BgJobContext {
+            MaiaShell *shell;
+            char cmd[MSH_SEG_LEN];
+            int slot;
+        };
+        BgJobContext *ctx = (BgJobContext *)malloc(sizeof(BgJobContext));
+        if (ctx) {
+            ctx->shell = this;
+            strncpy(ctx->cmd, clean_cmd, sizeof(ctx->cmd) - 1);
+            ctx->cmd[sizeof(ctx->cmd) - 1] = '\0';
+            ctx->slot = slot;
+            xTaskCreatePinnedToCore([](void *arg) {
+                BgJobContext *c = (BgJobContext *)arg;
+                int rc = c->shell->execute_pipeline_sync(c->cmd);
+                get_job_table()[c->slot].active = false;
+                get_job_table()[c->slot].exit_code = rc;
+                free(c);
+                vTaskDelete(NULL);
+            }, "msh_bg", 8192, ctx, 5, NULL, 1);
+        }
+        return 0;
+#else
+        int rc = execute_pipeline_sync(clean_cmd);
+        jobs[slot].active = false;
+        jobs[slot].exit_code = rc;
+        return 0;
+#endif
+    }
+
+    int execute_pipeline(const char *cmd_line) {
+        if (!cmd_line || !*cmd_line) return 0;
+
+        char clean_line[MSH_SEG_LEN];
+        strncpy(clean_line, cmd_line, sizeof(clean_line) - 1);
+        clean_line[sizeof(clean_line) - 1] = '\0';
+        size_t clen = strlen(clean_line);
+        while (clen > 0 && (clean_line[clen - 1] == ' ' || clean_line[clen - 1] == '\t')) clean_line[--clen] = '\0';
+
+        bool is_bg = false;
+        if (clen > 0 && clean_line[clen - 1] == '&') {
+            is_bg = true;
+            clean_line[--clen] = '\0';
+            while (clen > 0 && (clean_line[clen - 1] == ' ' || clean_line[clen - 1] == '\t')) clean_line[--clen] = '\0';
+        }
+
+        if (is_bg) {
+            return launch_background_job(clean_line);
+        }
+
+        return execute_pipeline_sync(clean_line);
     }
 
     int execute_range(int start, int end, bool *out_break, bool *out_cont) {
@@ -1466,6 +1567,9 @@ private:
         println("  cmd1 | cmd2       - Pipeline execution chaining output to input");
         println("  mkdir / rm        - Create directories or remove files");
         println("  touch / write     - Create empty files or append lines of text");
+        println("  hexwrite / hexread- Binary file hex transfer and raw inspection");
+        println("  hexdump [-n N]    - Canonical hex + ASCII dump");
+        println("  jobs / cmd &      - Background job execution and process tracking");
         println("  <file.mobj> [args]- Direct native execution without typing runelf");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
@@ -1922,6 +2026,16 @@ private:
         host_api.dealloc = [](void *ptr) {
             if (ptr) free(ptr);
         };
+        host_api.get_time_us = []() -> uint64_t {
+#if defined(ESP_PLATFORM)
+            return (uint64_t)esp_timer_get_time();
+#else
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            return (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)(ts.tv_nsec / 1000);
+#endif
+        };
+        host_api.display = get_global_display_api();
 
         int exit_code = 0;
         int res = mnm_load_and_run(elf_bytes, elf_len,
@@ -2489,6 +2603,126 @@ private:
             }
         }
         fclose(f);
+        return 0;
+    }
+
+    int cmd_hexread(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: hexread <file> [offset] [count]");
+            return 1;
+        }
+        char resolved[128];
+        resolve_path(argv[1], resolved, sizeof(resolved));
+
+        FILE *f = fopen(resolved, "rb");
+        if (!f) {
+            print("hexread: cannot open ");
+            println(argv[1]);
+            return 1;
+        }
+
+        long offset = 0;
+        if (argc >= 3) {
+            offset = msh_atol(argv[2]);
+            if (offset < 0) offset = 0;
+        }
+
+        size_t count = 64;
+        if (argc >= 4) {
+            long c = msh_atol(argv[3]);
+            if (c > 0 && c <= 256) count = (size_t)c;
+        }
+
+        fseek(f, offset, SEEK_SET);
+        uint8_t buf[256];
+        size_t n = fread(buf, 1, count, f);
+        fclose(f);
+
+        char hex[513];
+        for (size_t i = 0; i < n; ++i) {
+            snprintf(hex + (i * 2), 3, "%02x", buf[i]);
+        }
+        hex[n * 2] = '\0';
+        println(hex);
+        return 0;
+    }
+
+    int cmd_hexdump(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: hexdump [-n count] <file>");
+            return 1;
+        }
+        size_t max_bytes = 256;
+        int arg_idx = 1;
+        if (strcmp(argv[arg_idx], "-n") == 0 && arg_idx + 2 < argc) {
+            arg_idx++;
+            long n = msh_atol(argv[arg_idx++]);
+            if (n > 0) max_bytes = (size_t)n;
+        }
+        char resolved[128];
+        resolve_path(argv[arg_idx], resolved, sizeof(resolved));
+
+        FILE *f = fopen(resolved, "rb");
+        if (!f) {
+            print("hexdump: cannot open ");
+            println(argv[arg_idx]);
+            return 1;
+        }
+
+        uint8_t buf[16];
+        size_t total = 0;
+        char line[96];
+
+        while (total < max_bytes) {
+            size_t want = (max_bytes - total < sizeof(buf)) ? (max_bytes - total) : sizeof(buf);
+            size_t n = fread(buf, 1, want, f);
+            if (n == 0) break;
+
+            int len = snprintf(line, sizeof(line), "%08x: ", (unsigned int)total);
+            for (size_t i = 0; i < 16; ++i) {
+                if (i < n) {
+                    len += snprintf(line + len, sizeof(line) - len, "%02x ", buf[i]);
+                } else {
+                    len += snprintf(line + len, sizeof(line) - len, "   ");
+                }
+                if (i == 7) len += snprintf(line + len, sizeof(line) - len, " ");
+            }
+            len += snprintf(line + len, sizeof(line) - len, " |");
+            for (size_t i = 0; i < n; ++i) {
+                char ch = (buf[i] >= 32 && buf[i] <= 126) ? (char)buf[i] : '.';
+                if (len + 1 < (int)sizeof(line)) line[len++] = ch;
+            }
+            if (len + 2 < (int)sizeof(line)) {
+                line[len++] = '|';
+                line[len] = '\0';
+            }
+            println(line);
+            total += n;
+            if (n < want) break;
+        }
+        fclose(f);
+        return 0;
+    }
+
+    int cmd_jobs(int argc, char **argv) {
+        (void)argc; (void)argv;
+        ShellJob *jobs = get_job_table();
+        bool found = false;
+        for (int j = 0; j < MAX_JOBS; ++j) {
+            if (jobs[j].id > 0) {
+                found = true;
+                char buf[128];
+                snprintf(buf, sizeof(buf), "[%d] %s\t%s (exit %d)",
+                         jobs[j].id,
+                         jobs[j].active ? "Running" : "Done   ",
+                         jobs[j].cmd,
+                         jobs[j].exit_code);
+                println(buf);
+            }
+        }
+        if (!found) {
+            println("No background jobs");
+        }
         return 0;
     }
 

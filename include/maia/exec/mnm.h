@@ -10,7 +10,18 @@ extern "C" {
 typedef uint32_t maia_handle_t;
 
 #define MAIA_HOST_ABI_MAJOR 1
-#define MAIA_HOST_ABI_MINOR 0
+#define MAIA_HOST_ABI_MINOR 1
+
+/**
+ * @brief Display primitive driver callbacks for native modules.
+ */
+typedef struct maia_display_api_t {
+    int32_t width;
+    int32_t height;
+    int32_t (*put_pixel)(int32_t x, int32_t y, uint16_t color_rgb565);
+    int32_t (*fill_rect)(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color_rgb565);
+    void (*sync)(void);
+} maia_display_api_t;
 
 /**
  * @brief Maia Native Module ABI v1 (MNM-1) Host API Dispatch Table.
@@ -26,6 +37,8 @@ typedef struct maia_host_api_v1 {
     int32_t (*sleep_ms)(uint32_t ms);
     void *(*alloc)(uint32_t bytes, uint32_t flags);
     void (*dealloc)(void *ptr);
+    uint64_t (*get_time_us)(void);
+    const maia_display_api_t *display;
 } maia_host_api_v1;
 
 /**

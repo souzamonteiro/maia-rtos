@@ -205,6 +205,15 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                     const Elf32_Sym *sym = &symtab[r_sym];
                     if (sym->st_shndx > 0 && sym->st_shndx < ehdr->e_shnum) {
                         sym_val = sec_addrs[sym->st_shndx] + sym->st_value;
+                    } else if (sym->st_shndx == 0 && strtab) {
+                        const char *sname = strtab + sym->st_name;
+                        if (strcmp(sname, "strlen") == 0) sym_val = (uintptr_t)strlen;
+                        else if (strcmp(sname, "memcpy") == 0) sym_val = (uintptr_t)memcpy;
+                        else if (strcmp(sname, "memset") == 0) sym_val = (uintptr_t)memset;
+                        else if (strcmp(sname, "memmove") == 0) sym_val = (uintptr_t)memmove;
+                        else if (strcmp(sname, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
+                        else if (strcmp(sname, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
+                        else if (strcmp(sname, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
                     }
                 }
 

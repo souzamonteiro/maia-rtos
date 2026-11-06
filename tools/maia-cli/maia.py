@@ -166,6 +166,51 @@ class MaiaSerialClient:
         elapsed = time.time() - t_start
         print(f"\n[+] Successfully transferred {file_size} bytes in {elapsed:.2f}s ({file_size / elapsed / 1024:.1f} KB/s)")
 
+    def pull_file(self, remote_path, local_path, chunk_size=64):
+        print(f"[*] Downloading: {remote_path}")
+        print(f"[*] Local target: {local_path}")
+        t_start = time.time()
+        offset = 0
+        received_data = bytearray()
+
+        while True:
+            cmd = f"hexread {remote_path} {offset} {chunk_size}"
+            out = self.execute_command(cmd, timeout=2.0)
+            hex_line = ""
+            for l in out.splitlines():
+                l_str = l.strip()
+                if l_str and all(c in "0123456789abcdefABCDEF" for c in l_str):
+                    hex_line = l_str
+                    break
+
+            if not hex_line:
+                break
+
+            try:
+                chunk = bytes.fromhex(hex_line)
+            except ValueError:
+                break
+
+            if len(chunk) == 0:
+                break
+
+            received_data.extend(chunk)
+            offset += len(chunk)
+
+            elapsed = time.time() - t_start
+            speed = (offset / 1024.0) / elapsed if elapsed > 0 else 0
+            sys.stdout.write(f"\r[*] Downloaded {offset} bytes @ {speed:5.1f} KB/s")
+            sys.stdout.flush()
+
+            if len(chunk) < chunk_size:
+                break
+
+        with open(local_path, "wb") as f:
+            f.write(received_data)
+
+        elapsed = time.time() - t_start
+        print(f"\n[+] Successfully pulled {len(received_data)} bytes in {elapsed:.2f}s ({len(received_data) / (elapsed if elapsed > 0 else 0.01) / 1024:.1f} KB/s)")
+
 
 def cmd_push(args):
     client = MaiaSerialClient(args.port, args.baud)
@@ -183,6 +228,17 @@ def cmd_push(args):
         out = client.execute_command(f"ls {remote}", timeout=1.5)
         if out:
             print(f"[*] Remote status:\n{out}")
+    finally:
+        client.close()
+
+
+def cmd_pull(args):
+    client = MaiaSerialClient(args.port, args.baud)
+    try:
+        local = args.local
+        if not local:
+            local = os.path.basename(args.remote)
+        client.pull_file(args.remote, local, chunk_size=args.chunk_size)
     finally:
         client.close()
 
@@ -285,6 +341,13 @@ def main():
     p_push.add_argument("--chunk-size", type=int, default=32, help="Binary chunk size in bytes (default: 32)")
     p_push.set_defaults(func=cmd_push)
 
+    # pull
+    p_pull = sub.add_parser("pull", help="Download arbitrary file from device to host")
+    p_pull.add_argument("remote", help="Path on device (e.g. /sd/myfile.ext)")
+    p_pull.add_argument("local", nargs="?", default="", help="Path on local machine")
+    p_pull.add_argument("--chunk-size", type=int, default=64, help="Binary chunk size in bytes (default: 64)")
+    p_pull.set_defaults(func=cmd_pull)
+
     # push-module
     p_mod = sub.add_parser("push-module", help="Package, upload .mobj + .mnm.json and verify with modinfo")
     p_mod.add_argument("module", help="Path to local .mobj file")
@@ -318,3 +381,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
