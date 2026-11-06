@@ -9,6 +9,7 @@
 #include <esp_psram.h>
 #include <esp_chip_info.h>
 #include <esp_timer.h>
+#include <mbedtls/sha256.h>
 #endif
 
 #include <stdint.h>
@@ -919,6 +920,7 @@ public:
         else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
         else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
         else if (strcmp(cmd, "runelf") == 0 || strcmp(cmd, "exec") == 0) ret = cmd_runelf(argc, argv);
+        else if (strcmp(cmd, "modinfo") == 0 || strcmp(cmd, "mnminfo") == 0) ret = cmd_modinfo(argc, argv);
         else if (strcmp(cmd, "ps") == 0)     ret = cmd_ps(argc, argv);
         else if (strcmp(cmd, "mem") == 0)    ret = cmd_mem(argc, argv);
         else if (strcmp(cmd, "alloc") == 0)  ret = cmd_alloc(argc, argv);
@@ -947,6 +949,7 @@ public:
         else if (strcmp(cmd, "rm") == 0)       ret = cmd_rm(argc, argv);
         else if (strcmp(cmd, "touch") == 0)    ret = cmd_touch(argc, argv);
         else if (strcmp(cmd, "write") == 0)    ret = cmd_write(argc, argv);
+        else if (strcmp(cmd, "hexwrite") == 0) ret = cmd_hexwrite(argc, argv);
         else {
             char test_path[128];
             resolve_path(cmd, test_path, sizeof(test_path));
@@ -1453,6 +1456,7 @@ private:
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
+        println("  modinfo <file.mobj> - Inspect module, SHA-256 and manifest integrity");
         println("  ls [dir]          - List files & directories in storage/SD-card");
         println("  cd <dir>          - Change current working directory");
         println("  cat [file]        - Display file contents or pipe data");
@@ -1653,6 +1657,122 @@ private:
         return 0;
     }
 
+    static bool compute_sha256(const uint8_t *data, size_t len, char *hex_out, size_t hex_max) {
+        if (!data || !hex_out || hex_max < 65) return false;
+#if defined(ESP_PLATFORM)
+        uint8_t hash[32];
+        mbedtls_sha256(data, len, hash, 0);
+        for (int i = 0; i < 32; ++i) {
+            snprintf(hex_out + (i * 2), 3, "%02x", hash[i]);
+        }
+        hex_out[64] = '\0';
+        return true;
+#else
+        hex_out[0] = '\0';
+        return false;
+#endif
+    }
+
+    int cmd_modinfo(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: modinfo <module.mobj>");
+            return 1;
+        }
+        char mod_path[128];
+        resolve_path(argv[1], mod_path, sizeof(mod_path));
+
+        FILE *f = fopen(mod_path, "rb");
+        if (!f) {
+            print("modinfo: cannot open '");
+            print(argv[1]);
+            println("'");
+            return 1;
+        }
+        fseek(f, 0, SEEK_END);
+        size_t fsz = (size_t)ftell(f);
+        fseek(f, 0, SEEK_SET);
+
+        if (fsz < sizeof(Elf32_Ehdr)) {
+            println("modinfo: file too small for ELF header");
+            fclose(f);
+            return 1;
+        }
+
+        uint8_t *buf = (uint8_t *)malloc(fsz);
+        if (!buf) {
+            println("modinfo: out of memory");
+            fclose(f);
+            return 1;
+        }
+        fread(buf, 1, fsz, f);
+        fclose(f);
+
+        char title[128];
+        snprintf(title, sizeof(title), "=== Maia Native Module (MNM-1): %s ===", argv[1]);
+        println(title);
+
+        char sz_str[64];
+        snprintf(sz_str, sizeof(sz_str), "File Size: %u bytes", (unsigned int)fsz);
+        println(sz_str);
+
+        char sha_hex[65] = "";
+        bool has_sha = compute_sha256(buf, fsz, sha_hex, sizeof(sha_hex));
+        if (has_sha) {
+            char sha_str[96];
+            snprintf(sha_str, sizeof(sha_str), "SHA-256  : %s", sha_hex);
+            println(sha_str);
+        }
+
+        char manifest_path[128];
+        strncpy(manifest_path, mod_path, sizeof(manifest_path) - 1);
+        manifest_path[sizeof(manifest_path) - 1] = '\0';
+        char *dot = strrchr(manifest_path, '.');
+        if (dot) *dot = '\0';
+        strncat(manifest_path, ".mnm.json", sizeof(manifest_path) - strlen(manifest_path) - 1);
+
+        FILE *mf = fopen(manifest_path, "r");
+        if (mf) {
+            char mbuf[512];
+            size_t mlen = fread(mbuf, 1, sizeof(mbuf) - 1, mf);
+            fclose(mf);
+            mbuf[mlen] = '\0';
+
+            println("Manifest : Companion manifest (.mnm.json) found");
+            const char *sha_pos = strstr(mbuf, "\"elf_sha256\"");
+            if (sha_pos) {
+                const char *val = strchr(sha_pos, ':');
+                if (val) {
+                    val++;
+                    while (*val == ' ' || *val == '\t' || *val == '\"') val++;
+                    char exp_sha[65] = "";
+                    for (int i = 0; i < 64 && *val && *val != '\"' && *val != '\r' && *val != '\n'; ++i) exp_sha[i] = *val++;
+                    exp_sha[64] = '\0';
+                    if (has_sha && strcasecmp(sha_hex, exp_sha) == 0) {
+                        println("Integrity: [VERIFIED OK] Digest matches manifest (TRUSTED)");
+                    } else {
+                        println("Integrity: [MISMATCH WARNING] Digest does not match manifest!");
+                    }
+                }
+            }
+        } else {
+            println("Manifest : None (standalone relocatable module)");
+        }
+
+        char rep[256];
+        int val_rc = elf_validate_relocatable(buf, fsz, rep, sizeof(rep));
+        if (val_rc == ELF_VALID_OK) {
+            println("Format   : ELF32 Little-Endian RISC-V (ET_REL)");
+            println("Status   : [VALID MNM-1 BINARY]");
+        } else {
+            char err[64];
+            snprintf(err, sizeof(err), "Validation Error: code %d", val_rc);
+            println(err);
+        }
+
+        free(buf);
+        return 0;
+    }
+
     int cmd_runelf(int argc, char **argv) {
         const void *elf_bytes = nullptr;
         size_t elf_len = 0;
@@ -1765,6 +1885,14 @@ private:
         };
         host_api.read_fd = [](maia_handle_t fd, void *buf, uint32_t n) -> int32_t {
             if (fd == 0 && buf && n > 0) {
+                PipeStaging &p = get_global_pipe_in();
+                if (p.buf && p.pos < p.len) {
+                    size_t avail = p.len - p.pos;
+                    size_t to_read = (n < avail) ? n : avail;
+                    memcpy(buf, p.buf + p.pos, to_read);
+                    p.pos += to_read;
+                    return (int32_t)to_read;
+                }
                 return (int32_t)read(STDIN_FILENO, buf, n);
             }
             return 0;
@@ -2312,6 +2440,54 @@ private:
             if (i < argc - 1) fputc(' ', f);
         }
         fputc('\n', f);
+        fclose(f);
+        return 0;
+    }
+
+    int cmd_hexwrite(int argc, char **argv) {
+        if (argc < 3) {
+            println("Usage: hexwrite [-a] <file> <hex_data>");
+            return 1;
+        }
+        bool append = false;
+        int arg_idx = 1;
+        if (strcmp(argv[arg_idx], "-a") == 0) {
+            append = true;
+            arg_idx++;
+        }
+        if (arg_idx + 1 >= argc) {
+            println("Usage: hexwrite [-a] <file> <hex_data>");
+            return 1;
+        }
+        const char *file_path = argv[arg_idx++];
+        const char *hex_data = argv[arg_idx++];
+
+        char resolved[128];
+        resolve_path(file_path, resolved, sizeof(resolved));
+
+        FILE *f = fopen(resolved, append ? "ab" : "wb");
+        if (!f) {
+            print("hexwrite: cannot open ");
+            println(file_path);
+            return 1;
+        }
+
+        auto hex_val = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        };
+
+        size_t hlen = strlen(hex_data);
+        for (size_t i = 0; i + 1 < hlen; i += 2) {
+            int hi = hex_val(hex_data[i]);
+            int lo = hex_val(hex_data[i + 1]);
+            if (hi >= 0 && lo >= 0) {
+                uint8_t b = (uint8_t)((hi << 4) | lo);
+                fputc(b, f);
+            }
+        }
         fclose(f);
         return 0;
     }

@@ -1,0 +1,20 @@
+{
+  "schema": "maia.native.module/1",
+  "name": "sysinfo",
+  "version": "1.0.0",
+  "target": "maia-rv32-esp32p4-v1",
+  "abi_major": 1,
+  "abi_minor_min": 0,
+  "entry": "maia_module_main",
+  "elf_sha256": "bdc4edda4ac456a917dea24c208cb4d12726babdac871f8fea6de098a0a7c7de",
+  "memory": {
+    "stack_bytes": 8192,
+    "heap_limit_bytes": 65536
+  },
+  "permissions": [
+    "stdio"
+  ],
+  "imports": [
+    "maia_host_api_v1"
+  ]
+}
