@@ -779,3 +779,4 @@ int maia_module_main(const maia_module_context_t *ctx) {
 
     return 0;
 }
+
