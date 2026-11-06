@@ -968,7 +968,14 @@ public:
             char test_path[128];
             resolve_path(cmd, test_path, sizeof(test_path));
             struct stat st;
-            if (stat(test_path, &st) == 0 && !S_ISDIR(st.st_mode)) {
+            bool found = (stat(test_path, &st) == 0 && !S_ISDIR(st.st_mode));
+            if (!found && strchr(cmd, '/') == nullptr) {
+                snprintf(test_path, sizeof(test_path), "/sd/%s", cmd);
+                if (stat(test_path, &st) == 0 && !S_ISDIR(st.st_mode)) {
+                    found = true;
+                }
+            }
+            if (found) {
                 char *elf_argv[MSH_MAX_ARGS + 2];
                 char run_name[] = "runelf";
                 elf_argv[0] = run_name;
