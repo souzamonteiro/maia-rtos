@@ -3,17 +3,25 @@
 #include <maia/soc/esp32p4_display.h>
 #include <maia/soc/esp32p4_regs.h>
 
-/* Bounded spin count so console output never hangs if USB host is disconnected. */
-#define MAIA_CONSOLE_SPIN_LIMIT 50000U
+/* Bounded spin count (~5ms at 400 MHz) so console never hangs indefinitely if disconnected. */
+#define MAIA_CONSOLE_SPIN_LIMIT 2000000U
+
+static uint8_t s_ep1_fifo_cnt = 0U;
 
 void maia_console_init(void) {
     /* ROM already configures USB-Serial/JTAG (40 MHz XTAL) and UART0 on reset. */
+    s_ep1_fifo_cnt = 0U;
 }
 
 static void usb_jtag_putc(uint8_t byte) {
     for (uint32_t spin = 0; spin < MAIA_CONSOLE_SPIN_LIMIT; ++spin) {
         if ((MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) & MAIA_ESP32P4_USB_SERIAL_IN_EP_DATA_FREE) != 0UL) {
             MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_REG) = (uint32_t)byte;
+            s_ep1_fifo_cnt++;
+            if (s_ep1_fifo_cnt >= 63U) {
+                MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
+                s_ep1_fifo_cnt = 0U;
+            }
             return;
         }
     }
@@ -31,7 +39,10 @@ static void uart0_putc(uint8_t byte) {
 }
 
 void maia_console_flush(void) {
-    MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
+    if (s_ep1_fifo_cnt > 0U) {
+        MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
+        s_ep1_fifo_cnt = 0U;
+    }
 }
 
 void maia_console_putc(char c) {
@@ -42,7 +53,9 @@ void maia_console_putc(char c) {
     usb_jtag_putc((uint8_t)c);
     uart0_putc((uint8_t)c);
     maia_display_putc(c);
-    maia_console_flush();
+    if (c == '\n') {
+        maia_console_flush();
+    }
 }
 
 void maia_console_write(const char *buf, size_t len) {

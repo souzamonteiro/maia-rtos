@@ -21,7 +21,7 @@ uint64_t maia_soc_time_us(void) {
     uint32_t mcyc_hi = 0U;
     uint32_t mcyc_lo = 0U;
     __asm__ volatile("csrr %0, mcycleh\n\tcsrr %1, mcycle" : "=r"(mcyc_hi), "=r"(mcyc_lo));
-    return (((uint64_t)mcyc_hi << 32U) | (uint64_t)mcyc_lo) / 40ULL;
+    return (((uint64_t)mcyc_hi << 32U) | (uint64_t)mcyc_lo) / 400ULL;
 }
 
 void maia_soc_trap_init(void);

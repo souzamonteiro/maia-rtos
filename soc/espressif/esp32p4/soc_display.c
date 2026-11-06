@@ -30,9 +30,9 @@
 #define L2MEM_BAND1_PHYS     0x4FF4D000UL
 #define L2MEM_BAND2_PHYS     0x4FF7A000UL
 
-#define L2MEM_BAND0_CPU      ((volatile uint16_t *)(uintptr_t)L2MEM_BAND0_PHYS)
-#define L2MEM_BAND1_CPU      ((volatile uint16_t *)(uintptr_t)L2MEM_BAND1_PHYS)
-#define L2MEM_BAND2_CPU      ((volatile uint16_t *)(uintptr_t)L2MEM_BAND2_PHYS)
+#define L2MEM_BAND0_CPU      ((volatile uint16_t *)(uintptr_t)(L2MEM_BAND0_PHYS + 0x40000000UL))
+#define L2MEM_BAND1_CPU      ((volatile uint16_t *)(uintptr_t)(L2MEM_BAND1_PHYS + 0x40000000UL))
+#define L2MEM_BAND2_CPU      ((volatile uint16_t *)(uintptr_t)(L2MEM_BAND2_PHYS + 0x40000000UL))
 
 /* Colors (RGB565) */
 #define COLOR_BLACK          0x0000U
@@ -418,6 +418,8 @@ static const uint8_t s_st7121_cc9[]   = {
 };
 static const uint8_t s_st7121_c60_4[] = {0x71, 0x21, 0x00};
 static const uint8_t s_st7121_c35[]   = {0x00};
+static const uint8_t s_st7121_c36[]   = {0x00}; /* MADCTL: RGB order */
+static const uint8_t s_st7121_c3a[]   = {0x55}; /* COLMOD: 16-bit RGB565 */
 
 static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
     {0x60, s_st7121_c60_1, sizeof(s_st7121_c60_1), 0},
@@ -450,6 +452,8 @@ static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
     {0x11, NULL,           0,                      80},  /* SLPOUT: 80ms delay */
     {0x29, NULL,           0,                      800}, /* DISPON: 800ms required by ST7121 */
     {0x35, s_st7121_c35,   sizeof(s_st7121_c35),   0},
+    {0x36, s_st7121_c36,   sizeof(s_st7121_c36),   0},   /* MADCTL */
+    {0x3A, s_st7121_c3a,   sizeof(s_st7121_c3a),   0},   /* COLMOD: RGB565 */
 };
 
 #include "ili9881c_cmds.h"
@@ -533,11 +537,22 @@ void maia_display_refresh_dma_if_needed(void) {
     }
     /* If DW_GDMA channel 0 is idle (frame finished), re-arm descriptors and restart */
     if ((MAIA_MMIO32(GDMA_BASE + 0x18UL) & 1UL) == 0U) {
-        volatile dw_gdma_lli_t *lli = s_lli_storage;
+        volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
         for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
-            lli[i].ctrl_hi |= (1UL << 31U); /* Mark valid */
+            uint32_t hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
+            if (i == (TAB5_NUM_BLOCKS - 1U)) {
+                hi |= (1UL << 30U); /* Last block of frame */
+            }
+            lli[i].ctrl_hi = hi;
         }
+
+        /* Reload DSI bridge block and frame counters */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x0CUL) = TAB5_TOTAL_WORDS64 | (1UL << 31U);
+        MAIA_MMIO32(DSI_BRG_BASE + 0x68UL) = TAB5_BAND_WORDS64 | (1UL << 31U);
+
+        /* Clear channel 0 interrupts */
+        MAIA_MMIO32(GDMA_BASE + 0x198UL) = ~0UL;
 
         uint32_t head_phys = (uint32_t)(uintptr_t)s_lli_storage;
         MAIA_MMIO32(GDMA_BASE + 0x128UL) = (head_phys & ~0x3FUL) | 1UL; /* loc0, lms=1 */
@@ -583,12 +598,12 @@ void maia_display_init(uint32_t panel_type) {
     MAIA_MMIO32(DSI_HOST_BASE + 0xA0UL) = 0x0FUL;              /* forcepll=1, enableclk=1, rstz=1, shutdownz=1 */
     maia_udelay(100U);
 
-    /* Write D-PHY PLL settings for 960 Mbps (refclk = 20 MHz, M = 48, N = 1, range = 0x1A) */
-    dsi_phy_write_reg(0x44U, 0x34U); /* hs_freq_sel = 0x1A << 1 */
+    /* Write D-PHY PLL settings for 900 Mbps (refclk = 20 MHz, M = 90, N = 2, range = 0x0A) */
+    dsi_phy_write_reg(0x44U, 0x14U); /* hs_freq_sel = 0x0A << 1 */
     dsi_phy_write_reg(0x19U, 0x30U);
-    dsi_phy_write_reg(0x17U, 0x00U); /* pll_N - 1 = 0 */
-    dsi_phy_write_reg(0x18U, 0x0FU); /* (pll_M - 1) & 0x1F = 47 & 0x1F = 15 = 0x0F */
-    dsi_phy_write_reg(0x18U, 0x81U); /* 0x80 | ((pll_M - 1) >> 5) = 0x81 */
+    dsi_phy_write_reg(0x17U, 0x01U); /* pll_N - 1 = 1 */
+    dsi_phy_write_reg(0x18U, 0x19U); /* (pll_M - 1) & 0x1F = 89 & 0x1F = 25 = 0x19 */
+    dsi_phy_write_reg(0x18U, 0x82U); /* 0x80 | ((pll_M - 1) >> 5) = 0x80 | 2 = 0x82 */
 
     /* Wait for D-PHY PLL lock and lanes stop state */
     for (uint32_t t = 0; t < 50000U; ++t) {
@@ -651,9 +666,9 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x3CUL) = 720UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x40UL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x44UL) = 0UL;
-        MAIA_MMIO32(DSI_HOST_BASE + 0x48UL) = 3UL;    /* vid_hsa_time (2 * 1.5) */
-        MAIA_MMIO32(DSI_HOST_BASE + 0x4CUL) = 60UL;   /* vid_hbp_time (40 * 1.5) */
-        MAIA_MMIO32(DSI_HOST_BASE + 0x50UL) = 1203UL; /* vid_hline_time (802 * 1.5) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x48UL) = 3UL;    /* vid_hsa_time (2 * 1.40625) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x4CUL) = 56UL;   /* vid_hbp_time (40 * 1.40625) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x50UL) = 1128UL; /* vid_hline_time (802 * 1.40625) */
         MAIA_MMIO32(DSI_HOST_BASE + 0x54UL) = 20UL;   /* vsa lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x58UL) = 24UL;   /* vbp lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x5CUL) = 200UL;  /* vfp lines */
@@ -713,15 +728,15 @@ void maia_display_init(uint32_t panel_type) {
     MAIA_MMIO32(DSI_BRG_BASE + 0x08UL) = 256UL;                     /* dma_req_cfg: dma_burst_len = 256 */
     MAIA_MMIO32(DSI_BRG_BASE + 0x0CUL) = TAB5_TOTAL_WORDS64 | (1UL << 31U); /* raw_num_cfg: total 64-bit words */
     MAIA_MMIO32(DSI_BRG_BASE + 0x88UL) = (10UL << 4U);             /* dma_flow_ctrl: multiblk_num=10, flow_ctrl=0(DMA) */
-    MAIA_MMIO32(DSI_BRG_BASE + 0x6CUL) = (9UL << 0U) | (9UL << 10U) | (1UL << 28U) | (1UL << 29U); /* dma_frame_interval */
-    MAIA_MMIO32(DSI_BRG_BASE + 0x8CUL) = 768UL;                    /* raw_buf_almost_empty_thrd = 768 */
+    MAIA_MMIO32(DSI_BRG_BASE + 0x6CUL) = (1UL << 28U) | (1UL << 29U) | (9UL << 10U) | 9UL; /* dma_frame_interval: multiblk_en=1 */
     MAIA_MMIO32(DSI_BRG_BASE + 0x68UL) = TAB5_BAND_WORDS64 | (1UL << 31U); /* blk_raw_num_cfg */
+    MAIA_MMIO32(DSI_BRG_BASE + 0x8CUL) = 768UL;                    /* raw_buf_almost_empty_thrd = 768 */
 
     /* 6. Setup Terminal Content and Bands before DMA starts */
     term_init_banner();
 
-    /* 7. Configure 10-Item Circular DW_GDMA Linked-List Descriptors in Internal SRAM */
-    volatile dw_gdma_lli_t *lli = s_lli_storage;
+    /* 7. Configure 10-Item Circular DW_GDMA Linked-List Descriptors in Non-Cacheable Internal SRAM */
+    volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
     for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
         uint32_t src_phys = L2MEM_BAND2_PHYS;
@@ -753,8 +768,12 @@ void maia_display_init(uint32_t panel_type) {
         lli[i].ctrl_lo = (7UL << 18U) | (8UL << 14U) | (3UL << 11U) | (3UL << 8U) |
                          (1UL << 6U)  | (0UL << 4U)  | (0UL << 2U)  | 1UL;
 
-        /* ctrl_hi: valid=1, last=0 (continuous circular streaming), arlen=16, arlen_en=1, awlen=16, awlen_en=1 */
-        lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
+        /* ctrl_hi: valid=1, last=1 on final block, arlen=16, arlen_en=1, awlen=16, awlen_en=1 */
+        uint32_t hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
+        if (i == (TAB5_NUM_BLOCKS - 1U)) {
+            hi |= (1UL << 30U); /* shadowreg_or_lli_last = 1 on last block */
+        }
+        lli[i].ctrl_hi = hi;
 
         lli[i].sstat       = 0U;
         lli[i].dstat       = 0U;
@@ -764,11 +783,14 @@ void maia_display_init(uint32_t panel_type) {
         lli[i].reserved_3c = 0U;
     }
 
+    /* Memory barrier to ensure non-cacheable writes are ordered */
+    __asm__ volatile ("fence rw, rw" ::: "memory");
+
     /* 8. Configure & Start DW_GDMA Channel 0 to prefill bridge FIFO */
     MAIA_MMIO32(GDMA_BASE + 0x10UL)  = 3UL; /* dmac_en=1, int_en=1 */
     MAIA_MMIO32(GDMA_BASE + 0x120UL) = (3UL << 2U) | 3UL; /* List transfer */
-    /* cfg1: dst_osr_lmt=1, src_osr_lmt=4, ch_prior=1, dst_per=0, tt_fc=1 (M2P_DMAC) */
-    MAIA_MMIO32(GDMA_BASE + 0x124UL) = (1UL << 27U) | (4UL << 23U) | (1UL << 17U) | 1UL;
+    /* cfg1: dst_osr_lmt=1, src_osr_lmt=4, ch_prior=3, dst_per=0, tt_fc=1 (M2P_DMAC) */
+    MAIA_MMIO32(GDMA_BASE + 0x124UL) = (1UL << 27U) | (4UL << 23U) | (3UL << 17U) | 1UL;
 
     uint32_t head_phys = (uint32_t)(uintptr_t)s_lli_storage;
     MAIA_MMIO32(GDMA_BASE + 0x128UL) = (head_phys & ~0x3FUL) | 1UL;
@@ -800,5 +822,32 @@ void maia_display_init(uint32_t panel_type) {
 
     s_display_ready = 1U;
     maia_console_puts("[DISPLAY] Initialized MIPI-DSI 720x1280 (10x128 multi-block DMA in L2MEM)\n");
+
+    /* Debug dump GDMA and DSI Bridge status */
+    maia_console_puts("[DEBUG] GDMA: EN=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x18UL));
+    maia_console_puts(" SAR=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x100UL));
+    maia_console_puts(" DAR=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x108UL));
+    maia_console_puts(" BLKTS=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x110UL));
+    maia_console_puts(" LLP=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x128UL));
+    maia_console_puts("\n[DEBUG] CFG0=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x120UL));
+    maia_console_puts(" CFG1=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x124UL));
+    maia_console_puts(" STAT0=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x130UL));
+    maia_console_puts(" INT_ST0=");
+    disp_print_hex32(MAIA_MMIO32(GDMA_BASE + 0x188UL));
+    maia_console_puts("\n[DEBUG] BRG: flow_st=");
+    disp_print_hex32(MAIA_MMIO32(DSI_BRG_BASE + 0x54UL));
+    maia_console_puts(" raw_buf=");
+    disp_print_hex32(MAIA_MMIO32(DSI_BRG_BASE + 0x58UL));
+    maia_console_puts(" int_st=");
+    disp_print_hex32(MAIA_MMIO32(DSI_BRG_BASE + 0x78UL));
+    maia_console_puts("\n");
 }
 

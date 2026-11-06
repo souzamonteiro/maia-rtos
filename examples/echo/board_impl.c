@@ -16,13 +16,13 @@ static inline void put_pixel(int x, int y, uint16_t color) {
     volatile uint16_t *band = NULL;
     uint32_t line = 0U;
     if (y < 128) {
-        band = (volatile uint16_t *)0x4FF20000UL;
+        band = (volatile uint16_t *)0x8FF20000UL;
         line = (uint32_t)y;
     } else if (y < 256) {
-        band = (volatile uint16_t *)0x4FF4D000UL;
+        band = (volatile uint16_t *)0x8FF4D000UL;
         line = (uint32_t)(y - 128);
     } else {
-        band = (volatile uint16_t *)0x4FF7A000UL;
+        band = (volatile uint16_t *)0x8FF7A000UL;
         line = (uint32_t)((y - 256) % 128);
     }
     band[line * (uint32_t)DISP_W + (uint32_t)x] = color;
@@ -79,7 +79,11 @@ int maia_board_keyboard_start(void) {
 }
 
 int maia_board_keyboard_read_ascii(void) {
-    int ch = maia_console_getc_nonblocking();
+    maia_display_refresh_dma_if_needed();
+    int ch = maia_tab5_keyboard_getc_nonblocking();
+    if (ch < 0) {
+        ch = maia_console_getc_nonblocking();
+    }
     if (ch >= 0) {
         maia_console_putc((char)ch);
         maia_console_flush();

@@ -16,8 +16,8 @@ extern int tab5_keyboard_poll_ascii(void);
 /* Optional serial logging: can be implemented as a no-op. */
 extern void tab5_log(const char *message);
 
-#define LCD_W 1280
-#define LCD_H 720
+#define LCD_W 720
+#define LCD_H 1280
 #define FG 0xFFFFu
 #define BG 0x0000u
 #define LINE_H 24

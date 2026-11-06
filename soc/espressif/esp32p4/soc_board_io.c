@@ -31,7 +31,7 @@ static uint8_t  s_stm32_ktail    = 0U;
 void maia_udelay(uint32_t us) {
     uint32_t start = 0U;
     __asm__ volatile("csrr %0, mcycle" : "=r"(start));
-    uint32_t cycles = us * 40U;
+    uint32_t cycles = us * 400U;
     for (;;) {
         uint32_t now = 0U;
         __asm__ volatile("csrr %0, mcycle" : "=r"(now));
@@ -123,7 +123,7 @@ static void gpio_config_open_drain_io(uint32_t pin) {
 }
 
 static void i2c_delay(void) {
-    maia_udelay(3U);
+    maia_udelay(5U);
 }
 
 static void i2c_sda_hi(uint32_t sda) {
@@ -451,8 +451,6 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
         }
 
         /* Check character queue in A164 STM32 Keyboard (String Mode) */
-        uint8_t reg_sta = 0x01U;
-        uint8_t int_sta = 0U;
         uint8_t reg_len = 0x40U;
         uint8_t qlen = 0U;
 
@@ -520,11 +518,6 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
                     return (int)c;
                 }
             }
-        } else if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_sta, 1U, &int_sta, 1U) == 0 &&
-                   (int_sta & 0x01U) != 0U) {
-            /* If INT_STA indicates pending event but 0x40 was 0, acknowledge it */
-            uint8_t clr_cmd[2] = {0x01U, 0x00U};
-            (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, clr_cmd, 2U);
         }
         return -1;
     }

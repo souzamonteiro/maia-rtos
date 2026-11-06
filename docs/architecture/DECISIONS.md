@@ -9,3 +9,4 @@
 - ADR-007 ACCEPTED: 16+16 MiB allocation is MaiaOS policy, not MaiaRTOS design.
 - ADR-008 PROPOSED: Initially use independent image/flash tooling with minimal custom boot stage; verify ROM constraints first.
 - ADR-009 ACCEPTED: Host tests are not hardware validation.
+- ADR-010 ACCEPTED: Use M5Stack vendor BSP (M5GFX / M5Unified) and LVGL as driver/graphics backend for board support; keep kernel core freestanding C11.
