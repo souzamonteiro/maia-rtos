@@ -86,6 +86,34 @@ typedef struct {
     uint16_t st_shndx;
 } Elf32_Sym;
 
+typedef struct {
+    uint32_t r_offset;
+    uint32_t r_info;
+    int32_t  r_addend;
+} Elf32_Rela;
+
+typedef struct {
+    uint32_t r_offset;
+    uint32_t r_info;
+} Elf32_Rel;
+
+#define ELF32_R_SYM(val)  ((val) >> 8)
+#define ELF32_R_TYPE(val) ((val) & 0xff)
+
+/* RISC-V Relocation types */
+#define R_RISCV_NONE       0
+#define R_RISCV_32         1
+#define R_RISCV_BRANCH     16
+#define R_RISCV_JAL        17
+#define R_RISCV_CALL       18
+#define R_RISCV_CALL_PLT   19
+#define R_RISCV_HI20       26
+#define R_RISCV_LO12_I     27
+#define R_RISCV_LO12_S     28
+#define R_RISCV_RVC_BRANCH 44
+#define R_RISCV_RVC_JUMP   45
+#define R_RISCV_RELAX      51
+
 /* Validation result codes */
 #define ELF_VALID_OK               0
 #define ELF_ERR_NULL_PTR          -1

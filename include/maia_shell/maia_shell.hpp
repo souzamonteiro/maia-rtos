@@ -19,6 +19,8 @@
 #include <stdbool.h>
 
 #include <maia/exec/elf_validator.h>
+#include <maia/exec/elf_loader.h>
+#include <maia/exec/hello_mobj.h>
 
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
@@ -774,6 +776,7 @@ public:
         else if (strcmp(cmd, "ticks") == 0)  ret = cmd_ticks(argc, argv);
         else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
         else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
+        else if (strcmp(cmd, "runelf") == 0 || strcmp(cmd, "exec") == 0) ret = cmd_runelf(argc, argv);
         else if (strcmp(cmd, "ps") == 0)     ret = cmd_ps(argc, argv);
         else if (strcmp(cmd, "mem") == 0)    ret = cmd_mem(argc, argv);
         else if (strcmp(cmd, "alloc") == 0)  ret = cmd_alloc(argc, argv);
@@ -1131,6 +1134,7 @@ private:
         println("  mem               - Show PSRAM & L2 SRAM memory telemetry");
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
+        println("  runelf / exec     - Load, relocate & run native RISC-V ELF module");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
         println("  expr <EXPR>       - Evaluate arithmetic/logical/comparison expression");
@@ -1319,6 +1323,51 @@ private:
         }
 
         return 0;
+    }
+
+    int cmd_runelf(int argc, char **argv) {
+        println("=== MaiaRTOS Native RISC-V ELF Execution ===");
+        println("Loading Module: hello.mobj (RV32IMAFCP @ ESP32-P4)");
+
+        static MaiaShell *s_cur_shell = nullptr;
+        s_cur_shell = this;
+
+        maia_host_api_v1 host_api;
+        memset(&host_api, 0, sizeof(host_api));
+        host_api.struct_size = sizeof(maia_host_api_v1);
+        host_api.abi_major = MAIA_HOST_ABI_MAJOR;
+        host_api.abi_minor = MAIA_HOST_ABI_MINOR;
+        host_api.write_fd = [](maia_handle_t fd, const void *buf, uint32_t n) -> int32_t {
+            (void)fd;
+            if (s_cur_shell && buf && n > 0) {
+                const char *p = (const char *)buf;
+                for (uint32_t i = 0; i < n; ++i) {
+                    char ch[2] = {p[i], '\0'};
+                    s_cur_shell->print(ch);
+                }
+            }
+            return (int32_t)n;
+        };
+
+        int exit_code = 0;
+        int res = mnm_load_and_run(s_hello_mobj, sizeof(s_hello_mobj),
+                                   argc, (const char *const *)argv,
+                                   &host_api, &exit_code,
+                                   [](const char *msg) {
+                                       if (s_cur_shell) s_cur_shell->println(msg);
+                                   });
+
+        if (res == MNM_LOAD_OK) {
+            char res_buf[96];
+            snprintf(res_buf, sizeof(res_buf), "[SUCCESS] Module executed! Exit code: %d (0x%02X)", exit_code, exit_code);
+            println(res_buf);
+            return exit_code;
+        } else {
+            char err_buf[96];
+            snprintf(err_buf, sizeof(err_buf), "[FAILED] Loader failed with error code: %d", res);
+            println(err_buf);
+            return 1;
+        }
     }
 
     int cmd_ticks(int argc, char **argv) {
