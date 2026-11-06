@@ -70,127 +70,267 @@ typedef struct {
 /* LLI table placed in BSS (.bss internal SRAM) */
 static dw_gdma_lli_t s_lli_storage[TAB5_NUM_BLOCKS] __attribute__((aligned(64)));
 
-/* Terminal text state (16 text rows of 90 columns across Band 0 and Band 1) */
-#define TERM_COLS            90U
-#define TERM_ROWS            16U
+/* Physical hardware panel dimensions */
+#define TAB5_PHYS_W          720
+#define TAB5_PHYS_H          1280
 
-static char s_term_grid[TERM_ROWS][TERM_COLS];
-static uint16_t s_term_fg[TERM_ROWS];
-static uint16_t s_term_bg[TERM_ROWS];
-static uint8_t s_term_cur_row = 3U;
-static uint8_t s_term_cur_col = 0U;
-static uint8_t s_display_ready = 0U;
+/* Logical Landscape dimensions (Rotation 3: 270 deg) */
+#define TAB5_LOG_W           1280
+#define TAB5_LOG_H           720
+
+#define CHAR_W               16
+#define CHAR_H               32
+#define TERM_COLS            (TAB5_LOG_W / CHAR_W) /* 80 cols */
+#define TERM_ROWS            (TAB5_LOG_H / CHAR_H) /* 22 rows */
+#define PROMPT_ROW_START     4
+
+#define PSRAM_FB_BASE        0x48100000UL
+static volatile uint16_t    *s_fb = (volatile uint16_t *)(uintptr_t)PSRAM_FB_BASE;
+
+/* Terminal text buffers */
+static char     s_term_lines[TERM_ROWS][TERM_COLS + 1];
+static char     s_sram_grid[16][81];
+static uint8_t  s_term_cur_row = PROMPT_ROW_START;
+static uint8_t  s_term_cur_col = 0U;
+static uint8_t  s_display_ready = 0U;
+static uint8_t  s_has_psram = 0U;
 
 /* Basic 8x16 font table for printable ASCII 32..126 (95 glyphs) */
 #include "font_8x16.h"
 
-static void draw_char_in_band(volatile uint16_t *band_fb, uint32_t col, uint32_t local_row,
-                              char c, uint16_t fg, uint16_t bg) {
-    if (col >= TERM_COLS || local_row >= 8U) {
-        return;
+static void fb_sync(void) {
+    __asm__ volatile("fence rw, rw" ::: "memory");
+    if (s_has_psram) {
+        int (*rom_wb)(uint32_t) = (int (*)(uint32_t))0x4FC00414UL;
+        (void)rom_wb(0x30U); /* WriteBack L1 DCache (0x10) | L2 Cache (0x20) */
     }
+}
+
+/* Rotation 3 pixel transformation (Landscape 1280x720):
+ * Logical (x, y) with 0 <= x < 1280, 0 <= y < 720
+ * Physical panel (px, py) with 0 <= px < 720, 0 <= py < 1280
+ *
+ * Rotation 3:
+ * px = y
+ * py = 1279 - x
+ */
+static inline void put_pixel_rot3(int x, int y, uint16_t color) {
+    if (!s_has_psram || x < 0 || x >= TAB5_LOG_W || y < 0 || y >= TAB5_LOG_H) return;
+    int px = y;
+    int py = 1279 - x;
+    s_fb[py * TAB5_PHYS_W + px] = color;
+}
+
+static void fill_rect(int x, int y, int w, int h, uint16_t color) {
+    if (!s_has_psram) return;
+    int max_x = x + w;
+    int max_y = y + h;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (max_x > TAB5_LOG_W) max_x = TAB5_LOG_W;
+    if (max_y > TAB5_LOG_H) max_y = TAB5_LOG_H;
+
+    for (int cy = y; cy < max_y; ++cy) {
+        int px = cy;
+        for (int cx = x; cx < max_x; ++cx) {
+            int py = 1279 - cx;
+            s_fb[py * TAB5_PHYS_W + px] = color;
+        }
+    }
+}
+
+static void draw_char_2x(int col, int row, char c, uint16_t fg, uint16_t bg) {
+    if (!s_has_psram || col < 0 || col >= (int)TERM_COLS || row < 0 || row >= (int)TERM_ROWS) return;
+    int px_x = col * CHAR_W;
+    int px_y = row * CHAR_H;
+    if (c < 32 || c > 126) c = ' ';
+    const uint8_t *glyph = &g_font_8x16[((int)c - 32) * 16];
+
+    for (int y = 0; y < 16; ++y) {
+        uint8_t line = glyph[y];
+        for (int x = 0; x < 8; ++x) {
+            int on = (line & (0x80 >> x)) != 0;
+            uint16_t color = on ? fg : bg;
+            int dst_x = px_x + (x * 2);
+            int dst_y = px_y + (y * 2);
+            put_pixel_rot3(dst_x,     dst_y,     color);
+            put_pixel_rot3(dst_x + 1, dst_y,     color);
+            put_pixel_rot3(dst_x,     dst_y + 1, color);
+            put_pixel_rot3(dst_x + 1, dst_y + 1, color);
+        }
+    }
+}
+
+static void draw_str_2x(int col, int row, const char *str, uint16_t fg, uint16_t bg) {
+    if (!s_has_psram || str == NULL) return;
+    size_t len = 0;
+    while (str[len] != '\0') len++;
+    fill_rect(col * CHAR_W, row * CHAR_H, (int)len * CHAR_W, CHAR_H, bg);
+    while (*str && col < (int)TERM_COLS) {
+        draw_char_2x(col, row, *str++, fg, bg);
+        col++;
+    }
+}
+
+/* Safe SRAM band rendering functions for fallback mode */
+static void draw_sram_char(uint32_t col, uint32_t row, char c, uint16_t fg, uint16_t bg) {
+    if (col >= 80U || row >= 16U) return;
+    volatile uint16_t *band = (row < 8U) ? L2MEM_BAND0_CPU : L2MEM_BAND1_CPU;
+    uint32_t local_row = row % 8U;
     uint32_t x0 = col * 8U;
     uint32_t y0 = local_row * 16U;
-    const uint8_t *glyph = NULL;
-
-    if (c >= 32 && c <= 126) {
-        glyph = &g_font_8x16[(c - 32) * 16];
-    }
+    if (c < 32 || c > 126) c = ' ';
+    const uint8_t *glyph = &g_font_8x16[(c - 32) * 16];
 
     for (uint32_t py = 0; py < 16U; ++py) {
-        uint8_t bits = glyph ? glyph[py] : 0U;
+        uint8_t bits = glyph[py];
         uint32_t line_offset = (y0 + py) * TAB5_DISP_WIDTH + x0;
         for (uint32_t px = 0; px < 8U; ++px) {
             uint16_t color = ((bits >> (7U - px)) & 1U) ? fg : bg;
-            band_fb[line_offset + px] = color;
+            band[line_offset + px] = color;
         }
     }
 }
 
-static void term_render_row(uint8_t row) {
-    volatile uint16_t *band = (row < 8U) ? L2MEM_BAND0_CPU : L2MEM_BAND1_CPU;
-    uint32_t local_row = row % 8U;
-    uint16_t fg = s_term_fg[row];
-    uint16_t bg = s_term_bg[row];
-
-    for (uint32_t col = 0; col < TERM_COLS; ++col) {
-        char c = s_term_grid[row][col];
-        if (c == '\0') {
-            c = ' ';
-        }
-        draw_char_in_band(band, col, local_row, c, fg, bg);
+static void draw_sram_str(uint32_t col, uint32_t row, const char *str, uint16_t fg, uint16_t bg) {
+    if (!str) return;
+    while (*str && col < 80U) {
+        draw_sram_char(col++, row, *str++, fg, bg);
     }
+}
+
+static void term_scroll_sram(void) {
+    for (uint32_t r = PROMPT_ROW_START; r < 15U; ++r) {
+        for (uint32_t c = 0; c < 80U; ++c) {
+            char ch = s_sram_grid[r + 1][c];
+            s_sram_grid[r][c] = ch;
+            draw_sram_char(c, r, ch, COLOR_WHITE, COLOR_DARK_BLUE);
+        }
+    }
+    for (uint32_t c = 0; c < 80U; ++c) {
+        s_sram_grid[15][c] = ' ';
+        draw_sram_char(c, 15, ' ', COLOR_WHITE, COLOR_DARK_BLUE);
+    }
+    s_term_cur_row = 15U;
+    s_term_cur_col = 0U;
 }
 
 static void term_scroll(void) {
-    /* Scroll output rows 3..14 up by 1 (preserving rows 0..2 header and row 15 prompt) */
-    for (uint8_t r = 3U; r < 14U; ++r) {
-        for (uint8_t c = 0; c < TERM_COLS; ++c) {
-            s_term_grid[r][c] = s_term_grid[r + 1U][c];
+    if (!s_has_psram) {
+        term_scroll_sram();
+        return;
+    }
+    for (int r = PROMPT_ROW_START; r < ((int)TERM_ROWS - 1); ++r) {
+        for (int c = 0; c < (int)TERM_COLS; ++c) {
+            char ch = s_term_lines[r + 1][c];
+            s_term_lines[r][c] = ch;
+            draw_char_2x(c, r, ch, COLOR_WHITE, COLOR_BLACK);
         }
-        s_term_fg[r] = s_term_fg[r + 1U];
-        s_term_bg[r] = s_term_bg[r + 1U];
-        term_render_row(r);
     }
-    /* Clear line 14 */
-    for (uint8_t c = 0; c < TERM_COLS; ++c) {
-        s_term_grid[14U][c] = ' ';
+    int last_r = (int)TERM_ROWS - 1;
+    for (int c = 0; c < (int)TERM_COLS; ++c) {
+        s_term_lines[last_r][c] = ' ';
     }
-    s_term_fg[14U] = COLOR_WHITE;
-    s_term_bg[14U] = COLOR_DARK_SLATE;
-    term_render_row(14U);
-    s_term_cur_row = 14U;
+    fill_rect(0, last_r * CHAR_H, TAB5_LOG_W, CHAR_H, COLOR_BLACK);
+    s_term_cur_row = (uint8_t)last_r;
     s_term_cur_col = 0U;
+    fb_sync();
 }
 
 void maia_display_putc(char c) {
     if (!s_display_ready) {
         return;
     }
-    if (c == '\r') {
-        s_term_cur_col = 0U;
-        return;
-    }
-    if (c == '\n') {
-        s_term_cur_col = 0U;
-        if (s_term_cur_row < 14U) {
+    if (s_has_psram) {
+        if (c == '\r') {
+            s_term_cur_col = 0U;
+            return;
+        }
+        if (c == '\n') {
+            s_term_cur_col = 0U;
             s_term_cur_row++;
-        } else {
-            term_scroll();
+            if (s_term_cur_row >= (uint8_t)TERM_ROWS) {
+                term_scroll();
+            }
+            fb_sync();
+            return;
         }
-        return;
-    }
-    if (c == '\b') {
-        if (s_term_cur_col > 0U) {
-            s_term_cur_col--;
-            s_term_grid[s_term_cur_row][s_term_cur_col] = ' ';
-            term_render_row(s_term_cur_row);
+        if (c == '\b' || c == 127) {
+            if (s_term_cur_col > 0U) {
+                s_term_cur_col--;
+                s_term_lines[s_term_cur_row][s_term_cur_col] = ' ';
+                draw_char_2x((int)s_term_cur_col, (int)s_term_cur_row, ' ', COLOR_WHITE, COLOR_BLACK);
+                fb_sync();
+            }
+            return;
         }
-        return;
-    }
-    if (c == '\t') {
-        uint8_t next_tab = (uint8_t)((s_term_cur_col + 4U) & ~3U);
-        while (s_term_cur_col < next_tab && s_term_cur_col < TERM_COLS) {
-            maia_display_putc(' ');
+        if (c == '\t') {
+            uint8_t next_tab = (uint8_t)((s_term_cur_col + 4U) & ~3U);
+            while (s_term_cur_col < next_tab && s_term_cur_col < (uint8_t)TERM_COLS) {
+                maia_display_putc(' ');
+            }
+            return;
         }
-        return;
-    }
-    if ((uint8_t)c < 32 || (uint8_t)c > 126) {
-        return;
-    }
+        if ((uint8_t)c < 32 || (uint8_t)c > 126) {
+            return;
+        }
 
-    if (s_term_cur_col >= TERM_COLS) {
-        s_term_cur_col = 0U;
-        if (s_term_cur_row < 14U) {
+        if (s_term_cur_col >= (uint8_t)TERM_COLS) {
+            s_term_cur_col = 0U;
             s_term_cur_row++;
-        } else {
-            term_scroll();
+            if (s_term_cur_row >= (uint8_t)TERM_ROWS) {
+                term_scroll();
+            }
         }
-    }
 
-    s_term_grid[s_term_cur_row][s_term_cur_col] = c;
-    term_render_row(s_term_cur_row);
-    s_term_cur_col++;
+        s_term_lines[s_term_cur_row][s_term_cur_col] = c;
+        draw_char_2x((int)s_term_cur_col, (int)s_term_cur_row, c, COLOR_WHITE, COLOR_BLACK);
+        s_term_cur_col++;
+        fb_sync();
+    } else {
+        if (c == '\r') {
+            s_term_cur_col = 0U;
+            return;
+        }
+        if (c == '\n') {
+            s_term_cur_col = 0U;
+            s_term_cur_row++;
+            if (s_term_cur_row >= 16U) {
+                term_scroll_sram();
+            }
+            return;
+        }
+        if (c == '\b' || c == 127) {
+            if (s_term_cur_col > 0U) {
+                s_term_cur_col--;
+                s_sram_grid[s_term_cur_row][s_term_cur_col] = ' ';
+                draw_sram_char(s_term_cur_col, s_term_cur_row, ' ', COLOR_WHITE, COLOR_DARK_BLUE);
+            }
+            return;
+        }
+        if (c == '\t') {
+            uint8_t next_tab = (uint8_t)((s_term_cur_col + 4U) & ~3U);
+            while (s_term_cur_col < next_tab && s_term_cur_col < 80U) {
+                maia_display_putc(' ');
+            }
+            return;
+        }
+        if ((uint8_t)c < 32 || (uint8_t)c > 126) {
+            return;
+        }
+
+        if (s_term_cur_col >= 80U) {
+            s_term_cur_col = 0U;
+            s_term_cur_row++;
+            if (s_term_cur_row >= 16U) {
+                term_scroll_sram();
+            }
+        }
+
+        s_sram_grid[s_term_cur_row][s_term_cur_col] = c;
+        draw_sram_char(s_term_cur_col, s_term_cur_row, c, COLOR_WHITE, COLOR_DARK_BLUE);
+        s_term_cur_col++;
+    }
 }
 
 void maia_display_puts(const char *str) {
@@ -209,6 +349,17 @@ void maia_display_write(const char *buf, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         maia_display_putc(buf[i]);
     }
+}
+
+static void __attribute__((unused)) disp_print_hex8(uint8_t v) {
+    static const char kHex[] = "0123456789ABCDEF";
+    char s[5];
+    s[0] = '0';
+    s[1] = 'x';
+    s[2] = kHex[(v >> 4U) & 0xFU];
+    s[3] = kHex[v & 0xFU];
+    s[4] = '\0';
+    maia_console_puts(s);
 }
 
 static void disp_print_hex32(uint32_t val) {
@@ -455,57 +606,44 @@ static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
 #include "ili9881c_cmds.h"
 
 static void term_init_banner(void) {
-    for (uint8_t r = 0; r < TERM_ROWS; ++r) {
-        s_term_fg[r] = COLOR_WHITE;
-        s_term_bg[r] = COLOR_DARK_BLUE;
-        for (uint8_t c = 0; c < TERM_COLS; ++c) {
-            s_term_grid[r][c] = ' ';
+    if (s_has_psram) {
+        fill_rect(0, 0, TAB5_LOG_W, TAB5_LOG_H, COLOR_BLACK);
+        for (int r = 0; r < (int)TERM_ROWS; ++r) {
+            for (int c = 0; c < (int)TERM_COLS; ++c) {
+                s_term_lines[r][c] = ' ';
+            }
+            s_term_lines[r][TERM_COLS] = '\0';
         }
-    }
 
-    /* Row 0: Title banner (Bright Yellow on Royal Blue Header) */
-    s_term_fg[0] = COLOR_YELLOW;
-    s_term_bg[0] = COLOR_HEADER_BLUE;
-    const char *title = "  *** MaiaRTOS v0.1.0 — Tab5 Physical LCD & Keyboard Bring-Up ***";
-    for (uint8_t i = 0; title[i] != '\0' && i < TERM_COLS; ++i) {
-        s_term_grid[0][i] = title[i];
-    }
+        draw_str_2x(1, 0, "=== MaiaRTOS Hardware Bring-up (M5Stack Tab5 Landscape 1280x720) ===", COLOR_CYAN, COLOR_BLACK);
+        draw_str_2x(1, 1, "Display: ST7121 MIPI-DSI @ Rot 3 | Keyboard: Ext.Port1 (A164 @ 0x6D)", COLOR_YELLOW, COLOR_BLACK);
+        draw_str_2x(1, 2, "Status: MaiaShell Ready. Type on physical keyboard or USB-Serial.", COLOR_GREEN, COLOR_BLACK);
+        draw_str_2x(0, 3, "--------------------------------------------------------------------------------", COLOR_GRAY, COLOR_BLACK);
 
-    /* Row 1: Hardware banner (Bright Cyan on Royal Blue Header) */
-    s_term_fg[1] = COLOR_CYAN;
-    s_term_bg[1] = COLOR_HEADER_BLUE;
-    const char *hw_str = "  M5Stack Tab5 (ESP32-P4 v1.3) | ST7121 720x1280 RGB565 | Keyboard A164 @ 0x6D";
-    for (uint8_t i = 0; hw_str[i] != '\0' && i < TERM_COLS; ++i) {
-        s_term_grid[1][i] = hw_str[i];
-    }
+        s_term_cur_row = PROMPT_ROW_START;
+        s_term_cur_col = 0U;
+        fb_sync();
+    } else {
+        /* Safe internal SRAM band mode (no buffer overflow) */
+        for (uint32_t i = 0; i < (TAB5_DISP_WIDTH * TAB5_BAND_HEIGHT); ++i) {
+            L2MEM_BAND0_CPU[i] = COLOR_HEADER_BLUE;
+            L2MEM_BAND1_CPU[i] = COLOR_DARK_BLUE;
+            L2MEM_BAND2_CPU[i] = COLOR_DARK_BLUE;
+        }
+        for (int r = 0; r < 16; ++r) {
+            for (int c = 0; c < 80; ++c) {
+                s_sram_grid[r][c] = ' ';
+            }
+            s_sram_grid[r][80] = '\0';
+        }
+        draw_sram_str(1, 0, "=== MaiaRTOS Hardware Bring-up (M5Stack Tab5 Bare-Metal) ===", COLOR_YELLOW, COLOR_HEADER_BLUE);
+        draw_sram_str(1, 1, "Display: ST7121 MIPI-DSI (L2 SRAM) | Keyboard: Ext.Port1 (A164 @ 0x6D)", COLOR_CYAN, COLOR_HEADER_BLUE);
+        draw_sram_str(1, 2, "Status: MaiaShell Ready. Type on physical keyboard or USB-Serial.", COLOR_GREEN, COLOR_HEADER_BLUE);
+        draw_sram_str(0, 3, "--------------------------------------------------------------------------------", COLOR_GRAY, COLOR_HEADER_BLUE);
 
-    /* Row 2: Status separator (Green on Dark Blue) */
-    s_term_fg[2] = COLOR_GREEN;
-    s_term_bg[2] = COLOR_DARK_BLUE;
-    for (uint8_t i = 0; i < TERM_COLS; ++i) {
-        s_term_grid[2][i] = '=';
+        s_term_cur_row = PROMPT_ROW_START;
+        s_term_cur_col = 0U;
     }
-
-    /* Row 3: Instructions */
-    s_term_fg[3] = COLOR_YELLOW;
-    s_term_bg[3] = COLOR_DARK_BLUE;
-    const char *inst = "  [MaiaShell] Type on Tab5 keyboard or USB-Serial (try: help, uname, expr, ps):";
-    for (uint8_t i = 0; inst[i] != '\0' && i < TERM_COLS; ++i) {
-        s_term_grid[3][i] = inst[i];
-    }
-
-    /* Render static bands 0 & 1 */
-    for (uint8_t r = 0; r < TERM_ROWS; ++r) {
-        term_render_row(r);
-    }
-
-    /* Fill Band 2 (Tiled bottom lines 256..1279): Seamless Deep Navy Background */
-    for (uint32_t i = 0; i < (TAB5_DISP_WIDTH * TAB5_BAND_HEIGHT); ++i) {
-        L2MEM_BAND2_CPU[i] = COLOR_DARK_BLUE;
-    }
-
-    s_term_cur_row = 4U;
-    s_term_cur_col = 0U;
 }
 
 void maia_display_refresh_dma_if_needed(void) {
@@ -517,6 +655,9 @@ void maia_display_refresh_dma_if_needed(void) {
         volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
         for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
+            if (s_has_psram) {
+                lli[i].sar_lo = PSRAM_FB_BASE + i * (TAB5_BAND_WORDS64 * 8U);
+            }
             /* Keep last=0 (bit 30 cleared) for continuous autonomous circular streaming */
             lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
         }
@@ -643,8 +784,9 @@ void maia_display_init(uint32_t panel_type) {
             if (s_st7121_init_cmds[i].delay_ms > 0U) {
                 maia_udelay(s_st7121_init_cmds[i].delay_ms * 1000U);
             }
-            maia_udelay(5000U);
+            maia_udelay(1000U);
         }
+        maia_console_puts("[DSI] ST7121 init commands complete!\n");
 
         /* 5. Configure DPI Video Mode on DSI Host (ST7121 timings) */
         MAIA_MMIO32(DSI_HOST_BASE + 0x0CUL) = 0UL;
@@ -720,6 +862,28 @@ void maia_display_init(uint32_t panel_type) {
     MAIA_MMIO32(DSI_BRG_BASE + 0x68UL) = TAB5_BAND_WORDS64 | (1UL << 31U); /* blk_raw_num_cfg */
     MAIA_MMIO32(DSI_BRG_BASE + 0x8CUL) = 768UL;                    /* raw_buf_almost_empty_thrd = 768 */
 
+    /* Check if PSRAM is accessible (initialized by bootloader) */
+    volatile uint32_t *p_test = (volatile uint32_t *)PSRAM_FB_BASE;
+    uint32_t old_val = *p_test;
+    *p_test = 0x55AA1234UL;
+    __asm__ volatile("fence rw, rw" ::: "memory");
+    if (*p_test == 0x55AA1234UL) {
+        *p_test = 0xAA554321UL;
+        __asm__ volatile("fence rw, rw" ::: "memory");
+        if (*p_test == 0xAA554321UL) {
+            *p_test = old_val;
+            s_has_psram = 1U;
+        }
+    }
+
+    if (s_has_psram) {
+        maia_console_puts("[DISPLAY] PSRAM verified at 0x48100000! 1280x720 Landscape Framebuffer ACTIVE\n");
+        s_fb = (volatile uint16_t *)(uintptr_t)PSRAM_FB_BASE;
+    } else {
+        maia_console_puts("[DISPLAY] PSRAM not detected, using internal SRAM band fallback\n");
+        s_fb = L2MEM_BAND0_CPU;
+    }
+
     /* 6. Setup Terminal Content and Bands before DMA starts */
     term_init_banner();
 
@@ -727,11 +891,16 @@ void maia_display_init(uint32_t panel_type) {
     volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
     for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
-        uint32_t src_phys = L2MEM_BAND2_PHYS;
-        if (i == 0U) {
-            src_phys = L2MEM_BAND0_PHYS;
-        } else if (i == 1U) {
-            src_phys = L2MEM_BAND1_PHYS;
+        uint32_t src_phys;
+        if (s_has_psram) {
+            src_phys = PSRAM_FB_BASE + i * (TAB5_BAND_WORDS64 * 8U);
+        } else {
+            src_phys = L2MEM_BAND2_PHYS;
+            if (i == 0U) {
+                src_phys = L2MEM_BAND0_PHYS;
+            } else if (i == 1U) {
+                src_phys = L2MEM_BAND1_PHYS;
+            }
         }
 
         lli[i].sar_lo      = src_phys;

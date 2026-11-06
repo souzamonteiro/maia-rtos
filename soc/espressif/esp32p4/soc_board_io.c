@@ -450,89 +450,100 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
             return (int)c;
         }
 
-        /* Check character queue in A164 STM32 Keyboard (String Mode) */
-        uint8_t reg_len = 0x40U;
-        uint8_t qlen = 0U;
+        /* Check interrupt status in A164 STM32 Keyboard (Reg 0x01) */
+        uint8_t reg_sta = 0x01U;
+        uint8_t int_sta = 0U;
+        if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_sta, 1U, &int_sta, 1U) == 0 &&
+            int_sta != 0U) {
+            uint8_t reg_evcnt = 0x02U;
+            uint8_t evt_num = 0U;
+            (void)maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_evcnt, 1U, &evt_num, 1U);
+            if (evt_num == 0U) {
+                evt_num = 1U;
+            }
 
-        /* Reg 0x40 returns string length L (1..9). In Character Mode, 0x50 has L+1 bytes (mod + chars) */
-        if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_len, 1U, &qlen, 1U) == 0 &&
-            qlen >= 1U && qlen <= 16U) {
-            uint8_t reg_fifo = 0x50U;
-            uint8_t buf[20] = {0};
-            /* Read exactly qlen + 1 bytes (byte 0: modifier, bytes 1..qlen: characters) */
-            if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_fifo, 1U, buf, (size_t)(qlen + 1U)) == 0) {
-                /* Clear STM32 INT_STA (Reg 0x01) to acknowledge the event */
-                uint8_t clr_cmd[2] = {0x01U, 0x00U};
-                (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, clr_cmd, 2U);
+            for (uint8_t ev = 0U; ev < evt_num && ev < 16U; ++ev) {
+                uint8_t reg_len = 0x40U;
+                uint8_t qlen = 0U;
+                if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_len, 1U, &qlen, 1U) == 0 &&
+                    qlen >= 1U && qlen <= 15U) {
+                    uint8_t reg_fifo = 0x50U;
+                    uint8_t buf[18] = {0};
+                    if (maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_fifo, 1U, buf, (size_t)(qlen + 1U)) == 0) {
+                        uint8_t mod = buf[0];
+                        char str[16];
+                        size_t slen = (size_t)qlen;
+                        for (size_t i = 0; i < slen; ++i) {
+                            str[i] = (char)buf[1U + i];
+                        }
+                        str[slen] = '\0';
 
-                uint8_t mod = buf[0];
-                char str[17];
-                size_t slen = (size_t)qlen;
-                for (size_t i = 0; i < slen; ++i) {
-                    str[i] = (char)buf[1U + i];
-                }
-                str[slen] = '\0';
+                        /* Translate named keys emitted by Tab5 Keyboard MCU in String Mode */
+                        if (str_is_key(str, slen, "enter") || str_is_key(str, slen, "return")) {
+                            str[0] = '\n';
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "backspace") || str_is_key(str, slen, "bs")) {
+                            str[0] = '\b';
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "space")) {
+                            str[0] = ' ';
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "tab")) {
+                            str[0] = '\t';
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "del") || str_is_key(str, slen, "delete")) {
+                            str[0] = 0x7FU; /* DEL */
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "esc") || str_is_key(str, slen, "escape")) {
+                            str[0] = 27; /* ESC */
+                            slen = 1U;
+                        } else if (str_is_key(str, slen, "left")) {
+                            str[0] = 27; str[1] = '['; str[2] = 'D';
+                            slen = 3U;
+                        } else if (str_is_key(str, slen, "right")) {
+                            str[0] = 27; str[1] = '['; str[2] = 'C';
+                            slen = 3U;
+                        } else if (str_is_key(str, slen, "up")) {
+                            str[0] = 27; str[1] = '['; str[2] = 'A';
+                            slen = 3U;
+                        } else if (str_is_key(str, slen, "down")) {
+                            str[0] = 27; str[1] = '['; str[2] = 'B';
+                            slen = 3U;
+                        } else if (str_is_key(str, slen, "shift") || str_is_key(str, slen, "ctrl") ||
+                                   str_is_key(str, slen, "alt") || str_is_key(str, slen, "fn") ||
+                                   str_is_key(str, slen, "caps") || str_is_key(str, slen, "capslock")) {
+                            slen = 0U; /* Suppress standalone modifiers so they don't echo to terminal */
+                        }
 
-                /* Translate named keys emitted by Tab5 Keyboard MCU in String Mode */
-                if (str_is_key(str, slen, "enter") || str_is_key(str, slen, "return")) {
-                    str[0] = '\n';
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "backspace")) {
-                    str[0] = '\b';
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "space")) {
-                    str[0] = ' ';
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "tab")) {
-                    str[0] = '\t';
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "del") || str_is_key(str, slen, "delete")) {
-                    str[0] = 0x7FU; /* DEL */
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "esc") || str_is_key(str, slen, "escape")) {
-                    str[0] = 27; /* ESC */
-                    slen = 1U;
-                } else if (str_is_key(str, slen, "left")) {
-                    str[0] = 27; str[1] = '['; str[2] = 'D';
-                    slen = 3U;
-                } else if (str_is_key(str, slen, "right")) {
-                    str[0] = 27; str[1] = '['; str[2] = 'C';
-                    slen = 3U;
-                } else if (str_is_key(str, slen, "up")) {
-                    str[0] = 27; str[1] = '['; str[2] = 'A';
-                    slen = 3U;
-                } else if (str_is_key(str, slen, "down")) {
-                    str[0] = 27; str[1] = '['; str[2] = 'B';
-                    slen = 3U;
-                } else if (str_is_key(str, slen, "shift") || str_is_key(str, slen, "ctrl") ||
-                           str_is_key(str, slen, "alt") || str_is_key(str, slen, "fn") ||
-                           str_is_key(str, slen, "caps") || str_is_key(str, slen, "capslock")) {
-                    slen = 0U; /* Suppress standalone modifiers so they don't echo to terminal */
-                }
-
-                for (size_t i = 0; i < slen; ++i) {
-                    uint8_t raw = (uint8_t)str[i];
-                    if (raw == 0U) {
-                        continue;
+                        for (size_t i = 0; i < slen; ++i) {
+                            uint8_t raw = (uint8_t)str[i];
+                            if (raw == 0U) {
+                                continue;
+                            }
+                            uint8_t next_head = (uint8_t)((s_stm32_khead + 1U) % sizeof(s_stm32_kbuf));
+                            if (next_head == s_stm32_ktail) {
+                                break; /* Buffer full */
+                            }
+                            if ((mod & 1U) != 0U && (raw == 'c' || raw == 'C')) {
+                                raw = 3U; /* Ctrl+C */
+                            } else if (raw == '\r') {
+                                raw = (uint8_t)'\n';
+                            }
+                            s_stm32_kbuf[s_stm32_khead] = raw;
+                            s_stm32_khead = next_head;
+                        }
                     }
-                    uint8_t next_head = (uint8_t)((s_stm32_khead + 1U) % sizeof(s_stm32_kbuf));
-                    if (next_head == s_stm32_ktail) {
-                        break; /* Buffer full */
-                    }
-                    if ((mod & 1U) != 0U && (raw == 'c' || raw == 'C')) {
-                        raw = 3U; /* Ctrl+C */
-                    } else if (raw == '\r') {
-                        raw = (uint8_t)'\n';
-                    }
-                    s_stm32_kbuf[s_stm32_khead] = raw;
-                    s_stm32_khead = next_head;
                 }
+            }
 
-                if (s_stm32_khead != s_stm32_ktail) {
-                    uint8_t c = s_stm32_kbuf[s_stm32_ktail];
-                    s_stm32_ktail = (uint8_t)((s_stm32_ktail + 1U) % sizeof(s_stm32_kbuf));
-                    return (int)c;
-                }
+            /* Clear STM32 INT_STA (Reg 0x01) to acknowledge processed event(s) */
+            uint8_t clr_cmd[2] = {0x01U, 0x00U};
+            (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, clr_cmd, 2U);
+
+            if (s_stm32_khead != s_stm32_ktail) {
+                uint8_t c = s_stm32_kbuf[s_stm32_ktail];
+                s_stm32_ktail = (uint8_t)((s_stm32_ktail + 1U) % sizeof(s_stm32_kbuf));
+                return (int)c;
             }
         }
         return -1;
@@ -652,8 +663,8 @@ void maia_tab5_board_io_init(void) {
     pi4ioe_write_reg(PI4IOE2_ADDR, 0x11U, 0xBFU); /* INT_MASK */
     pi4ioe_write_reg(PI4IOE2_ADDR, 0x05U, 0x09U); /* OUT_SET: P0(WLAN)=1, P3(USB5V_EN)=1 */
 
-    /* Wait 100ms for LCD, Touch, and 5V Keyboard MCU to fully power up and boot */
-    maia_udelay(100000U);
+    /* Wait 300ms for LCD, Touch, and 5V Keyboard MCU to fully power up and boot */
+    maia_udelay(300000U);
 
     scan_and_report_i2c_bus("SysI2C(GPIO31/32)", TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN);
     scan_and_report_i2c_bus("ExtI2C(GPIO0/1)", TAB5_EXT_SDA_PIN, TAB5_EXT_SCL_PIN);
@@ -698,7 +709,10 @@ void maia_tab5_board_io_init(void) {
         g_kbd_type = 2U;
         g_kbd_bus_sda = TAB5_EXT_SDA_PIN;
         g_kbd_bus_scl = TAB5_EXT_SCL_PIN;
-        /* Configure A164 STM32 Keyboard: Reg 0x10 = 0x02 (String Mode), INT_CFG=7, clr queue & sta, RGB on */
+        /* Configure A164 STM32 Keyboard: Read FW version 0xFE, Mode=2 (String Mode), Clear INT_STA */
+        uint8_t fw_ver = 0U;
+        uint8_t reg_ver = 0xFEU;
+        (void)maia_i2c_write_read(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, &reg_ver, 1U, &fw_ver, 1U);
         uint8_t cfg_mode[2] = {0x10U, 0x02U}; /* Reg 0x10 = String/Character Mode */
         uint8_t cfg_irq[2]  = {0x00U, 0x07U}; /* Reg 0x00 = INT_CFG enabled */
         uint8_t clr_evq[2]  = {0x02U, 0x00U}; /* Reg 0x02 = Clear EVENT_NUM queue */
@@ -709,7 +723,9 @@ void maia_tab5_board_io_init(void) {
         (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, clr_evq, 2U);
         (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, clr_sta, 2U);
         (void)maia_i2c_write_bytes(g_kbd_bus_sda, g_kbd_bus_scl, STM32_KBD_ADDR, cfg_rgb, 2U);
-        maia_console_puts("[KBD] Initialized M5Stack Tab5 Keyboard (A164 @ 0x6D on GPIO0/1)\n");
+        maia_console_puts("[KBD] Initialized M5Stack Tab5 Keyboard (A164 @ 0x6D FW=0x");
+        print_hex8(fw_ver);
+        maia_console_puts(" on GPIO0/1)\n");
     } else if (i2c_probe(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, STM32_KBD_ADDR)) {
         g_kbd_type = 2U;
         g_kbd_bus_sda = TAB5_SYS_SDA_PIN;
