@@ -277,6 +277,12 @@ def cmd_push_module(args):
 
     client = MaiaSerialClient(args.port, args.baud)
     try:
+        # Dismiss any active exclusive GUI/desktop session before updating binaries
+        client.ser.write(b"\x1b\x1bqqq\n")
+        time.sleep(0.2)
+        client.flush_input()
+        client.wait_for_prompt(timeout=1.0)
+
         # Push module binary
         client.push_file(local_mobj, remote_mobj, chunk_size=args.chunk_size)
 
