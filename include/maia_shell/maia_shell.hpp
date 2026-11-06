@@ -723,6 +723,50 @@ public:
     // -------------------------------------------------------------
     // EXECUTION & DISPATCH
     // -------------------------------------------------------------
+    struct RedirStaging {
+        char *buf;
+        size_t cap;
+        size_t len;
+    };
+
+    static RedirStaging &get_global_redir_stage() {
+        static RedirStaging s_stage = { nullptr, 0, 0 };
+        return s_stage;
+    }
+
+    static OutputFn &get_global_out_cb() {
+        static OutputFn s_cb = nullptr;
+        return s_cb;
+    }
+
+    static OutputFn &get_global_console_cb() {
+        static OutputFn s_con = nullptr;
+        return s_con;
+    }
+
+    static FILE *&get_global_redir_fp() {
+        static FILE *s_fp = nullptr;
+        return s_fp;
+    }
+
+    void resolve_path(const char *in, char *out, size_t out_sz) {
+        if (!in || !*in) {
+            strncpy(out, cwd, out_sz - 1);
+            out[out_sz - 1] = '\0';
+            return;
+        }
+        if (in[0] == '/') {
+            strncpy(out, in, out_sz - 1);
+        } else {
+            strncpy(out, cwd, out_sz - 1);
+            if (strcmp(cwd, "/") != 0) {
+                strncat(out, "/", out_sz - strlen(out) - 1);
+            }
+            strncat(out, in, out_sz - strlen(out) - 1);
+        }
+        out[out_sz - 1] = '\0';
+    }
+
     int execute_single_cmd(const char *cmd_in) {
         char cmdline[MSH_LINE_LEN];
         strncpy(cmdline, cmd_in, sizeof(cmdline) - 1);
@@ -762,6 +806,77 @@ public:
             int st = (sub_count > 0) ? sub_status : 0;
             set_last_status(st);
             return st;
+        }
+
+        // Parse I/O redirection (> or >>)
+        const char *redir_file = nullptr;
+        bool append_mode = false;
+
+        for (int i = 0; i < argc; ++i) {
+            if (strcmp(argv[i], ">>") == 0) {
+                if (i + 1 < argc) {
+                    redir_file = argv[i + 1];
+                    append_mode = true;
+                    argc = i;
+                    break;
+                }
+            } else if (strcmp(argv[i], ">") == 0) {
+                if (i + 1 < argc) {
+                    redir_file = argv[i + 1];
+                    append_mode = false;
+                    argc = i;
+                    break;
+                }
+            } else if (argv[i][0] == '>') {
+                if (argv[i][1] == '>') {
+                    redir_file = argv[i] + 2;
+                    append_mode = true;
+                    argc = i;
+                    break;
+                } else {
+                    redir_file = argv[i] + 1;
+                    append_mode = false;
+                    argc = i;
+                    break;
+                }
+            }
+        }
+
+        if (argc == 0) return 0;
+
+        OutputFn orig_cb = this->output_cb;
+        get_global_console_cb() = orig_cb;
+
+        char resolved_redir[128];
+        bool has_redir = (redir_file && *redir_file);
+        if (has_redir) {
+            resolve_path(redir_file, resolved_redir, sizeof(resolved_redir));
+            RedirStaging &stage = get_global_redir_stage();
+            stage.cap = 65536;
+            stage.len = 0;
+#if defined(ESP_PLATFORM)
+            stage.buf = (char *)heap_caps_malloc(stage.cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            if (!stage.buf) {
+                stage.buf = (char *)malloc(stage.cap);
+            }
+#else
+            stage.buf = (char *)malloc(stage.cap);
+#endif
+            if (stage.buf) {
+                stage.buf[0] = '\0';
+                this->output_cb = [](const char *str) {
+                    if (!str) return;
+                    RedirStaging &st = get_global_redir_stage();
+                    if (!st.buf) return;
+                    size_t slen = strlen(str);
+                    if (st.len + slen < st.cap - 1) {
+                        memcpy(st.buf + st.len, str, slen);
+                        st.len += slen;
+                        st.buf[st.len] = '\0';
+                    }
+                };
+                get_global_out_cb() = this->output_cb;
+            }
         }
 
         int ret = 0;
@@ -823,6 +938,31 @@ public:
                 println(cmd);
                 ret = 127;
             }
+        }
+
+        if (has_redir) {
+            RedirStaging &stage = get_global_redir_stage();
+            if (stage.buf) {
+                FILE *fp = fopen(resolved_redir, append_mode ? "a" : "w");
+                if (fp) {
+                    if (stage.len > 0) {
+                        fwrite(stage.buf, 1, stage.len, fp);
+                    }
+                    fclose(fp);
+                } else {
+                    if (orig_cb) {
+                        orig_cb("msh: cannot open redirection file: ");
+                        orig_cb(resolved_redir);
+                        orig_cb("\n");
+                    }
+                }
+                free(stage.buf);
+                stage.buf = nullptr;
+                stage.cap = 0;
+                stage.len = 0;
+            }
+            this->output_cb = orig_cb;
+            get_global_out_cb() = orig_cb;
         }
 
         set_last_status(ret);
@@ -1354,29 +1494,6 @@ private:
         return 0;
     }
 
-    static OutputFn &get_global_out_cb() {
-        static OutputFn s_cb = nullptr;
-        return s_cb;
-    }
-
-    void resolve_path(const char *in, char *out, size_t out_sz) {
-        if (!in || !*in) {
-            strncpy(out, cwd, out_sz - 1);
-            out[out_sz - 1] = '\0';
-            return;
-        }
-        if (in[0] == '/') {
-            strncpy(out, in, out_sz - 1);
-        } else {
-            strncpy(out, cwd, out_sz - 1);
-            if (strcmp(cwd, "/") != 0) {
-                strncat(out, "/", out_sz - strlen(out) - 1);
-            }
-            strncat(out, in, out_sz - strlen(out) - 1);
-        }
-        out[out_sz - 1] = '\0';
-    }
-
     int cmd_runelf(int argc, char **argv) {
         const void *elf_bytes = nullptr;
         size_t elf_len = 0;
@@ -1411,7 +1528,12 @@ private:
                 fclose(f);
                 return 1;
             }
+#if defined(ESP_PLATFORM)
+            file_buffer = heap_caps_malloc(fsz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            if (!file_buffer) file_buffer = malloc(fsz);
+#else
             file_buffer = malloc(fsz);
+#endif
             if (!file_buffer) {
                 println("runelf: out of memory reading file");
                 fclose(f);
@@ -1433,10 +1555,15 @@ private:
             mod_argv = (const char *const *)argv;
         }
 
-        println("=== MaiaRTOS Native RISC-V ELF Execution ===");
-        char title[128];
-        snprintf(title, sizeof(title), "Loading: %s (%u bytes)", mod_name, (unsigned int)elf_len);
-        println(title);
+        OutputFn console_cb = get_global_console_cb() ? get_global_console_cb() : this->output_cb;
+        bool is_redirected = (get_global_redir_stage().buf != nullptr);
+
+        if (!is_redirected && console_cb) {
+            console_cb("=== MaiaRTOS Native RISC-V ELF Execution ===\n");
+            char title[128];
+            snprintf(title, sizeof(title), "Loading: %s (%u bytes)\n", mod_name, (unsigned int)elf_len);
+            console_cb(title);
+        }
 
         get_global_out_cb() = this->output_cb;
 
@@ -1446,8 +1573,23 @@ private:
         host_api.abi_major = MAIA_HOST_ABI_MAJOR;
         host_api.abi_minor = MAIA_HOST_ABI_MINOR;
         host_api.write_fd = [](maia_handle_t fd, const void *buf, uint32_t n) -> int32_t {
-            (void)fd;
             OutputFn out_cb = get_global_out_cb();
+            OutputFn con_cb = get_global_console_cb();
+            if (fd == 2) {
+                if (con_cb && buf && n > 0) {
+                    const char *p = (const char *)buf;
+                    char tmp[128];
+                    while (n > 0) {
+                        size_t c = (n < sizeof(tmp) - 1) ? n : (sizeof(tmp) - 1);
+                        memcpy(tmp, p, c);
+                        tmp[c] = '\0';
+                        con_cb(tmp);
+                        p += c;
+                        n -= c;
+                    }
+                }
+                return (int32_t)n;
+            }
             if (out_cb && buf && n > 0) {
                 const char *p = (const char *)buf;
                 char tmp[128];
@@ -1499,10 +1641,11 @@ private:
                                    mod_argc, mod_argv,
                                    &host_api, &exit_code,
                                    [](const char *msg) {
-                                       OutputFn out_cb = get_global_out_cb();
-                                       if (out_cb && msg) {
-                                           out_cb(msg);
-                                           out_cb("\n");
+                                       bool redir = (get_global_redir_stage().buf != nullptr);
+                                       OutputFn c_cb = get_global_console_cb();
+                                       if (!redir && c_cb && msg) {
+                                           c_cb(msg);
+                                           c_cb("\n");
                                        }
                                    });
 
@@ -1510,17 +1653,19 @@ private:
             free(file_buffer);
         }
 
-        if (res == MNM_LOAD_OK) {
-            char res_buf[96];
-            snprintf(res_buf, sizeof(res_buf), "[SUCCESS] Module executed! Exit code: %d (0x%02X)", exit_code, exit_code);
-            println(res_buf);
-            return exit_code;
-        } else {
-            char err_buf[96];
-            snprintf(err_buf, sizeof(err_buf), "[FAILED] Loader error code: %d", res);
-            println(err_buf);
-            return 1;
+        if (!is_redirected && console_cb) {
+            if (res == MNM_LOAD_OK) {
+                char res_buf[96];
+                snprintf(res_buf, sizeof(res_buf), "[SUCCESS] Module executed! Exit code: %d (0x%02X)\n", exit_code, exit_code);
+                console_cb(res_buf);
+            } else {
+                char err_buf[96];
+                snprintf(err_buf, sizeof(err_buf), "[FAILED] Loader error code: %d\n", res);
+                console_cb(err_buf);
+            }
         }
+
+        return (res == MNM_LOAD_OK) ? exit_code : 1;
     }
 
     int cmd_ticks(int argc, char **argv) {

@@ -4,6 +4,13 @@
 
 #if defined(ESP_PLATFORM)
 #include <esp_heap_caps.h>
+#include <esp_cache.h>
+
+// On ESP32-P4, instruction execution is strictly limited to sram_low (0x4FF00000 - 0x4FF3AFC0).
+// sram_high (0x4FF40000 - 0x4FF80000) is rw-only and triggers an Illegal instruction abort on fetch.
+// We maintain a dedicated 32 KB execution pool in .iram0.data to guarantee execution safety.
+static uint8_t s_module_exec_pool[32768] __attribute__((aligned(64), section(".iram.data")));
+static bool s_module_pool_in_use = false;
 #else
 #include <stdlib.h>
 #endif
@@ -73,12 +80,34 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     // Add extra padding to guarantee safety
     total_alloc = (total_alloc + 15) & ~15;
 
-    // 2. Allocate executable memory region in Internal L2 SRAM
+    // 2. Allocate executable memory region in Internal L2 SRAM (strictly in sram_low < 0x4FF40000)
     uint8_t *module_base = NULL;
+    bool using_static_pool = false;
+
 #if defined(ESP_PLATFORM)
-    module_base = (uint8_t *)heap_caps_aligned_alloc(16, total_alloc, MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
-    if (!module_base) {
-        module_base = (uint8_t *)heap_caps_aligned_alloc(16, total_alloc, MALLOC_CAP_INTERNAL);
+    if (!s_module_pool_in_use && total_alloc <= sizeof(s_module_exec_pool)) {
+        s_module_pool_in_use = true;
+        module_base = s_module_exec_pool;
+        using_static_pool = true;
+    } else {
+        // Fallback: dynamically allocate ensuring address is strictly within sram_low
+        void *high_blocks[32] = {0};
+        int high_count = 0;
+        while (high_count < 32) {
+            module_base = (uint8_t *)heap_caps_aligned_alloc(16, total_alloc, MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
+            if (!module_base) {
+                break;
+            }
+            if ((uintptr_t)module_base + total_alloc <= 0x4FF40000) {
+                // Verified inside executable sram_low
+                break;
+            }
+            high_blocks[high_count++] = module_base;
+            module_base = NULL;
+        }
+        for (int i = 0; i < high_count; ++i) {
+            free(high_blocks[i]);
+        }
     }
 #else
     module_base = (uint8_t *)malloc(total_alloc);
@@ -142,7 +171,15 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     if (!entry_point) {
         if (log_fn) log_fn("Loader Error: Symbol 'maia_module_main' not found");
-        free(module_base);
+#if defined(ESP_PLATFORM)
+        if (using_static_pool) {
+            s_module_pool_in_use = false;
+        } else if (module_base) {
+            free(module_base);
+        }
+#else
+        if (module_base) free(module_base);
+#endif
         return MNM_ERR_NO_ENTRY_POINT;
     }
 
@@ -259,8 +296,15 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
         }
     }
 
-    // 6. Synchronize instruction cache barrier
+    // 6. Synchronize instruction cache barrier and flush data cache to memory
+#if defined(ESP_PLATFORM)
+    uintptr_t sync_start = (uintptr_t)module_base & ~63;
+    size_t sync_size = ((total_alloc + 63) & ~63) + ((uintptr_t)module_base & 63);
+    esp_cache_msync((void *)sync_start, sync_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_TYPE_DATA);
+    esp_cache_msync((void *)sync_start, sync_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_TYPE_INST);
+#endif
 #if defined(__riscv)
+    asm volatile("fence rw, rw" ::: "memory");
     asm volatile("fence.i" ::: "memory");
 #endif
 
@@ -285,6 +329,11 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
         log_fn(msg);
     }
 
+#if defined(__riscv)
+    asm volatile("fence rw, rw" ::: "memory");
+    asm volatile("fence.i" ::: "memory");
+#endif
+
     int ret = entry_point(&ctx);
 
     if (log_fn) {
@@ -298,7 +347,17 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     }
 
     // 8. Cleanup and free loaded executable memory
-    free(module_base);
+#if defined(ESP_PLATFORM)
+    if (using_static_pool) {
+        s_module_pool_in_use = false;
+    } else if (module_base) {
+        free(module_base);
+    }
+#else
+    if (module_base) {
+        free(module_base);
+    }
+#endif
 
     return MNM_LOAD_OK;
 }

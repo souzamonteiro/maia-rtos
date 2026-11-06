@@ -112,3 +112,4 @@ int maia_module_main(const maia_module_context_t *ctx) {
     ctx->host->write_fd(ctx->stdout_fd, done, sizeof(done) - 1);
     return 0;
 }
+
