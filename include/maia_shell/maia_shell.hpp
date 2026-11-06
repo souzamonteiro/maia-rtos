@@ -800,10 +800,29 @@ public:
         else if (strcmp(cmd, "peek") == 0)     ret = cmd_peek(argc, argv);
         else if (strcmp(cmd, "poke") == 0)     ret = cmd_poke(argc, argv);
         else if (strcmp(cmd, "reboot") == 0)   ret = cmd_reboot(argc, argv);
+        else if (strcmp(cmd, "mkdir") == 0)    ret = cmd_mkdir(argc, argv);
+        else if (strcmp(cmd, "rm") == 0)       ret = cmd_rm(argc, argv);
+        else if (strcmp(cmd, "touch") == 0)    ret = cmd_touch(argc, argv);
+        else if (strcmp(cmd, "write") == 0)    ret = cmd_write(argc, argv);
         else {
-            print("msh: command not found: ");
-            println(cmd);
-            ret = 127;
+            char test_path[128];
+            resolve_path(cmd, test_path, sizeof(test_path));
+            struct stat st;
+            if (stat(test_path, &st) == 0 && !S_ISDIR(st.st_mode)) {
+                char *elf_argv[MSH_MAX_ARGS + 2];
+                char run_name[] = "runelf";
+                elf_argv[0] = run_name;
+                elf_argv[1] = test_path;
+                for (int i = 1; i < argc && i + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0])); ++i) {
+                    elf_argv[i + 1] = argv[i];
+                }
+                int elf_argc = (argc + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0]))) ? (argc + 1) : (int)(sizeof(elf_argv)/sizeof(elf_argv[0]));
+                ret = cmd_runelf(elf_argc, elf_argv);
+            } else {
+                print("msh: command not found: ");
+                println(cmd);
+                ret = 127;
+            }
         }
 
         set_last_status(ret);
@@ -1142,6 +1161,9 @@ private:
         println("  ls [dir]          - List files & directories in storage/SD-card");
         println("  cd <dir>          - Change current working directory");
         println("  cat <file>        - Display contents of a text file");
+        println("  mkdir / rm        - Create directories or remove files");
+        println("  touch / write     - Create empty files or append lines of text");
+        println("  <file.mobj> [args]- Direct native execution without typing runelf");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
         println("  expr <EXPR>       - Evaluate arithmetic/logical/comparison expression");
@@ -1440,6 +1462,37 @@ private:
             }
             return (int32_t)n;
         };
+        host_api.read_fd = [](maia_handle_t fd, void *buf, uint32_t n) -> int32_t {
+            if (fd == 0 && buf && n > 0) {
+                return (int32_t)read(STDIN_FILENO, buf, n);
+            }
+            return 0;
+        };
+        host_api.close_fd = [](maia_handle_t fd) -> int32_t {
+            (void)fd;
+            return 0;
+        };
+        host_api.sleep_ms = [](uint32_t ms) -> int32_t {
+#if defined(ESP_PLATFORM)
+            vTaskDelay(pdMS_TO_TICKS(ms));
+#endif
+            return 0;
+        };
+        host_api.alloc = [](uint32_t bytes, uint32_t flags) -> void * {
+            (void)flags;
+#if defined(ESP_PLATFORM)
+            if (flags == 1 || bytes >= 16384) {
+                return heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            } else {
+                return heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+            }
+#else
+            return malloc(bytes);
+#endif
+        };
+        host_api.dealloc = [](void *ptr) {
+            if (ptr) free(ptr);
+        };
 
         int exit_code = 0;
         int res = mnm_load_and_run(elf_bytes, elf_len,
@@ -1666,6 +1719,79 @@ private:
         while (fgets(buf, sizeof(buf), f)) {
             print(buf);
         }
+        fclose(f);
+        return 0;
+    }
+
+    int cmd_mkdir(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: mkdir <dir>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        if (mkdir(target, 0777) != 0) {
+            char err[160];
+            snprintf(err, sizeof(err), "mkdir: cannot create '%s'", target);
+            println(err);
+            return 1;
+        }
+        return 0;
+    }
+
+    int cmd_rm(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: rm <file>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        if (remove(target) != 0) {
+            char err[160];
+            snprintf(err, sizeof(err), "rm: cannot remove '%s'", target);
+            println(err);
+            return 1;
+        }
+        return 0;
+    }
+
+    int cmd_touch(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: touch <file>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        FILE *f = fopen(target, "a");
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "touch: cannot touch '%s'", target);
+            println(err);
+            return 1;
+        }
+        fclose(f);
+        return 0;
+    }
+
+    int cmd_write(int argc, char **argv) {
+        if (argc < 3) {
+            println("Usage: write <file> <text...>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        FILE *f = fopen(target, "a");
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "write: cannot open '%s'", target);
+            println(err);
+            return 1;
+        }
+        for (int i = 2; i < argc; ++i) {
+            fputs(argv[i], f);
+            if (i < argc - 1) fputc(' ', f);
+        }
+        fputc('\n', f);
         fclose(f);
         return 0;
     }
