@@ -5,6 +5,10 @@
 #include <M5Unified.h>
 #elif defined(ESP_PLATFORM)
 #include <esp_system.h>
+#include <esp_heap_caps.h>
+#include <esp_psram.h>
+#include <esp_chip_info.h>
+#include <esp_timer.h>
 #endif
 
 #include <stdint.h>
@@ -13,6 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+#include <maia/exec/elf_validator.h>
 
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
@@ -766,13 +772,16 @@ public:
         else if (strcmp(cmd, "uname") == 0)  ret = cmd_uname(argc, argv);
         else if (strcmp(cmd, "uptime") == 0) ret = cmd_uptime(argc, argv);
         else if (strcmp(cmd, "ticks") == 0)  ret = cmd_ticks(argc, argv);
+        else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
+        else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
         else if (strcmp(cmd, "ps") == 0)     ret = cmd_ps(argc, argv);
         else if (strcmp(cmd, "mem") == 0)    ret = cmd_mem(argc, argv);
         else if (strcmp(cmd, "alloc") == 0)  ret = cmd_alloc(argc, argv);
         else if (strcmp(cmd, "qtest") == 0)  ret = cmd_qtest(argc, argv);
         else if (strcmp(cmd, "pwd") == 0)    ret = cmd_pwd(argc, argv);
         else if (strcmp(cmd, "cd") == 0)     ret = cmd_cd(argc, argv);
-        else if (strcmp(cmd, "clear") == 0)  ret = cmd_clear(argc, argv);
+        else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0)  ret = cmd_clear(argc, argv);
+        else if (strcmp(cmd, "color") == 0)  ret = cmd_color(argc, argv);
         else if (strcmp(cmd, "basename") == 0) ret = cmd_basename(argc, argv);
         else if (strcmp(cmd, "dirname") == 0)  ret = cmd_dirname(argc, argv);
         else if (strcmp(cmd, "set") == 0)      ret = cmd_set(argc, argv);
@@ -1119,7 +1128,9 @@ private:
         println("  uptime            - Show RTOS uptime and context switches");
         println("  ticks             - Show CLIC/SYSTIMER interrupt & trap counters");
         println("  ps                - List RTOS tasks (ID, prio, state, stack, ticks)");
-        println("  mem               - Show L2MEM region allocator statistics");
+        println("  mem               - Show PSRAM & L2 SRAM memory telemetry");
+        println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
+        println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
         println("  expr <EXPR>       - Evaluate arithmetic/logical/comparison expression");
@@ -1189,6 +1200,25 @@ private:
                  (unsigned long)ms.free_bytes, (unsigned long)ms.peak_used_bytes,
                  (unsigned long)ms.alloc_count, (unsigned long)ms.free_count);
         println(buf);
+#elif defined(ESP_PLATFORM)
+        size_t psram_total = esp_psram_get_size();
+        size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        size_t psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+        size_t sram_free  = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        size_t sram_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+        size_t sram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+        char buf[280];
+        snprintf(buf, sizeof(buf),
+                 "ESP32-P4 Memory Telemetry:\n"
+                 "  Octal PSRAM @ 200MHz: %lu / %lu KB free (max block: %lu KB)\n"
+                 "  Internal L2 SRAM:     %lu / %lu KB free (max block: %lu KB)\n"
+                 "  Total Dynamic RAM:    %lu MB mapped",
+                 (unsigned long)(psram_free / 1024), (unsigned long)(psram_total / 1024),
+                 (unsigned long)(psram_largest / 1024),
+                 (unsigned long)(sram_free / 1024), (unsigned long)(sram_total / 1024),
+                 (unsigned long)(sram_largest / 1024),
+                 (unsigned long)(psram_total / (1024 * 1024)));
+        println(buf);
 #else
         println("Memory: Host Emulation (32KB L2MEM Pool)");
 #endif
@@ -1205,9 +1235,89 @@ private:
         snprintf(buf, sizeof(buf), "Uptime: %lu ms (%lu us), context switches: %lu",
                  (unsigned long)ticks, (unsigned long)us, (unsigned long)sw);
         println(buf);
+#elif defined(ESP_PLATFORM)
+        int64_t us = esp_timer_get_time();
+        uint32_t ms = (uint32_t)(us / 1000);
+        uint32_t sec = ms / 1000;
+        uint32_t min = sec / 60;
+        uint32_t hr = min / 60;
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Uptime: %02lu:%02lu:%02lu (%lu ms, %llu us)",
+                 (unsigned long)hr, (unsigned long)(min % 60), (unsigned long)(sec % 60),
+                 (unsigned long)ms, (unsigned long long)us);
+        println(buf);
 #else
         println("Uptime: 1000 ms (Host Emulation)");
 #endif
+        return 0;
+    }
+
+    int cmd_cpuinfo(int argc, char **argv) {
+        (void)argc; (void)argv;
+#if defined(ESP_PLATFORM)
+        esp_chip_info_t info;
+        esp_chip_info(&info);
+        char buf[256];
+        snprintf(buf, sizeof(buf),
+                 "ESP32-P4 Silicon Profile:\n"
+                 "  CPU:          RISC-V HP Dual-Core @ 360 MHz (RV32IMAFCP)\n"
+                 "  Cores:        %u active cores\n"
+                 "  Revision:     v%u.%u (ECO2)\n"
+                 "  Flash:        16 MB SPI Flash (Quad/QIO @ 80MHz)\n"
+                 "  Subsystems:   FPU, DSP, 2D PPA, MIPI-DSI, ISP, USB-OTG",
+                 info.cores, info.revision / 100, info.revision % 100);
+        println(buf);
+#else
+        println("CPU: RISC-V RV32IMAFCP Dual-Core @ 360MHz (ESP32-P4)");
+#endif
+        return 0;
+    }
+
+    int cmd_checkelf(int argc, char **argv) {
+        (void)argc; (void)argv;
+        println("=== MNM-1 ELF32 RISC-V Relocatable Validator Test ===");
+
+        static const uint8_t valid_elf[] = {
+            0x7f, 'E', 'L', 'F',
+            0x01, 0x01, 0x01,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00,
+            0xf3, 0x00,
+            0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x34, 0x00,
+            0x00, 0x00,
+            0x00, 0x00,
+            0x28, 0x00,
+            0x00, 0x00,
+            0x00, 0x00
+        };
+
+        char rep[256];
+        int res = elf_validate_relocatable(valid_elf, sizeof(valid_elf), rep, sizeof(rep));
+        if (res == ELF_VALID_OK) {
+            println("[TEST 1/2 PASS] Valid ET_REL RISC-V ELF header accepted:");
+            println(rep);
+        } else {
+            char eb[64];
+            snprintf(eb, sizeof(eb), "[TEST 1/2 FAIL] Validation failed: err=%d", res);
+            println(eb);
+        }
+
+        uint8_t bad_elf[52];
+        memcpy(bad_elf, valid_elf, 52);
+        bad_elf[18] = 0x03; // Alter to EM_386
+        res = elf_validate_relocatable(bad_elf, sizeof(bad_elf), rep, sizeof(rep));
+        if (res != ELF_VALID_OK) {
+            println("[TEST 2/2 PASS] Non-RISC-V ELF correctly rejected:");
+            println(rep);
+        } else {
+            println("[TEST 2/2 FAIL] Bad ELF was incorrectly accepted!");
+        }
+
         return 0;
     }
 
@@ -1367,6 +1477,16 @@ private:
     int cmd_clear(int argc, char **argv) {
         (void)argc; (void)argv;
         print("\033[2J\033[H");
+        return 0;
+    }
+
+    int cmd_color(int argc, char **argv) {
+        if (argc < 2) {
+            println("usage: color <white|green|yellow|cyan|magenta|red|blue>");
+            return 1;
+        }
+        print("\033[color:");
+        println(argv[1]);
         return 0;
     }
 
