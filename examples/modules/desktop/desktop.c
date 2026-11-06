@@ -163,9 +163,16 @@ static void draw_button(int x, int y, int w, int h, const char *label, uint16_t 
     int len = 0;
     const char *p = label;
     while (*p++) len++;
-    int text_x = x + (w - len * 8) / 2;
-    int text_y = y + (h - 16) / 2;
-    draw_str(text_x, text_y, label, fg, pressed ? COLOR_BTN_PR : bg, true);
+
+    if (w >= 60 && h >= 48 && (len * 16) <= (w - 8)) {
+        int text_x = x + (w - len * 16) / 2;
+        int text_y = y + (h - 32) / 2;
+        draw_str_2x(text_x, text_y, label, fg, pressed ? COLOR_BTN_PR : bg, true);
+    } else {
+        int text_x = x + (w - len * 8) / 2;
+        int text_y = y + (h - 16) / 2;
+        draw_str(text_x, text_y, label, fg, pressed ? COLOR_BTN_PR : bg, true);
+    }
 }
 
 /* --- Math Expression Evaluator for Calculator (Recursive Descent Parser) --- */
@@ -517,9 +524,19 @@ static void render_calc_window(void) {
             const char *label = keys[r][c];
             uint16_t bg = COLOR_BTN_BG;
             uint16_t fg = COLOR_WHITE;
-            if (label[0] == '=') { bg = COLOR_GREEN; fg = COLOR_BLACK; }
-            else if (label[0] == 'C' || label[0] == 'D') { bg = COLOR_RED; fg = COLOR_WHITE; }
-            else if (label[0] == '+' || label[0] == '-' || label[0] == '*' || label[0] == '/') { bg = COLOR_ORANGE; fg = COLOR_BLACK; }
+            if (label[0] == '=') {
+                bg = COLOR_GREEN;
+                fg = COLOR_BLACK;
+            } else if (label[0] == 'C' || label[0] == 'D') {
+                bg = COLOR_RED;
+                fg = COLOR_WHITE;
+            } else if (label[0] == '+' || label[0] == '-' || label[0] == '*' || label[0] == '/') {
+                bg = COLOR_CYAN;
+                fg = COLOR_BLACK;
+            } else if (label[0] == '(' || label[0] == ')') {
+                bg = COLOR_BTN_BG;
+                fg = COLOR_YELLOW;
+            }
             draw_button(kx, ky, kw, kh, label, bg, fg, COLOR_BTN_BD, false);
         }
     }
