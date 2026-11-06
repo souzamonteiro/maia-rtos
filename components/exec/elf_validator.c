@@ -102,3 +102,4 @@ int elf_validate_relocatable(const void *data, size_t size, char *report, size_t
 
     return ELF_VALID_OK;
 }
+
