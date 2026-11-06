@@ -91,6 +91,12 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     memset(module_base, 0, total_alloc);
 
+    if (log_fn) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Loader: Allocated %u bytes at %p", (unsigned int)total_alloc, module_base);
+        log_fn(msg);
+    }
+
     // 3. Copy section data into loaded image
     uintptr_t sec_addrs[64] = {0};
     for (uint16_t i = 0; i < ehdr->e_shnum; ++i) {
@@ -258,6 +264,10 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     asm volatile("fence.i" ::: "memory");
 #endif
 
+    if (log_fn) {
+        log_fn("Loader: Relocations applied & fence.i synchronized.");
+    }
+
     // 7. Prepare module context and execute
     maia_module_context_t ctx;
     memset(&ctx, 0, sizeof(ctx));
@@ -276,6 +286,12 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     }
 
     int ret = entry_point(&ctx);
+
+    if (log_fn) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Loader: Module returned %d (0x%X)", ret, ret);
+        log_fn(msg);
+    }
 
     if (exit_code) {
         *exit_code = ret;
