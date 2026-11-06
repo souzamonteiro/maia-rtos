@@ -207,6 +207,11 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                         sym_val = sec_addrs[sym->st_shndx] + sym->st_value;
                     } else if (sym->st_shndx == 0 && strtab) {
                         const char *sname = strtab + sym->st_name;
+                        extern int64_t __divdi3(int64_t, int64_t);
+                        extern uint64_t __udivdi3(uint64_t, uint64_t);
+                        extern uint64_t __umoddi3(uint64_t, uint64_t);
+                        extern int64_t __moddi3(int64_t, int64_t);
+
                         if (strcmp(sname, "strlen") == 0) sym_val = (uintptr_t)strlen;
                         else if (strcmp(sname, "memcpy") == 0) sym_val = (uintptr_t)memcpy;
                         else if (strcmp(sname, "memset") == 0) sym_val = (uintptr_t)memset;
@@ -214,6 +219,10 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                         else if (strcmp(sname, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
                         else if (strcmp(sname, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
                         else if (strcmp(sname, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
+                        else if (strcmp(sname, "__divdi3") == 0) sym_val = (uintptr_t)__divdi3;
+                        else if (strcmp(sname, "__udivdi3") == 0) sym_val = (uintptr_t)__udivdi3;
+                        else if (strcmp(sname, "__umoddi3") == 0) sym_val = (uintptr_t)__umoddi3;
+                        else if (strcmp(sname, "__moddi3") == 0) sym_val = (uintptr_t)__moddi3;
                     }
                 }
 
