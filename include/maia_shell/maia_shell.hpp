@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include <maia/exec/elf_validator.h>
 #include <maia/exec/elf_loader.h>
@@ -783,6 +785,8 @@ public:
         else if (strcmp(cmd, "qtest") == 0)  ret = cmd_qtest(argc, argv);
         else if (strcmp(cmd, "pwd") == 0)    ret = cmd_pwd(argc, argv);
         else if (strcmp(cmd, "cd") == 0)     ret = cmd_cd(argc, argv);
+        else if (strcmp(cmd, "ls") == 0)     ret = cmd_ls(argc, argv);
+        else if (strcmp(cmd, "cat") == 0)    ret = cmd_cat(argc, argv);
         else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0)  ret = cmd_clear(argc, argv);
         else if (strcmp(cmd, "color") == 0)  ret = cmd_color(argc, argv);
         else if (strcmp(cmd, "basename") == 0) ret = cmd_basename(argc, argv);
@@ -1134,7 +1138,10 @@ private:
         println("  mem               - Show PSRAM & L2 SRAM memory telemetry");
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
-        println("  runelf / exec     - Load, relocate & run native RISC-V ELF module");
+        println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
+        println("  ls [dir]          - List files & directories in storage/SD-card");
+        println("  cd <dir>          - Change current working directory");
+        println("  cat <file>        - Display contents of a text file");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
         println("  expr <EXPR>       - Evaluate arithmetic/logical/comparison expression");
@@ -1330,9 +1337,84 @@ private:
         return s_cb;
     }
 
+    void resolve_path(const char *in, char *out, size_t out_sz) {
+        if (!in || !*in) {
+            strncpy(out, cwd, out_sz - 1);
+            out[out_sz - 1] = '\0';
+            return;
+        }
+        if (in[0] == '/') {
+            strncpy(out, in, out_sz - 1);
+        } else {
+            strncpy(out, cwd, out_sz - 1);
+            if (strcmp(cwd, "/") != 0) {
+                strncat(out, "/", out_sz - strlen(out) - 1);
+            }
+            strncat(out, in, out_sz - strlen(out) - 1);
+        }
+        out[out_sz - 1] = '\0';
+    }
+
     int cmd_runelf(int argc, char **argv) {
+        const void *elf_bytes = nullptr;
+        size_t elf_len = 0;
+        void *file_buffer = nullptr;
+        const char *mod_name = "hello.mobj";
+        int mod_argc = argc;
+        const char *const *mod_argv = (const char *const *)argv;
+
+        bool load_from_file = false;
+        char resolved_path[128] = {0};
+
+        if (argc >= 2) {
+            if (argv[1][0] == '/' || strstr(argv[1], ".mobj") != nullptr) {
+                resolve_path(argv[1], resolved_path, sizeof(resolved_path));
+                load_from_file = true;
+            }
+        }
+
+        if (load_from_file) {
+            FILE *f = fopen(resolved_path, "rb");
+            if (!f) {
+                char err[160];
+                snprintf(err, sizeof(err), "runelf: cannot open '%s'", resolved_path);
+                println(err);
+                return 1;
+            }
+            fseek(f, 0, SEEK_END);
+            long fsz = ftell(f);
+            fseek(f, 0, SEEK_SET);
+            if (fsz <= 0 || fsz > 1024 * 1024) {
+                println("runelf: invalid file size");
+                fclose(f);
+                return 1;
+            }
+            file_buffer = malloc(fsz);
+            if (!file_buffer) {
+                println("runelf: out of memory reading file");
+                fclose(f);
+                return 1;
+            }
+            fread(file_buffer, 1, fsz, f);
+            fclose(f);
+
+            elf_bytes = file_buffer;
+            elf_len = (size_t)fsz;
+            mod_name = resolved_path;
+            mod_argc = argc - 1;
+            mod_argv = (const char *const *)(argv + 1);
+        } else {
+            elf_bytes = s_hello_mobj;
+            elf_len = sizeof(s_hello_mobj);
+            mod_name = "embedded hello.mobj";
+            mod_argc = argc;
+            mod_argv = (const char *const *)argv;
+        }
+
         println("=== MaiaRTOS Native RISC-V ELF Execution ===");
-        println("Loading Module: hello.mobj (RV32IMAFCP @ ESP32-P4)");
+        char title[128];
+        snprintf(title, sizeof(title), "Loading: %s (%u bytes)", mod_name, (unsigned int)elf_len);
+        println(title);
 
         get_global_out_cb() = this->output_cb;
 
@@ -1360,8 +1442,8 @@ private:
         };
 
         int exit_code = 0;
-        int res = mnm_load_and_run(s_hello_mobj, sizeof(s_hello_mobj),
-                                   argc, (const char *const *)argv,
+        int res = mnm_load_and_run(elf_bytes, elf_len,
+                                   mod_argc, mod_argv,
                                    &host_api, &exit_code,
                                    [](const char *msg) {
                                        OutputFn out_cb = get_global_out_cb();
@@ -1371,6 +1453,10 @@ private:
                                        }
                                    });
 
+        if (file_buffer) {
+            free(file_buffer);
+        }
+
         if (res == MNM_LOAD_OK) {
             char res_buf[96];
             snprintf(res_buf, sizeof(res_buf), "[SUCCESS] Module executed! Exit code: %d (0x%02X)", exit_code, exit_code);
@@ -1378,7 +1464,7 @@ private:
             return exit_code;
         } else {
             char err_buf[96];
-            snprintf(err_buf, sizeof(err_buf), "[FAILED] Loader failed with error code: %d", res);
+            snprintf(err_buf, sizeof(err_buf), "[FAILED] Loader error code: %d", res);
             println(err_buf);
             return 1;
         }
@@ -1475,13 +1561,112 @@ private:
             strncpy(cwd, "/", sizeof(cwd));
             return 0;
         }
-        if (argv[1][0] == '/') {
-            strncpy(cwd, argv[1], sizeof(cwd) - 1);
-        } else {
-            if (strcmp(cwd, "/") != 0) strncat(cwd, "/", sizeof(cwd) - strlen(cwd) - 1);
-            strncat(cwd, argv[1], sizeof(cwd) - strlen(cwd) - 1);
+        if (strcmp(argv[1], "..") == 0) {
+            char *last_slash = strrchr(cwd, '/');
+            if (last_slash && last_slash != cwd) {
+                *last_slash = '\0';
+            } else {
+                strcpy(cwd, "/");
+            }
+            return 0;
         }
+        char new_path[128];
+        resolve_path(argv[1], new_path, sizeof(new_path));
+        if (strcmp(new_path, "/") == 0) {
+            strcpy(cwd, "/");
+            return 0;
+        }
+        DIR *d = opendir(new_path);
+        if (!d) {
+            char err[160];
+            snprintf(err, sizeof(err), "cd: no such directory: %s", new_path);
+            println(err);
+            return 1;
+        }
+        closedir(d);
+        strncpy(cwd, new_path, sizeof(cwd) - 1);
         cwd[sizeof(cwd) - 1] = '\0';
+        return 0;
+    }
+
+    int cmd_ls(int argc, char **argv) {
+        char target_dir[128];
+        if (argc >= 2) {
+            resolve_path(argv[1], target_dir, sizeof(target_dir));
+        } else {
+            resolve_path(cwd, target_dir, sizeof(target_dir));
+        }
+
+        if (strcmp(target_dir, "/") == 0) {
+            println("Directory of /:");
+            println("  [MOUNT] /sd/ (SDMMC FAT32)");
+            println("Total 1 mount point");
+            return 0;
+        }
+
+        DIR *d = opendir(target_dir);
+        if (!d) {
+            char err[160];
+            snprintf(err, sizeof(err), "ls: cannot access '%s': No such directory", target_dir);
+            println(err);
+            return 1;
+        }
+
+        char line[256];
+        snprintf(line, sizeof(line), "Directory of %s:", target_dir);
+        println(line);
+
+        int count = 0;
+        struct dirent *de;
+        while ((de = readdir(d)) != nullptr) {
+            char full_path[256];
+            snprintf(full_path, sizeof(full_path), "%s/%s", 
+                     strcmp(target_dir, "/") == 0 ? "" : target_dir, de->d_name);
+
+            struct stat st;
+            bool is_dir = false;
+            size_t sz = 0;
+            if (stat(full_path, &st) == 0) {
+                is_dir = S_ISDIR(st.st_mode);
+                sz = (size_t)st.st_size;
+            }
+
+            if (is_dir) {
+                snprintf(line, sizeof(line), "  [DIR]  %s/", de->d_name);
+            } else {
+                snprintf(line, sizeof(line), "  [FILE] %s (%u bytes)", de->d_name, (unsigned int)sz);
+            }
+            println(line);
+            count++;
+        }
+        closedir(d);
+
+        snprintf(line, sizeof(line), "Total %d entries", count);
+        println(line);
+        return 0;
+    }
+
+    int cmd_cat(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: cat <file>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+
+        FILE *f = fopen(target, "r");
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "cat: cannot open '%s'", target);
+            println(err);
+            return 1;
+        }
+
+        char buf[128];
+        while (fgets(buf, sizeof(buf), f)) {
+            print(buf);
+        }
+        fclose(f);
         return 0;
     }
 
