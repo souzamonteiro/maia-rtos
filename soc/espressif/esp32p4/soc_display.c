@@ -37,15 +37,15 @@
 /* Colors (RGB565) */
 #define COLOR_BLACK          0x0000U
 #define COLOR_WHITE          0xFFFFU
-#define COLOR_NAVY           0x0010U
-#define COLOR_DARK_BLUE      0x0014U
-#define COLOR_CYAN           0x07FFU
-#define COLOR_GREEN          0x07E0U
-#define COLOR_YELLOW         0xFFE0U
-#define COLOR_RED            0xF800U
-#define COLOR_MAGENTA        0xF81FU
-#define COLOR_DARK_SLATE     0x0862U
-#define COLOR_GRAY           0x8410U
+#define COLOR_DARK_BLUE      0x0968U  /* #0B1D33 - Deep Elegant Navy Terminal Background */
+#define COLOR_HEADER_BLUE    0x1A6DU  /* #1B446F - Sleek Royal Blue Header Bar */
+#define COLOR_CYAN           0x07FFU  /* #00FFFF - High-visibility Cyan */
+#define COLOR_GREEN          0x07E0U  /* #00FF00 - Crisp Green */
+#define COLOR_YELLOW         0xFFE0U  /* #FFFF00 - Bright Amber/Yellow */
+#define COLOR_RED            0xF800U  /* #FF0000 - Red */
+#define COLOR_MAGENTA        0xF81FU  /* #FF00FF - Magenta */
+#define COLOR_DARK_SLATE     0x0968U  /* Slate Navy */
+#define COLOR_GRAY           0x8410U  /* Neutral Gray */
 
 /* DW_GDMA 64-byte aligned Link List Item structure */
 typedef struct {
@@ -418,8 +418,6 @@ static const uint8_t s_st7121_cc9[]   = {
 };
 static const uint8_t s_st7121_c60_4[] = {0x71, 0x21, 0x00};
 static const uint8_t s_st7121_c35[]   = {0x00};
-static const uint8_t s_st7121_c36[]   = {0x00}; /* MADCTL: RGB order */
-static const uint8_t s_st7121_c3a[]   = {0x55}; /* COLMOD: 16-bit RGB565 */
 
 static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
     {0x60, s_st7121_c60_1, sizeof(s_st7121_c60_1), 0},
@@ -452,8 +450,6 @@ static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
     {0x11, NULL,           0,                      80},  /* SLPOUT: 80ms delay */
     {0x29, NULL,           0,                      800}, /* DISPON: 800ms required by ST7121 */
     {0x35, s_st7121_c35,   sizeof(s_st7121_c35),   0},
-    {0x36, s_st7121_c36,   sizeof(s_st7121_c36),   0},   /* MADCTL */
-    {0x3A, s_st7121_c3a,   sizeof(s_st7121_c3a),   0},   /* COLMOD: RGB565 */
 };
 
 #include "ili9881c_cmds.h"
@@ -461,39 +457,39 @@ static const dsi_panel_cmd_t s_st7121_init_cmds[] = {
 static void term_init_banner(void) {
     for (uint8_t r = 0; r < TERM_ROWS; ++r) {
         s_term_fg[r] = COLOR_WHITE;
-        s_term_bg[r] = COLOR_NAVY;
+        s_term_bg[r] = COLOR_DARK_BLUE;
         for (uint8_t c = 0; c < TERM_COLS; ++c) {
             s_term_grid[r][c] = ' ';
         }
     }
 
-    /* Row 0: Title banner (Bright Yellow on Dark Blue) */
+    /* Row 0: Title banner (Bright Yellow on Royal Blue Header) */
     s_term_fg[0] = COLOR_YELLOW;
-    s_term_bg[0] = COLOR_DARK_BLUE;
+    s_term_bg[0] = COLOR_HEADER_BLUE;
     const char *title = "  *** MaiaRTOS v0.1.0 — Tab5 Physical LCD & Keyboard Bring-Up ***";
     for (uint8_t i = 0; title[i] != '\0' && i < TERM_COLS; ++i) {
         s_term_grid[0][i] = title[i];
     }
 
-    /* Row 1: Hardware banner (Bright Cyan on Dark Blue) */
+    /* Row 1: Hardware banner (Bright Cyan on Royal Blue Header) */
     s_term_fg[1] = COLOR_CYAN;
-    s_term_bg[1] = COLOR_DARK_BLUE;
+    s_term_bg[1] = COLOR_HEADER_BLUE;
     const char *hw_str = "  M5Stack Tab5 (ESP32-P4 v1.3) | ST7121 720x1280 RGB565 | Keyboard A164 @ 0x6D";
     for (uint8_t i = 0; hw_str[i] != '\0' && i < TERM_COLS; ++i) {
         s_term_grid[1][i] = hw_str[i];
     }
 
-    /* Row 2: Status separator (Green on Black) */
+    /* Row 2: Status separator (Green on Dark Blue) */
     s_term_fg[2] = COLOR_GREEN;
-    s_term_bg[2] = COLOR_BLACK;
+    s_term_bg[2] = COLOR_DARK_BLUE;
     for (uint8_t i = 0; i < TERM_COLS; ++i) {
         s_term_grid[2][i] = '=';
     }
 
     /* Row 3: Instructions */
     s_term_fg[3] = COLOR_YELLOW;
-    s_term_bg[3] = COLOR_NAVY;
-    const char *inst = "  [LIVE ECHO] Type on Tab5 keyboard or Mac mini USB-Serial to echo below:";
+    s_term_bg[3] = COLOR_DARK_BLUE;
+    const char *inst = "  [MaiaShell] Type on Tab5 keyboard or USB-Serial (try: help, uname, expr, ps):";
     for (uint8_t i = 0; inst[i] != '\0' && i < TERM_COLS; ++i) {
         s_term_grid[3][i] = inst[i];
     }
@@ -503,28 +499,9 @@ static void term_init_banner(void) {
         term_render_row(r);
     }
 
-    /* Fill Band 2 (Tiled bottom lines 256..1279): 7 vivid high-contrast color test stripes */
-    for (uint32_t y = 0; y < TAB5_BAND_HEIGHT; ++y) {
-        uint16_t color;
-        if (y < 146U) {
-            color = COLOR_RED;       /* Bright Red */
-        } else if (y < 292U) {
-            color = COLOR_GREEN;     /* Bright Green */
-        } else if (y < 438U) {
-            color = 0x001FU;         /* Bright Blue */
-        } else if (y < 584U) {
-            color = COLOR_YELLOW;    /* Bright Yellow */
-        } else if (y < 730U) {
-            color = COLOR_MAGENTA;   /* Bright Magenta */
-        } else if (y < 876U) {
-            color = COLOR_CYAN;      /* Bright Cyan */
-        } else {
-            color = COLOR_WHITE;     /* Pure White */
-        }
-        uint32_t line_offset = y * TAB5_DISP_WIDTH;
-        for (uint32_t x = 0; x < TAB5_DISP_WIDTH; ++x) {
-            L2MEM_BAND2_CPU[line_offset + x] = color;
-        }
+    /* Fill Band 2 (Tiled bottom lines 256..1279): Seamless Deep Navy Background */
+    for (uint32_t i = 0; i < (TAB5_DISP_WIDTH * TAB5_BAND_HEIGHT); ++i) {
+        L2MEM_BAND2_CPU[i] = COLOR_DARK_BLUE;
     }
 
     s_term_cur_row = 4U;
@@ -535,16 +512,13 @@ void maia_display_refresh_dma_if_needed(void) {
     if (!s_display_ready) {
         return;
     }
-    /* If DW_GDMA channel 0 is idle (frame finished), re-arm descriptors and restart */
+    /* If DW_GDMA channel 0 stopped unexpectedly, re-arm circular descriptors */
     if ((MAIA_MMIO32(GDMA_BASE + 0x18UL) & 1UL) == 0U) {
         volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
         for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
-            uint32_t hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
-            if (i == (TAB5_NUM_BLOCKS - 1U)) {
-                hi |= (1UL << 30U); /* Last block of frame */
-            }
-            lli[i].ctrl_hi = hi;
+            /* Keep last=0 (bit 30 cleared) for continuous autonomous circular streaming */
+            lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
         }
 
         /* Reload DSI bridge block and frame counters */
@@ -598,11 +572,11 @@ void maia_display_init(uint32_t panel_type) {
     MAIA_MMIO32(DSI_HOST_BASE + 0xA0UL) = 0x0FUL;              /* forcepll=1, enableclk=1, rstz=1, shutdownz=1 */
     maia_udelay(100U);
 
-    /* Write D-PHY PLL settings for 900 Mbps (refclk = 20 MHz, M = 90, N = 2, range = 0x0A) */
-    dsi_phy_write_reg(0x44U, 0x14U); /* hs_freq_sel = 0x0A << 1 */
+    /* Write D-PHY PLL settings for 960 Mbps (refclk = 20 MHz, M = 96, N = 2, range = 0x1A) */
+    dsi_phy_write_reg(0x44U, 0x34U); /* hs_freq_sel = 0x1A << 1 = 0x34 */
     dsi_phy_write_reg(0x19U, 0x30U);
     dsi_phy_write_reg(0x17U, 0x01U); /* pll_N - 1 = 1 */
-    dsi_phy_write_reg(0x18U, 0x19U); /* (pll_M - 1) & 0x1F = 89 & 0x1F = 25 = 0x19 */
+    dsi_phy_write_reg(0x18U, 0x1FU); /* (pll_M - 1) & 0x1F = 95 & 0x1F = 31 = 0x1F */
     dsi_phy_write_reg(0x18U, 0x82U); /* 0x80 | ((pll_M - 1) >> 5) = 0x80 | 2 = 0x82 */
 
     /* Wait for D-PHY PLL lock and lanes stop state */
@@ -666,9 +640,9 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x3CUL) = 720UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x40UL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x44UL) = 0UL;
-        MAIA_MMIO32(DSI_HOST_BASE + 0x48UL) = 3UL;    /* vid_hsa_time (2 * 1.40625) */
-        MAIA_MMIO32(DSI_HOST_BASE + 0x4CUL) = 56UL;   /* vid_hbp_time (40 * 1.40625) */
-        MAIA_MMIO32(DSI_HOST_BASE + 0x50UL) = 1128UL; /* vid_hline_time (802 * 1.40625) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x48UL) = 3UL;    /* vid_hsa_time (2 * 1.5) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x4CUL) = 60UL;   /* vid_hbp_time (40 * 1.5) */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x50UL) = 1203UL; /* vid_hline_time (802 * 1.5) */
         MAIA_MMIO32(DSI_HOST_BASE + 0x54UL) = 20UL;   /* vsa lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x58UL) = 24UL;   /* vbp lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x5CUL) = 200UL;  /* vfp lines */
@@ -768,11 +742,9 @@ void maia_display_init(uint32_t panel_type) {
         lli[i].ctrl_lo = (7UL << 18U) | (8UL << 14U) | (3UL << 11U) | (3UL << 8U) |
                          (1UL << 6U)  | (0UL << 4U)  | (0UL << 2U)  | 1UL;
 
-        /* ctrl_hi: valid=1, last=1 on final block, arlen=16, arlen_en=1, awlen=16, awlen_en=1 */
+        /* ctrl_hi: valid=1, last=0 (CIRCULAR RING!), arlen=16, arlen_en=1, awlen=16, awlen_en=1 */
         uint32_t hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
-        if (i == (TAB5_NUM_BLOCKS - 1U)) {
-            hi |= (1UL << 30U); /* shadowreg_or_lli_last = 1 on last block */
-        }
+        /* DO NOT set shadowreg_or_lli_last (bit 30) - block 9 loops continuously back to block 0 */
         lli[i].ctrl_hi = hi;
 
         lli[i].sstat       = 0U;

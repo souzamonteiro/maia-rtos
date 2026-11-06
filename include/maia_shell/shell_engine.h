@@ -16,3 +16,4 @@ int  maia_shell_engine_feed_char(char c);
 #endif
 
 #endif /* MAIA_SHELL_ENGINE_H */
+
