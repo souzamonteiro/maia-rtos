@@ -1,0 +1,698 @@
+[
+  {
+    "source": "for N in a b; do ! if true; then false; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "for N in a b; do ! if false; then :; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a b; do ! if true; then echo \"$N\"; fi; done",
+    "output": "a\nb\n",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a b; do false && ! if echo NEVER; then :; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a b; do true || ! if echo NEVER; then :; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "for N in a b; do ! if false; then :; else echo \"$N\"; fi; done",
+    "output": "a\nb\n",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if false; then :; elif false; then :; elif true; then false; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if true; then false; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if true; then false; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if true; then false; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "while false; do ! if true; then :; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=keep; for N in; do ! if echo NEVER; then :; fi; done; echo \"$N\"",
+    "output": "keep\n",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "for N in a; do if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do if true; then N=; continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do if true; then N=; continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do if true; then N=; ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do if true; then N=; ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do ! if true; then N=; continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do ! if true; then N=; continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do ! if true; then N=; ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do ! if true; then N=; ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "for N in a; do ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "! for N in a; do ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! while test -n \"$N\"; do N=; ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if ! break; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if ! continue; then echo NEVER; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if true; then break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if true; then break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if true; then ! break; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if true; then continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 1
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 0,
+    "dash": 0
+  },
+  {
+    "source": "N=a; ! until test -z \"$N\"; do N=; ! if true; then ! continue; fi; done",
+    "output": "",
+    "bash": 1,
+    "dash": 1
+  }
+]

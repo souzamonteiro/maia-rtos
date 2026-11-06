@@ -1,0 +1,149 @@
+[
+  {
+    "source": "for N in a b; do echo \"$N\"; break; echo NEVER; done",
+    "output": "a\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do echo \"$N\"; continue; echo NEVER; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do break 1; done; echo \"$N\"",
+    "output": "a\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do continue 1; done; echo \"$N\"",
+    "output": "b\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do false && break; echo \"$N\"; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do true || continue; echo \"$N\"; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do false || continue; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do break && echo NEVER; done; echo $?",
+    "output": "0\n",
+    "status": 0
+  },
+  {
+    "source": "while true; do break; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "until false; do break; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "N=aa; while test -n \"$N\"; do echo \"$N\"; N=${N#a}; continue; echo NEVER; done",
+    "output": "aa\na\n",
+    "status": 0
+  },
+  {
+    "source": "N=aa; until test -z \"$N\"; do echo \"$N\"; N=${N#a}; continue; echo NEVER; done",
+    "output": "aa\na\n",
+    "status": 0
+  },
+  {
+    "source": "! while true; do break; done",
+    "output": "",
+    "status": 1
+  },
+  {
+    "source": "! until false; do break; done",
+    "output": "",
+    "status": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; continue; done; echo $?",
+    "output": "0\n",
+    "status": 0
+  },
+  {
+    "source": "while false; do break; done; echo $?",
+    "output": "0\n",
+    "status": 0
+  },
+  {
+    "source": "until true; do continue; done; echo $?",
+    "output": "0\n",
+    "status": 0
+  },
+  {
+    "source": "C=break; for N in a b; do \"$C\"; done; echo \"$N\"",
+    "output": "a\n",
+    "status": 0
+  },
+  {
+    "source": "C=continue; for N in a b; do \"$C\"; done; echo \"$N\"",
+    "output": "b\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do false; break; done; echo $?",
+    "output": "0\n",
+    "status": 0
+  },
+  {
+    "source": "while true; do ! break; done",
+    "output": "",
+    "status": 1,
+    "dashStatus": 0
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; ! continue; done",
+    "output": "",
+    "status": 1,
+    "dashStatus": 0
+  },
+  {
+    "source": "for N in a b c; do echo \"$N\"; test \"$N\" = b && break; done; echo \"$N\"",
+    "output": "a\nb\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b c; do test \"$N\" = b && continue; echo \"$N\"; done",
+    "output": "a\nc\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b c; do test \"$N\" = c && break; echo \"$N\"; done; echo \"$N\"",
+    "output": "a\nb\nc\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaa; while true; do echo \"$N\"; N=${N#a}; test \"$N\" = a && break; done",
+    "output": "aaa\naa\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaa; until false; do echo \"$N\"; N=${N#a}; test \"$N\" = a && break; done",
+    "output": "aaa\naa\n",
+    "status": 0
+  },
+  {
+    "source": "V=\"a b\"; for N in $V; do echo \"$N\"; V=x; continue; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaaaaaaaaaaa; while test -n \"$N\"; do N=${N#a}; continue; done; echo \"$N\" \"$?\"",
+    "output": " 0\n",
+    "status": 0
+  }
+]

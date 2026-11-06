@@ -1,0 +1,5612 @@
+[
+  {
+    "args": [
+      "hello"
+    ],
+    "out": "hello",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      ""
+    ],
+    "out": "",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "001"
+    ],
+    "out": "001",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-0"
+    ],
+    "out": "-0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "00"
+    ],
+    "out": "00",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "+1"
+    ],
+    "out": "+1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "a b"
+    ],
+    "out": "a b",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "ação 😄"
+    ],
+    "out": "ação 😄",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "(a)"
+    ],
+    "out": "(a)",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "["
+    ],
+    "out": "[",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "out": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄abc"
+    ],
+    "out": "😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄abc",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "3",
+      "*",
+      "4"
+    ],
+    "out": "14",
+    "status": 0,
+    "syntax": true,
+    "parents": [
+      [
+        "Add",
+        "Sum0"
+      ],
+      [
+        "Multiply",
+        "Product0"
+      ]
+    ]
+  },
+  {
+    "args": [
+      "(",
+      "2",
+      "+",
+      "3",
+      ")",
+      "*",
+      "4"
+    ],
+    "out": "20",
+    "status": 0,
+    "syntax": true,
+    "parents": [
+      [
+        "Add",
+        "Sum1"
+      ],
+      [
+        "Multiply",
+        "Product0"
+      ]
+    ]
+  },
+  {
+    "args": [
+      "10",
+      "-",
+      "3",
+      "-",
+      "2"
+    ],
+    "out": "5",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "20",
+      "/",
+      "2",
+      "/",
+      "2"
+    ],
+    "out": "5",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "|",
+      "left",
+      "|",
+      "right"
+    ],
+    "out": "left",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "001",
+      "|",
+      "other"
+    ],
+    "out": "001",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "001",
+      "&",
+      "2"
+    ],
+    "out": "001",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "word",
+      "&",
+      "00"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "+1",
+      "+",
+      "2"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483648",
+      "+",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483649",
+      "*",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "2"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "-1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "-1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "|",
+      "1",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "&",
+      "1",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "|",
+      "2147483647",
+      "+",
+      "1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "&",
+      "x",
+      "+",
+      "1"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "a"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "é",
+      ">",
+      "z"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "001",
+      "=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "10"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "-0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "9999999999999999999",
+      "<",
+      "a"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "9999999999999999999",
+      "=",
+      "1"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "a.*"
+    ],
+    "out": "3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "b.*"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "ação 😄",
+      ":",
+      ".*"
+    ],
+    "out": "6",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\(a.*\\)"
+    ],
+    "out": "abc",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\(z.*\\)"
+    ],
+    "out": "",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\(a\\)\\(b\\)"
+    ],
+    "out": "a",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "001",
+      ":",
+      "\\(.*\\)"
+    ],
+    "out": "001",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "000",
+      ":",
+      "\\(.*\\)"
+    ],
+    "out": "000",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "",
+      ":",
+      ".*"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\(a\\)\\{0\\}"
+    ],
+    "out": "",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abaaba",
+      ":",
+      "\\(aba*\\)*.*"
+    ],
+    "out": "aba",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "é😄",
+      ":",
+      "\\(.\\).*"
+    ],
+    "out": "é",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "+"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "("
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      ""
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "["
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "*"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true,
+    "reference": "BRE_DESIGN.md selected profile: initial star is literal, unlike macOS expr syntax check"
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "a\\"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\1"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "a\\{256\\}"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true,
+    "reference": "Approved max_repeat=255: valid interval exceeds explicit resource limit"
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "\\(a"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "|",
+      "abc",
+      ":",
+      "["
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "+",
+      "-2"
+    ],
+    "out": "-4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "-",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "*",
+      "-2"
+    ],
+    "out": "4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "/",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "%",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "!=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "+",
+      "-1"
+    ],
+    "out": "-3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "-",
+      "-1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "*",
+      "-1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "/",
+      "-1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "!=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "+",
+      "0"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "-",
+      "0"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "!=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "+",
+      "1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "-",
+      "1"
+    ],
+    "out": "-3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "*",
+      "1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "/",
+      "1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "!=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "+",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "-",
+      "2"
+    ],
+    "out": "-4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "*",
+      "2"
+    ],
+    "out": "-4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "/",
+      "2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "%",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "!=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      "<=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2",
+      ">=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "-2"
+    ],
+    "out": "-3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "-2"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "-2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "!=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "-1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "!=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "0"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "0"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "!=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "!=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "2"
+    ],
+    "out": "-3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "2"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "!=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "<=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      ">=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "-2"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "-2"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "!=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "-1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "!=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "!=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "!=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "2"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "2"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "!=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "<=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      ">=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "-2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "-2"
+    ],
+    "out": "3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "-2"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "!=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "-1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "-1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "-1"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "!=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "!=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "!=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "2"
+    ],
+    "out": "3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "2"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "!=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "<=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      ">=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "-",
+      "-2"
+    ],
+    "out": "4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "*",
+      "-2"
+    ],
+    "out": "-4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "/",
+      "-2"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "%",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "!=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<=",
+      "-2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">=",
+      "-2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "-",
+      "-1"
+    ],
+    "out": "3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "*",
+      "-1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "/",
+      "-1"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "!=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<=",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">=",
+      "-1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "0"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "-",
+      "0"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "!=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<=",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">=",
+      "0"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "1"
+    ],
+    "out": "3",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "-",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "*",
+      "1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "/",
+      "1"
+    ],
+    "out": "2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "!=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<=",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">=",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "+",
+      "2"
+    ],
+    "out": "4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "-",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "*",
+      "2"
+    ],
+    "out": "4",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "/",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "%",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "!=",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      "<=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">",
+      "2"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2",
+      ">=",
+      "2"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "+"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "*"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      ":"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "("
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      ")"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "a",
+      "b"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "1",
+      "+"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "*",
+      "2"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "1",
+      "<",
+      "2",
+      ">"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "(",
+      "1",
+      "+",
+      "2"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "1",
+      ")"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "+"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": false
+  },
+  {
+    "args": [
+      "(",
+      "(",
+      "(",
+      "(",
+      "x",
+      ")",
+      ")",
+      ")",
+      ")"
+    ],
+    "out": "x",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "(",
+      "(",
+      "(",
+      "(",
+      "(",
+      "x",
+      ")",
+      ")",
+      ")",
+      ")",
+      ")"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": false,
+    "depth": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "2",
+      "+",
+      "3",
+      "+",
+      "4",
+      "+",
+      "5",
+      "+",
+      "6"
+    ],
+    "out": "21",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "2",
+      "+",
+      "3",
+      "+",
+      "4",
+      "+",
+      "5",
+      "+",
+      "6",
+      "+",
+      "7"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": false,
+    "transport": true
+  },
+  {
+    "args": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": false,
+    "transport": true
+  },
+  {
+    "args": [
+      "😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄😄"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": false,
+    "transport": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "-2147483648"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "-2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "-2147483647"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "-2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "-1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "-1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "0"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "0"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "1"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "1"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "+",
+      "2147483646"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "2147483646"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "2147483646"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "*",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "/",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "%",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "-2147483648"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "-2147483648"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "-2147483647"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "-1"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "-1"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "-1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "-1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "0"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "0"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "1"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "1"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "2147483646"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "2147483646"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "2147483646"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "+",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "-",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "*",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "/",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-2147483647",
+      "%",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "-2147483648"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "-2147483648"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "-2147483647"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "-2147483647"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "-2147483647"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "-2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "2147483646"
+    ],
+    "out": "2147483645",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "2147483646"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "2147483646"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "2147483646"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "+",
+      "2147483647"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "-",
+      "2147483647"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "*",
+      "2147483647"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "/",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "-1",
+      "%",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "-2147483648"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "-2147483647"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "-2147483647"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "2147483646"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "2147483646"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "+",
+      "2147483647"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "-",
+      "2147483647"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "*",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "/",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "0",
+      "%",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "-2147483648"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "-2147483648"
+    ],
+    "out": "-2147483648",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "-2147483648"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "-2147483647"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "-2147483647"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "-2147483647"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "2147483646"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "2147483646"
+    ],
+    "out": "-2147483645",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "2147483646"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "2147483646"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "+",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "-",
+      "2147483647"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "*",
+      "2147483647"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "/",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "1",
+      "%",
+      "2147483647"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "-2147483648"
+    ],
+    "out": "-2",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "-2147483648"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "-2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "-2147483647"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "-1"
+    ],
+    "out": "2147483645",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "-1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "-1"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "-1"
+    ],
+    "out": "-2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "0"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "0"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "1"
+    ],
+    "out": "2147483645",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "1"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "1"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "2147483646"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "2147483646"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "+",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "-",
+      "2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "*",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "/",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483646",
+      "%",
+      "2147483647"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "-2147483648"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "-2147483648"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "-2147483648"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "-2147483648"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "-2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "-2147483647"
+    ],
+    "out": "-1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "-2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "-1"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "-1"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "-1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "-1"
+    ],
+    "out": "-2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "-1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "0"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "0"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "0"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "0"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "1"
+    ],
+    "out": "2147483646",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "1"
+    ],
+    "out": "2147483647",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "1"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "2147483646"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "2147483646"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "2147483646"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "2147483646"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "+",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "*",
+      "2147483647"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "/",
+      "2147483647"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "%",
+      "2147483647"
+    ],
+    "out": "0",
+    "status": 1,
+    "syntax": true
+  },
+  {
+    "args": [
+      "*x",
+      ":",
+      "*"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true,
+    "reference": "Initial literal star in published BRE profile, non-reserved left operand"
+  },
+  {
+    "args": [
+      "abc",
+      ":",
+      "a\\{2,1\\}"
+    ],
+    "out": null,
+    "status": 2,
+    "syntax": true,
+    "reference": "Reversed interval is malformed, independently of the repetition budget"
+  },
+  {
+    "args": [
+      "a",
+      ":",
+      "a",
+      ":",
+      "1",
+      ":",
+      "1",
+      ":",
+      "1",
+      ":",
+      "1"
+    ],
+    "out": "1",
+    "status": 0,
+    "syntax": true,
+    "reference": "Five serial anchored BRE operations, maximum within eleven expression frames"
+  },
+  {
+    "args": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      ":",
+      "a*a*a*a*a*a*a*a*a*b"
+    ],
+    "out": null,
+    "status": 3,
+    "syntax": true,
+    "reference": "Exponential failing repetition exceeds the approved 10000 matching-step limit; must recover"
+  }
+]

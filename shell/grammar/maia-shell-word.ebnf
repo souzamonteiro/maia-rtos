@@ -1,0 +1,114 @@
+/* Input is exactly one main-frontend word/assignment terminal. All name,
+   equals, parameter, quoting and escape ownership is generated here. */
+Input ::= AssignmentForm | BareName | WordForm
+AssignmentForm ::= VariableName EQUAL AssignmentValue EOF
+AssignmentValue ::= Part*
+BareName ::= VariableName EOF
+WordForm ::= Part* EOF
+VariableName ::= LETTER (LETTER | DIGIT)*
+Part ::= CommandSubstitution | PrefixParameter | SuffixParameter | DefaultParameter | ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | OpaqueBraced | SingleQuoted | DoubleQuoted | Escape | Plain
+/* Child words reuse parameter/quote syntax, never Part or CommandSubstitution.
+   Named CaptureWord nodes certify original byte spans for isolated rendering. */
+CommandSubstitution ::= SUBSTITUTION_DOLLAR CAPTURE_OPEN CaptureCommand CAPTURE_CLOSE
+CaptureCommand ::= CAPTURE_SPACE* CaptureWord (CAPTURE_SPACE+ CaptureWord)* CAPTURE_SPACE*
+CaptureWord ::= CaptureInitialPart CapturePart*
+CaptureInitialPart ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | SingleQuoted | CaptureDoubleQuoted | Escape | CaptureInitialLiteral
+CapturePart ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | SingleQuoted | CaptureDoubleQuoted | Escape | CaptureLiteral
+CaptureInitialLiteral ::= PERCENT | PLUS | COLON | MINUS | LETTER | DIGIT | RAW | EQUAL | LBRACE | RBRACE | DOLLAR | QUESTION
+CaptureLiteral ::= PERCENT | PLUS | COLON | MINUS | HASH | LETTER | DIGIT | RAW | EQUAL | LBRACE | RBRACE | DOLLAR | QUESTION
+CaptureDoubleQuoted ::= DQUOTE CaptureDoublePiece* DQUOTE
+CaptureDoublePiece ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | DoubleEscape | DoubleSlash | CaptureDoubleLiteral
+CaptureDoubleLiteral ::= CAPTURE_CONTROL | CAPTURE_CONTROL | PERCENT | PLUS | COLON | MINUS | HASH | LETTER | DIGIT | RAW | EQUAL | LBRACE | RBRACE | SQUOTE | DOLLAR | QUESTION | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE
+StatusParameter ::= DOLLAR QUESTION
+NamedParameter ::= DOLLAR VariableName
+BracedStatusParameter ::= BRACED_DOLLAR LBRACE QUESTION RBRACE
+BracedNamedParameter ::= BRACED_DOLLAR LBRACE VariableName RBRACE
+ParameterLength ::= BRACED_DOLLAR LBRACE HASH VariableName RBRACE
+/* Pattern quote ownership is independent of an enclosing DoubleQuoted.
+   This finite pattern uses ordinary inner quotes/escapes in either context. */
+PrefixParameter ::= BRACED_DOLLAR LBRACE VariableName PrefixOperator PatternValue RBRACE
+PrefixOperator ::= LongestPrefixOperator | ShortestPrefixOperator
+LongestPrefixOperator ::= HASH HASH
+ShortestPrefixOperator ::= HASH
+SuffixParameter ::= BRACED_DOLLAR LBRACE VariableName SuffixOperator PatternValue RBRACE
+SuffixOperator ::= LongestSuffixOperator | ShortestSuffixOperator
+LongestSuffixOperator ::= PERCENT PERCENT
+ShortestSuffixOperator ::= PERCENT
+PatternValue ::= DefaultPart*
+/* Default fallbacks never refer back to a default production. The two
+   generated quote contexts preserve enclosing-double-quote ownership. */
+DefaultParameter ::= BRACED_DOLLAR LBRACE VariableName DefaultOperator DefaultValue RBRACE
+DoubleDefaultParameter ::= BRACED_DOLLAR LBRACE VariableName DefaultOperator DoubleDefaultValue RBRACE
+DefaultOperator ::= DefaultNullOperator | DefaultUnsetOperator | AlternateNonemptyOperator | AlternateSetOperator
+DefaultNullOperator ::= COLON MINUS
+DefaultUnsetOperator ::= MINUS
+AlternateNonemptyOperator ::= COLON PLUS
+AlternateSetOperator ::= PLUS
+DefaultValue ::= DefaultPart*
+DefaultPart ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | SingleQuoted | FallbackQuoted | Escape | DefaultLiteral
+DefaultLiteral ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | HASH | LETTER | DIGIT | RAW | COLON | MINUS | EQUAL | LBRACE | DOLLAR | QUESTION | LF
+DoubleDefaultValue ::= DoubleDefaultPart*
+DoubleDefaultPart ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | FallbackQuoted | DefaultBraceEscape | DoubleEscape | DoubleSlash | DoubleDefaultLiteral
+DoubleDefaultLiteral ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | HASH | LETTER | DIGIT | RAW | COLON | MINUS | EQUAL | LBRACE | SQUOTE | DOLLAR | QUESTION | LF
+/* In an enclosing double quote, escaped } belongs to the fallback while
+   retaining its backslash, matching the native Bash selected profile. */
+DefaultBraceEscape ::= BACKSLASH RBRACE
+FallbackQuoted ::= DQUOTE FallbackDoublePart* DQUOTE
+FallbackDoublePart ::= ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | DoubleEscape | DoubleSlash | FallbackDoubleLiteral
+FallbackDoubleLiteral ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | HASH | LETTER | DIGIT | RAW | COLON | MINUS | EQUAL | LBRACE | RBRACE | SQUOTE | DOLLAR | QUESTION | LF
+SingleQuoted ::= SQUOTE SinglePiece* SQUOTE
+SinglePiece ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | SUBSTITUTION_DOLLAR | COLON | MINUS | BRACED_DOLLAR | HASH | RAW | LETTER | DIGIT | EQUAL | LBRACE | RBRACE | DOLLAR | QUESTION | DQUOTE | BACKSLASH | BACKTICK | LF
+DoubleQuoted ::= DQUOTE DoublePiece* DQUOTE
+DoublePiece ::= CommandSubstitution | PrefixParameter | SuffixParameter | DoubleDefaultParameter | ParameterLength | BracedStatusParameter | BracedNamedParameter | StatusParameter | NamedParameter | OpaqueBraced | DoubleEscape | DoubleSlash | DoubleLiteral
+DoubleEscape ::= EscapeMarker DoubleEscapedCharacter
+DoubleEscapedCharacter ::= CAPTURE_CONTROL | SUBSTITUTION_DOLLAR | BRACED_DOLLAR | DOLLAR | BACKTICK | DQUOTE | BACKSLASH | LF
+DoubleSlash ::= BACKSLASH
+DoubleLiteral ::= CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | COLON | MINUS | BRACED_DOLLAR | HASH | RAW | LETTER | DIGIT | EQUAL | LBRACE | RBRACE | SQUOTE | DOLLAR | QUESTION | BACKTICK | LF
+/* Unsupported braced forms remain opaque, including nested/unfinished text.
+   Stop at the enclosing quote; escaped quotes retain normal double escaping. */
+OpaqueBraced ::= CompleteOpaqueBraced | BRACED_DOLLAR LBRACE BracedPiece* RBRACE?
+/* A complete unsupported expression owns its inner quotes as literal data;
+   an unfinished expression retains the legacy enclosing-quote boundary. */
+CompleteOpaqueBraced ::= BRACED_DOLLAR LBRACE CompleteBracedPiece* RBRACE
+CompleteBracedPiece ::= CAPTURE_CONTROL | CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | SUBSTITUTION_DOLLAR | CompleteBracedNested | OpaqueQuoted | COLON | MINUS | BRACED_DOLLAR | HASH | DoubleEscape | DoubleSlash | RAW | LETTER | DIGIT | EQUAL | SQUOTE | DOLLAR | QUESTION | BACKTICK | LF
+CompleteBracedNested ::= LBRACE CompleteBracedPiece* RBRACE
+OpaqueQuoted ::= DQUOTE OpaqueQuotedPiece* DQUOTE
+OpaqueQuotedPiece ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | SUBSTITUTION_DOLLAR | COLON | MINUS | BRACED_DOLLAR | HASH | DoubleEscape | DoubleSlash | RAW | LETTER | DIGIT | EQUAL | SQUOTE | LBRACE | RBRACE | DOLLAR | QUESTION | BACKTICK | LF
+BracedPiece ::= CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | SUBSTITUTION_DOLLAR | COLON | MINUS | BRACED_DOLLAR | HASH | BracedNested | DoubleEscape | DoubleSlash | RAW | LETTER | DIGIT | EQUAL | SQUOTE | DOLLAR | QUESTION | BACKTICK | LF
+BracedNested ::= LBRACE BracedPiece* RBRACE?
+Escape ::= EscapeMarker EscapedCharacter
+EscapeMarker ::= BACKSLASH
+EscapedCharacter ::= CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | SUBSTITUTION_DOLLAR | COLON | MINUS | BRACED_DOLLAR | HASH | RAW | LETTER | DIGIT | EQUAL | LBRACE | RBRACE | SQUOTE | DQUOTE | DOLLAR | QUESTION | BACKSLASH | BACKTICK | LF
+Plain ::= CAPTURE_CONTROL | CAPTURE_OPEN | CAPTURE_CLOSE | CAPTURE_SPACE | PERCENT | PLUS | COLON | MINUS | BRACED_DOLLAR | HASH | LETTER | DIGIT | RAW | EQUAL | LBRACE | RBRACE | DOLLAR | QUESTION | BACKTICK | LF
+
+<?TOKENS?>
+EOF ::= $
+CAPTURE_OPEN ::= #x28
+CAPTURE_CLOSE ::= #x29
+CAPTURE_SPACE ::= #x20 | #x9
+CAPTURE_CONTROL ::= #x26 | #x3B | #x3C | #x3E 
+LETTER ::= [A-Za-z_]
+DIGIT ::= [0-9]
+EQUAL ::= #x3D
+HASH ::= #x23
+LBRACE ::= #x7B
+RBRACE ::= #x7D
+BRACED_DOLLAR ::= #x24 & #x7B
+SUBSTITUTION_DOLLAR ::= #x24 & #x28
+DOLLAR ::= #x24
+COLON ::= #x3A
+MINUS ::= #x2D
+PLUS ::= #x2B
+PERCENT ::= #x25
+QUESTION ::= #x3F
+SQUOTE ::= #x27
+DQUOTE ::= #x22
+BACKSLASH ::= #x5C
+BACKTICK ::= #x60
+LF ::= #xA
+RAW ::= [#x0-#x8] | [#xB-#x1F] | #x21 | #x2A | #x2C | [#x2E-#x2F]
+      | #x40 | #x5B | [#x5D-#x5E] 
+      | [#x7E-#xD7FF] | [#xE000-#x10FFFF]
+
+BRACED_DOLLAR << DOLLAR
+SUBSTITUTION_DOLLAR << DOLLAR

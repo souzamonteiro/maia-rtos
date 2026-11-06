@@ -1,0 +1,9 @@
+[submodule "tools/maiacc"]
+	path = tools/maiacc
+	url = https://github.com/souzamonteiro/maiacc.git
+[submodule "lib/maiaglob"]
+	path = lib/maiaglob
+	url = https://github.com/souzamonteiro/maiaglob.git
+[submodule "lib/maiaregex"]
+	path = lib/maiaregex
+	url = https://github.com/souzamonteiro/maiaregex.git

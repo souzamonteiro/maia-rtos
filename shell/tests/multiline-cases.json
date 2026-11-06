@@ -1,0 +1,205 @@
+[
+  {
+    "source": "if true\nthen\necho yes\nfi",
+    "output": "yes\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "if false\nthen :\nelse echo selected\nfi",
+    "output": "selected\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "if false; then :\nelif true; then echo selected\nelse :\nfi",
+    "output": "selected\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "if false; then :\nelif false; then :\nelif true; then echo selected\nfi",
+    "output": "selected\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "for N in a b\ndo\necho \"$N\"\ndone",
+    "output": "a\nb\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "N=aa\nwhile test -n \"$N\"\ndo\necho \"$N\"; N=${N#a}\ndone",
+    "output": "aa\na\n",
+    "status": 0,
+    "spans": [
+      1,
+      4
+    ]
+  },
+  {
+    "source": "N=aa\nuntil test -z \"$N\"\ndo\necho \"$N\"; N=${N#a}\ndone",
+    "output": "aa\na\n",
+    "status": 0,
+    "spans": [
+      1,
+      4
+    ]
+  },
+  {
+    "source": "for N in a b; do\nif test \"$N\" = b; then break; fi\necho \"$N\"\ndone",
+    "output": "a\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "for N in a b; do\nif test \"$N\" = a; then continue; fi\necho \"$N\"\ndone",
+    "output": "b\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "for N in a; do\n! if true; then ! break; fi\ndone",
+    "output": "",
+    "status": 0,
+    "spans": [
+      3
+    ]
+  },
+  {
+    "source": "! for N in a; do\n! if true; then break; fi\ndone",
+    "output": "",
+    "status": 0,
+    "dash": 1,
+    "spans": [
+      3
+    ]
+  },
+  {
+    "source": "if true # condition\nthen # branch\necho ação\nfi # complete",
+    "output": "ação\n",
+    "status": 0,
+    "spans": [
+      4
+    ]
+  },
+  {
+    "source": "if true\n# comment\n\nthen\n\necho yes\n# tail\nfi",
+    "output": "yes\n",
+    "status": 0,
+    "spans": [
+      8
+    ]
+  },
+  {
+    "source": "false &&\necho NEVER\necho selected",
+    "output": "selected\n",
+    "status": 0,
+    "spans": [
+      2,
+      1
+    ]
+  },
+  {
+    "source": "false ||\necho selected",
+    "output": "selected\n",
+    "status": 0,
+    "spans": [
+      2
+    ]
+  },
+  {
+    "source": "echo first;\necho second",
+    "output": "first\nsecond\n",
+    "status": 0,
+    "spans": [
+      1,
+      1
+    ]
+  },
+  {
+    "source": "false\n# comment\nreturn",
+    "output": "",
+    "status": 1,
+    "spans": [
+      1,
+      1,
+      1
+    ]
+  },
+  {
+    "source": "! if true\nthen ! return 7\nfi\necho NEVER",
+    "output": "",
+    "status": 7,
+    "spans": [
+      3,
+      1
+    ]
+  },
+  {
+    "source": "for N in a; do\n! if true; then ! return 7; fi\ndone\necho NEVER",
+    "output": "",
+    "status": 7,
+    "spans": [
+      3,
+      1
+    ]
+  },
+  {
+    "source": "if true\nthen echo \"two words\"\nfi\necho after",
+    "output": "two words\nafter\n",
+    "status": 0,
+    "spans": [
+      3,
+      1
+    ]
+  },
+  {
+    "source": "if true\nthen false\nfi",
+    "output": "",
+    "status": 1,
+    "spans": [
+      3
+    ]
+  },
+  {
+    "source": "! if false\nthen echo NEVER\nfi",
+    "output": "",
+    "status": 1,
+    "spans": [
+      3
+    ]
+  },
+  {
+    "source": "if true\nthen echo yes\nfi && echo after",
+    "output": "yes\nafter\n",
+    "status": 0,
+    "spans": [
+      3
+    ]
+  },
+  {
+    "source": "if true\r\nthen\r\necho yes\r\nfi",
+    "output": "yes\n",
+    "status": 0,
+    "reference": false,
+    "spans": [
+      4
+    ]
+  }
+]

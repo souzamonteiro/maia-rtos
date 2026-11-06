@@ -1,0 +1,4863 @@
+[
+  {
+    "args": [],
+    "status": 1,
+    "operation": "Empty",
+    "negated": false
+  },
+  {
+    "args": [
+      ""
+    ],
+    "status": 1,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "x"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "!"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "-n"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "--"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "["
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "]"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "999999999999999999999"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "ação"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "ã"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "😄"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "; | $X \" \\ \n"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      ""
+    ],
+    "status": 0,
+    "operation": "NegatedTruth",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "x"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "!"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-n"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true
+  },
+  {
+    "args": [
+      "-n",
+      ""
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-n",
+      "x"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-n",
+      "!"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-n",
+      "-n"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-n",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-z",
+      ""
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-z",
+      "x"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-z",
+      "!"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-z",
+      "-n"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "-z",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "a"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "a"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "a",
+      "!=",
+      "a"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "!=",
+      "a"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "b"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "b"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "a",
+      "!=",
+      "b"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "!=",
+      "b"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "=",
+      "!"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "=",
+      "!"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "!=",
+      "!"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "!=",
+      "!"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "ã",
+      "=",
+      "ã"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "ã",
+      "=",
+      "ã"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "ã",
+      "!=",
+      "ã"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "ã",
+      "!=",
+      "ã"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "ação",
+      "=",
+      "ação"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "ação",
+      "=",
+      "ação"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "ação",
+      "!=",
+      "ação"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "ação",
+      "!=",
+      "ação"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "😄",
+      "=",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "😄",
+      "=",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "😄",
+      "!=",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "😄",
+      "!=",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "x y",
+      "=",
+      "x y"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "x y",
+      "=",
+      "x y"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "x y",
+      "!=",
+      "x y"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "x y",
+      "!=",
+      "x y"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "",
+      "=",
+      ""
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "",
+      "=",
+      ""
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "",
+      "!=",
+      ""
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "",
+      "!=",
+      ""
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "*",
+      "=",
+      "abc"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "*",
+      "=",
+      "abc"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "*",
+      "!=",
+      "abc"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "*",
+      "!=",
+      "abc"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "\"\\\n; | $X",
+      "=",
+      "\"\\\n; | $X"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "\"\\\n; | $X",
+      "=",
+      "\"\\\n; | $X"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "\"\\\n; | $X",
+      "!=",
+      "\"\\\n; | $X"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "\"\\\n; | $X",
+      "!=",
+      "\"\\\n; | $X"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      ""
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      "x"
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      "!"
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      ""
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      "x"
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      "!"
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-le",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-le",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-le",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-le",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483647",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-eq",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-eq",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-ne",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-ne",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-lt",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-lt",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-le",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-le",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-gt",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-gt",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "+10",
+      "-ge",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-ge",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-eq",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-eq",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-ne",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-ne",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-lt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-lt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-le",
+      "0"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-le",
+      "0"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-gt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-gt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "-0",
+      "-ge",
+      "0"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-ge",
+      "0"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-eq",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-eq",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-ne",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-ne",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-lt",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-lt",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-le",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-le",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-gt",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-gt",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2",
+      "-ge",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-ge",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-eq",
+      "1"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-eq",
+      "1"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-ne",
+      "1"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-ne",
+      "1"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-lt",
+      "1"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-lt",
+      "1"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-le",
+      "1"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-le",
+      "1"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-gt",
+      "1"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-gt",
+      "1"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "2",
+      "-ge",
+      "1"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-ge",
+      "1"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-eq",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-eq",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ne",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ne",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-lt",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-lt",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-le",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-le",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-gt",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-gt",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ge",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ge",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-eq",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-eq",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ne",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ne",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-lt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-lt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-le",
+      "0"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-le",
+      "0"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-gt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-gt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ge",
+      "0"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ge",
+      "0"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true
+  },
+  {
+    "args": [
+      "2147483648",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "2147483648",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "2147483648",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "2147483648",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "2147483648",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "2147483648",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false
+  },
+  {
+    "args": [
+      "",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "+",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "-",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      " 1",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "1 ",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "0x10",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "0o10",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "1.0",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "1\n",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "one",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x",
+      "???",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x",
+      "-a",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x",
+      "==",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "-f",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "!",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "a",
+      "extra"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [],
+    "status": 1,
+    "operation": "Empty",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      ""
+    ],
+    "status": 1,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "x"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "--"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "["
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "]"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "999999999999999999999"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "ação"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "ã"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "😄"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "; | $X \" \\ \n"
+    ],
+    "status": 0,
+    "operation": "Truth",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      ""
+    ],
+    "status": 0,
+    "operation": "NegatedTruth",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "x"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-n"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "NegatedTruth",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n",
+      ""
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n",
+      "x"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n",
+      "!"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n",
+      "-n"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-n",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-z",
+      ""
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-z",
+      "x"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-z",
+      "!"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-z",
+      "-n"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-z",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "a"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "a"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "a",
+      "!=",
+      "a"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "!=",
+      "a"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "b"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "b"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "a",
+      "!=",
+      "b"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "!=",
+      "b"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "=",
+      "!"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "=",
+      "!"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!=",
+      "!"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "!=",
+      "!"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "ã",
+      "=",
+      "ã"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "ã",
+      "=",
+      "ã"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "ã",
+      "!=",
+      "ã"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "ã",
+      "!=",
+      "ã"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "ação",
+      "=",
+      "ação"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "ação",
+      "=",
+      "ação"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "ação",
+      "!=",
+      "ação"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "ação",
+      "!=",
+      "ação"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "😄",
+      "=",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "😄",
+      "=",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "😄",
+      "!=",
+      "😄"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "😄",
+      "!=",
+      "😄"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "x y",
+      "=",
+      "x y"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "x y",
+      "=",
+      "x y"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "x y",
+      "!=",
+      "x y"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "x y",
+      "!=",
+      "x y"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "",
+      "=",
+      ""
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "",
+      "=",
+      ""
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "",
+      "!=",
+      ""
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "",
+      "!=",
+      ""
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "*",
+      "=",
+      "abc"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "*",
+      "=",
+      "abc"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "*",
+      "!=",
+      "abc"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "*",
+      "!=",
+      "abc"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "\"\\\n; | $X",
+      "=",
+      "\"\\\n; | $X"
+    ],
+    "status": 0,
+    "operation": "EqualOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "\"\\\n; | $X",
+      "=",
+      "\"\\\n; | $X"
+    ],
+    "status": 1,
+    "operation": "EqualOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "\"\\\n; | $X",
+      "!=",
+      "\"\\\n; | $X"
+    ],
+    "status": 1,
+    "operation": "UnequalOperator",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "\"\\\n; | $X",
+      "!=",
+      "\"\\\n; | $X"
+    ],
+    "status": 0,
+    "operation": "UnequalOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      ""
+    ],
+    "status": 0,
+    "operation": "NonemptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      "x"
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-n",
+      "!"
+    ],
+    "status": 1,
+    "operation": "NonemptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      ""
+    ],
+    "status": 1,
+    "operation": "EmptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      "x"
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-z",
+      "!"
+    ],
+    "status": 0,
+    "operation": "EmptyOperator",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-le",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-le",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-eq",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-ne",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-lt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-le",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-le",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-gt",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483647",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2147483647",
+      "-ge",
+      "2147483647"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-eq",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-eq",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-ne",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-ne",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-lt",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-lt",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-le",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-le",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-gt",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-gt",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "+10",
+      "-ge",
+      "0010"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "+10",
+      "-ge",
+      "0010"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-eq",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-eq",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-ne",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-ne",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-lt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-lt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-le",
+      "0"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-le",
+      "0"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-gt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-gt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-0",
+      "-ge",
+      "0"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-0",
+      "-ge",
+      "0"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-eq",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-eq",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-ne",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-ne",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-lt",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-lt",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-le",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-le",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-gt",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-gt",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2",
+      "-ge",
+      "-10"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2",
+      "-ge",
+      "-10"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-eq",
+      "1"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-eq",
+      "1"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-ne",
+      "1"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-ne",
+      "1"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-lt",
+      "1"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-lt",
+      "1"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-le",
+      "1"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-le",
+      "1"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-gt",
+      "1"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-gt",
+      "1"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2",
+      "-ge",
+      "1"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "2",
+      "-ge",
+      "1"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-eq",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-eq",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ne",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ne",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-lt",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-lt",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-le",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-le",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-gt",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-gt",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483648",
+      "-ge",
+      "-2147483648"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "-2147483648",
+      "-ge",
+      "-2147483648"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-eq",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-eq",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ne",
+      "0"
+    ],
+    "status": 1,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ne",
+      "0"
+    ],
+    "status": 0,
+    "operation": "NumericUnequal",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-lt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-lt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Less",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-le",
+      "0"
+    ],
+    "status": 0,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-le",
+      "0"
+    ],
+    "status": 1,
+    "operation": "LessEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-gt",
+      "0"
+    ],
+    "status": 1,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-gt",
+      "0"
+    ],
+    "status": 0,
+    "operation": "Greater",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ge",
+      "0"
+    ],
+    "status": 0,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "-ge",
+      "0"
+    ],
+    "status": 1,
+    "operation": "GreaterEqual",
+    "negated": true,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "2147483648",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "2147483648"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-2147483649",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "-2147483649"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-eq",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-eq",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "NumericEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-ne",
+      "0"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ne",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "NumericUnequal",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-lt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-lt",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "Less",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-le",
+      "0"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-le",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "LessEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-gt",
+      "0"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-gt",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "Greater",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "-ge",
+      "0"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0",
+      "-ge",
+      "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "status": 2,
+    "operation": "GreaterEqual",
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "+",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      " 1",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "1 ",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0x10",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "0o10",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "1.0",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "1\n",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "one",
+      "-eq",
+      "1"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "x",
+      "???",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "x",
+      "-a",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "x",
+      "==",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "-f",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "x",
+      "y"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "!",
+      "!",
+      "x"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [
+      "!",
+      "a",
+      "=",
+      "a",
+      "extra"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false,
+    "command": "["
+  },
+  {
+    "args": [],
+    "command": "[",
+    "close": false,
+    "after": [],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x"
+    ],
+    "command": "[",
+    "close": false,
+    "after": [],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "-n",
+      "x"
+    ],
+    "command": "[",
+    "close": false,
+    "after": [],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "a",
+      "=",
+      "b"
+    ],
+    "command": "[",
+    "close": false,
+    "after": [],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x"
+    ],
+    "command": "[",
+    "close": true,
+    "after": [
+      "extra"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [],
+    "command": "[",
+    "close": true,
+    "after": [
+      "extra"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  },
+  {
+    "args": [
+      "x"
+    ],
+    "command": "[",
+    "close": true,
+    "after": [
+      "]"
+    ],
+    "status": 2,
+    "operation": null,
+    "negated": false
+  }
+]

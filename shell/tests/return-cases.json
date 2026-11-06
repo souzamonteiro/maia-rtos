@@ -1,0 +1,237 @@
+[
+  {
+    "source": "return",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "false; return",
+    "status": 1,
+    "output": ""
+  },
+  {
+    "source": "false; return $?",
+    "status": 1,
+    "output": ""
+  },
+  {
+    "source": "return 0",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "return 7",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "return 255",
+    "status": 255,
+    "output": ""
+  },
+  {
+    "source": "return 007",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "return 000000255",
+    "status": 255,
+    "output": ""
+  },
+  {
+    "source": "N=7; return \"$N\"",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "N=7; return $N",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "if false; then return 7; else return 9; fi",
+    "status": 9,
+    "output": ""
+  },
+  {
+    "source": "if false; then :; elif true; then return 8; fi",
+    "status": 8,
+    "output": ""
+  },
+  {
+    "source": "false && return 7; echo selected",
+    "status": 0,
+    "output": "selected\nNEVER\n"
+  },
+  {
+    "source": "true || return 7; echo selected",
+    "status": 0,
+    "output": "selected\nNEVER\n"
+  },
+  {
+    "source": "return 7 > /tmp/maia-return-preparation-output",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "for N in a b; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "for N in a b; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "for N in a b; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "for N in a b; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! for N in a b; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! for N in a b; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! for N in a b; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! for N in a b; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "while true; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "while true; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "while true; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "while true; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! while true; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! while true; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! while true; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! while true; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "until false; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "until false; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "until false; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "until false; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! until false; do if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! until false; do if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! until false; do ! if true; then return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! until false; do ! if true; then ! return 7; fi; done",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "if true; then return 0; fi",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "if true; then return 7; fi",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "if true; then ! return 0; fi",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "if true; then ! return 7; fi",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! if true; then return 0; fi",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "! if true; then return 7; fi",
+    "status": 7,
+    "output": ""
+  },
+  {
+    "source": "! if true; then ! return 0; fi",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "source": "! if true; then ! return 7; fi",
+    "status": 7,
+    "output": ""
+  }
+]

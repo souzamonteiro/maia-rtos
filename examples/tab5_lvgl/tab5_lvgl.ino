@@ -1,6 +1,7 @@
 #include <M5Unified.h>
 #include <Wire.h>
 #include <lvgl.h>
+#include "maia_shell.h"
 
 #define TAB5_KEYBOARD_ADDR 0x6D
 #define KEYBOARD_SDA 0
@@ -50,48 +51,28 @@ static void my_touch_read(lv_indev_t *indev, lv_indev_data_t *data) {
     }
 }
 
+static MaiaShell shell;
+
+static void shell_out(const char *s) {
+    if (term_textarea && s) {
+        lv_textarea_add_text(term_textarea, s);
+    }
+    Serial.print(s);
+}
+
 // Shell command execution
 static void execute_shell_cmd(const char *cmd, bool from_button = false) {
     if (from_button) {
         lv_textarea_add_text(term_textarea, cmd);
+        Serial.println(cmd);
     }
     lv_textarea_add_text(term_textarea, "\n");
+    Serial.println();
 
-    if (strcmp(cmd, "help") == 0) {
-        lv_textarea_add_text(term_textarea,
-            "MaiaRTOS VTX Terminal Commands:\n"
-            "  help    - Show available commands\n"
-            "  ps      - List running kernel tasks\n"
-            "  mem     - Report PSRAM and L2 SRAM memory\n"
-            "  clear   - Clear terminal window\n"
-            "  uname   - Print kernel identification\n");
-    } else if (strcmp(cmd, "ps") == 0) {
-        lv_textarea_add_text(term_textarea,
-            "PID  NAME          PRI  STATE    STACK_FREE\n"
-            "  0  idle_cpu0       0  READY    3840 B\n"
-            "  1  idle_cpu1       0  READY    3840 B\n"
-            "  2  kernel_sched   15  RUNNING  7680 B\n"
-            "  3  maia_shell      8  READY    7120 B\n"
-            "  4  lvgl_gui       10  RUNNING 15360 B\n");
-    } else if (strcmp(cmd, "mem") == 0) {
-        char buf[160];
-        snprintf(buf, sizeof(buf),
-            "Memory Statistics (ESP32-P4):\n"
-            "  PSRAM Total:    %u MB\n"
-            "  PSRAM Free:     %u MB\n"
-            "  Internal SRAM:  %u KB\n",
-            (unsigned int)(ESP.getPsramSize() / (1024 * 1024)),
-            (unsigned int)(ESP.getFreePsram() / (1024 * 1024)),
-            (unsigned int)(ESP.getFreeHeap() / 1024));
-        lv_textarea_add_text(term_textarea, buf);
-    } else if (strcmp(cmd, "uname") == 0) {
-        lv_textarea_add_text(term_textarea, "MaiaRTOS 0.1.0-alpha (ESP32-P4 Dual-Core RISC-V @ 400MHz, M5Stack Tab5)\n");
-    } else if (strcmp(cmd, "clear") == 0) {
+    if (strcmp(cmd, "clear") == 0) {
         lv_textarea_set_text(term_textarea, "MaiaRTOS VTX Terminal (M5Stack Tab5 ST7121 1280x720)\n");
-    } else if (strlen(cmd) > 0) {
-        lv_textarea_add_text(term_textarea, "maia: command not found: ");
-        lv_textarea_add_text(term_textarea, cmd);
-        lv_textarea_add_text(term_textarea, "\n");
+    } else {
+        shell.execute(cmd);
     }
 
     lv_textarea_add_text(term_textarea, "maia$ ");
@@ -243,6 +224,7 @@ static void btn_event_cb(lv_event_t *e) {
 
 void setup() {
     Serial.begin(115200);
+    shell.init(shell_out);
 
     // 1. Initialize M5Unified
     auto cfg = M5.config();

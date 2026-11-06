@@ -1,0 +1,80 @@
+/* Private final-argv transport: every complete UTF-8 argument ends in NUL.
+   Finite group levels bound generated descent; semantic evaluation owns values. */
+Input ::= Expression0 EOF
+Expression0 ::= Or0
+Or0 ::= And0 (OrOperator And0)*
+And0 ::= Relation0 (AndOperator Relation0)*
+Relation0 ::= Sum0 ((Equal | Unequal | Less | LessEqual | Greater | GreaterEqual) Sum0)*
+Sum0 ::= Product0 ((Add | Subtract) Product0)*
+Product0 ::= Match0 ((Multiply | Divide | Remainder) Match0)*
+Match0 ::= Primary0 (MatchOperator Pattern)*
+Primary0 ::= OPEN Expression1 CLOSE | Value
+Expression1 ::= Or1
+Or1 ::= And1 (OrOperator And1)*
+And1 ::= Relation1 (AndOperator Relation1)*
+Relation1 ::= Sum1 ((Equal | Unequal | Less | LessEqual | Greater | GreaterEqual) Sum1)*
+Sum1 ::= Product1 ((Add | Subtract) Product1)*
+Product1 ::= Match1 ((Multiply | Divide | Remainder) Match1)*
+Match1 ::= Primary1 (MatchOperator Pattern)*
+Primary1 ::= OPEN Expression2 CLOSE | Value
+Expression2 ::= Or2
+Or2 ::= And2 (OrOperator And2)*
+And2 ::= Relation2 (AndOperator Relation2)*
+Relation2 ::= Sum2 ((Equal | Unequal | Less | LessEqual | Greater | GreaterEqual) Sum2)*
+Sum2 ::= Product2 ((Add | Subtract) Product2)*
+Product2 ::= Match2 ((Multiply | Divide | Remainder) Match2)*
+Match2 ::= Primary2 (MatchOperator Pattern)*
+Primary2 ::= OPEN Expression3 CLOSE | Value
+Expression3 ::= Or3
+Or3 ::= And3 (OrOperator And3)*
+And3 ::= Relation3 (AndOperator Relation3)*
+Relation3 ::= Sum3 ((Equal | Unequal | Less | LessEqual | Greater | GreaterEqual) Sum3)*
+Sum3 ::= Product3 ((Add | Subtract) Product3)*
+Product3 ::= Match3 ((Multiply | Divide | Remainder) Match3)*
+Match3 ::= Primary3 (MatchOperator Pattern)*
+Primary3 ::= OPEN Expression4 CLOSE | Value
+Expression4 ::= Or4
+Or4 ::= And4 (OrOperator And4)*
+And4 ::= Relation4 (AndOperator Relation4)*
+Relation4 ::= Sum4 ((Equal | Unequal | Less | LessEqual | Greater | GreaterEqual) Sum4)*
+Sum4 ::= Product4 ((Add | Subtract) Product4)*
+Product4 ::= Match4 ((Multiply | Divide | Remainder) Match4)*
+Match4 ::= Primary4 (MatchOperator Pattern)*
+Primary4 ::= Value | DepthOverflow
+DepthOverflow ::= OPEN
+OrOperator ::= OR
+AndOperator ::= AND
+Equal ::= EQ
+Unequal ::= NE
+Less ::= LT
+LessEqual ::= LE
+Greater ::= GT
+GreaterEqual ::= GE
+Add ::= PLUS
+Subtract ::= MINUS
+Multiply ::= STAR
+Divide ::= SLASH
+Remainder ::= PERCENT
+MatchOperator ::= COLON
+Value ::= DECIMAL | VALUE
+Pattern ::= OPEN | CLOSE | OR | AND | EQ | NE | LT | LE | GT | GE | PLUS | MINUS | STAR | SLASH | PERCENT | COLON | DECIMAL | VALUE
+<?TOKENS?>
+EOF ::= $
+OPEN ::= '(' #x0
+CLOSE ::= ')' #x0
+OR ::= '|' #x0
+AND ::= '&' #x0
+EQ ::= '=' #x0
+NE ::= '!=' #x0
+LE ::= '<=' #x0
+GE ::= '>=' #x0
+LT ::= '<' #x0
+GT ::= '>' #x0
+PLUS ::= '+' #x0
+MINUS ::= '-' #x0
+STAR ::= '*' #x0
+SLASH ::= '/' #x0
+PERCENT ::= '%' #x0
+COLON ::= ':' #x0
+DECIMAL ::= '-'? [0-9]+ #x0
+VALUE ::= [^#x0]* #x0

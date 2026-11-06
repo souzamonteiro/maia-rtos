@@ -1,0 +1,7 @@
+/* Private optional argv status frame. Spelling belongs to the generated lexer;
+   the consumer checks the numeric0..255 range after a successful parse. */
+Input ::= Status? EOF
+Status ::= DECIMAL
+<?TOKENS?>
+EOF ::= $
+DECIMAL ::= [0-9]+ #x0

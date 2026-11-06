@@ -1,0 +1,611 @@
+[
+  {
+    "source": "${NAME#*.}",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "tar.gz"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#*.}\"",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "tar.gz"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111111"
+    ]
+  },
+  {
+    "source": "${NAME##*.}",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "gz"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME##*.}\"",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "gz"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "11"
+    ]
+  },
+  {
+    "source": "${NAME#.zip}",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "arquivo.tar.gz"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#.zip}\"",
+    "value": "arquivo.tar.gz",
+    "fields": [
+      "arquivo.tar.gz"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "11111111111111"
+    ]
+  },
+  {
+    "source": "${NAME#}",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#}\"",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#*}",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#*}\"",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME##*}",
+    "value": "/a/.b",
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME##*}\"",
+    "value": "/a/.b",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#?}",
+    "value": "😄ação",
+    "fields": [
+      "ação"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#?}\"",
+    "value": "😄ação",
+    "fields": [
+      "ação"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111111"
+    ]
+  },
+  {
+    "source": "${NAME#?}",
+    "value": "ãbc",
+    "fields": [
+      "̃bc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#?}\"",
+    "value": "ãbc",
+    "fields": [
+      "̃bc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "1111"
+    ]
+  },
+  {
+    "source": "${NAME#?}",
+    "value": "😄😄",
+    "fields": [
+      "😄"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#?}\"",
+    "value": "😄😄",
+    "fields": [
+      "😄"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "1111"
+    ]
+  },
+  {
+    "source": "${NAME#\"*\"}",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\"*\"}\"",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#'*'}",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#'*'}\"",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#\\*}",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\\*}\"",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#$B}",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "b": "*"
+  },
+  {
+    "source": "\"${NAME#$B}\"",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ],
+    "b": "*"
+  },
+  {
+    "source": "${NAME#\"$B\"}",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "b": "*"
+  },
+  {
+    "source": "\"${NAME#\"$B\"}\"",
+    "value": "*abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ],
+    "b": "*"
+  },
+  {
+    "source": "${NAME##$B}",
+    "value": "/a/.b",
+    "fields": [],
+    "oracle": "/bin/bash",
+    "b": "*"
+  },
+  {
+    "source": "\"${NAME##$B}\"",
+    "value": "/a/.b",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ],
+    "b": "*"
+  },
+  {
+    "source": "${NAME#${?}}",
+    "value": "127abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "incomingStatus": 127
+  },
+  {
+    "source": "\"${NAME#${?}}\"",
+    "value": "127abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ],
+    "incomingStatus": 127
+  },
+  {
+    "source": "${NAME#${#B}}",
+    "value": "4abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "b": "ação"
+  },
+  {
+    "source": "\"${NAME#${#B}}\"",
+    "value": "4abc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ],
+    "b": "ação"
+  },
+  {
+    "source": "${NAME#[a-z]}",
+    "value": "zabc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#[a-z]}\"",
+    "value": "zabc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#[!a]}",
+    "value": "babc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#[!a]}\"",
+    "value": "babc",
+    "fields": [
+      "abc"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111"
+    ]
+  },
+  {
+    "source": "${NAME#[😄]}",
+    "value": "😄ação",
+    "fields": [
+      "ação"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#[😄]}\"",
+    "value": "😄ação",
+    "fields": [
+      "ação"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "111111"
+    ]
+  },
+  {
+    "source": "${NAME##/*}",
+    "value": "/a/.b",
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME##/*}\"",
+    "value": "/a/.b",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#x.}",
+    "value": "x.um dois",
+    "fields": [
+      "um",
+      "dois"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#x.}\"",
+    "value": "x.um dois",
+    "fields": [
+      "um dois"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "1111111"
+    ]
+  },
+  {
+    "source": "${NAME#\"\"}",
+    "value": null,
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\"\"}\"",
+    "value": null,
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#\"\"}",
+    "value": "",
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\"\"}\"",
+    "value": "",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#\"*\"}",
+    "value": "*",
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\"*\"}\"",
+    "value": "*",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#*}",
+    "value": null,
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#*}\"",
+    "value": null,
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "fields": [],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}\"",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      ""
+    ]
+  },
+  {
+    "source": "${NAME#?}",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "fields": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#?}\"",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "fields": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "oracle": "/bin/bash",
+    "masks": [
+      "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+    ]
+  },
+  {
+    "source": "\"${NAME#[}\"",
+    "value": "abc",
+    "error": 5
+  },
+  {
+    "source": "\"${NAME#[}\"",
+    "value": null,
+    "error": 5
+  },
+  {
+    "source": "\"${NAME#[/]}\"",
+    "value": "/",
+    "error": 5
+  },
+  {
+    "source": "\"${NAME#[z-a]}\"",
+    "value": "a",
+    "error": 5
+  },
+  {
+    "source": "${NAME#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "error": 3,
+    "staticError": true
+  },
+  {
+    "source": "${NAME#$B$B}",
+    "value": "x",
+    "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "error": 3
+  },
+  {
+    "source": "\"${NAME##}\"",
+    "value": "abc",
+    "fields": [
+      "abc"
+    ],
+    "masks": [
+      "111"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME###}\"",
+    "value": "##abc",
+    "fields": [
+      "#abc"
+    ],
+    "masks": [
+      "1111"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"${NAME#\\#}\"",
+    "value": "#abc",
+    "fields": [
+      "abc"
+    ],
+    "masks": [
+      "111"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "pre${NAME#x.}post",
+    "value": "x.um dois",
+    "fields": [
+      "preum",
+      "doispost"
+    ],
+    "oracle": "/bin/bash"
+  },
+  {
+    "source": "\"\"${NAME##*}",
+    "value": "abc",
+    "fields": [
+      ""
+    ],
+    "oracle": "/bin/bash"
+  }
+]

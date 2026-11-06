@@ -1,0 +1,152 @@
+[
+  {
+    "source": "for N in a b; do echo \"$N\"; done",
+    "output": "a\nb\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "N=keep; for N in; do echo NEVER; done; echo \"$N\"",
+    "output": "keep\n",
+    "status": 0,
+    "headerWords": 0
+  },
+  {
+    "source": "for N in \"\"; do printf \"<%s>\\n\" \"$N\"; done",
+    "output": "<>\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "N=before; for N in \"$N\" after; do echo \"$N\"; N=changed; done; echo \"$N\"",
+    "output": "before\nafter\nchanged\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "false; for N in \"$?\" \"$?\"; do echo \"$N\"; false; done; echo \"$?\"",
+    "output": "1\n1\n1\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in a b; do false && echo NEVER; done; echo \"$N\" \"$?\"",
+    "output": "b 1\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "! for N in a; do false; done; echo $?",
+    "output": "0\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "N=keep; true || for N in x; do N=bad; done; echo \"$N\"",
+    "output": "keep\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "for N in ação 😄; do echo \"$N\"; done",
+    "output": "ação\n😄\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in \"a b\" \"\"; do printf \"<%s>\\n\" \"$N\"; done",
+    "output": "<a b>\n<>\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in a b; do false; done",
+    "output": "",
+    "status": 1,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in; do false; done",
+    "output": "",
+    "status": 0,
+    "headerWords": 0
+  },
+  {
+    "source": "false; for N in a b; do echo \"$?\"; false; done; echo \"$?\"",
+    "output": "1\n1\n1\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "false; for N in; do :; done; echo \"$?\"",
+    "output": "0\n",
+    "status": 0,
+    "headerWords": 0
+  },
+  {
+    "source": "for N in a b; do unset N; done; echo \"${N-absent}\"",
+    "output": "absent\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in a b; do echo \"$N\"; false || echo recover; done",
+    "output": "a\nrecover\nb\nrecover\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in a b; do ! false; done; echo $?",
+    "output": "0\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "! for N in; do false; done; echo $?",
+    "output": "1\n",
+    "status": 0,
+    "headerWords": 0
+  },
+  {
+    "source": "V=\"a b\"; for N in $V; do echo \"$N\"; V=changed; done",
+    "output": "a\nb\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "V=; for N in $V; do echo NEVER; done; echo \"${N-absent}\"",
+    "output": "absent\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "V=; for N in \"$V\"; do echo \"<$N>\"; done",
+    "output": "<>\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "if true; then :; fi; for N in a b; do echo \"$N\"; done; if false; then :; fi",
+    "output": "a\nb\n",
+    "status": 0,
+    "headerWords": 2
+  },
+  {
+    "source": "for N in a; do false; done || echo recovered",
+    "output": "recovered\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "for N in a; do true; done && echo selected",
+    "output": "selected\n",
+    "status": 0,
+    "headerWords": 1
+  },
+  {
+    "source": "for N in \"test;|$?\" \"a\\b\"; do printf \"%s\\n\" \"$N\"; done",
+    "output": "test;|0\na\\b\n",
+    "status": 0,
+    "headerWords": 2
+  }
+]

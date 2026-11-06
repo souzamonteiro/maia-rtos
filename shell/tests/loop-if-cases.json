@@ -1,0 +1,117 @@
+[
+  {
+    "source": "for N in a b; do if true; then echo \"$N\"; fi; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if false; then echo NEVER; else echo \"$N\"; fi; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if false; then echo NEVER; fi; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "for N in a b c; do if test \"$N\" = b; then break; fi; echo \"$N\"; done; echo \"$N\"",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b c; do if test \"$N\" = b; then continue; fi; echo \"$N\"; done",
+    "output": "a\nc\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if false; then :; elif true; then echo \"$N\"; else :; fi; done",
+    "output": "a\nb\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if false; then :; elif true; then continue; else :; fi; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if break; then echo NEVER; fi; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if continue; then echo NEVER; fi; echo NEVER; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "N=aa; while test -n \"$N\"; do if true; then echo \"$N\"; N=${N#a}; fi; done",
+    "output": "aa\na\n",
+    "status": 0
+  },
+  {
+    "source": "N=aa; until test -z \"$N\"; do if false; then :; else echo \"$N\"; N=${N#a}; fi; done",
+    "output": "aa\na\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaa; while true; do N=${N#a}; if test \"$N\" = a; then break; else echo \"$N\"; fi; done",
+    "output": "aa\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaa; until false; do N=${N#a}; if test \"$N\" = a; then break; else echo \"$N\"; fi; done",
+    "output": "aa\n",
+    "status": 0
+  },
+  {
+    "source": "N=aaa; until test -z \"$N\"; do N=${N#a}; if test \"$N\" = a; then continue; else echo \"$N\"; fi; done",
+    "output": "aa\n\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a b; do if test \"$N\" = b; then false; else :; fi; done",
+    "output": "",
+    "status": 1
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; if true; then false; fi; done",
+    "output": "",
+    "status": 1
+  },
+  {
+    "source": "! for N in a; do if true; then break; fi; done",
+    "output": "",
+    "status": 1
+  },
+  {
+    "source": "true || for N in a; do if echo NEVER; then :; fi; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "for N in a; do false && if echo NEVER; then :; fi; echo $?; done",
+    "output": "1\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a; do if false; then :; else echo \"$?\"; fi; done",
+    "output": "1\n",
+    "status": 0
+  },
+  {
+    "source": "for N in a; do if false; then :; elif false; then :; elif true; then echo yes; fi; done",
+    "output": "yes\n",
+    "status": 0
+  },
+  {
+    "source": "while true; do if true; then break; fi; done",
+    "output": "",
+    "status": 0
+  },
+  {
+    "source": "until false; do if true; then break; fi; done",
+    "output": "",
+    "status": 0
+  }
+]

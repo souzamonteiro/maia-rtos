@@ -1,0 +1,49 @@
+/* Private argv transport: each complete UTF-8 argument ends in NUL.
+   Every arity alternative owns EOF; binary precedence is intentional. */
+Input ::= TEST (NegatedBinary | Binary | NegatedUnary | Unary | NegatedTruth | Truth | Empty) | OPEN (BracketNegatedBinary | BracketBinary | BracketNegatedUnary | BracketUnary | BracketNegatedTruth | BracketTruth | BracketEmpty)
+NegatedBinary ::= NOT Binary
+Binary ::= Value StringOperator Value EOF | Decimal NumericOperator Decimal EOF
+NegatedUnary ::= NOT Unary
+Unary ::= NonemptyOperator Value EOF | EmptyOperator Value EOF
+NegatedTruth ::= NOT Value EOF
+Truth ::= Value EOF
+Empty ::= EOF
+BracketNegatedBinary ::= NOT BracketBinary
+BracketBinary ::= Value StringOperator Value CLOSE EOF | Decimal NumericOperator Decimal CLOSE EOF
+BracketNegatedUnary ::= NOT BracketUnary
+BracketUnary ::= NonemptyOperator Value CLOSE EOF | EmptyOperator Value CLOSE EOF
+BracketNegatedTruth ::= NOT Value CLOSE EOF
+BracketTruth ::= Value CLOSE EOF
+BracketEmpty ::= CLOSE EOF
+StringOperator ::= EqualOperator | UnequalOperator
+EqualOperator ::= EQ
+UnequalOperator ::= NE
+NonemptyOperator ::= NONEMPTY
+EmptyOperator ::= EMPTY
+NumericOperator ::= NumericEqual | NumericUnequal | Less | LessEqual | Greater | GreaterEqual
+NumericEqual ::= NUM_EQ
+NumericUnequal ::= NUM_NE
+Less ::= NUM_LT
+LessEqual ::= NUM_LE
+Greater ::= NUM_GT
+GreaterEqual ::= NUM_GE
+Decimal ::= DECIMAL
+Value ::= OPEN | CLOSE | TEST | NOT | NONEMPTY | EMPTY | EQ | NE | NUM_EQ | NUM_NE | NUM_LT | NUM_LE | NUM_GT | NUM_GE | DECIMAL | VALUE
+<?TOKENS?>
+EOF ::= $
+OPEN ::= '[' #x0
+CLOSE ::= ']' #x0
+TEST ::= 'test' #x0
+NOT ::= '!' #x0
+NONEMPTY ::= '-n' #x0
+EMPTY ::= '-z' #x0
+EQ ::= '=' #x0
+NE ::= '!=' #x0
+NUM_EQ ::= '-eq' #x0
+NUM_NE ::= '-ne' #x0
+NUM_LT ::= '-lt' #x0
+NUM_LE ::= '-le' #x0
+NUM_GT ::= '-gt' #x0
+NUM_GE ::= '-ge' #x0
+DECIMAL ::= [+-]? [0-9]+ #x0
+VALUE ::= [^#x0]* #x0

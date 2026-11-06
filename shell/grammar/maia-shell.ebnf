@@ -1,0 +1,130 @@
+/* MaiaOS Shell grammar: a structural, non-POSIX phase-one subset.
+   Reserved words are globally reserved by this generated-parser profile.
+   A stateful shell lexer will later handle context-sensitive tokenization. */
+
+Input ::= Linebreak (CompleteCommand (NewlineList CompleteCommand)* NewlineList?)? EOF
+CompleteCommand ::= List SeparatorOp?
+List ::= AndOr (SeparatorOp AndOr)*
+AndOr ::= Pipeline (AndOrOperator Linebreak Pipeline)*
+AndOrOperator ::= '&&'
+                 | '||'
+Pipeline ::= '!'? Command ('|' Linebreak Command)*
+
+Command ::= SimpleCommand
+          | CompoundCommand Redirection*
+CompoundCommand ::= Subshell
+                   | BraceGroup
+                   | IfClause
+                   | WhileClause
+                   | UntilClause
+                   | ForClause
+
+SimpleCommand ::= PrefixItem* CommandName CommandTail*
+                | PrefixItem+
+PrefixItem ::= Assignment
+             | Redirection
+CommandName ::= Word
+CommandTail ::= Redirection
+              | Word
+Assignment ::= ASSIGNMENT_WORD
+
+Redirection ::= IO_NUMBER? RedirectionOperator Word
+RedirectionOperator ::= '>'
+                      | '>>'
+                      | '<'
+                      | '<>'
+                      | '>&'
+                      | '<&'
+                      | '>|'
+
+Subshell ::= '(' CompoundList ')'
+BraceGroup ::= '{' TerminatedCompoundList '}'
+IfClause ::= 'if' TerminatedCompoundList 'then' TerminatedCompoundList ('elif' TerminatedCompoundList 'then' TerminatedCompoundList)* ('else' TerminatedCompoundList)? 'fi'
+WhileClause ::= 'while' TerminatedCompoundList DoGroup
+UntilClause ::= 'until' TerminatedCompoundList DoGroup
+ForClause ::= 'for' Name (SequentialSeparator DoGroup | Linebreak ('in' WordList? SequentialSeparator)? DoGroup)
+DoGroup ::= 'do' TerminatedCompoundList 'done'
+
+/* A final simple command or redirected compound needs a separator before a
+   closing keyword/brace. An unredirected compound closes itself. Factor at
+   Command so nested successful compounds are not reparsed for alternatives. */
+TerminatedCompoundList ::= Linebreak CompoundSequence
+CompoundSequence ::= '!'? CompoundBodyCommand
+CompoundBodyCommand ::= SimpleCommand CompoundSimpleTail
+                      | CompoundCommand CompoundCompoundTail
+CompoundSimpleTail ::= '|' Linebreak CompoundBodyCommand
+                     | AndOrOperator Linebreak CompoundSequence
+                     | Separator CompoundSequence?
+CompoundCompoundTail ::= Redirection+ CompoundSimpleTail
+                       | CompoundSimpleTail?
+
+CompoundList ::= Linebreak Term Separator?
+Term ::= AndOr (Separator AndOr)*
+Separator ::= SeparatorOp
+            | NewlineList
+SeparatorOp ::= (';' | '&') Linebreak
+SequentialSeparator ::= ';' Linebreak
+                       | NewlineList
+Linebreak ::= NEWLINE*
+NewlineList ::= NEWLINE+
+WordList ::= Word+
+
+Name ::= NAME^token
+Word ::= WORD
+       | IO_NUMBER
+       | ASSIGNMENT_WORD
+
+<?TOKENS?>
+
+EOF ::= $
+NAME ::= [A-Za-z_] [A-Za-z0-9_]*
+IO_NUMBER ::= [0-9]+ & [<>]
+ASSIGNMENT_WORD ::= NAME '=' WORD?
+WORD ::= (CommandSubstitution | BracedParameter | UnquotedChar | SingleQuoted | DoubleQuoted | EscapedChar)+
+/* Finite command-substitution word transport. Child syntax/roles are owned
+   by the generated word frontend; no nested substitution or source scanning. */
+CommandSubstitution ::= #x24 #x28 CaptureSpace* CaptureWord (CaptureSpace+ CaptureWord)* CaptureSpace* #x29
+CaptureSpace ::= #x20 | #x9
+CaptureWord ::= (CaptureBraced | CaptureChar | SingleQuoted | CaptureQuoted | EscapedChar)+
+CaptureBraced ::= SimpleBracedParameter
+CaptureChar ::= [#x21] | [#x23] |  #x25 | [#x2A-#x3A] | #x3D | [#x3F-#x5B] | [#x5D-#x5F] | [#x61-#x7A] | #x7E | UnicodeChar | CaptureDollar
+CaptureDollar ::= #x24 & [^#x28#x7B]
+CaptureQuoted ::= #x22 (CaptureBraced | CaptureDollar | [^#x22#x24#x5C#x60] | EscapedChar)* #x22
+BracedParameter ::= SimpleBracedParameter | PrefixParameter | SuffixParameter | DefaultParameter
+SimpleBracedParameter ::= #x24 #x7B (NAME | #x3F | #x23 NAME) #x7D
+/* Finite lexical fragments: simple references are permitted in a fallback,
+   but a fallback never recursively includes another default operator. */
+PrefixParameter ::= #x24 #x7B NAME (#x23 #x23?) DefaultValue #x7D
+SuffixParameter ::= #x24 #x7B NAME (#x25 #x25?) DefaultValue #x7D
+DefaultParameter ::= #x24 #x7B NAME (#x3A? (#x2D | #x2B)) DefaultValue #x7D
+DoubleDefaultParameter ::= #x24 #x7B NAME (#x3A? (#x2D | #x2B)) DoubleDefaultValue #x7D
+DefaultValue ::= (SimpleBracedParameter | SingleQuoted | DefaultQuoted | EscapedChar | DefaultDollar | DefaultChar)*
+DoubleDefaultValue ::= (SimpleBracedParameter | DefaultQuoted | DefaultBraceEscape | EscapedChar | DefaultDollar | DoubleDefaultChar)*
+DefaultQuoted ::= #x22 (SimpleBracedParameter | DefaultDollar | [^#x22#x24#x5C#x60] | EscapedChar)* #x22
+DefaultDollar ::= #x24 & [^#x28#x7B]
+DefaultChar ::= [^#x22#x24#x27#x5C#x60#x7D]
+DoubleDefaultChar ::= [^#x22#x24#x5C#x60#x7D]
+DefaultBraceEscape ::= #x5C #x7D
+UnquotedChar ::= [#x21]
+               | [#x23-#x25]
+               | [#x2A-#x3A]
+               | [#x3D]
+               | [#x3F-#x5B]
+               | [#x5D-#x5F]
+               | [#x61-#x7A]
+               | [#x7E]
+               | UnicodeChar
+UnicodeChar ::= [#x80-#xD7FF]
+              | [#xE000-#x10FFFF]
+SingleQuoted ::= #x27 [^#x27]* #x27
+DoubleQuoted ::= #x22 (CommandSubstitution | PrefixParameter | SuffixParameter | DoubleDefaultParameter | [^#x22#x5C] | EscapedChar)* #x22
+EscapedChar ::= #x5C ([#x20-#x7E] | UnicodeChar)
+NEWLINE ::= #xD #xA
+          | #xA
+          | #xD
+COMMENT ::= '#' [^#xA#xD]* /* ws: definition */
+HORIZONTAL_SPACE ::= [#x20#x9#xB#xC]+ /* ws: definition */
+
+IO_NUMBER << WORD
+ASSIGNMENT_WORD << WORD
+WORD << NAME

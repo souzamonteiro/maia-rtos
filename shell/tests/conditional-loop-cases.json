@@ -1,0 +1,122 @@
+[
+  {
+    "source": "while false; do echo NEVER; done",
+    "output": "",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "until true; do echo NEVER; done",
+    "output": "",
+    "status": 0,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "N=aaa; while test -n \"$N\"; do echo \"$N\"; N=${N#a}; done",
+    "output": "aaa\naa\na\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=aaa; until test -z \"$N\"; do echo \"$N\"; N=${N#a}; done",
+    "output": "aaa\naa\na\n",
+    "status": 0,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; false; done",
+    "output": "",
+    "status": 1,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do N=; false; done",
+    "output": "",
+    "status": 1,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "false; while false; do :; done; echo $?",
+    "output": "0\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "! while false; do :; done",
+    "output": "",
+    "status": 1,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "! until true; do :; done",
+    "output": "",
+    "status": 1,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "N=a; until ! test -n \"$N\"; do echo \"$N\"; N=; done",
+    "output": "a\n",
+    "status": 0,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do echo \"$?\"; N=; done",
+    "output": "0\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=a; until test -z \"$N\"; do echo \"$?\"; N=; done",
+    "output": "1\n",
+    "status": 0,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "false; while printf \"%s\\n\" \"$?\"; false; do :; done",
+    "output": "1\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=a; while test -n \"$N\"; do N=; false; done; echo $?",
+    "output": "1\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=aa; while printf \"c%s\\n\" \"$N\"; test -n \"$N\"; do N=${N#a}; printf \"b%s\\n\" \"$N\"; done",
+    "output": "caa\nba\nca\nb\nc\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=keep; true || while true; do N=bad; done; echo \"$N\"",
+    "output": "keep\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=keep; false && until false; do N=bad; done; echo \"$N\"",
+    "output": "keep\n",
+    "status": 0,
+    "kind": "UntilClause"
+  },
+  {
+    "source": "N=aa; while test -n \"$N\" && true; do echo \"$N\"; N=${N#a}; done",
+    "output": "aa\na\n",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "if true; then :; fi; while false; do :; done",
+    "output": "",
+    "status": 0,
+    "kind": "WhileClause"
+  },
+  {
+    "source": "N=aaaaaaaaaaaa; while test -n \"$N\"; do printf x; N=${N#a}; done",
+    "output": "xxxxxxxxxxxx",
+    "status": 0,
+    "kind": "WhileClause"
+  }
+]
