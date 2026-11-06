@@ -4,10 +4,29 @@
 
 #if defined(ESP_PLATFORM)
 #include <esp_heap_caps.h>
-#include <esp_cache.h>
 #else
 #include <stdlib.h>
 #endif
+
+static inline uint32_t get_u32(const void *p) {
+    uint32_t val;
+    memcpy(&val, p, 4);
+    return val;
+}
+
+static inline void set_u32(void *p, uint32_t val) {
+    memcpy(p, &val, 4);
+}
+
+static inline uint16_t get_u16(const void *p) {
+    uint16_t val;
+    memcpy(&val, p, 2);
+    return val;
+}
+
+static inline void set_u16(void *p, uint16_t val) {
+    memcpy(p, &val, 2);
+}
 
 int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      int argc, const char *const *argv,
@@ -24,7 +43,6 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     const Elf32_Ehdr *ehdr = (const Elf32_Ehdr *)elf_data;
     const Elf32_Shdr *shdrs = (const Elf32_Shdr *)((const uint8_t *)elf_data + ehdr->e_shoff);
-    const char *shstrtab = (const char *)elf_data + shdrs[ehdr->e_shstrndx].sh_offset;
 
     // 1. Calculate size and offsets for all allocatable sections
     size_t total_alloc = 0;
@@ -55,7 +73,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     // Add extra padding to guarantee safety
     total_alloc = (total_alloc + 15) & ~15;
 
-    // 2. Allocate executable memory region
+    // 2. Allocate executable memory region in Internal L2 SRAM
     uint8_t *module_base = NULL;
 #if defined(ESP_PLATFORM)
     module_base = (uint8_t *)heap_caps_aligned_alloc(16, total_alloc, MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
@@ -118,15 +136,11 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     if (!entry_point) {
         if (log_fn) log_fn("Loader Error: Symbol 'maia_module_main' not found");
-#if defined(ESP_PLATFORM)
         free(module_base);
-#else
-        free(module_base);
-#endif
         return MNM_ERR_NO_ENTRY_POINT;
     }
 
-    // 5. Apply relocations
+    // 5. Apply relocations with unaligned-safe helpers
     for (uint16_t i = 0; i < ehdr->e_shnum; ++i) {
         const Elf32_Shdr *sh = &shdrs[i];
         if (sh->sh_type == SHT_RELA) {
@@ -159,31 +173,32 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                     case R_RISCV_RELAX:
                         break;
 
-                    case R_RISCV_32:
-                        *(uint32_t *)loc = (uint32_t)val;
+                    case R_RISCV_32: {
+                        set_u32(loc, (uint32_t)val);
                         break;
+                    }
 
                     case R_RISCV_HI20: {
                         uint32_t imm = (uint32_t)((val + 0x800) >> 12);
-                        uint32_t insn = *(uint32_t *)loc;
+                        uint32_t insn = get_u32(loc);
                         insn = (insn & 0x00000FFF) | (imm << 12);
-                        *(uint32_t *)loc = insn;
+                        set_u32(loc, insn);
                         break;
                     }
 
                     case R_RISCV_LO12_I: {
                         uint32_t imm = (uint32_t)(val & 0xFFF);
-                        uint32_t insn = *(uint32_t *)loc;
+                        uint32_t insn = get_u32(loc);
                         insn = (insn & 0x000FFFFF) | (imm << 20);
-                        *(uint32_t *)loc = insn;
+                        set_u32(loc, insn);
                         break;
                     }
 
                     case R_RISCV_LO12_S: {
                         uint32_t imm = (uint32_t)(val & 0xFFF);
-                        uint32_t insn = *(uint32_t *)loc;
+                        uint32_t insn = get_u32(loc);
                         insn = (insn & 0x01FFF07F) | ((imm & 0xFE0) << 20) | ((imm & 0x01F) << 7);
-                        *(uint32_t *)loc = insn;
+                        set_u32(loc, insn);
                         break;
                     }
 
@@ -192,40 +207,44 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                         int32_t off = (int32_t)(val - (uintptr_t)loc);
                         uint32_t hi = (uint32_t)((off + 0x800) >> 12);
                         uint32_t lo = (uint32_t)(off & 0xFFF);
-                        uint32_t *p = (uint32_t *)loc;
-                        p[0] = (p[0] & 0x00000FFF) | (hi << 12);
-                        p[1] = (p[1] & 0x000FFFFF) | (lo << 20);
+                        uint32_t insn0 = get_u32(loc);
+                        uint32_t insn1 = get_u32(loc + 4);
+                        insn0 = (insn0 & 0x00000FFF) | (hi << 12);
+                        insn1 = (insn1 & 0x000FFFFF) | (lo << 20);
+                        set_u32(loc, insn0);
+                        set_u32(loc + 4, insn1);
                         break;
                     }
 
                     case R_RISCV_BRANCH: {
                         int32_t off = (int32_t)(val - (uintptr_t)loc);
-                        uint32_t insn = *(uint32_t *)loc;
+                        uint32_t insn = get_u32(loc);
                         insn = (insn & ~0xFE000F80) |
                                (((off >> 12) & 0x1) << 31) |
                                (((off >> 5) & 0x3F) << 25) |
                                (((off >> 1) & 0xF) << 8) |
                                (((off >> 11) & 0x1) << 7);
-                        *(uint32_t *)loc = insn;
+                        set_u32(loc, insn);
                         break;
                     }
 
                     case R_RISCV_RVC_BRANCH: {
                         int32_t off = (int32_t)(val - (uintptr_t)loc);
-                        uint16_t *p16 = (uint16_t *)loc;
-                        *p16 = (*p16 & ~0x1C7C) |
+                        uint16_t insn = get_u16(loc);
+                        insn = (insn & ~0x1C7C) |
                                (((off >> 8) & 0x1) << 12) |
                                (((off >> 3) & 0x3) << 10) |
                                (((off >> 6) & 0x3) << 5) |
                                (((off >> 1) & 0x3) << 3) |
                                (((off >> 5) & 0x1) << 2);
+                        set_u16(loc, insn);
                         break;
                     }
 
                     default:
                         if (log_fn) {
                             char warn[80];
-                            snprintf(warn, sizeof(warn), "Loader Warning: Ignored relocation type %u", (unsigned int)r_type);
+                            snprintf(warn, sizeof(warn), "Loader Warning: Ignored relocation %u", (unsigned int)r_type);
                             log_fn(warn);
                         }
                         break;
@@ -234,13 +253,9 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
         }
     }
 
-    // 6. Synchronize instruction cache
+    // 6. Synchronize instruction cache barrier
 #if defined(__riscv)
     asm volatile("fence.i" ::: "memory");
-#endif
-
-#if defined(ESP_PLATFORM)
-    esp_cache_msync((void *)module_base, total_alloc, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_INVALIDATE);
 #endif
 
     // 7. Prepare module context and execute
@@ -256,7 +271,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     if (log_fn) {
         char msg[128];
-        snprintf(msg, sizeof(msg), "Loader: Invoking maia_module_main at %p...", (void *)entry_point);
+        snprintf(msg, sizeof(msg), "Loader: Executing maia_module_main at %p...", (void *)entry_point);
         log_fn(msg);
     }
 
@@ -267,12 +282,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     }
 
     // 8. Cleanup and free loaded executable memory
-#if defined(ESP_PLATFORM)
     free(module_base);
-#else
-    free(module_base);
-#endif
 
     return MNM_LOAD_OK;
 }
-

@@ -1325,12 +1325,16 @@ private:
         return 0;
     }
 
+    static OutputFn &get_global_out_cb() {
+        static OutputFn s_cb = nullptr;
+        return s_cb;
+    }
+
     int cmd_runelf(int argc, char **argv) {
         println("=== MaiaRTOS Native RISC-V ELF Execution ===");
         println("Loading Module: hello.mobj (RV32IMAFCP @ ESP32-P4)");
 
-        static MaiaShell *s_cur_shell = nullptr;
-        s_cur_shell = this;
+        get_global_out_cb() = this->output_cb;
 
         maia_host_api_v1 host_api;
         memset(&host_api, 0, sizeof(host_api));
@@ -1339,11 +1343,17 @@ private:
         host_api.abi_minor = MAIA_HOST_ABI_MINOR;
         host_api.write_fd = [](maia_handle_t fd, const void *buf, uint32_t n) -> int32_t {
             (void)fd;
-            if (s_cur_shell && buf && n > 0) {
+            OutputFn out_cb = get_global_out_cb();
+            if (out_cb && buf && n > 0) {
                 const char *p = (const char *)buf;
-                for (uint32_t i = 0; i < n; ++i) {
-                    char ch[2] = {p[i], '\0'};
-                    s_cur_shell->print(ch);
+                char tmp[128];
+                while (n > 0) {
+                    size_t c = (n < sizeof(tmp) - 1) ? n : (sizeof(tmp) - 1);
+                    memcpy(tmp, p, c);
+                    tmp[c] = '\0';
+                    out_cb(tmp);
+                    p += c;
+                    n -= c;
                 }
             }
             return (int32_t)n;
@@ -1354,7 +1364,11 @@ private:
                                    argc, (const char *const *)argv,
                                    &host_api, &exit_code,
                                    [](const char *msg) {
-                                       if (s_cur_shell) s_cur_shell->println(msg);
+                                       OutputFn out_cb = get_global_out_cb();
+                                       if (out_cb && msg) {
+                                           out_cb(msg);
+                                           out_cb("\n");
+                                       }
                                    });
 
         if (res == MNM_LOAD_OK) {
