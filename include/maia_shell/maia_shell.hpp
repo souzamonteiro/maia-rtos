@@ -729,6 +729,31 @@ public:
         size_t len;
     };
 
+    struct PipeStaging {
+        char *buf;
+        size_t len;
+        size_t pos;
+    };
+
+    static PipeStaging &get_global_pipe_in() {
+        static PipeStaging s_pipe_in = { nullptr, 0, 0 };
+        return s_pipe_in;
+    }
+
+    static bool pipe_read_line(char *line_buf, size_t line_max) {
+        PipeStaging &p = get_global_pipe_in();
+        if (!p.buf || p.pos >= p.len) return false;
+        size_t li = 0;
+        while (p.pos < p.len && li < line_max - 1) {
+            char c = p.buf[p.pos++];
+            if (c == '\r') continue;
+            if (c == '\n') break;
+            line_buf[li++] = c;
+        }
+        line_buf[li] = '\0';
+        return true;
+    }
+
     static RedirStaging &get_global_redir_stage() {
         static RedirStaging s_stage = { nullptr, 0, 0 };
         return s_stage;
@@ -902,6 +927,9 @@ public:
         else if (strcmp(cmd, "cd") == 0)     ret = cmd_cd(argc, argv);
         else if (strcmp(cmd, "ls") == 0)     ret = cmd_ls(argc, argv);
         else if (strcmp(cmd, "cat") == 0)    ret = cmd_cat(argc, argv);
+        else if (strcmp(cmd, "grep") == 0)   ret = cmd_grep(argc, argv);
+        else if (strcmp(cmd, "head") == 0)   ret = cmd_head(argc, argv);
+        else if (strcmp(cmd, "wc") == 0)     ret = cmd_wc(argc, argv);
         else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0)  ret = cmd_clear(argc, argv);
         else if (strcmp(cmd, "color") == 0)  ret = cmd_color(argc, argv);
         else if (strcmp(cmd, "basename") == 0) ret = cmd_basename(argc, argv);
@@ -1094,6 +1122,133 @@ public:
         return -1;
     }
 
+    int execute_pipeline(const char *cmd_line) {
+        if (!cmd_line || !*cmd_line) return 0;
+
+        // Check if '|' is present outside quotes
+        bool in_q = false;
+        char q_char = '\0';
+        bool has_pipe = false;
+        for (const char *p = cmd_line; *p; ++p) {
+            if ((*p == '\"' || *p == '\'') && (!in_q || *p == q_char)) {
+                if (in_q) { in_q = false; q_char = '\0'; }
+                else { in_q = true; q_char = *p; }
+            } else if (*p == '|' && !in_q) {
+                has_pipe = true;
+                break;
+            }
+        }
+
+        if (!has_pipe) {
+            return execute_single_cmd(cmd_line);
+        }
+
+        // Split into pipeline stages
+        char stages[8][MSH_LINE_LEN];
+        int stage_count = 0;
+        char cur_stage[MSH_LINE_LEN];
+        size_t csi = 0;
+        in_q = false;
+        q_char = '\0';
+
+        for (const char *p = cmd_line; *p && stage_count < 8; ++p) {
+            if ((*p == '\"' || *p == '\'') && (!in_q || *p == q_char)) {
+                if (in_q) { in_q = false; q_char = '\0'; }
+                else { in_q = true; q_char = *p; }
+                if (csi < sizeof(cur_stage) - 1) cur_stage[csi++] = *p;
+            } else if (*p == '|' && !in_q) {
+                cur_stage[csi] = '\0';
+                char *s = cur_stage;
+                while (*s == ' ' || *s == '\t') s++;
+                size_t slen = strlen(s);
+                while (slen > 0 && (s[slen - 1] == ' ' || s[slen - 1] == '\t')) s[--slen] = '\0';
+                strncpy(stages[stage_count++], s, MSH_LINE_LEN - 1);
+                stages[stage_count - 1][MSH_LINE_LEN - 1] = '\0';
+                csi = 0;
+            } else {
+                if (csi < sizeof(cur_stage) - 1) cur_stage[csi++] = *p;
+            }
+        }
+        if (csi > 0 && stage_count < 8) {
+            cur_stage[csi] = '\0';
+            char *s = cur_stage;
+            while (*s == ' ' || *s == '\t') s++;
+            size_t slen = strlen(s);
+            while (slen > 0 && (s[slen - 1] == ' ' || s[slen - 1] == '\t')) s[--slen] = '\0';
+            strncpy(stages[stage_count++], s, MSH_LINE_LEN - 1);
+            stages[stage_count - 1][MSH_LINE_LEN - 1] = '\0';
+        }
+
+        if (stage_count == 0) return 0;
+        if (stage_count == 1) return execute_single_cmd(stages[0]);
+
+        int last_rc = 0;
+        char *prev_pipe_buf = nullptr;
+        size_t prev_pipe_len = 0;
+
+        for (int k = 0; k < stage_count; ++k) {
+            get_global_pipe_in().buf = prev_pipe_buf;
+            get_global_pipe_in().len = prev_pipe_len;
+            get_global_pipe_in().pos = 0;
+
+            if (k < stage_count - 1) {
+                RedirStaging cur_stage_out = { nullptr, 65536, 0 };
+#if defined(ESP_PLATFORM)
+                cur_stage_out.buf = (char *)heap_caps_malloc(cur_stage_out.cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                if (!cur_stage_out.buf) cur_stage_out.buf = (char *)malloc(cur_stage_out.cap);
+#else
+                cur_stage_out.buf = (char *)malloc(cur_stage_out.cap);
+#endif
+                if (cur_stage_out.buf) cur_stage_out.buf[0] = '\0';
+
+                OutputFn orig_cb = this->output_cb;
+                RedirStaging &global_stage = get_global_redir_stage();
+                RedirStaging saved_stage = global_stage;
+                global_stage = cur_stage_out;
+
+                this->output_cb = [](const char *str) {
+                    if (!str) return;
+                    RedirStaging &st = get_global_redir_stage();
+                    if (!st.buf) return;
+                    size_t slen = strlen(str);
+                    if (st.len + slen < st.cap - 1) {
+                        memcpy(st.buf + st.len, str, slen);
+                        st.len += slen;
+                        st.buf[st.len] = '\0';
+                    }
+                };
+                get_global_out_cb() = this->output_cb;
+
+                last_rc = execute_single_cmd(stages[k]);
+
+                cur_stage_out = global_stage;
+                global_stage = saved_stage;
+                this->output_cb = orig_cb;
+                get_global_out_cb() = orig_cb;
+
+                if (prev_pipe_buf) {
+                    free(prev_pipe_buf);
+                    prev_pipe_buf = nullptr;
+                }
+                prev_pipe_buf = cur_stage_out.buf;
+                prev_pipe_len = cur_stage_out.len;
+            } else {
+                last_rc = execute_single_cmd(stages[k]);
+                if (prev_pipe_buf) {
+                    free(prev_pipe_buf);
+                    prev_pipe_buf = nullptr;
+                    prev_pipe_len = 0;
+                }
+            }
+        }
+
+        get_global_pipe_in().buf = nullptr;
+        get_global_pipe_in().len = 0;
+        get_global_pipe_in().pos = 0;
+
+        return last_rc;
+    }
+
     int execute_range(int start, int end, bool *out_break, bool *out_cont) {
         int i = start;
         int last_rc = 0;
@@ -1129,12 +1284,12 @@ public:
                             return 2;
                         }
                         int next_branch = find_matching_keyword(then_idx + 1, "elif", "else", "fi");
-                        int cond_rc = execute_single_cmd(cond);
+                        int cond_rc = execute_pipeline(cond);
                         if (cond_rc == 0) {
                             branch_taken = true;
                             const char *inline_then = strip_keyword(seg_pool[then_idx], "then");
                             if (inline_then && *inline_then) {
-                                last_rc = execute_single_cmd(inline_then);
+                                last_rc = execute_pipeline(inline_then);
                             }
                             if (then_idx + 1 < next_branch) {
                                 last_rc = execute_range(then_idx + 1, next_branch, out_break, out_cont);
@@ -1146,7 +1301,7 @@ public:
                         branch_taken = true;
                         const char *inline_else = strip_keyword(seg_pool[cur], "else");
                         if (inline_else && *inline_else) {
-                            last_rc = execute_single_cmd(inline_else);
+                            last_rc = execute_pipeline(inline_else);
                         }
                         if (cur + 1 < fi_idx) {
                             last_rc = execute_range(cur + 1, fi_idx, out_break, out_cont);
@@ -1179,14 +1334,14 @@ public:
 
                 int loop_guard = 2000;
                 while (loop_guard-- > 0) {
-                    int c_rc = execute_single_cmd(cond_buf);
+                    int c_rc = execute_pipeline(cond_buf);
                     bool cond_pass = is_until ? (c_rc != 0) : (c_rc == 0);
                     if (!cond_pass) break;
                     bool b_break = false;
                     bool b_cont = false;
                     const char *inline_do = strip_keyword(seg_pool[do_idx], "do");
                     if (inline_do && *inline_do) {
-                        last_rc = execute_single_cmd(inline_do);
+                        last_rc = execute_pipeline(inline_do);
                     }
                     if (do_idx + 1 < done_idx) {
                         last_rc = execute_range(do_idx + 1, done_idx, &b_break, &b_cont);
@@ -1240,7 +1395,7 @@ public:
                     bool b_cont = false;
                     const char *inline_do = strip_keyword(seg_pool[do_idx], "do");
                     if (inline_do && *inline_do) {
-                        last_rc = execute_single_cmd(inline_do);
+                        last_rc = execute_pipeline(inline_do);
                     }
                     if (do_idx + 1 < done_idx) {
                         last_rc = execute_range(do_idx + 1, done_idx, &b_break, &b_cont);
@@ -1251,8 +1406,8 @@ public:
                 continue;
             }
 
-            // Normal single command
-            last_rc = execute_single_cmd(s);
+            // Normal single command or pipeline
+            last_rc = execute_pipeline(s);
             i++;
         }
         return last_rc;
@@ -1300,7 +1455,11 @@ private:
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
         println("  ls [dir]          - List files & directories in storage/SD-card");
         println("  cd <dir>          - Change current working directory");
-        println("  cat <file>        - Display contents of a text file");
+        println("  cat [file]        - Display file contents or pipe data");
+        println("  grep [-i -v] PAT  - Filter lines matching pattern (file or pipe)");
+        println("  head [-n N] [file]- Print first N lines of file or pipe");
+        println("  wc [-l -w -c]     - Count lines, words and bytes of file or pipe");
+        println("  cmd1 | cmd2       - Pipeline execution chaining output to input");
         println("  mkdir / rm        - Create directories or remove files");
         println("  touch / write     - Create empty files or append lines of text");
         println("  <file.mobj> [args]- Direct native execution without typing runelf");
@@ -1846,6 +2005,13 @@ private:
 
     int cmd_cat(int argc, char **argv) {
         if (argc < 2) {
+            if (get_global_pipe_in().buf != nullptr) {
+                PipeStaging &p = get_global_pipe_in();
+                if (p.len > 0) {
+                    print(p.buf);
+                }
+                return 0;
+            }
             println("Usage: cat <file>");
             return 1;
         }
@@ -1865,6 +2031,215 @@ private:
             print(buf);
         }
         fclose(f);
+        return 0;
+    }
+
+    int cmd_grep(int argc, char **argv) {
+        if (argc < 2) {
+            println("usage: grep [-i] [-v] <pattern> [file]");
+            return 2;
+        }
+        bool ignore_case = false;
+        bool invert_match = false;
+        int arg_idx = 1;
+        while (arg_idx < argc && argv[arg_idx][0] == '-' && argv[arg_idx][1] != '\0') {
+            const char *opt = argv[arg_idx] + 1;
+            while (*opt) {
+                if (*opt == 'i') ignore_case = true;
+                else if (*opt == 'v') invert_match = true;
+                opt++;
+            }
+            arg_idx++;
+        }
+        if (arg_idx >= argc) {
+            println("grep: missing pattern");
+            return 2;
+        }
+        const char *pattern = argv[arg_idx++];
+        const char *file_path = (arg_idx < argc) ? argv[arg_idx] : nullptr;
+
+        auto match_line = [&](const char *l) -> bool {
+            if (!ignore_case) {
+                return (strstr(l, pattern) != nullptr);
+            } else {
+                size_t plen = strlen(pattern);
+                size_t llen = strlen(l);
+                if (plen > llen) return false;
+                for (size_t k = 0; k <= llen - plen; ++k) {
+                    if (strncasecmp(l + k, pattern, plen) == 0) return true;
+                }
+                return false;
+            }
+        };
+
+        int match_count = 0;
+        char line[256];
+
+        if (file_path) {
+            char resolved[128];
+            resolve_path(file_path, resolved, sizeof(resolved));
+            FILE *f = fopen(resolved, "r");
+            if (!f) {
+                print("grep: cannot open ");
+                println(file_path);
+                return 2;
+            }
+            while (fgets(line, sizeof(line), f)) {
+                size_t len = strlen(line);
+                while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = '\0';
+                bool m = match_line(line);
+                if (invert_match) m = !m;
+                if (m) {
+                    println(line);
+                    match_count++;
+                }
+            }
+            fclose(f);
+        } else if (get_global_pipe_in().buf != nullptr) {
+            while (pipe_read_line(line, sizeof(line))) {
+                bool m = match_line(line);
+                if (invert_match) m = !m;
+                if (m) {
+                    println(line);
+                    match_count++;
+                }
+            }
+        } else {
+            println("grep: no input specified (pipe or file required)");
+            return 2;
+        }
+
+        return (match_count > 0) ? 0 : 1;
+    }
+
+    int cmd_head(int argc, char **argv) {
+        int max_lines = 10;
+        const char *file_path = nullptr;
+
+        for (int i = 1; i < argc; ++i) {
+            if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+                max_lines = atoi(argv[++i]);
+                if (max_lines < 0) max_lines = 10;
+            } else if (argv[i][0] == '-' && (argv[i][1] >= '0' && argv[i][1] <= '9')) {
+                max_lines = atoi(argv[i] + 1);
+            } else {
+                file_path = argv[i];
+            }
+        }
+
+        char line[256];
+        int count = 0;
+
+        if (file_path) {
+            char resolved[128];
+            resolve_path(file_path, resolved, sizeof(resolved));
+            FILE *f = fopen(resolved, "r");
+            if (!f) {
+                print("head: cannot open ");
+                println(file_path);
+                return 1;
+            }
+            while (count < max_lines && fgets(line, sizeof(line), f)) {
+                size_t len = strlen(line);
+                while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = '\0';
+                println(line);
+                count++;
+            }
+            fclose(f);
+        } else if (get_global_pipe_in().buf != nullptr) {
+            while (count < max_lines && pipe_read_line(line, sizeof(line))) {
+                println(line);
+                count++;
+            }
+        } else {
+            println("head: no input specified (pipe or file required)");
+            return 1;
+        }
+        return 0;
+    }
+
+    int cmd_wc(int argc, char **argv) {
+        bool count_lines = false;
+        bool count_words = false;
+        bool count_bytes = false;
+        const char *file_path = nullptr;
+
+        for (int i = 1; i < argc; ++i) {
+            if (argv[i][0] == '-' && argv[i][1] != '\0') {
+                const char *opt = argv[i] + 1;
+                while (*opt) {
+                    if (*opt == 'l') count_lines = true;
+                    else if (*opt == 'w') count_words = true;
+                    else if (*opt == 'c') count_bytes = true;
+                    opt++;
+                }
+            } else {
+                file_path = argv[i];
+            }
+        }
+
+        if (!count_lines && !count_words && !count_bytes) {
+            count_lines = true;
+            count_words = true;
+            count_bytes = true;
+        }
+
+        size_t lines = 0, words = 0, bytes = 0;
+        bool in_word = false;
+
+        auto process_char = [&](char c) {
+            bytes++;
+            if (c == '\n') lines++;
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+                in_word = false;
+            } else if (!in_word) {
+                in_word = true;
+                words++;
+            }
+        };
+
+        if (file_path) {
+            char resolved[128];
+            resolve_path(file_path, resolved, sizeof(resolved));
+            FILE *f = fopen(resolved, "r");
+            if (!f) {
+                print("wc: cannot open ");
+                println(file_path);
+                return 1;
+            }
+            int c;
+            while ((c = fgetc(f)) != EOF) {
+                process_char((char)c);
+            }
+            fclose(f);
+        } else if (get_global_pipe_in().buf != nullptr) {
+            PipeStaging &p = get_global_pipe_in();
+            for (size_t i = 0; i < p.len; ++i) {
+                process_char(p.buf[i]);
+            }
+        } else {
+            println("wc: no input specified (pipe or file required)");
+            return 1;
+        }
+
+        char out_buf[128] = "";
+        char tmp[32];
+        if (count_lines) {
+            snprintf(tmp, sizeof(tmp), "%7u ", (unsigned int)lines);
+            strncat(out_buf, tmp, sizeof(out_buf) - strlen(out_buf) - 1);
+        }
+        if (count_words) {
+            snprintf(tmp, sizeof(tmp), "%7u ", (unsigned int)words);
+            strncat(out_buf, tmp, sizeof(out_buf) - strlen(out_buf) - 1);
+        }
+        if (count_bytes) {
+            snprintf(tmp, sizeof(tmp), "%7u ", (unsigned int)bytes);
+            strncat(out_buf, tmp, sizeof(out_buf) - strlen(out_buf) - 1);
+        }
+        if (file_path) {
+            strncat(out_buf, file_path, sizeof(out_buf) - strlen(out_buf) - 1);
+        }
+        println(out_buf);
         return 0;
     }
 
