@@ -126,6 +126,11 @@ class MaiaSerialClient:
         total_chunks = (file_size + chunk_size - 1) // chunk_size if file_size > 0 else 1
         t_start = time.time()
 
+        # Remove target file first to prevent stale FAT32 cluster chain issues
+        self.flush_input()
+        self.ser.write(f"rm {remote_path}\n".encode("utf-8"))
+        self.wait_for_prompt(timeout=1.5)
+
         # Handle empty file
         if file_size == 0:
             self.ser.write(f"hexwrite {remote_path} \n".encode("utf-8"))
@@ -149,11 +154,12 @@ class MaiaSerialClient:
             for retry in range(3):
                 self.flush_input()
                 self.ser.write(cmd.encode("utf-8"))
-                resp = self.wait_for_prompt(timeout=2.0)
+                resp = self.wait_for_prompt(timeout=4.0)
                 if "msh> " in resp:
                     success = True
                     break
-                time.sleep(0.02)
+                print(f"\n[!] Warning: chunk {chunk_idx} confirmation delayed (retry {retry + 1}/3)...")
+                time.sleep(0.05)
 
             if not success:
                 raise RuntimeError(f"Failed to confirm chunk {chunk_idx} at offset {sent}")

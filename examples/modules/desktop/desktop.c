@@ -168,49 +168,181 @@ static void draw_button(int x, int y, int w, int h, const char *label, uint16_t 
     draw_str(text_x, text_y, label, fg, pressed ? COLOR_BTN_PR : bg, true);
 }
 
-/* --- Math Expression Evaluator for Calculator --- */
+/* --- Math Expression Evaluator for Calculator (Recursive Descent Parser) --- */
 
-static int64_t parse_calc(const char *expr, bool *err) {
+static float parse_expression(const char **p, bool *err);
+
+static void skip_whitespace(const char **p) {
+    while (**p == ' ' || **p == '\t') (*p)++;
+}
+
+static float parse_number(const char **p, bool *err) {
+    skip_whitespace(p);
+    if (!**p) { *err = true; return 0.0f; }
+
+    float val = 0.0f;
+    bool has_digits = false;
+    while (**p >= '0' && **p <= '9') {
+        val = val * 10.0f + (float)(**p - '0');
+        (*p)++;
+        has_digits = true;
+    }
+    if (**p == '.') {
+        (*p)++;
+        float frac = 0.1f;
+        while (**p >= '0' && **p <= '9') {
+            val += (float)(**p - '0') * frac;
+            frac *= 0.1f;
+            (*p)++;
+            has_digits = true;
+        }
+    }
+    if (!has_digits) {
+        *err = true;
+        return 0.0f;
+    }
+    return val;
+}
+
+static float parse_factor(const char **p, bool *err) {
+    skip_whitespace(p);
+    if (*err || !**p) { *err = true; return 0.0f; }
+
+    /* Unary operators */
+    if (**p == '+') {
+        (*p)++;
+        return parse_factor(p, err);
+    }
+    if (**p == '-') {
+        (*p)++;
+        return -parse_factor(p, err);
+    }
+
+    /* Sub-expression in parentheses */
+    if (**p == '(') {
+        (*p)++;
+        float val = parse_expression(p, err);
+        skip_whitespace(p);
+        if (**p == ')') {
+            (*p)++;
+        } else {
+            *err = true;
+        }
+        return val;
+    }
+
+    return parse_number(p, err);
+}
+
+static float parse_term(const char **p, bool *err) {
+    float left = parse_factor(p, err);
+    while (!*err) {
+        skip_whitespace(p);
+        char op = **p;
+        if (op == '*' || op == '/' || op == '%') {
+            (*p)++;
+            float right = parse_factor(p, err);
+            if (*err) break;
+            if (op == '*') {
+                left *= right;
+            } else if (op == '/') {
+                if (right == 0.0f) {
+                    *err = true;
+                    return 0.0f;
+                }
+                left /= right;
+            } else if (op == '%') {
+                int iright = (int)right;
+                if (iright == 0) {
+                    *err = true;
+                    return 0.0f;
+                }
+                left = (float)((int)left % iright);
+            }
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+static float parse_expression(const char **p, bool *err) {
+    float left = parse_term(p, err);
+    while (!*err) {
+        skip_whitespace(p);
+        char op = **p;
+        if (op == '+' || op == '-') {
+            (*p)++;
+            float right = parse_term(p, err);
+            if (*err) break;
+            if (op == '+') left += right;
+            else left -= right;
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+static float parse_calc(const char *expr, bool *err) {
     *err = false;
     const char *p = expr;
-    while (*p == ' ') p++;
-    if (!*p) return 0;
-
-    int64_t left = 0;
-    bool neg = false;
-    if (*p == '-') { neg = true; p++; }
-    while (*p >= '0' && *p <= '9') {
-        left = left * 10 + (*p - '0');
-        p++;
+    float res = parse_expression(&p, err);
+    skip_whitespace(&p);
+    if (*p != '\0') {
+        *err = true;
     }
-    if (neg) left = -left;
+    return res;
+}
 
-    while (*p == ' ') p++;
-    if (!*p) return left;
+static void format_calc_result(float val, char *out, size_t out_sz) {
+    if (out_sz < 4) return;
+    int j = 0;
+    out[j++] = '=';
+    out[j++] = ' ';
 
-    char op = *p++;
-    while (*p == ' ') p++;
-
-    int64_t right = 0;
-    bool neg_r = false;
-    if (*p == '-') { neg_r = true; p++; }
-    while (*p >= '0' && *p <= '9') {
-        right = right * 10 + (*p - '0');
-        p++;
+    if (val < 0.0f) {
+        out[j++] = '-';
+        val = -val;
     }
-    if (neg_r) right = -right;
 
-    switch (op) {
-        case '+': return left + right;
-        case '-': return left - right;
-        case '*': return left * right;
-        case '/':
-            if (right == 0) { *err = true; return 0; }
-            return left / right;
-        default:
-            *err = true;
-            return left;
+    int int_part = (int)val;
+    float frac_part = val - (float)int_part;
+
+    char buf[16];
+    int bi = 0;
+    if (int_part == 0) {
+        buf[bi++] = '0';
+    } else {
+        unsigned int uint_part = (unsigned int)int_part;
+        while (uint_part > 0 && bi < 14) {
+            buf[bi++] = '0' + (uint_part % 10);
+            uint_part /= 10;
+        }
     }
+    for (int k = bi - 1; k >= 0 && j < (int)out_sz - 1; --k) {
+        out[j++] = buf[k];
+    }
+
+    /* Fractional part up to 4 decimal places */
+    if (frac_part >= 0.0001f && j < (int)out_sz - 8) {
+        out[j++] = '.';
+        for (int d = 0; d < 4 && j < (int)out_sz - 1; ++d) {
+            frac_part *= 10.0f;
+            int digit = (int)frac_part;
+            if (digit > 9) digit = 9;
+            out[j++] = '0' + digit;
+            frac_part -= (float)digit;
+        }
+        while (j > 0 && out[j - 1] == '0') {
+            j--;
+        }
+        if (j > 0 && out[j - 1] == '.') {
+            j--;
+        }
+    }
+
+    out[j] = '\0';
 }
 
 static void calc_input(char key) {
@@ -235,27 +367,15 @@ static void calc_input(char key) {
     }
     if (key == '=') {
         bool err = false;
-        int64_t val = parse_calc(g_calc_expr, &err);
+        float val = parse_calc(g_calc_expr, &err);
         if (err) {
-            g_calc_res[0] = 'E'; g_calc_res[1] = 'r'; g_calc_res[2] = 'r'; g_calc_res[3] = '\0';
+            const char err_str[] = "= Error";
+            for (int i = 0; err_str[i] && i < (int)sizeof(g_calc_res) - 1; ++i) {
+                g_calc_res[i] = err_str[i];
+                g_calc_res[i + 1] = '\0';
+            }
         } else {
-            char buf[32];
-            int i = 0;
-            bool neg = (val < 0);
-            uint64_t uval = neg ? -val : val;
-            if (uval == 0) buf[i++] = '0';
-            while (uval > 0 && i < 28) {
-                buf[i++] = '0' + (uval % 10);
-                uval /= 10;
-            }
-            if (neg) buf[i++] = '-';
-            int j = 0;
-            g_calc_res[j++] = '=';
-            g_calc_res[j++] = ' ';
-            for (int k = i - 1; k >= 0; --k) {
-                g_calc_res[j++] = buf[k];
-            }
-            g_calc_res[j] = '\0';
+            format_calc_result(val, g_calc_res, sizeof(g_calc_res));
         }
         g_calc_clear_on_next = true;
         return;
@@ -544,7 +664,7 @@ static void render_sysinfo_window(void) {
     draw_str(wx + 40, cur_y, "Keybd:   Ext.Port1 TCA8418/STM32 Matrix (I2C 0x6D)", COLOR_TEXT, COLOR_WIN_BG, true);
 }
 
-static void render_banner_window(uint64_t now_us) {
+static void render_banner_window(void) {
     int wx = 360, wy = 100, ww = 560, wh = 480;
 
     /* Window Frame */
@@ -557,26 +677,40 @@ static void render_banner_window(uint64_t now_us) {
     draw_str_2x(wx + 14, wy + 3, "Banner Visual FX", COLOR_MAGENTA, COLOR_WIN_HDR, true);
     draw_button(wx + ww - 44, wy + 5, 36, 26, "X", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
 
-    /* Animated Wave Canvas */
+    /* Canvas Frame */
     int cx = wx + 20, cy = wy + 50, cw = ww - 40, ch = wh - 70;
     fill_rect(cx, cy, cw, ch, COLOR_BLACK);
     draw_rect(cx, cy, cw, ch, COLOR_MAGENTA);
 
-    uint32_t shift = (uint32_t)((now_us / 40000ULL) % cw);
+    /* Static Banner Typography */
+    draw_str_2x(cx + 40, cy + 24, "REAL-TIME GRAPHICS ENGINE", COLOR_WHITE, COLOR_BLACK, true);
+    draw_str(cx + 40, cy + 62, "Zero-Copy ST7121 MIPI-DSI Framebuffer", COLOR_CYAN, COLOR_BLACK, true);
+}
+
+static void render_banner_wave(uint64_t now_us) {
+    int wx = 360, wy = 100, ww = 560, wh = 480;
+    int cx = wx + 20, cy = wy + 50, cw = ww - 40, ch = wh - 70;
+
+    int wave_x = cx + 8;
+    int wave_y = cy + 90;
+    int wave_w = cw - 16;
+    int wave_h = ch - 100;
+
+    uint32_t shift = (uint32_t)((now_us / 40000ULL) % wave_w);
     static const uint16_t wave_cols[] = {
         COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_CYAN, COLOR_BLUE, COLOR_MAGENTA
     };
     int n_cols = 7;
 
-    for (int col = 0; col < cw; ++col) {
+    /* In-place column update: top is black, bottom is colored bar. Zero flicker! */
+    for (int col = 0; col < wave_w; ++col) {
         int idx = (col + shift) / 20;
         uint16_t c = wave_cols[idx % n_cols];
-        int bar_h = 40 + ((col * 3 + shift * 2) % (ch - 80));
-        fill_rect(cx + col, cy + ch - bar_h - 10, 1, bar_h, c);
+        int bar_h = 24 + ((col * 3 + shift * 2) % (wave_h - 40));
+        int top_h = wave_h - bar_h;
+        fill_rect(wave_x + col, wave_y, 1, top_h, COLOR_BLACK);
+        fill_rect(wave_x + col, wave_y + top_h, 1, bar_h, c);
     }
-
-    draw_str_2x(cx + 40, cy + 30, "REAL-TIME GRAPHICS ENGINE", COLOR_WHITE, COLOR_BLACK, true);
-    draw_str(cx + 40, cy + 70, "Zero-Copy ST7121 MIPI-DSI Framebuffer", COLOR_CYAN, COLOR_BLACK, true);
 }
 
 static void render_canvas_background(void) {
@@ -638,7 +772,10 @@ static void render_desktop(uint64_t now_us) {
             case WIN_CALC:    render_calc_window(); break;
             case WIN_CLOCK:   render_clock_window(now_us); break;
             case WIN_SYSINFO: render_sysinfo_window(); break;
-            case WIN_BANNER:  render_banner_window(now_us); break;
+            case WIN_BANNER:
+                render_banner_window();
+                render_banner_wave(now_us);
+                break;
             default: break;
         }
         g_dirty_window = false;
@@ -649,7 +786,7 @@ static void render_desktop(uint64_t now_us) {
             render_clock_stopwatch_digits(now_us);
             need_sync = true;
         } else if (g_active_win == WIN_BANNER) {
-            render_banner_window(now_us);
+            render_banner_wave(now_us);
             need_sync = true;
         }
     }
@@ -832,7 +969,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
         if (ctx->host->input && ctx->host->input->read_key) {
             int32_t k = ctx->host->input->read_key();
             while (k >= 0) {
-                if (k == 27 || k == 'q' || k == 3) { /* ESC or 'q' or Ctrl+C */
+                if (k == 27 || (k == 'q' && g_active_win == WIN_NONE) || k == 3) { /* ESC or 'q' or Ctrl+C */
                     if (g_active_win != WIN_NONE) {
                         g_active_win = WIN_NONE;
                         g_dirty_canvas = true;
@@ -841,11 +978,39 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         g_running = false;
                         break;
                     }
+                } else if (g_active_win == WIN_NONE) {
+                    int next_win = WIN_NONE;
+                    if (k == 'c' || k == 'C' || k == '1') next_win = WIN_CALC;
+                    else if (k == 't' || k == 'T' || k == '2') next_win = WIN_CLOCK;
+                    else if (k == 's' || k == 'S' || k == '3') next_win = WIN_SYSINFO;
+                    else if (k == 'b' || k == 'B' || k == '4') next_win = WIN_BANNER;
+                    if (next_win != WIN_NONE) {
+                        g_active_win = next_win;
+                        g_dirty_canvas = true;
+                        g_dirty_dock = true;
+                        g_dirty_window = true;
+                    }
                 } else if (g_active_win == WIN_CALC) {
                     if (k == '\r' || k == '\n' || k == '=') calc_input('=');
                     else if (k == '\b' || k == 127) calc_input('D');
+                    else if (k == 'c' || k == 'C') calc_input('C');
                     else if (k >= 32 && k <= 126) calc_input((char)k);
                     g_dirty_window = true;
+                } else if (g_active_win == WIN_CLOCK) {
+                    if (k == ' ' || k == '\r' || k == '\n') {
+                        if (!g_sw_running) {
+                            g_sw_start_us = now_us;
+                            g_sw_running = true;
+                        } else {
+                            g_sw_elapsed_us += (now_us - g_sw_start_us);
+                            g_sw_running = false;
+                        }
+                        g_dirty_window = true;
+                    } else if (k == 'r' || k == 'R') {
+                        g_sw_running = false;
+                        g_sw_elapsed_us = 0;
+                        g_dirty_window = true;
+                    }
                 }
                 k = ctx->host->input->read_key();
             }
