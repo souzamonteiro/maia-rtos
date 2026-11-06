@@ -27,6 +27,14 @@ typedef struct maia_display_api_t {
 } maia_display_api_t;
 
 /**
+ * @brief Input driver callbacks for native modules (Touchscreen & Keyboard).
+ */
+typedef struct maia_input_api_t {
+    int32_t (*get_touch)(int32_t *x, int32_t *y, int32_t *pressed);
+    int32_t (*read_key)(void); /* Non-blocking: returns char code (0..255) or -1 if empty */
+} maia_input_api_t;
+
+/**
  * @brief Maia Native Module ABI v1 (MNM-1) Host API Dispatch Table.
  * Modules use this table to interact with the host environment.
  */
@@ -42,6 +50,7 @@ typedef struct maia_host_api_v1 {
     void (*dealloc)(void *ptr);
     uint64_t (*get_time_us)(void);
     const maia_display_api_t *display;
+    const maia_input_api_t *input;
 } maia_host_api_v1;
 
 /**

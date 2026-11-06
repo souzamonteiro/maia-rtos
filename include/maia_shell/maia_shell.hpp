@@ -339,6 +339,15 @@ public:
         get_global_display_api() = disp;
     }
 
+    static const maia_input_api_t *&get_global_input_api() {
+        static const maia_input_api_t *s_input = nullptr;
+        return s_input;
+    }
+
+    static void set_input_driver(const maia_input_api_t *input) {
+        get_global_input_api() = input;
+    }
+
     bool unset_var(const char *key) {
         if (!key) return false;
         for (int i = 0; i < MSH_MAX_VARS; ++i) {
@@ -2079,6 +2088,7 @@ private:
 #endif
         };
         host_api.display = get_global_display_api();
+        host_api.input = get_global_input_api();
 
         int exit_code = 0;
         int res = mnm_load_and_run(elf_bytes, elf_len,
