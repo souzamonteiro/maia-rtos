@@ -942,6 +942,7 @@ public:
         else if (strcmp(cmd, "head") == 0)   ret = cmd_head(argc, argv);
         else if (strcmp(cmd, "wc") == 0)     ret = cmd_wc(argc, argv);
         else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0)  ret = cmd_clear(argc, argv);
+        else if (strcmp(cmd, "reset") == 0)  ret = cmd_reset(argc, argv);
         else if (strcmp(cmd, "color") == 0)  ret = cmd_color(argc, argv);
         else if (strcmp(cmd, "basename") == 0) ret = cmd_basename(argc, argv);
         else if (strcmp(cmd, "dirname") == 0)  ret = cmd_dirname(argc, argv);
@@ -1583,7 +1584,8 @@ private:
         println("  basename/dirname  - Path manipulation utilities");
         println("  backlight <0-100> - Set LCD backlight brightness percentage");
         println("  peek/poke <addr>  - Direct 32-bit hardware register access");
-        println("  clear             - Clear terminal screen");
+        println("  clear / cls       - Clear terminal output area");
+        println("  reset             - Full screen reset and repaint header");
         return 0;
     }
 
@@ -2781,6 +2783,12 @@ private:
     int cmd_clear(int argc, char **argv) {
         (void)argc; (void)argv;
         print("\033[2J\033[H");
+        return 0;
+    }
+
+    int cmd_reset(int argc, char **argv) {
+        (void)argc; (void)argv;
+        print("\033c\033[2J\033[H");
         return 0;
     }
 
