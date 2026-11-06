@@ -1,8 +1,10 @@
 #pragma once
 
-#if defined(ARDUINO) || defined(ESP_PLATFORM)
+#if defined(ARDUINO)
 #include <Arduino.h>
 #include <M5Unified.h>
+#elif defined(ESP_PLATFORM)
+#include <esp_system.h>
 #endif
 
 #include <stdint.h>
@@ -12,7 +14,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#if defined(__riscv) || defined(MAIA_TARGET)
+#if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
 #include <maia/soc/esp32p4_board_io.h>
 #endif
@@ -1490,7 +1492,10 @@ private:
         int b = (argc > 1) ? atoi(argv[1]) : 100;
         if (b < 0) b = 0;
         if (b > 100) b = 100;
-#ifdef __riscv
+#if defined(ESP_PLATFORM)
+        extern esp_err_t bsp_display_brightness_set(int brightness_percent);
+        (void)bsp_display_brightness_set(b);
+#elif defined(__riscv)
         extern void maia_tab5_backlight_set_duty(uint32_t duty_4095);
         maia_tab5_backlight_set_duty((uint32_t)((b * 4095) / 100));
 #endif
@@ -1530,9 +1535,11 @@ private:
     int cmd_reboot(int argc, char **argv) {
         (void)argc; (void)argv;
         println("Rebooting MaiaRTOS on M5Stack Tab5...");
-#if defined(ARDUINO) || defined(ESP_PLATFORM)
+#if defined(ARDUINO)
         delay(200);
         ESP.restart();
+#elif defined(ESP_PLATFORM)
+        esp_restart();
 #elif defined(__riscv)
         // Reset via LP_WDT or PMU
         *(volatile uint32_t *)(0x50115000UL) = 1U;
