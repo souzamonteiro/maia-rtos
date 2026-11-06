@@ -19,6 +19,7 @@ void maia_display_puts(const char *str);
 void maia_display_write(const char *buf, size_t len);
 void maia_display_clear(void);
 void maia_display_refresh_dma_if_needed(void);
+void maia_display_set_rgb_test_mode(void);
 
 #ifdef __cplusplus
 }

@@ -535,6 +535,20 @@ void maia_display_refresh_dma_if_needed(void) {
     }
 }
 
+void maia_display_set_rgb_test_mode(void) {
+    volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
+    for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
+        uint32_t src_phys = L2MEM_BAND2_PHYS; /* Blue: blocks 7..9 (lines 896..1279) */
+        if (i < 3U) {
+            src_phys = L2MEM_BAND0_PHYS;      /* Red: blocks 0..2 (lines 0..383) */
+        } else if (i < 7U) {
+            src_phys = L2MEM_BAND1_PHYS;      /* Green: blocks 3..6 (lines 384..895) */
+        }
+        lli[i].sar_lo = src_phys;
+    }
+    __asm__ volatile ("fence rw, rw" ::: "memory");
+}
+
 void maia_display_init(uint32_t panel_type) {
     (void)panel_type;
 

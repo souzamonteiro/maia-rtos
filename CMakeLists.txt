@@ -51,6 +51,27 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   )
   set_target_properties(echo_test.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured Tab5 Echo Test (echo_test.elf)")
+
+  add_executable(rgb_test.elf
+    arch/riscv/start.S
+    soc/espressif/esp32p4/soc_early_init.c
+    soc/espressif/esp32p4/soc_console.c
+    soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_board_io.c
+    soc/espressif/esp32p4/soc_display.c
+    boards/m5stack/tab5/app_desc.c
+    /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test/maia_rgb_test.c
+    /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test/maia_tab5_display_port.c
+  )
+  target_include_directories(rgb_test.elf PRIVATE include /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test)
+  target_compile_options(rgb_test.elf PRIVATE -Wall -Wextra -O2)
+  target_link_options(rgb_test.elf PRIVATE
+    "-T${MAIA_LINKER_SCRIPT}"
+    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/rgb_test.map"
+  )
+  target_link_libraries(rgb_test.elf PRIVATE gcc)
+  set_target_properties(rgb_test.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
+  message(STATUS "Configured Tab5 RGB Diagnostic Test (rgb_test.elf)")
 else()
   option(MAIA_BUILD_HOST_TESTS "Build host-side contract tests" ON)
   if(MAIA_BUILD_HOST_TESTS)
