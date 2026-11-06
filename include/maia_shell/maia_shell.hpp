@@ -963,6 +963,7 @@ public:
         else if (strcmp(cmd, "hexread") == 0)  ret = cmd_hexread(argc, argv);
         else if (strcmp(cmd, "hexdump") == 0)  ret = cmd_hexdump(argc, argv);
         else if (strcmp(cmd, "jobs") == 0)     ret = cmd_jobs(argc, argv);
+        else if (strcmp(cmd, "source") == 0 || strcmp(cmd, ".") == 0) ret = cmd_source(argc, argv);
         else {
             char test_path[128];
             resolve_path(cmd, test_path, sizeof(test_path));
@@ -1525,6 +1526,38 @@ public:
         return execute_range(0, n_segs, nullptr, nullptr);
     }
 
+    int execute_script(const char *path) {
+        if (!path || !*path) return 1;
+        char resolved[128];
+        resolve_path(path, resolved, sizeof(resolved));
+
+        FILE *f = fopen(resolved, "r");
+        if (!f) {
+            print("source: cannot open '");
+            print(path);
+            println("'");
+            return 1;
+        }
+
+        char line[MSH_LINE_LEN];
+        int last_rc = 0;
+        while (fgets(line, sizeof(line), f)) {
+            char *p = line;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p == '\0' || *p == '\r' || *p == '\n' || *p == '#') continue;
+
+            size_t len = strlen(p);
+            while (len > 0 && (p[len - 1] == '\r' || p[len - 1] == '\n' || p[len - 1] == ' ' || p[len - 1] == '\t')) {
+                p[--len] = '\0';
+            }
+            if (len == 0) continue;
+
+            last_rc = execute(p);
+        }
+        fclose(f);
+        return last_rc;
+    }
+
 private:
     OutputFn output_cb;
     int last_status;
@@ -1571,6 +1604,7 @@ private:
         println("  hexwrite / hexread- Binary file hex transfer and raw inspection");
         println("  hexdump [-n N]    - Canonical hex + ASCII dump");
         println("  jobs / cmd &      - Background job execution and process tracking");
+        println("  source / . <file> - Execute commands from shell script file");
         println("  <file.mobj> [args]- Direct native execution without typing runelf");
         println("  alloc <bytes>     - Allocate, verify & free a block from L2MEM");
         println("  qtest             - Live mutex, semaphore & queue self-test");
@@ -2790,6 +2824,14 @@ private:
         (void)argc; (void)argv;
         print("\033c\033[2J\033[H");
         return 0;
+    }
+
+    int cmd_source(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: source <file.sh>");
+            return 1;
+        }
+        return execute_script(argv[1]);
     }
 
     int cmd_color(int argc, char **argv) {

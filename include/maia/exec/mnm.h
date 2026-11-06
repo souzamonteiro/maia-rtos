@@ -21,6 +21,9 @@ typedef struct maia_display_api_t {
     int32_t (*put_pixel)(int32_t x, int32_t y, uint16_t color_rgb565);
     int32_t (*fill_rect)(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color_rgb565);
     void (*sync)(void);
+    int32_t (*acquire_exclusive)(void);
+    int32_t (*release_exclusive)(void);
+    uint16_t *(*get_framebuffer)(void);
 } maia_display_api_t;
 
 /**
