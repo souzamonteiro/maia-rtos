@@ -78,6 +78,12 @@ int elf_validate_relocatable(const void *data, size_t size, char *report, size_t
 
     for (uint16_t i = 0; i < ehdr->e_shnum; ++i) {
         const Elf32_Shdr *sh = &shdrs[i];
+        if (sh->sh_type != SHT_NOBITS && sh->sh_size > 0) {
+            if ((size_t)sh->sh_offset + (size_t)sh->sh_size > size) {
+                if (report && report_max > 0) snprintf(report, report_max, "ELF Error: Section %u extends beyond buffer (%u > %u)", i, (unsigned int)(sh->sh_offset + sh->sh_size), (unsigned int)size);
+                return ELF_ERR_BAD_SHOFF;
+            }
+        }
         const char *name = shstrtab + sh->sh_name;
         if (sh->sh_flags & SHF_ALLOC) {
             section_count++;

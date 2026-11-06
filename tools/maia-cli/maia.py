@@ -69,7 +69,7 @@ class MaiaSerialClient:
 
     def flush_input(self):
         try:
-            self.ser.read(4096)
+            self.ser.reset_input_buffer()
         except Exception:
             pass
 
@@ -142,12 +142,24 @@ class MaiaSerialClient:
             hex_str = chunk.hex()
             if first:
                 cmd = f"hexwrite {remote_path} {hex_str}\n"
-                first = False
             else:
                 cmd = f"hexwrite -a {remote_path} {hex_str}\n"
 
-            self.ser.write(cmd.encode("utf-8"))
-            self.wait_for_prompt(timeout=2.0)
+            success = False
+            for retry in range(3):
+                self.flush_input()
+                self.ser.write(cmd.encode("utf-8"))
+                resp = self.wait_for_prompt(timeout=2.0)
+                if "msh> " in resp:
+                    success = True
+                    break
+                time.sleep(0.02)
+
+            if not success:
+                raise RuntimeError(f"Failed to confirm chunk {chunk_idx} at offset {sent}")
+
+            if first:
+                first = False
 
             sent += len(chunk)
             chunk_idx += 1

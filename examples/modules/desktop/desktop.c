@@ -46,7 +46,15 @@ enum {
 static const maia_module_context_t *g_ctx = NULL;
 static uint16_t *g_fb = NULL;
 static int g_active_win = WIN_NONE;
+static int g_prev_win = -1;
 static bool g_running = true;
+
+/* Selective Redraw / Dirty State Flags (LVGL-style Invalidation) */
+static bool g_dirty_canvas  = true;
+static bool g_dirty_taskbar = true;
+static bool g_dirty_dock    = true;
+static bool g_dirty_window  = true;
+static uint32_t g_prev_sec  = 0xFFFFFFFF;
 
 /* Stopwatch State */
 static bool g_sw_running = false;
@@ -282,20 +290,12 @@ static void calc_input(char key) {
 
 /* --- UI Rendering Functions --- */
 
-static void render_taskbar(uint64_t now_us) {
-    fill_rect(0, 0, SCREEN_W, 36, COLOR_TASKBAR);
-    fill_rect(0, 35, SCREEN_W, 1, COLOR_TASK_ACC);
-
-    /* Left: OS Branding */
-    draw_str_2x(16, 2, "[ MAIA OS ]", COLOR_CYAN, COLOR_TASKBAR, true);
-    draw_str(160, 10, "Desktop Environment", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
-
-    /* Center: Clock & Uptime */
+static void render_taskbar_time(uint64_t now_us) {
     uint32_t sec = (uint32_t)(now_us / 1000000ULL);
     uint32_t hrs = (sec / 3600) % 24;
     uint32_t min = (sec / 60) % 60;
     uint32_t s = sec % 60;
-    char time_str[32];
+    char time_str[10];
     time_str[0] = '0' + (hrs / 10);
     time_str[1] = '0' + (hrs % 10);
     time_str[2] = ':';
@@ -305,7 +305,20 @@ static void render_taskbar(uint64_t now_us) {
     time_str[6] = '0' + (s / 10);
     time_str[7] = '0' + (s % 10);
     time_str[8] = '\0';
+    fill_rect(576, 2, 128, 32, COLOR_TASKBAR);
     draw_str_2x(576, 2, time_str, COLOR_WHITE, COLOR_TASKBAR, true);
+}
+
+static void render_taskbar(uint64_t now_us) {
+    fill_rect(0, 0, SCREEN_W, 36, COLOR_TASKBAR);
+    fill_rect(0, 35, SCREEN_W, 1, COLOR_TASK_ACC);
+
+    /* Left: OS Branding */
+    draw_str_2x(16, 2, "[ MAIA OS ]", COLOR_CYAN, COLOR_TASKBAR, true);
+    draw_str(160, 10, "Desktop Environment", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+
+    /* Center: Clock & Uptime */
+    render_taskbar_time(now_us);
 
     /* Right: Hardware Profile & Exit Button */
     draw_str(850, 10, "PSRAM: 30.3MB", COLOR_GREEN, COLOR_TASKBAR, true);
@@ -392,6 +405,53 @@ static void render_calc_window(void) {
     }
 }
 
+static void render_clock_uptime(uint64_t now_us) {
+    int wx = 430, wy = 120;
+    uint32_t sec = (uint32_t)(now_us / 1000000ULL);
+    uint32_t hrs = (sec / 3600) % 24;
+    uint32_t min = (sec / 60) % 60;
+    uint32_t s = sec % 60;
+    char clk_buf[10];
+    clk_buf[0] = '0' + (hrs / 10);
+    clk_buf[1] = '0' + (hrs % 10);
+    clk_buf[2] = ':';
+    clk_buf[3] = '0' + (min / 10);
+    clk_buf[4] = '0' + (min % 10);
+    clk_buf[5] = ':';
+    clk_buf[6] = '0' + (s / 10);
+    clk_buf[7] = '0' + (s % 10);
+    clk_buf[8] = '\0';
+    fill_rect(wx + 130, wy + 80, 160, 36, COLOR_WIN_BG);
+    draw_str_2x(wx + 140, wy + 82, clk_buf, COLOR_CYAN, COLOR_WIN_BG, true);
+}
+
+static void render_clock_stopwatch_digits(uint64_t now_us) {
+    int wx = 430, wy = 120, ww = 420;
+    int sw_box_x = wx + 50, sw_box_y = wy + 175;
+    uint64_t cur_sw = g_sw_elapsed_us;
+    if (g_sw_running) {
+        cur_sw += (now_us - g_sw_start_us);
+    }
+    uint32_t sw_s = (uint32_t)(cur_sw / 1000000ULL);
+    uint32_t sw_m = sw_s / 60;
+    sw_s %= 60;
+    uint32_t sw_ms = (uint32_t)((cur_sw % 1000000ULL) / 10000ULL); // Hundredths
+
+    char sw_buf[10];
+    sw_buf[0] = '0' + ((sw_m / 10) % 10);
+    sw_buf[1] = '0' + (sw_m % 10);
+    sw_buf[2] = ':';
+    sw_buf[3] = '0' + (sw_s / 10);
+    sw_buf[4] = '0' + (sw_s % 10);
+    sw_buf[5] = '.';
+    sw_buf[6] = '0' + (sw_ms / 10);
+    sw_buf[7] = '0' + (sw_ms % 10);
+    sw_buf[8] = '\0';
+
+    fill_rect(sw_box_x + 80, sw_box_y + 15, 160, 40, COLOR_BLACK);
+    draw_str_2x(sw_box_x + 90, sw_box_y + 18, sw_buf, COLOR_YELLOW, COLOR_BLACK, true);
+}
+
 static void render_clock_window(uint64_t now_us) {
     int wx = 430, wy = 120, ww = 420, wh = 450;
 
@@ -407,50 +467,16 @@ static void render_clock_window(uint64_t now_us) {
 
     /* Section 1: Uptime Digital Clock */
     draw_str(wx + 30, wy + 56, "SYSTEM MONOTONIC TIME", COLOR_TEXT_DIM, COLOR_WIN_BG, true);
-    uint32_t sec = (uint32_t)(now_us / 1000000ULL);
-    uint32_t hrs = (sec / 3600) % 24;
-    uint32_t min = (sec / 60) % 60;
-    uint32_t s = sec % 60;
-    char clk_buf[32];
-    clk_buf[0] = '0' + (hrs / 10);
-    clk_buf[1] = '0' + (hrs % 10);
-    clk_buf[2] = ':';
-    clk_buf[3] = '0' + (min / 10);
-    clk_buf[4] = '0' + (min % 10);
-    clk_buf[5] = ':';
-    clk_buf[6] = '0' + (s / 10);
-    clk_buf[7] = '0' + (s % 10);
-    clk_buf[8] = '\0';
-    draw_str_2x(wx + 140, wy + 82, clk_buf, COLOR_CYAN, COLOR_WIN_BG, true);
+    render_clock_uptime(now_us);
 
     /* Section 2: Interactive Stopwatch */
     fill_rect(wx + 20, wy + 130, ww - 40, 2, COLOR_DOCK_BD);
     draw_str(wx + 30, wy + 146, "HIGH-PRECISION STOPWATCH", COLOR_TEXT_DIM, COLOR_WIN_BG, true);
 
-    uint64_t cur_sw = g_sw_elapsed_us;
-    if (g_sw_running) {
-        cur_sw += (now_us - g_sw_start_us);
-    }
-    uint32_t sw_s = (uint32_t)(cur_sw / 1000000ULL);
-    uint32_t sw_m = sw_s / 60;
-    sw_s %= 60;
-    uint32_t sw_ms = (uint32_t)((cur_sw % 1000000ULL) / 10000ULL); // Hundredths
-
-    char sw_buf[32];
-    sw_buf[0] = '0' + ((sw_m / 10) % 10);
-    sw_buf[1] = '0' + (sw_m % 10);
-    sw_buf[2] = ':';
-    sw_buf[3] = '0' + (sw_s / 10);
-    sw_buf[4] = '0' + (sw_s % 10);
-    sw_buf[5] = '.';
-    sw_buf[6] = '0' + (sw_ms / 10);
-    sw_buf[7] = '0' + (sw_ms % 10);
-    sw_buf[8] = '\0';
-
     int sw_box_x = wx + 50, sw_box_y = wy + 175, sw_box_w = ww - 100, sw_box_h = 70;
     fill_rect(sw_box_x, sw_box_y, sw_box_w, sw_box_h, COLOR_BLACK);
     draw_rect(sw_box_x, sw_box_y, sw_box_w, sw_box_h, COLOR_YELLOW);
-    draw_str_2x(sw_box_x + 90, sw_box_y + 18, sw_buf, COLOR_YELLOW, COLOR_BLACK, true);
+    render_clock_stopwatch_digits(now_us);
 
     /* Stopwatch Control Buttons */
     int btn_w = 100;
@@ -553,7 +579,7 @@ static void render_banner_window(uint64_t now_us) {
     draw_str(cx + 40, cy + 70, "Zero-Copy ST7121 MIPI-DSI Framebuffer", COLOR_CYAN, COLOR_BLACK, true);
 }
 
-static void render_desktop(uint64_t now_us) {
+static void render_canvas_background(void) {
     /* 1. Canvas Background with watermark */
     fill_rect(0, 36, SCREEN_W, SCREEN_H - 36, COLOR_BG);
 
@@ -568,24 +594,68 @@ static void render_desktop(uint64_t now_us) {
     draw_str_2x(440, 260, "MAIA OPERATING SYSTEM", COLOR_TASKBAR, COLOR_BG, true);
     draw_str_2x(460, 300, "NATIVE RV32 DUAL-CORE", COLOR_TASKBAR, COLOR_BG, true);
     draw_str(510, 345, "Touch any app in the dock to begin", COLOR_TEXT_DIM, COLOR_BG, true);
+}
 
-    /* 2. Top Taskbar */
-    render_taskbar(now_us);
+static void render_desktop(uint64_t now_us) {
+    bool need_sync = false;
+    uint32_t sec = (uint32_t)(now_us / 1000000ULL);
 
-    /* 3. Bottom Dock */
-    render_dock(g_active_win);
-
-    /* 4. Active Floating Window */
-    switch (g_active_win) {
-        case WIN_CALC:    render_calc_window(); break;
-        case WIN_CLOCK:   render_clock_window(now_us); break;
-        case WIN_SYSINFO: render_sysinfo_window(); break;
-        case WIN_BANNER:  render_banner_window(now_us); break;
-        default: break;
+    /* 1. Full Canvas Background Invalidation */
+    if (g_dirty_canvas) {
+        render_canvas_background();
+        g_dirty_taskbar = true;
+        g_dirty_dock    = true;
+        g_dirty_window  = true;
+        g_dirty_canvas  = false;
+        need_sync = true;
     }
 
-    /* 5. Sync Framebuffer to ST7121 Display */
-    if (g_ctx && g_ctx->host && g_ctx->host->display && g_ctx->host->display->sync) {
+    /* 2. Taskbar Redraw or Partial Time Update */
+    if (g_dirty_taskbar) {
+        render_taskbar(now_us);
+        g_dirty_taskbar = false;
+        g_prev_sec = sec;
+        need_sync = true;
+    } else if (sec != g_prev_sec) {
+        render_taskbar_time(now_us);
+        if (g_active_win == WIN_CLOCK) {
+            render_clock_uptime(now_us);
+        }
+        g_prev_sec = sec;
+        need_sync = true;
+    }
+
+    /* 3. Dock Redraw */
+    if (g_dirty_dock) {
+        render_dock(g_active_win);
+        g_dirty_dock = false;
+        need_sync = true;
+    }
+
+    /* 4. Active Window Redraw */
+    if (g_dirty_window) {
+        switch (g_active_win) {
+            case WIN_CALC:    render_calc_window(); break;
+            case WIN_CLOCK:   render_clock_window(now_us); break;
+            case WIN_SYSINFO: render_sysinfo_window(); break;
+            case WIN_BANNER:  render_banner_window(now_us); break;
+            default: break;
+        }
+        g_dirty_window = false;
+        need_sync = true;
+    } else {
+        /* Continuous animations for specific windows */
+        if (g_active_win == WIN_CLOCK && g_sw_running) {
+            render_clock_stopwatch_digits(now_us);
+            need_sync = true;
+        } else if (g_active_win == WIN_BANNER) {
+            render_banner_window(now_us);
+            need_sync = true;
+        }
+    }
+
+    /* 5. Sync Framebuffer ONLY if something changed */
+    if (need_sync && g_ctx && g_ctx->host && g_ctx->host->display && g_ctx->host->display->sync) {
         g_ctx->host->display->sync();
     }
 }
@@ -620,6 +690,8 @@ static void handle_touch(int tx, int ty) {
 
         if (tx >= close_x1 && tx <= close_x2 && ty >= close_y1 && ty <= close_y2) {
             g_active_win = WIN_NONE;
+            g_dirty_canvas = true;
+            g_dirty_dock = true;
             return;
         }
     }
@@ -645,6 +717,7 @@ static void handle_touch(int tx, int ty) {
                 int ky = ky_start + r * (kh + gap);
                 if (tx >= kx && tx <= kx + kw && ty >= ky && ty <= ky + kh) {
                     calc_input(keys_map[r][c]);
+                    g_dirty_window = true;
                     return;
                 }
             }
@@ -662,6 +735,7 @@ static void handle_touch(int tx, int ty) {
                     g_sw_running = true;
                     g_sw_start_us = g_ctx->host->get_time_us();
                 }
+                g_dirty_window = true;
                 return;
             } else if (tx >= wx + 160 && tx <= wx + 160 + btn_w) {
                 /* STOP */
@@ -669,11 +743,13 @@ static void handle_touch(int tx, int ty) {
                     g_sw_running = false;
                     g_sw_elapsed_us += (g_ctx->host->get_time_us() - g_sw_start_us);
                 }
+                g_dirty_window = true;
                 return;
             } else if (tx >= wx + 290 && tx <= wx + 290 + btn_w) {
                 /* RESET */
                 g_sw_running = false;
                 g_sw_elapsed_us = 0;
+                g_dirty_window = true;
                 return;
             }
         }
@@ -684,23 +760,32 @@ static void handle_touch(int tx, int ty) {
         int dock_x = 340;
         int bx = dock_x + 16;
         int bw = 130;
+        int clicked = WIN_NONE;
         if (tx >= bx && tx <= bx + bw) {
-            g_active_win = (g_active_win == WIN_CALC) ? WIN_NONE : WIN_CALC;
-            return;
+            clicked = WIN_CALC;
         }
         bx += bw + 14;
         if (tx >= bx && tx <= bx + bw) {
-            g_active_win = (g_active_win == WIN_CLOCK) ? WIN_NONE : WIN_CLOCK;
-            return;
+            clicked = WIN_CLOCK;
         }
         bx += bw + 14;
         if (tx >= bx && tx <= bx + bw) {
-            g_active_win = (g_active_win == WIN_SYSINFO) ? WIN_NONE : WIN_SYSINFO;
-            return;
+            clicked = WIN_SYSINFO;
         }
         bx += bw + 14;
         if (tx >= bx && tx <= bx + bw) {
-            g_active_win = (g_active_win == WIN_BANNER) ? WIN_NONE : WIN_BANNER;
+            clicked = WIN_BANNER;
+        }
+
+        if (clicked != WIN_NONE) {
+            if (g_active_win == clicked) {
+                g_active_win = WIN_NONE;
+            } else {
+                g_active_win = clicked;
+            }
+            g_dirty_canvas = true;
+            g_dirty_dock = true;
+            g_dirty_window = true;
             return;
         }
     }
@@ -750,6 +835,8 @@ int maia_module_main(const maia_module_context_t *ctx) {
                 if (k == 27 || k == 'q' || k == 3) { /* ESC or 'q' or Ctrl+C */
                     if (g_active_win != WIN_NONE) {
                         g_active_win = WIN_NONE;
+                        g_dirty_canvas = true;
+                        g_dirty_dock = true;
                     } else {
                         g_running = false;
                         break;
@@ -758,6 +845,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     if (k == '\r' || k == '\n' || k == '=') calc_input('=');
                     else if (k == '\b' || k == 127) calc_input('D');
                     else if (k >= 32 && k <= 126) calc_input((char)k);
+                    g_dirty_window = true;
                 }
                 k = ctx->host->input->read_key();
             }
