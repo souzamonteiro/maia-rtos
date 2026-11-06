@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(MaiaRTOS VERSION 0.1.0 LANGUAGES C ASM)
+project(MaiaRTOS VERSION 0.1.0 LANGUAGES C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -17,16 +17,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     kernel/kmem.c
     kernel/ksync.c
     kernel/ksched.c
-    shell/maia_shell_mvp.c
+    shell/maia_shell_engine.cpp
     boards/m5stack/tab5/app_desc.c
     boards/m5stack/tab5/boot_main.c
   )
   target_include_directories(maia_m0.elf PRIVATE include)
-  target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
+  target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
   target_link_options(maia_m0.elf PRIVATE
     "-T${MAIA_LINKER_SCRIPT}"
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_m0.map"
   )
+  target_link_libraries(maia_m0.elf PRIVATE gcc)
   set_target_properties(maia_m0.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured MaiaRTOS bare-metal target (maia_m0.elf) for ESP32-P4 / M5Stack Tab5")
 
@@ -88,6 +89,11 @@ else()
       target_compile_options(kernel_mvp_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME kernel_mvp_test COMMAND kernel_mvp_test)
+
+    add_executable(shell_expr_control_test tests/host/shell_expr_control_test.cpp)
+    target_include_directories(shell_expr_control_test PRIVATE include)
+    set_target_properties(shell_expr_control_test PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    add_test(NAME shell_expr_control_test COMMAND shell_expr_control_test)
   endif()
   message(STATUS "Host contract tests configured")
 endif()

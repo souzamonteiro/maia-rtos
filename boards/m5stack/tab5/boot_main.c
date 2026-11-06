@@ -3,8 +3,7 @@
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/version.h>
-#include <maia_shell/host_v1.h>
-#include <maia_shell/shell_mvp.h>
+#include <maia_shell/shell_engine.h>
 #include <stdint.h>
 
 extern void maia_soc_systimer_init(uint32_t tick_hz);
@@ -18,7 +17,6 @@ static uint8_t g_stack_shell[8192] __attribute__((aligned(16)));
 static maia_mutex_t g_telem_mutex;
 static maia_queue_t g_telem_queue;
 static uint32_t     g_telem_qbuf[8];
-static msh_ctx_t    g_shell_ctx;
 
 static void print_hex32(uint32_t val) {
     static const char kHex[] = "0123456789ABCDEF";
@@ -47,31 +45,6 @@ static void print_u32(uint32_t val) {
         maia_console_putc(digits[--n]);
     }
 }
-
-/* msh_host_v1 callbacks bound to MaiaRTOS console */
-static int32_t tab5_host_read(void *user, msh_fd_t fd, void *dst, uint32_t n) {
-    (void)user;
-    if (fd != MSH_FD_STDIN || dst == NULL || n == 0U) {
-        return MSH_ERR_INVALID;
-    }
-    int ch = maia_console_getc_nonblocking();
-    if (ch < 0) {
-        return MSH_ERR_AGAIN;
-    }
-    ((char *)dst)[0] = (char)ch;
-    return 1;
-}
-
-static int32_t tab5_host_write(void *user, msh_fd_t fd, const void *src, uint32_t n) {
-    (void)user;
-    if ((fd != MSH_FD_STDOUT && fd != MSH_FD_STDERR) || src == NULL) {
-        return MSH_ERR_INVALID;
-    }
-    maia_console_write((const char *)src, (size_t)n);
-    return (int32_t)n;
-}
-
-static msh_host_v1 g_tab5_shell_host;
 
 static void task_idle_entry(void *arg) {
     (void)arg;
@@ -108,8 +81,7 @@ static void task_telemetry_entry(void *arg) {
 
 static void task_shell_entry(void *arg) {
     (void)arg;
-    msh_mvp_bind_console_host(&g_tab5_shell_host, NULL, tab5_host_read, tab5_host_write);
-    (void)msh_mvp_init(&g_shell_ctx, &g_tab5_shell_host);
+    maia_shell_engine_init();
 
     /* Yield for 60 ms so telemetry & idle tasks accumulate preemptive/cooperative ticks */
     maia_task_delay_ticks(60U);
@@ -123,15 +95,15 @@ static void task_shell_entry(void *arg) {
     print_u32(drained);
     maia_console_puts("\n");
 
-    msh_mvp_print_banner(&g_shell_ctx);
+    maia_shell_engine_print_banner();
     maia_console_puts("[AUTO-SELFTEST] Running: uname; ticks; ps; mem; alloc 256; qtest\n");
-    (void)msh_mvp_eval_line(&g_shell_ctx, "uname; ticks; ps; mem; alloc 256; qtest");
-    msh_mvp_print_prompt(&g_shell_ctx);
+    (void)maia_shell_engine_eval_line("uname; ticks; ps; mem; alloc 256; qtest");
+    maia_shell_engine_print_prompt();
 
     for (;;) {
         int ch = maia_console_getc_nonblocking();
         if (ch >= 0) {
-            (void)msh_mvp_feed_char(&g_shell_ctx, (char)ch);
+            (void)maia_shell_engine_feed_char((char)ch);
         } else {
             maia_task_delay_ticks(2U);
         }

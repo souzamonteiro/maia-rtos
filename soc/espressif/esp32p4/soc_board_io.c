@@ -492,6 +492,22 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
                 } else if (str_is_key(str, slen, "esc") || str_is_key(str, slen, "escape")) {
                     str[0] = 27; /* ESC */
                     slen = 1U;
+                } else if (str_is_key(str, slen, "left")) {
+                    str[0] = 27; str[1] = '['; str[2] = 'D';
+                    slen = 3U;
+                } else if (str_is_key(str, slen, "right")) {
+                    str[0] = 27; str[1] = '['; str[2] = 'C';
+                    slen = 3U;
+                } else if (str_is_key(str, slen, "up")) {
+                    str[0] = 27; str[1] = '['; str[2] = 'A';
+                    slen = 3U;
+                } else if (str_is_key(str, slen, "down")) {
+                    str[0] = 27; str[1] = '['; str[2] = 'B';
+                    slen = 3U;
+                } else if (str_is_key(str, slen, "shift") || str_is_key(str, slen, "ctrl") ||
+                           str_is_key(str, slen, "alt") || str_is_key(str, slen, "fn") ||
+                           str_is_key(str, slen, "caps") || str_is_key(str, slen, "capslock")) {
+                    slen = 0U; /* Suppress standalone modifiers so they don't echo to terminal */
                 }
 
                 for (size_t i = 0; i < slen; ++i) {

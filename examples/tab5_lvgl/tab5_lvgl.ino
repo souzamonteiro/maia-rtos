@@ -25,7 +25,7 @@ static uint8_t kbd_fifo_tail = 0;
 static bool kbd_key_pressed = false;
 
 // Command line accumulator
-static char cmd_buf[128];
+static char cmd_buf[256];
 static size_t cmd_len = 0;
 
 static uint32_t my_tick_get(void) {
