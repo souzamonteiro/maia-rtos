@@ -6,7 +6,7 @@
   "abi_major": 1,
   "abi_minor_min": 0,
   "entry": "maia_module_main",
-  "elf_sha256": "55db132adddbb5c03374183857e5c4b03b579c0dbf282074e32a846b27c28b15",
+  "elf_sha256": "8162d88d9f60b1e1728b9465e7d962f9926aa456ddf039b82a149e13dd2482fa",
   "memory": {
     "stack_bytes": 8192,
     "heap_limit_bytes": 65536

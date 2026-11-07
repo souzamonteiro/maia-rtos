@@ -931,29 +931,118 @@ static void draw_desktop_icon(int x, int y, int win_id, const char *label, uint1
     draw_str(lx, y + 58, label, COLOR_TEXT, 0x1107, true);
 }
 
+static const int16_t s_sin_q10[64] = {
+        0,   100,   200,   297,   392,   483,   569,   650,
+      724,   792,   851,   903,   946,   980,  1004,  1019,
+     1024,  1019,  1004,   980,   946,   903,   851,   792,
+      724,   650,   569,   483,   392,   297,   200,   100,
+        0,  -100,  -200,  -297,  -392,  -483,  -569,  -650,
+     -724,  -792,  -851,  -903,  -946,  -980, -1004, -1019,
+    -1024, -1019, -1004,  -980,  -946,  -903,  -851,  -792,
+     -724,  -650,  -569,  -483,  -392,  -297,  -200,  -100,
+};
+
 static void render_canvas_background(void) {
-    /* 1. Vertical Gradient Wallpaper from Midnight Blue (top) to Slate Blue (bottom) */
+    /* 1. Deep Space Cosmic Background (#01041a down to #08112c) */
     for (int y = 36; y < SCREEN_H; ++y) {
-        int r = 1 + (y - 36) * 3 / 684;
-        int g = 3 + (y - 36) * 6 / 684;
-        int b = 6 + (y - 36) * 7 / 684;
+        int r = (y - 36) * 2 / 684;
+        int g = 1 + (y - 36) * 3 / 684;
+        int b = 4 + (y - 36) * 5 / 684;
         uint16_t line_col = (uint16_t)((r << 11) | (g << 5) | b);
         fill_rect(0, y, SCREEN_W, 1, line_col);
     }
 
-    /* Subtle geometric grid / accent dots */
-    for (int y = 60; y < SCREEN_H - 90; y += 48) {
-        for (int x = 140; x < SCREEN_W - 40; x += 48) {
-            put_pixel(x, y, 0x21a8);
+    /* 2. Luminous Planetary Horizon Arc (Inspired by MaiaLinux) */
+    for (int x = 0; x < SCREEN_W; ++x) {
+        int dx = x - 640;
+        int arc_y = 574 - (dx * dx) / 11200;
+        if (arc_y >= 36 && arc_y < SCREEN_H) {
+            /* Neon Core Line */
+            put_pixel(x, arc_y, 0xbfff);     /* Intense Ice Cyan / White */
+            put_pixel(x, arc_y - 1, 0x07ff); /* Pure Cyan */
+            put_pixel(x, arc_y + 1, 0x07ff);
+
+            /* Upward atmospheric glow */
+            put_pixel(x, arc_y - 2, 0x05df);
+            put_pixel(x, arc_y - 3, 0x03df);
+            put_pixel(x, arc_y - 4, 0x021f);
+            put_pixel(x, arc_y - 5, 0x011a);
+
+            /* Downward planetary glow */
+            put_pixel(x, arc_y + 2, 0x05ff);
+            put_pixel(x, arc_y + 3, 0x04df);
+            put_pixel(x, arc_y + 4, 0x039f);
+            put_pixel(x, arc_y + 5, 0x02bf);
+            put_pixel(x, arc_y + 6, 0x01bf);
+            put_pixel(x, arc_y + 7, 0x013c);
+            put_pixel(x, arc_y + 8, 0x00d8);
+            put_pixel(x, arc_y + 9, 0x0074);
         }
     }
 
-    /* Centered OS Logo Watermark */
-    draw_str_2x(440, 240, "[ MAIA OS DESKTOP ]", COLOR_TASK_ACC, 0x1509, true);
-    draw_str_2x(450, 280, "NATIVE RV32 DUAL-CORE", COLOR_TEXT, 0x1509, true);
-    draw_str(470, 325, "Touch any shortcut or dock icon to open", COLOR_TEXT_DIM, 0x1509, true);
+    /* 3. Subtle Cosmic Stars / Constellation Points */
+    static const int stars[][2] = {
+        {180, 80}, {260, 140}, {340, 90}, {780, 110}, {890, 70}, {1020, 130}, {1150, 95},
+        {160, 220}, {290, 270}, {950, 230}, {1080, 260}, {1200, 190},
+        {220, 420}, {310, 470}, {920, 440}, {1050, 480}, {1160, 410}
+    };
+    for (size_t s = 0; s < sizeof(stars)/sizeof(stars[0]); ++s) {
+        int sx = stars[s][0], sy = stars[s][1];
+        put_pixel(sx, sy, COLOR_WHITE);
+        put_pixel(sx + 1, sy, 0x8410);
+        put_pixel(sx - 1, sy, 0x8410);
+        put_pixel(sx, sy + 1, 0x8410);
+        put_pixel(sx, sy - 1, 0x8410);
+    }
 
-    /* 2. Desktop Shortcut Icons (Left Column) */
+    /* 4. Maia Celestial Orbital Rings & Radiant Star Core */
+    int cx = 640, cy = 210;
+
+    /* Orbital Ring 1: Tilted Gold Ellipse */
+    int rx1 = 110, ry1 = 44;
+    for (int i = 0; i < 64; ++i) {
+        int32_t sn = s_sin_q10[i];
+        int32_t cs = s_sin_q10[(i + 16) % 64];
+        /* Rotate by -24 deg: cos ~ 935, sin ~ -416 */
+        int32_t px = (rx1 * cs * 935 - ry1 * sn * (-416)) / (1024 * 1024);
+        int32_t py = (rx1 * cs * (-416) + ry1 * sn * 935) / (1024 * 1024);
+        put_pixel(cx + (int)px, cy + (int)py, COLOR_GOLD);
+        put_pixel(cx + (int)px + 1, cy + (int)py, 0xfd20);
+    }
+
+    /* Orbital Ring 2: Tilted Cyan / Blue Ellipse */
+    int rx2 = 110, ry2 = 44;
+    for (int i = 0; i < 64; ++i) {
+        int32_t sn = s_sin_q10[i];
+        int32_t cs = s_sin_q10[(i + 16) % 64];
+        /* Rotate by +24 deg: cos ~ 935, sin ~ 416 */
+        int32_t px = (rx2 * cs * 935 - ry2 * sn * 416) / (1024 * 1024);
+        int32_t py = (rx2 * cs * 416 + ry2 * sn * 935) / (1024 * 1024);
+        put_pixel(cx + (int)px, cy + (int)py, COLOR_CYAN);
+        put_pixel(cx + (int)px + 1, cy + (int)py, COLOR_TASK_ACC);
+    }
+
+    /* Radiant Core Star */
+    fill_rect(cx - 7, cy - 7, 15, 15, COLOR_GOLD);
+    fill_rect(cx - 5, cy - 5, 11, 11, COLOR_YELLOW);
+    fill_rect(cx - 3, cy - 3, 7, 7, COLOR_WHITE);
+    /* Cross flare rays */
+    for (int r = -28; r <= 28; ++r) {
+        uint16_t fc = (r >= -6 && r <= 6) ? COLOR_WHITE : (r >= -16 && r <= 16) ? COLOR_YELLOW : 0x8400;
+        put_pixel(cx + r, cy, fc);
+        put_pixel(cx, cy + r, fc);
+    }
+
+    /* Small Celestial Bodies on orbits */
+    fill_rect(cx + 80, cy - 30, 6, 6, COLOR_GOLD);
+    fill_rect(cx - 75, cy - 25, 6, 6, COLOR_CYAN);
+
+    /* 5. Typography */
+    draw_str_2x(440, 290, "MAIA OPERATING SYSTEM", COLOR_WHITE, 0x0023, true);
+    draw_str_2x(456, 330, "NATIVE RV32 DUAL-CORE", COLOR_TASK_ACC, 0x0023, true);
+    draw_str(490, 375, "Touch any shortcut or dock icon to open", COLOR_TEXT_DIM, 0x0023, true);
+
+    /* 6. Desktop Shortcut Icons (Left Column) */
     draw_desktop_icon(24, 60,  WIN_FILES,   "Arquivos", COLOR_GOLD);
     draw_desktop_icon(24, 152, WIN_EDITOR,  "Editor",   COLOR_CYAN);
     draw_desktop_icon(24, 244, WIN_CALC,    "Calc",     COLOR_GREEN);
