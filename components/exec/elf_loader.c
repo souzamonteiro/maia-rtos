@@ -55,8 +55,9 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
 
     // 1. Calculate size and offsets for all allocatable sections
     size_t total_alloc = 0;
-    size_t sec_offsets[64] = {0};
-    if (ehdr->e_shnum > 64) return MNM_ERR_OUT_OF_MEMORY;
+#define MAX_ELF_SECTIONS 256
+    size_t sec_offsets[MAX_ELF_SECTIONS] = {0};
+    if (ehdr->e_shnum > MAX_ELF_SECTIONS) return MNM_ERR_OUT_OF_MEMORY;
 
     int text_sec_idx = -1;
 
@@ -130,7 +131,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     }
 
     // 3. Copy section data into loaded image
-    uintptr_t sec_addrs[64] = {0};
+    uintptr_t sec_addrs[MAX_ELF_SECTIONS] = {0};
     for (uint16_t i = 0; i < ehdr->e_shnum; ++i) {
         const Elf32_Shdr *sh = &shdrs[i];
         if (sh->sh_flags & SHF_ALLOC) {
@@ -213,24 +214,56 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                     const Elf32_Sym *sym = &symtab[r_sym];
                     if (sym->st_shndx > 0 && sym->st_shndx < ehdr->e_shnum) {
                         sym_val = sec_addrs[sym->st_shndx] + sym->st_value;
-                    } else if (sym->st_shndx == 0 && strtab) {
+                    } else if (sym->st_shndx == 0 && strtab && sym->st_name != 0) {
                         const char *sname = strtab + sym->st_name;
-                        extern int64_t __divdi3(int64_t, int64_t);
-                        extern uint64_t __udivdi3(uint64_t, uint64_t);
-                        extern uint64_t __umoddi3(uint64_t, uint64_t);
-                        extern int64_t __moddi3(int64_t, int64_t);
+                        if (sname[0] == '\0') {
+                            // Empty symbol, do not report warning
+                        } else {
+                            extern int64_t __divdi3(int64_t, int64_t);
+                            extern uint64_t __udivdi3(uint64_t, uint64_t);
+                            extern uint64_t __umoddi3(uint64_t, uint64_t);
+                            extern int64_t __moddi3(int64_t, int64_t);
 
-                        if (strcmp(sname, "strlen") == 0) sym_val = (uintptr_t)strlen;
-                        else if (strcmp(sname, "memcpy") == 0) sym_val = (uintptr_t)memcpy;
-                        else if (strcmp(sname, "memset") == 0) sym_val = (uintptr_t)memset;
-                        else if (strcmp(sname, "memmove") == 0) sym_val = (uintptr_t)memmove;
-                        else if (strcmp(sname, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
-                        else if (strcmp(sname, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
-                        else if (strcmp(sname, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
-                        else if (strcmp(sname, "__divdi3") == 0) sym_val = (uintptr_t)__divdi3;
-                        else if (strcmp(sname, "__udivdi3") == 0) sym_val = (uintptr_t)__udivdi3;
-                        else if (strcmp(sname, "__umoddi3") == 0) sym_val = (uintptr_t)__umoddi3;
-                        else if (strcmp(sname, "__moddi3") == 0) sym_val = (uintptr_t)__moddi3;
+                            extern double __adddf3(double, double);
+                            extern double __subdf3(double, double);
+                            extern double __muldf3(double, double);
+                            extern double __divdf3(double, double);
+                            extern int32_t __fixdfsi(double);
+                            extern double __floatsidf(int32_t);
+                            extern int __ltdf2(double, double);
+                            extern int __gtdf2(double, double);
+                            extern int __eqdf2(double, double);
+                            extern int __nedf2(double, double);
+
+                            if (strcmp(sname, "strlen") == 0) sym_val = (uintptr_t)strlen;
+                            else if (strcmp(sname, "memcpy") == 0) sym_val = (uintptr_t)memcpy;
+                            else if (strcmp(sname, "memset") == 0) sym_val = (uintptr_t)memset;
+                            else if (strcmp(sname, "memmove") == 0) sym_val = (uintptr_t)memmove;
+                            else if (strcmp(sname, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
+                            else if (strcmp(sname, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
+                            else if (strcmp(sname, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
+                            else if (strcmp(sname, "__divdi3") == 0) sym_val = (uintptr_t)__divdi3;
+                            else if (strcmp(sname, "__udivdi3") == 0) sym_val = (uintptr_t)__udivdi3;
+                            else if (strcmp(sname, "__umoddi3") == 0) sym_val = (uintptr_t)__umoddi3;
+                            else if (strcmp(sname, "__moddi3") == 0) sym_val = (uintptr_t)__moddi3;
+                            else if (strcmp(sname, "__adddf3") == 0) sym_val = (uintptr_t)__adddf3;
+                            else if (strcmp(sname, "__subdf3") == 0) sym_val = (uintptr_t)__subdf3;
+                            else if (strcmp(sname, "__muldf3") == 0) sym_val = (uintptr_t)__muldf3;
+                            else if (strcmp(sname, "__divdf3") == 0) sym_val = (uintptr_t)__divdf3;
+                            else if (strcmp(sname, "__fixdfsi") == 0) sym_val = (uintptr_t)__fixdfsi;
+                            else if (strcmp(sname, "__floatsidf") == 0) sym_val = (uintptr_t)__floatsidf;
+                            else if (strcmp(sname, "__ltdf2") == 0) sym_val = (uintptr_t)__ltdf2;
+                            else if (strcmp(sname, "__gtdf2") == 0) sym_val = (uintptr_t)__gtdf2;
+                            else if (strcmp(sname, "__eqdf2") == 0) sym_val = (uintptr_t)__eqdf2;
+                            else if (strcmp(sname, "__nedf2") == 0) sym_val = (uintptr_t)__nedf2;
+                            else {
+                                if (log_fn) {
+                                    char err[128];
+                                    snprintf(err, sizeof(err), "Loader Warning: Unresolved external symbol '%s'", sname);
+                                    log_fn(err);
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -285,6 +318,18 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                         break;
                     }
 
+                    case R_RISCV_JAL: {
+                        int32_t off = (int32_t)(val - (uintptr_t)loc);
+                        uint32_t insn = get_u32(loc);
+                        insn = (insn & ~0xFFFFF000) |
+                               (((off >> 20) & 0x1) << 31) |
+                               (((off >> 1) & 0x3FF) << 21) |
+                               (((off >> 11) & 0x1) << 20) |
+                               (((off >> 12) & 0xFF) << 12);
+                        set_u32(loc, insn);
+                        break;
+                    }
+
                     case R_RISCV_BRANCH: {
                         int32_t off = (int32_t)(val - (uintptr_t)loc);
                         uint32_t insn = get_u32(loc);
@@ -305,6 +350,22 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                                (((off >> 3) & 0x3) << 10) |
                                (((off >> 6) & 0x3) << 5) |
                                (((off >> 1) & 0x3) << 3) |
+                               (((off >> 5) & 0x1) << 2);
+                        set_u16(loc, insn);
+                        break;
+                    }
+
+                    case R_RISCV_RVC_JUMP: {
+                        int32_t off = (int32_t)(val - (uintptr_t)loc);
+                        uint16_t insn = get_u16(loc);
+                        insn = (insn & ~0x1FFC) |
+                               (((off >> 11) & 0x1) << 12) |
+                               (((off >> 4) & 0x1) << 11) |
+                               (((off >> 8) & 0x3) << 9) |
+                               (((off >> 10) & 0x1) << 8) |
+                               (((off >> 6) & 0x1) << 7) |
+                               (((off >> 7) & 0x1) << 6) |
+                               (((off >> 1) & 0x7) << 3) |
                                (((off >> 5) & 0x1) << 2);
                         set_u16(loc, insn);
                         break;

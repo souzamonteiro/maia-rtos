@@ -1,0 +1,1 @@
+i32 fact(i32 n) { if (n <= 1) { return 1; } return n * fact(n - 1); } i32 main() { return fact(5); }

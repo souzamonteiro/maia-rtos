@@ -1,0 +1,154 @@
+/* MaiaScript Native v0.1 -- candidate grammar for MaiaCC/tREx.
+ * DRAFT: REx-like syntax inferred from MaiaScript.ebnf and Maia shell grammars.
+ * NOT YET verified with the MaiaCC generator or C++ output.
+ * Start symbol: Program. Lexer starts at <?TOKENS?>.
+ * This grammar covers syntax, not semantic typing, resource ownership, ABI,
+ * LVGL binding resolution, or valid assignment targets.
+ * No left recursion; expressions are precedence-layered.
+ */
+
+Program ::= TopLevel* EOF
+
+TopLevel ::= ImportDecl
+           | ExportDecl
+           | NamespaceDecl
+           | StructDecl
+           | ClassDecl
+           | FunctionDecl
+           | GlobalDecl
+           | ExternDecl
+
+ImportDecl ::= 'import' QualifiedName ('as' NAME)? ';'
+ExportDecl ::= 'export' (StructDecl | ClassDecl | FunctionDecl | GlobalDecl)
+NamespaceDecl ::= 'namespace' QualifiedName '{' TopLevel* '}'
+
+StructDecl ::= 'struct' NAME '{' FieldDecl* '}' ';'?
+FieldDecl ::= Type NAME ('=' Expression)? ';'
+
+ClassDecl ::= 'class' NAME '{' ClassMember* '}' ';'?
+ClassMember ::= Visibility? (FieldDecl | MethodDecl | ConstructorDecl)
+Visibility ::= 'public' | 'private' | 'protected'
+MethodDecl ::= Type NAME '(' ParameterList? ')' 'const'? Block
+ConstructorDecl ::= NAME '(' ParameterList? ')' Block
+
+FunctionDecl ::= Type NAME '(' ParameterList? ')' Block
+ExternDecl ::= 'extern' Type NAME '(' ParameterList? ')' ';'
+GlobalDecl ::= ('const' | 'static')? Type NAME ('=' Expression)? ';'
+ParameterList ::= Parameter (',' Parameter)*
+Parameter ::= Type NAME
+
+/* Types: no general templates in v0.1. Result and Option are built-ins. */
+Type ::= TypeAtom TypeSuffix*
+TypeAtom ::= PrimitiveType
+           | QualifiedName
+           | 'Result' '<' Type ',' Type '>'
+           | 'Option' '<' Type '>'
+PrimitiveType ::= 'void' | 'bool' | 'char' | 'string'
+                | 'i8' | 'i16' | 'i32' | 'i64'
+                | 'u8' | 'u16' | 'u32' | 'u64'
+                | 'f32' | 'f64'
+TypeSuffix ::= '*' | '[' INTEGER? ']' | '?'
+QualifiedName ::= NAME ('.' NAME)*
+
+Block ::= '{' Statement* '}'
+Statement ::= Block
+            | LocalDecl
+            | IfStmt
+            | WhileStmt
+            | DoStmt
+            | ForStmt
+            | ForeachStmt
+            | SwitchStmt
+            | ReturnStmt
+            | BreakStmt
+            | ContinueStmt
+            | DeferStmt
+            | UnsafeStmt
+            | ExpressionStmt
+            | ';'
+LocalDecl ::= ('const' | 'auto') NAME '=' Expression ';'
+            | Type NAME ('=' Expression)? ';'
+IfStmt ::= 'if' '(' Expression ')' Block ('else' (IfStmt | Block))?
+WhileStmt ::= 'while' '(' Expression ')' Block
+DoStmt ::= 'do' Block 'while' '(' Expression ')' ';'
+ForStmt ::= 'for' '(' ForInit? ';' Expression? ';' Expression? ')' Block
+ForInit ::= LocalInit | Expression
+LocalInit ::= ('const' | 'auto') NAME '=' Expression
+            | Type NAME ('=' Expression)?
+ForeachStmt ::= 'foreach' '(' Type NAME ':' Expression ')' Block
+SwitchStmt ::= 'switch' '(' Expression ')' '{' SwitchArm* DefaultArm? '}'
+SwitchArm ::= 'case' Expression ':' Statement*
+DefaultArm ::= 'default' ':' Statement*
+ReturnStmt ::= 'return' Expression? ';'
+BreakStmt ::= 'break' ';'
+ContinueStmt ::= 'continue' ';'
+DeferStmt ::= 'defer' (Block | Expression ';')
+UnsafeStmt ::= 'unsafe' Block
+ExpressionStmt ::= Expression ';'
+
+/* Right-associative assignment; semantic analysis must require an lvalue. */
+Expression ::= Assignment
+Assignment ::= Conditional (AssignOp Assignment)?
+AssignOp ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
+           | '&=' | '|=' | '^=' | '<<=' | '>>='
+Conditional ::= LogicalOr ('?' Expression ':' Conditional)?
+LogicalOr ::= LogicalAnd ('||' LogicalAnd)*
+LogicalAnd ::= BitwiseOr ('&&' BitwiseOr)*
+BitwiseOr ::= BitwiseXor ('|' BitwiseXor)*
+BitwiseXor ::= BitwiseAnd ('^' BitwiseAnd)*
+BitwiseAnd ::= Equality ('&' Equality)*
+Equality ::= Relational (('==' | '!=') Relational)*
+Relational ::= Shift (('<' | '>' | '<=' | '>=') Shift)*
+Shift ::= Additive (('<<' | '>>') Additive)*
+Additive ::= Multiplicative (('+' | '-') Multiplicative)*
+Multiplicative ::= Unary (('*' | '/' | '%') Unary)*
+Unary ::= ('!' | '~' | '+' | '-' | '*' | '&' | '++' | '--') Unary
+        | Postfix
+Postfix ::= Primary PostfixTail*
+PostfixTail ::= '(' ArgumentList? ')'
+              | '[' Expression (':' Expression?)? ']'
+              | '.' NAME
+              | '->' NAME
+              | '++'
+              | '--'
+ArgumentList ::= Expression (',' Expression)*
+Primary ::= Literal
+          | NAME
+          | '(' Expression ')'
+          | 'new' QualifiedName '(' ArgumentList? ')'
+          | 'delete' Unary
+          | 'sizeof' '(' Type ')'
+          | 'asm' '(' STRING ')'
+/* Struct literal Type {field: value} is deferred: ambiguous with blocks.
+ * The first implementation should use constructors or a named init function.
+ */
+Literal ::= INTEGER | FLOAT | STRING | CHAR | 'true' | 'false' | 'null'
+
+<?TOKENS?>
+
+EOF ::= $
+/* Names are excluded from reserved words, as in the existing MaiaScript EBNF. */
+NAME ::= ([A-Za-z_] [A-Za-z0-9_]*) - Keyword
+Keyword ::= 'import' | 'export' | 'as' | 'namespace' | 'struct'
+          | 'class' | 'public' | 'private' | 'protected'
+          | 'const' | 'static' | 'extern' | 'auto' | 'new' | 'delete'
+          | 'if' | 'else' | 'while' | 'do' | 'for' | 'foreach'
+          | 'switch' | 'case' | 'default' | 'break' | 'continue'
+          | 'return' | 'defer' | 'unsafe' | 'sizeof' | 'asm'
+          | 'void' | 'bool' | 'char' | 'string'
+          | 'i8' | 'i16' | 'i32' | 'i64'
+          | 'u8' | 'u16' | 'u32' | 'u64' | 'f32' | 'f64'
+          | 'Result' | 'Option' | 'true' | 'false' | 'null'
+INTEGER ::= ('0x' [0-9A-Fa-f]+ | '0b' [01]+ | [0-9]+) ([uU] | [lL])?
+FLOAT ::= [0-9]+ '.' [0-9]+ (('e' | 'E') ('+' | '-')? [0-9]+)? ('f' | 'F')?
+        | [0-9]+ ('e' | 'E') ('+' | '-')? [0-9]+ ('f' | 'F')?
+STRING ::= #x22 (Escape | [^#x22#x5C#xA#xD])* #x22
+CHAR ::= #x27 (Escape | [^#x27#x5C#xA#xD]) #x27
+Escape ::= #x5C ('n' | 'r' | 't' | '0' | #x22 | #x27 | #x5C)
+LINE_COMMENT ::= '//' [^#xA#xD]* /* ws: definition */
+BLOCK_COMMENT ::= '/*' ( [^*] | '*' [^/] )* '*/' /* ws: definition */
+WS ::= [#x20#x9#xA#xD]+ /* ws: definition */
+
+/* Explicit lexical disambiguation; verify MaiaCC support and ordering. */
+FLOAT << INTEGER
+Keyword << NAME

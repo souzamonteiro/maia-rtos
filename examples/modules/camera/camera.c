@@ -1,7 +1,11 @@
 #include "gui_kit.h"
 
-static char g_cam_msg[96] = "Pronto para captura ou gravacao MJPEG.";
+static char g_cam_msg[96] = "Ready for snapshot or MJPEG video.";
 static uint16_t g_cam_msg_col = COLOR_WHITE;
+
+static int str_len(const char *s) {
+    int l = 0; while (s && s[l]) l++; return l;
+}
 
 static void set_cam_msg(const char *msg, uint16_t col) {
     int i = 0;
@@ -10,8 +14,8 @@ static void set_cam_msg(const char *msg, uint16_t col) {
     g_cam_msg_col = col;
 }
 
-static void render_camera(int wx, int wy, int ww, int wh) {
-    gui_draw_window_frame(wx, wy, ww, wh, "Estudio de Camera & Video MJPEG", COLOR_MAGENTA);
+static void render_camera_chrome(int wx, int wy, int ww, int wh) {
+    gui_draw_window_frame(wx, wy, ww, wh, "Camera Studio & MJPEG Video", COLOR_MAGENTA);
 
     /* Viewfinder container placeholder */
     int vx = wx + 40, vy = wy + 48, vw = ww - 80, vh = 320;
@@ -20,29 +24,44 @@ static void render_camera(int wx, int wy, int ww, int wh) {
 
     /* Camera lens graphical indicator */
     int cx = vx + vw / 2, cy = vy + vh / 2;
-    gui_fill_rect(cx - 30, cy - 30, 60, 60, 0x2128);
-    gui_draw_rect(cx - 30, cy - 30, 60, 60, COLOR_CYAN);
-    gui_fill_rect(cx - 15, cy - 15, 30, 30, 0x0182);
-    gui_draw_rect(cx - 15, cy - 15, 30, 30, COLOR_WHITE);
+    gui_fill_rect(cx - 36, cy - 40, 72, 72, 0x2128);
+    gui_draw_rect(cx - 36, cy - 40, 72, 72, COLOR_CYAN);
+    gui_fill_rect(cx - 18, cy - 22, 36, 36, 0x0182);
+    gui_draw_rect(cx - 18, cy - 22, 36, 36, COLOR_WHITE);
 
-    gui_draw_str(cx - 110, cy + 45, "SENSOR SC202CS (MIPI CSI 1080p)", COLOR_WHITE, COLOR_BLACK, true);
-    gui_draw_str(cx - 130, cy + 65, "PPA Hardware SRM + HW JPEG 60 FPS", COLOR_CYAN, COLOR_BLACK, true);
+    gui_draw_str_2x(cx - 160, cy + 42, "SC202CS (MIPI CSI 1080p)", COLOR_WHITE, COLOR_BLACK, true);
+    gui_draw_str_2x(cx - 176, cy + 74, "PPA HW SRM + HW JPEG 60 FPS", COLOR_CYAN, COLOR_BLACK, true);
 
-    /* Status Bar */
+    /* Status Bar frame */
     int sy = vy + vh + 16;
-    gui_fill_rect(vx, sy, vw, 34, 0x10a2);
-    gui_draw_rect(vx, sy, vw, 34, COLOR_WIN_BD);
-    gui_draw_str(vx + 16, sy + 10, g_cam_msg, g_cam_msg_col, 0x10a2, true);
+    gui_fill_rect(vx, sy, vw, 40, 0x10a2);
+    gui_draw_rect(vx, sy, vw, 40, COLOR_WIN_BD);
 
     /* Action Buttons (4 Buttons) */
-    int by = sy + 50;
+    int by = sy + 54;
     int bw = (vw - 36) / 4;
     int bh = 46;
 
-    gui_draw_button(vx,                     by, bw, bh, "LIVE VIEW (5s)",  0x03a8, COLOR_CYAN,   COLOR_CYAN,   false);
-    gui_draw_button(vx + (bw + 12),         by, bw, bh, "TIRAR FOTO",      0x1b24, COLOR_GREEN,  COLOR_GREEN,  false);
-    gui_draw_button(vx + (bw + 12) * 2,     by, bw, bh, "GRAVAR VÍDEO",    0x8180, COLOR_YELLOW, COLOR_YELLOW, false);
-    gui_draw_button(vx + (bw + 12) * 3,     by, bw, bh, "REPRODUZIR",      0x518a, COLOR_WHITE,  COLOR_WHITE,  false);
+    gui_draw_button(vx,                     by, bw, bh, "LIVE VIEW",  0x03a8, COLOR_CYAN,   COLOR_CYAN,   false);
+    gui_draw_button(vx + (bw + 12),         by, bw, bh, "SNAP PHOTO", 0x1b24, COLOR_GREEN,  COLOR_GREEN,  false);
+    gui_draw_button(vx + (bw + 12) * 2,     by, bw, bh, "RECORD (5s)",0x8180, COLOR_YELLOW, COLOR_YELLOW, false);
+    gui_draw_button(vx + (bw + 12) * 3,     by, bw, bh, "PLAYBACK",   0x518a, COLOR_WHITE,  COLOR_WHITE,  false);
+}
+
+static void render_camera_status(int wx, int wy, int ww) {
+    int vx = wx + 40, vy = wy + 48, vw = ww - 80, vh = 320;
+    int sy = vy + vh + 16;
+    gui_fill_rect(vx + 2, sy + 2, vw - 4, 36, 0x10a2);
+    gui_set_clip(vx + 12, sy + 2, vw - 24, 36);
+    int len = str_len(g_cam_msg);
+    if (len <= 38) {
+        gui_draw_str_2x(vx + 16, sy + 4, g_cam_msg, g_cam_msg_col, 0x10a2, true);
+    } else if (len <= 51) {
+        gui_draw_str_1_5x(vx + 16, sy + 8, g_cam_msg, g_cam_msg_col, 0x10a2, true);
+    } else {
+        gui_draw_str(vx + 16, sy + 12, g_cam_msg, g_cam_msg_col, 0x10a2, true);
+    }
+    gui_reset_clip();
 }
 
 int maia_module_main(const maia_module_context_t *ctx) {
@@ -52,7 +71,8 @@ int maia_module_main(const maia_module_context_t *ctx) {
     gui_out_str(">>> Starting Camera GUI (/sd/apps/camera.mobj)...\n");
 
     int wx = 280, wy = 80, ww = 720, wh = 520;
-    render_camera(wx, wy, ww, wh);
+    render_camera_chrome(wx, wy, ww, wh);
+    render_camera_status(wx, wy, ww);
     gui_sync();
 
     bool running = true;
@@ -84,62 +104,62 @@ int maia_module_main(const maia_module_context_t *ctx) {
 
                     int vx = wx + 40, vy = wy + 48, vw = ww - 80, vh = 320;
                     int sy = vy + vh + 16;
-                    int by = sy + 50;
+                    int by = sy + 54;
                     int bw = (vw - 36) / 4;
                     int bh = 46;
 
-                    /* Button 1: LIVE VIEW (5s) */
+                    /* Button 1: LIVE VIEW */
                     if (tx >= vx && tx <= vx + bw && ty >= by && ty <= by + bh) {
-                        set_cam_msg("Iniciando preview ao vivo por 5 segundos...", COLOR_CYAN);
-                        render_camera(wx, wy, ww, wh);
+                        set_cam_msg("Starting live preview (5 seconds)...", COLOR_CYAN);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                         if (ctx->host->camera_view) {
                             ctx->host->camera_view(5);
                         }
-                        set_cam_msg("Preview de video concluido.", COLOR_GREEN);
-                        render_camera(wx, wy, ww, wh);
+                        set_cam_msg("Live preview finished.", COLOR_GREEN);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                     }
-                    /* Button 2: TIRAR FOTO */
+                    /* Button 2: SNAP PHOTO */
                     else if (tx >= vx + (bw + 12) && tx <= vx + (bw + 12) + bw && ty >= by && ty <= by + bh) {
-                        set_cam_msg("Capturando foto JPEG...", COLOR_YELLOW);
-                        render_camera(wx, wy, ww, wh);
+                        set_cam_msg("Capturing JPEG snapshot...", COLOR_YELLOW);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                         int ret = -1;
                         if (ctx->host->camera_snap) {
-                            ret = ctx->host->camera_snap("/sd/DCIM/foto.jpg");
+                            ret = ctx->host->camera_snap("/sd/DCIM/photo.jpg");
                         }
-                        if (ret == 0) set_cam_msg("[OK] Foto gravada em /sd/DCIM/foto.jpg", COLOR_GREEN);
-                        else set_cam_msg("[ERRO] Falha ao capturar imagem.", COLOR_RED);
-                        render_camera(wx, wy, ww, wh);
+                        if (ret == 0) set_cam_msg("[OK] Photo saved to /sd/DCIM/photo.jpg", COLOR_GREEN);
+                        else set_cam_msg("[ERROR] Failed to capture photo.", COLOR_RED);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                     }
-                    /* Button 3: GRAVAR VÍDEO (5s) */
+                    /* Button 3: RECORD (5s) */
                     else if (tx >= vx + (bw + 12) * 2 && tx <= vx + (bw + 12) * 2 + bw && ty >= by && ty <= by + bh) {
-                        set_cam_msg("Gravando video MJPEG 5s...", COLOR_RED);
-                        render_camera(wx, wy, ww, wh);
+                        set_cam_msg("Recording 5s MJPEG video...", COLOR_RED);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                         int ret = -1;
                         if (ctx->host->video_record) {
                             ret = ctx->host->video_record("/sd/DCIM/video.mvid", 5, 15);
                         }
-                        if (ret > 0) set_cam_msg("[OK] Video MJPEG gravado com sucesso!", COLOR_GREEN);
-                        else set_cam_msg("[ERRO] Falha na gravacao de video.", COLOR_RED);
-                        render_camera(wx, wy, ww, wh);
+                        if (ret > 0) set_cam_msg("[OK] Video MJPEG recorded successfully!", COLOR_GREEN);
+                        else set_cam_msg("[ERROR] Video recording failed.", COLOR_RED);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                     }
-                    /* Button 4: REPRODUZIR */
+                    /* Button 4: PLAYBACK */
                     else if (tx >= vx + (bw + 12) * 3 && tx <= vx + (bw + 12) * 3 + bw && ty >= by && ty <= by + bh) {
-                        set_cam_msg("Reproduzindo /sd/DCIM/video.mvid...", COLOR_YELLOW);
-                        render_camera(wx, wy, ww, wh);
+                        set_cam_msg("Playing /sd/DCIM/video.mvid...", COLOR_YELLOW);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                         int ret = -1;
                         if (ctx->host->video_play) {
                             ret = ctx->host->video_play("/sd/DCIM/video.mvid", 15);
                         }
-                        if (ret >= 0) set_cam_msg("[OK] Reproducao concluida com exito.", COLOR_GREEN);
-                        else set_cam_msg("[AVISO] Arquivo nao encontrado ou erro.", COLOR_YELLOW);
-                        render_camera(wx, wy, ww, wh);
+                        if (ret >= 0) set_cam_msg("[OK] Video playback completed.", COLOR_GREEN);
+                        else set_cam_msg("[WARN] File not found or playback error.", COLOR_YELLOW);
+                        render_camera_status(wx, wy, ww);
                         gui_sync();
                     }
                 } else if (!pressed) {

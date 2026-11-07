@@ -6,6 +6,7 @@
   "abi_major": 1,
   "abi_minor_min": 0,
   "entry": "maia_module_main",
+  "font_scale": 2,
   "elf_sha256": "1e2d4403b789493f2692b50179da3706a4822b60578189c0e425d6fd248c6700",
   "memory": {
     "stack_bytes": 8192,

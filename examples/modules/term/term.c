@@ -33,51 +33,66 @@ static void term_add_line(const char *str) {
     }
 }
 
+static char g_term_out_line[TERM_LINE_LEN] = {0};
+static int  g_term_out_pos = 0;
+
 static void term_out_cb(const char *str, void *user_data) {
     (void)user_data;
     if (!str) return;
 
-    char line_buf[TERM_LINE_LEN];
-    int p = 0;
     while (*str) {
-        if (*str == '\n') {
-            line_buf[p] = '\0';
-            term_add_line(line_buf);
-            p = 0;
-        } else if (*str != '\r' && p < TERM_LINE_LEN - 1) {
-            line_buf[p++] = *str;
+        char c = *str++;
+        if (c == '\r') continue;
+        if (c == '\n') {
+            g_term_out_line[g_term_out_pos] = '\0';
+            term_add_line(g_term_out_line);
+            g_term_out_pos = 0;
+            g_term_out_line[0] = '\0';
+        } else {
+            if (g_term_out_pos < TERM_LINE_LEN - 1) {
+                g_term_out_line[g_term_out_pos++] = c;
+            } else {
+                g_term_out_line[g_term_out_pos] = '\0';
+                term_add_line(g_term_out_line);
+                g_term_out_pos = 0;
+                g_term_out_line[g_term_out_pos++] = c;
+            }
         }
-        str++;
-    }
-    if (p > 0) {
-        line_buf[p] = '\0';
-        term_add_line(line_buf);
     }
 }
 
 static void render_term(int wx, int wy, int ww, int wh) {
-    gui_draw_window_frame(wx, wy, ww, wh, "Terminal Interativo - MaiaShell (msh)", COLOR_GREEN);
+    gui_draw_window_frame(wx, wy, ww, wh, "Interactive MaiaShell Terminal (msh)", COLOR_GREEN);
 
     /* Terminal Black Screen Canvas */
-    int cx = wx + 16, cy = wy + 44, cw = ww - 32, ch = wh - 98;
+    int cx = wx + 16, cy = wy + 44, cw = ww - 32, ch = wh - 108;
     gui_fill_rect(cx, cy, cw, ch, COLOR_BLACK);
     gui_draw_rect(cx, cy, cw, ch, COLOR_GREEN);
 
-    for (int l = 0; l < g_term_line_count && l < TERM_MAX_LINES; ++l) {
-        gui_draw_str(cx + 10, cy + 8 + l * 20, g_term_lines[l], COLOR_GREEN, COLOR_BLACK, true);
+    int line_h = 28;
+    int max_vis = (ch - 16) / line_h;
+    int start_l = 0;
+    if (g_term_line_count > max_vis) {
+        start_l = g_term_line_count - max_vis;
+    }
+
+    int ty = cy + 8;
+    for (int l = start_l; l < g_term_line_count; ++l) {
+        gui_draw_str_2x(cx + 10, ty, g_term_lines[l], COLOR_GREEN, COLOR_BLACK, true);
+        ty += line_h;
     }
 
     /* Command prompt input box */
-    int iy = wy + wh - 46;
-    gui_fill_rect(cx, iy, cw, 34, 0x10a2);
-    gui_draw_rect(cx, iy, cw, 34, COLOR_CYAN);
+    int iy = wy + wh - 52;
+    gui_fill_rect(cx, iy, cw, 42, 0x10a2);
+    gui_draw_rect(cx, iy, cw, 42, COLOR_CYAN);
 
-    gui_draw_str(cx + 10, iy + 9, "msh> ", COLOR_YELLOW, 0x10a2, true);
-    gui_draw_str(cx + 50, iy + 9, g_term_input, COLOR_WHITE, 0x10a2, true);
+    gui_draw_str_2x(cx + 10, iy + 6, "msh> ", COLOR_YELLOW, 0x10a2, true);
+    gui_draw_str_2x(cx + 90, iy + 6, g_term_input, COLOR_WHITE, 0x10a2, true);
 
     /* Blinking cursor */
-    int cur_x = cx + 50 + g_term_input_len * 8;
-    gui_fill_rect(cur_x, iy + 7, 2, 20, COLOR_GREEN);
+    int cur_x = cx + 90 + g_term_input_len * 16;
+    gui_fill_rect(cur_x, iy + 6, 12, 28, COLOR_GREEN);
 }
 
 int maia_module_main(const maia_module_context_t *ctx) {
@@ -115,8 +130,16 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         echo_line[ep] = '\0';
                         term_add_line(echo_line);
 
+                        g_term_out_pos = 0;
+                        g_term_out_line[0] = '\0';
                         if (ctx->host->shell_exec) {
                             ctx->host->shell_exec(g_term_input, term_out_cb, NULL);
+                            if (g_term_out_pos > 0) {
+                                g_term_out_line[g_term_out_pos] = '\0';
+                                term_add_line(g_term_out_line);
+                                g_term_out_pos = 0;
+                                g_term_out_line[0] = '\0';
+                            }
                         }
                         g_term_input[0] = '\0';
                         g_term_input_len = 0;

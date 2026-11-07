@@ -1432,7 +1432,7 @@ public:
                 get_job_table()[c->slot].exit_code = rc;
                 free(c);
                 vTaskDelete(NULL);
-            }, "msh_bg", 8192, ctx, 5, NULL, 1);
+            }, "msh_bg", 32768, ctx, 5, NULL, 1);
         }
         return 0;
 #else
@@ -2239,6 +2239,7 @@ private:
 
             OutputFn prev_out = sh->output_cb;
             OutputFn prev_glob = get_global_out_cb();
+            OutputFn prev_con = get_global_console_cb();
 
             auto diverter = [](const char *str) {
                 ShellExecDivert *d = get_active_divert();
@@ -2249,11 +2250,13 @@ private:
 
             sh->output_cb = diverter;
             get_global_out_cb() = diverter;
+            get_global_console_cb() = diverter;
 
             int rc = sh->execute(cmd);
 
             sh->output_cb = prev_out;
             get_global_out_cb() = prev_glob;
+            get_global_console_cb() = prev_con;
             get_active_divert() = nullptr;
 
             return (int32_t)rc;
@@ -2917,20 +2920,20 @@ private:
 
     int cmd_wallpaper(int argc, char **argv) {
         const char *p = (argc > 1) ? argv[1] : nullptr;
-        print("Aplicando papel de parede");
-        if (p) { print(" de '"); print(p); print("'"); }
+        print("Applying wallpaper");
+        if (p) { print(" from '"); print(p); print("'"); }
         print("...\n");
 #if defined(ESP_PLATFORM)
         int ret = host_apply_wallpaper(p);
         if (ret == 0) {
-            println("Papel de parede aplicado com sucesso!");
+            println("Wallpaper applied successfully!");
         } else {
             char num[16]; snprintf(num, sizeof(num), "%d", ret);
-            print("Falha ao aplicar papel de parede (erro "); print(num); println(")");
+            print("Failed to apply wallpaper (error "); print(num); println(")");
         }
         return ret;
 #else
-        println("Comando nao suportado em modo de emulacao.");
+        println("Command not supported in emulation mode.");
         return 1;
 #endif
     }

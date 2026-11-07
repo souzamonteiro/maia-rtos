@@ -3,7 +3,7 @@
 static bool g_sw_running = false;
 static uint64_t g_sw_start_us = 0;
 static uint64_t g_sw_accum_us = 0;
-static char g_sntp_status[64] = "Pronto (SNTP disponivel)";
+static char g_sntp_status[64] = "Ready (SNTP available)";
 
 static void fmt_2digit(uint32_t v, char *dst) {
     dst[0] = '0' + ((v / 10) % 10);
@@ -11,33 +11,50 @@ static void fmt_2digit(uint32_t v, char *dst) {
     dst[2] = '\0';
 }
 
-static void render_clock(int wx, int wy, int ww, int wh, uint64_t now_us) {
-    gui_draw_window_frame(wx, wy, ww, wh, "Relogio RTC e Cronometro", COLOR_YELLOW);
+static void render_clock_chrome(int wx, int wy, int ww, int wh) {
+    gui_draw_window_frame(wx, wy, ww, wh, "RTC Clock & Stopwatch", COLOR_YELLOW);
 
-    /* RTC Date/Time query */
+    /* Section 1: RTC Live Clock frame */
+    int cy = wy + 46;
+    gui_fill_rect(wx + 16, cy, ww - 32, 88, 0x10a2);
+    gui_draw_rect(wx + 16, cy, ww - 32, 88, COLOR_YELLOW);
+    gui_draw_str(wx + 28, cy + 8, "CURRENT SYSTEM TIME (HW RTC):", COLOR_YELLOW, 0x10a2, true);
+
+    /* Button: Sync NTP */
+    gui_draw_button(wx + ww - 190, cy + 10, 160, 30, "Sync NTP", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
+
+    /* Section 2: Stopwatch frame */
+    int sy = cy + 102;
+    gui_fill_rect(wx + 16, sy, ww - 32, 170, 0x10a2);
+    gui_draw_rect(wx + 16, sy, ww - 32, 170, COLOR_CYAN);
+    gui_draw_str(wx + 28, sy + 12, "PRECISION STOPWATCH:", COLOR_CYAN, 0x10a2, true);
+
+    /* Stopwatch Control Buttons */
+    int bw = 140, bh = 42;
+    int b1_x = wx + 36, b2_x = wx + 190, b3_x = wx + 344;
+    int by = sy + 108;
+
+    gui_draw_button(b1_x, by, bw, bh, g_sw_running ? "PAUSE" : "START", g_sw_running ? 0x8180 : 0x1b24, COLOR_WHITE, g_sw_running ? COLOR_RED : COLOR_GREEN, false);
+    gui_draw_button(b2_x, by, bw, bh, "RESET", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+    gui_draw_button(b3_x, by, bw, bh, "CLOSE", 0x6000, COLOR_WHITE, COLOR_WHITE, false);
+}
+
+static void render_clock_rtc(int wx, int wy, int ww) {
     char dt_buf[48] = "00:00:00  01/01/2026";
     if (g_gui_ctx && g_gui_ctx->host && g_gui_ctx->host->get_datetime) {
         g_gui_ctx->host->get_datetime(dt_buf, sizeof(dt_buf));
     }
-
-    /* Section 1: RTC Live Clock */
     int cy = wy + 46;
-    gui_fill_rect(wx + 16, cy, ww - 32, 88, 0x10a2);
-    gui_draw_rect(wx + 16, cy, ww - 32, 88, COLOR_YELLOW);
-
-    gui_draw_str(wx + 28, cy + 8, "HORA ATUAL DO SISTEMA (RTC HW):", COLOR_YELLOW, 0x10a2, true);
+    gui_fill_rect(wx + 26, cy + 30, ww - 230, 34, 0x10a2);
     gui_draw_str_2x(wx + 28, cy + 30, dt_buf, COLOR_WHITE, 0x10a2, true);
 
-    /* Button: Sincronizar SNTP */
-    gui_draw_button(wx + ww - 190, cy + 10, 160, 30, "Sincronizar NTP", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
+    gui_fill_rect(wx + 26, cy + 66, ww - 230, 18, 0x10a2);
     gui_draw_str(wx + 28, cy + 66, g_sntp_status, COLOR_TEXT_DIM, 0x10a2, true);
+}
 
-    /* Section 2: Stopwatch */
+static void render_clock_sw(int wx, int wy, uint64_t now_us) {
+    int cy = wy + 46;
     int sy = cy + 102;
-    gui_fill_rect(wx + 16, sy, ww - 32, 170, 0x10a2);
-    gui_draw_rect(wx + 16, sy, ww - 32, 170, COLOR_CYAN);
-
-    gui_draw_str(wx + 28, sy + 12, "CRONOMETRO DE ALTA PRECISAO:", COLOR_CYAN, 0x10a2, true);
 
     uint64_t elapsed_us = g_sw_accum_us;
     if (g_sw_running && now_us > g_sw_start_us) {
@@ -63,20 +80,17 @@ static void render_clock(int wx, int wy, int ww, int wh, uint64_t now_us) {
     sw_buf[pos++] = ms_str[0]; sw_buf[pos++] = ms_str[1];
     sw_buf[pos] = '\0';
 
+    gui_fill_rect(wx + 160, sy + 44, 200, 36, 0x10a2);
     gui_draw_str_2x(wx + 170, sy + 44, sw_buf, COLOR_YELLOW, 0x10a2, true);
+}
 
-    /* Stopwatch Control Buttons */
+static void render_clock_sw_btn(int wx, int wy) {
+    int cy = wy + 46;
+    int sy = cy + 102;
     int bw = 140, bh = 42;
-    int b1_x = wx + 36, b2_x = wx + 190, b3_x = wx + 344;
+    int b1_x = wx + 36;
     int by = sy + 108;
-
-    if (!g_sw_running) {
-        gui_draw_button(b1_x, by, bw, bh, "INICIAR", 0x1b24, COLOR_GREEN, COLOR_GREEN, false);
-    } else {
-        gui_draw_button(b1_x, by, bw, bh, "PAUSAR", 0x8180, COLOR_WHITE, COLOR_RED, false);
-    }
-    gui_draw_button(b2_x, by, bw, bh, "ZERAR", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
-    gui_draw_button(b3_x, by, bw, bh, "FECHAR", 0x6000, COLOR_WHITE, COLOR_WHITE, false);
+    gui_draw_button(b1_x, by, bw, bh, g_sw_running ? "PAUSE" : "START", g_sw_running ? 0x8180 : 0x1b24, COLOR_WHITE, g_sw_running ? COLOR_RED : COLOR_GREEN, false);
 }
 
 int maia_module_main(const maia_module_context_t *ctx) {
@@ -86,6 +100,11 @@ int maia_module_main(const maia_module_context_t *ctx) {
     gui_out_str(">>> Starting Clock GUI (/sd/apps/clock.mobj)...\n");
 
     int wx = 380, wy = 120, ww = 520, wh = 380;
+    render_clock_chrome(wx, wy, ww, wh);
+    render_clock_rtc(wx, wy, ww);
+    render_clock_sw(wx, wy, 0);
+    gui_sync();
+
     bool running = true;
     bool was_touched = false;
     uint32_t last_sec = 0;
@@ -94,9 +113,19 @@ int maia_module_main(const maia_module_context_t *ctx) {
         uint64_t now_us = (ctx->host->get_time_us) ? ctx->host->get_time_us() : 0;
         uint32_t cur_sec = (uint32_t)(now_us / 1000000ULL);
 
-        if (g_sw_running || cur_sec != last_sec) {
+        bool updated = false;
+        if (cur_sec != last_sec) {
             last_sec = cur_sec;
-            render_clock(wx, wy, ww, wh, now_us);
+            render_clock_rtc(wx, wy, ww);
+            updated = true;
+        }
+
+        if (g_sw_running) {
+            render_clock_sw(wx, wy, now_us);
+            updated = true;
+        }
+
+        if (updated) {
             gui_sync();
         }
 
@@ -116,12 +145,14 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         g_sw_running = false;
                         g_sw_accum_us += (now_us - g_sw_start_us);
                     }
-                    render_clock(wx, wy, ww, wh, now_us);
+                    render_clock_sw_btn(wx, wy);
+                    render_clock_sw(wx, wy, now_us);
                     gui_sync();
                 } else if (k == 'z' || k == 'Z') {
                     g_sw_running = false;
                     g_sw_accum_us = 0;
-                    render_clock(wx, wy, ww, wh, now_us);
+                    render_clock_sw_btn(wx, wy);
+                    render_clock_sw(wx, wy, now_us);
                     gui_sync();
                 }
                 k = ctx->host->input->read_key();
@@ -144,11 +175,11 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     if (tx >= wx + ww - 190 && tx <= wx + ww - 30 && ty >= cy + 10 && ty <= cy + 40) {
                         if (ctx->host->sntp_sync) {
                             ctx->host->sntp_sync("pool.ntp.org");
-                            const char ok_msg[] = "[SNTP] Sincronizacao enviada ao NTP!";
+                            const char ok_msg[] = "[SNTP] NTP sync request sent!";
                             for (int i = 0; ok_msg[i]; ++i) g_sntp_status[i] = ok_msg[i];
                             g_sntp_status[sizeof(ok_msg) - 1] = '\0';
                         }
-                        render_clock(wx, wy, ww, wh, now_us);
+                        render_clock_rtc(wx, wy, ww);
                         gui_sync();
                     }
 
@@ -167,14 +198,16 @@ int maia_module_main(const maia_module_context_t *ctx) {
                             g_sw_running = false;
                             g_sw_accum_us += (now_us - g_sw_start_us);
                         }
-                        render_clock(wx, wy, ww, wh, now_us);
+                        render_clock_sw_btn(wx, wy);
+                        render_clock_sw(wx, wy, now_us);
                         gui_sync();
                     }
                     /* ZERAR */
                     else if (tx >= b2_x && tx <= b2_x + bw && ty >= by && ty <= by + bh) {
                         g_sw_running = false;
                         g_sw_accum_us = 0;
-                        render_clock(wx, wy, ww, wh, now_us);
+                        render_clock_sw_btn(wx, wy);
+                        render_clock_sw(wx, wy, now_us);
                         gui_sync();
                     }
                     /* FECHAR */

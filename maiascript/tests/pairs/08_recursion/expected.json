@@ -1,0 +1,6 @@
+{
+  "return_a0": 120,
+  "isa": "rv32im",
+  "abi": "ilp32",
+  "notes": "Illustrative non-optimized equivalent; not claimed as compiler output"
+}

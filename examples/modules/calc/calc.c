@@ -1,180 +1,332 @@
 #include "gui_kit.h"
 
-static char g_calc_disp[32] = "0";
-static double g_calc_val1 = 0;
-static char g_calc_op = 0;
-static bool g_calc_new_num = true;
+static char g_calc_expr[64] = "0";
+static char g_calc_res[32] = "= 0";
+static bool g_calc_clear_on_next = true;
 
-static void calc_input(char k) {
-    if (k >= '0' && k <= '9') {
-        if (g_calc_new_num || (g_calc_disp[0] == '0' && g_calc_disp[1] == '\0')) {
-            g_calc_disp[0] = k;
-            g_calc_disp[1] = '\0';
-            g_calc_new_num = false;
+/* --- Recursive Descent Expression Parser with Precedence --- */
+static void skip_whitespace(const char **p) {
+    while (**p == ' ' || **p == '\t') (*p)++;
+}
+
+static float parse_expression(const char **p, bool *err);
+
+static float parse_number(const char **p, bool *err) {
+    skip_whitespace(p);
+    if (!**p) { *err = true; return 0.0f; }
+
+    float val = 0.0f;
+    bool has_digits = false;
+    while (**p >= '0' && **p <= '9') {
+        val = val * 10.0f + (float)(**p - '0');
+        (*p)++;
+        has_digits = true;
+    }
+    if (**p == '.') {
+        (*p)++;
+        float frac = 0.1f;
+        while (**p >= '0' && **p <= '9') {
+            val += (float)(**p - '0') * frac;
+            frac *= 0.1f;
+            (*p)++;
+            has_digits = true;
+        }
+    }
+    if (!has_digits) {
+        *err = true;
+        return 0.0f;
+    }
+    return val;
+}
+
+static float parse_factor(const char **p, bool *err) {
+    skip_whitespace(p);
+    if (*err || !**p) { *err = true; return 0.0f; }
+
+    if (**p == '+') {
+        (*p)++;
+        return parse_factor(p, err);
+    }
+    if (**p == '-') {
+        (*p)++;
+        return -parse_factor(p, err);
+    }
+    if (**p == '(') {
+        (*p)++;
+        float val = parse_expression(p, err);
+        skip_whitespace(p);
+        if (**p == ')') {
+            (*p)++;
         } else {
-            int len = 0;
-            while (g_calc_disp[len]) len++;
-            if (len < 16) {
-                g_calc_disp[len] = k;
-                g_calc_disp[len + 1] = '\0';
-            }
+            *err = true;
         }
-    } else if (k == '.') {
-        if (g_calc_new_num) {
-            g_calc_disp[0] = '0';
-            g_calc_disp[1] = '.';
-            g_calc_disp[2] = '\0';
-            g_calc_new_num = false;
+        return val;
+    }
+    return parse_number(p, err);
+}
+
+static float parse_term(const char **p, bool *err) {
+    float left = parse_factor(p, err);
+    while (!*err) {
+        skip_whitespace(p);
+        char op = **p;
+        if (op == '*' || op == '/' || op == '%') {
+            (*p)++;
+            float right = parse_factor(p, err);
+            if (*err) break;
+            if (op == '*') {
+                left *= right;
+            } else if (op == '/') {
+                if (right == 0.0f) {
+                    *err = true;
+                    return 0.0f;
+                }
+                left /= right;
+            } else if (op == '%') {
+                int iright = (int)right;
+                if (iright == 0) {
+                    *err = true;
+                    return 0.0f;
+                }
+                left = (float)((int)left % iright);
+            }
         } else {
-            bool has_dot = false;
-            for (int i = 0; g_calc_disp[i]; ++i) if (g_calc_disp[i] == '.') has_dot = true;
-            if (!has_dot) {
-                int len = 0;
-                while (g_calc_disp[len]) len++;
-                if (len < 16) {
-                    g_calc_disp[len] = '.';
-                    g_calc_disp[len + 1] = '\0';
-                }
+            break;
+        }
+    }
+    return left;
+}
+
+static float parse_expression(const char **p, bool *err) {
+    float left = parse_term(p, err);
+    while (!*err) {
+        skip_whitespace(p);
+        char op = **p;
+        if (op == '+' || op == '-') {
+            (*p)++;
+            float right = parse_term(p, err);
+            if (*err) break;
+            if (op == '+') left += right;
+            else left -= right;
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+static float parse_calc(const char *expr, bool *err) {
+    *err = false;
+    const char *p = expr;
+    float res = parse_expression(&p, err);
+    skip_whitespace(&p);
+    if (*p != '\0') {
+        *err = true;
+    }
+    return res;
+}
+
+static void format_calc_result(float val, char *out, size_t out_sz) {
+    if (out_sz < 4) return;
+    int j = 0;
+    out[j++] = '=';
+    out[j++] = ' ';
+
+    if (val < 0.0f) {
+        out[j++] = '-';
+        val = -val;
+    }
+
+    int int_part = (int)val;
+    float frac_part = val - (float)int_part;
+
+    char buf[16];
+    int bi = 0;
+    if (int_part == 0) {
+        buf[bi++] = '0';
+    } else {
+        unsigned int uint_part = (unsigned int)int_part;
+        while (uint_part > 0 && bi < 14) {
+            buf[bi++] = '0' + (uint_part % 10);
+            uint_part /= 10;
+        }
+    }
+    for (int k = bi - 1; k >= 0 && j < (int)out_sz - 1; --k) {
+        out[j++] = buf[k];
+    }
+
+    if (frac_part >= 0.0001f && j < (int)out_sz - 8) {
+        out[j++] = '.';
+        for (int d = 0; d < 4 && j < (int)out_sz - 1; ++d) {
+            frac_part *= 10.0f;
+            int digit = (int)frac_part;
+            if (digit > 9) digit = 9;
+            out[j++] = '0' + digit;
+            frac_part -= (float)digit;
+        }
+        while (j > 0 && out[j - 1] == '0') j--;
+        if (j > 0 && out[j - 1] == '.') j--;
+    }
+
+    out[j] = '\0';
+}
+
+static void calc_input(char key) {
+    size_t len = 0;
+    while (g_calc_expr[len]) len++;
+
+    if (key == 'C' || key == 'c') {
+        g_calc_expr[0] = '0';
+        g_calc_expr[1] = '\0';
+        g_calc_res[0] = '='; g_calc_res[1] = ' '; g_calc_res[2] = '0'; g_calc_res[3] = '\0';
+        g_calc_clear_on_next = true;
+        return;
+    }
+
+    if (key == 'D' || key == 8 || key == 127) { // DEL
+        if (len > 1) {
+            g_calc_expr[len - 1] = '\0';
+        } else {
+            g_calc_expr[0] = '0';
+            g_calc_expr[1] = '\0';
+            g_calc_clear_on_next = true;
+        }
+        g_calc_res[0] = '\0';
+        return;
+    }
+
+    if (key == '=' || key == '\r' || key == '\n') {
+        bool err = false;
+        float res = parse_calc(g_calc_expr, &err);
+        if (err) {
+            g_calc_res[0] = '='; g_calc_res[1] = ' ';
+            g_calc_res[2] = 'E'; g_calc_res[3] = 'R'; g_calc_res[4] = 'R';
+            g_calc_res[5] = 'O'; g_calc_res[6] = '\0';
+        } else {
+            format_calc_result(res, g_calc_res, sizeof(g_calc_res));
+        }
+        g_calc_clear_on_next = true;
+        return;
+    }
+
+    if ((key >= '0' && key <= '9') || key == '+' || key == '-' || key == '*' || key == '/' || key == '%' || key == '.' || key == '(' || key == ')') {
+        if (g_calc_clear_on_next) {
+            if (key >= '0' && key <= '9') {
+                g_calc_expr[0] = key;
+                g_calc_expr[1] = '\0';
+                g_calc_res[0] = '\0';
+                g_calc_clear_on_next = false;
+                return;
+            } else if (key == '(' || key == '.') {
+                g_calc_expr[0] = key;
+                g_calc_expr[1] = '\0';
+                g_calc_res[0] = '\0';
+                g_calc_clear_on_next = false;
+                return;
+            } else {
+                g_calc_clear_on_next = false;
             }
         }
-    } else if (k == 'C' || k == 'c') {
-        g_calc_disp[0] = '0';
-        g_calc_disp[1] = '\0';
-        g_calc_val1 = 0;
-        g_calc_op = 0;
-        g_calc_new_num = true;
-    } else if (k == '+' || k == '-' || k == '*' || k == '/') {
-        /* Parse current display to double */
-        double val = 0;
-        double frac = 0.1;
-        bool in_frac = false;
-        int s = 0;
-        if (g_calc_disp[0] == '-') s = 1;
-        for (int i = s; g_calc_disp[i]; ++i) {
-            if (g_calc_disp[i] == '.') {
-                in_frac = true;
-            } else if (g_calc_disp[i] >= '0' && g_calc_disp[i] <= '9') {
-                if (!in_frac) val = val * 10 + (g_calc_disp[i] - '0');
-                else { val += (g_calc_disp[i] - '0') * frac; frac *= 0.1; }
-            }
-        }
-        if (s) val = -val;
-
-        g_calc_val1 = val;
-        g_calc_op = k;
-        g_calc_new_num = true;
-    } else if (k == '=' || k == '\r' || k == '\n') {
-        if (g_calc_op) {
-            double val2 = 0;
-            double frac = 0.1;
-            bool in_frac = false;
-            int s = 0;
-            if (g_calc_disp[0] == '-') s = 1;
-            for (int i = s; g_calc_disp[i]; ++i) {
-                if (g_calc_disp[i] == '.') {
-                    in_frac = true;
-                } else if (g_calc_disp[i] >= '0' && g_calc_disp[i] <= '9') {
-                    if (!in_frac) val2 = val2 * 10 + (g_calc_disp[i] - '0');
-                    else { val2 += (g_calc_disp[i] - '0') * frac; frac *= 0.1; }
-                }
-            }
-            if (s) val2 = -val2;
-
-            double res = 0;
-            if (g_calc_op == '+') res = g_calc_val1 + val2;
-            else if (g_calc_op == '-') res = g_calc_val1 - val2;
-            else if (g_calc_op == '*') res = g_calc_val1 * val2;
-            else if (g_calc_op == '/') res = (val2 != 0) ? (g_calc_val1 / val2) : 0;
-
-            /* Format double back to string */
-            int ival = (int)res;
-            int dec = (int)((res - ival) * 100);
-            if (dec < 0) dec = -dec;
-
-            char buf[32];
-            int p = 0;
-            if (res < 0 && ival == 0) buf[p++] = '-';
-            if (ival < 0) { buf[p++] = '-'; ival = -ival; }
-            char tmp[16];
-            int tp = 0;
-            if (ival == 0) tmp[tp++] = '0';
-            while (ival > 0) { tmp[tp++] = '0' + (ival % 10); ival /= 10; }
-            while (tp > 0) buf[p++] = tmp[--tp];
-            if (dec > 0) {
-                buf[p++] = '.';
-                buf[p++] = '0' + (dec / 10);
-                if (dec % 10 != 0) buf[p++] = '0' + (dec % 10);
-            }
-            buf[p] = '\0';
-
-            int i = 0;
-            while (buf[i] && i < 31) { g_calc_disp[i] = buf[i]; i++; }
-            g_calc_disp[i] = '\0';
-            g_calc_op = 0;
-            g_calc_new_num = true;
+        if (len < sizeof(g_calc_expr) - 2) {
+            g_calc_expr[len] = key;
+            g_calc_expr[len + 1] = '\0';
         }
     }
 }
 
-static void render_calc(int wx, int wy, int ww, int wh) {
-    gui_draw_window_frame(wx, wy, ww, wh, "Calculadora Cientifica", COLOR_GREEN);
+/* Partial dirty redraw: only renders LCD display screen (Zero Flicker!) */
+static void render_calc_display(int wx, int wy, int ww) {
+    int disp_x = wx + 20, disp_y = wy + 48, disp_w = ww - 40, disp_h = 72;
 
-    /* LCD Display */
-    int disp_x = wx + 20, disp_y = wy + 48, disp_w = ww - 40, disp_h = 70;
-    gui_fill_rect(disp_x, disp_y, disp_w, disp_h, 0x0182);
-    gui_draw_rect(disp_x, disp_y, disp_w, disp_h, COLOR_GREEN);
+    gui_set_clip(disp_x, disp_y, disp_w, disp_h);
+    gui_fill_rect(disp_x, disp_y, disp_w, disp_h, COLOR_BLACK);
+    gui_draw_rect(disp_x, disp_y, disp_w, disp_h, COLOR_CYAN);
 
-    int dlen = 0;
-    while (g_calc_disp[dlen]) dlen++;
-    int tx = disp_x + disp_w - 24 - (dlen * 16);
-    if (tx < disp_x + 10) tx = disp_x + 10;
-    gui_draw_str_2x(tx, disp_y + 18, g_calc_disp, COLOR_GREEN, 0x0182, true);
-
-    if (g_calc_op) {
-        char op_s[2] = { g_calc_op, '\0' };
-        gui_draw_str_2x(disp_x + 16, disp_y + 18, op_s, COLOR_YELLOW, 0x0182, true);
+    /* Top Line: Expression (Large 2x or 1x depending on length) */
+    int elen = 0;
+    while (g_calc_expr[elen]) elen++;
+    if (elen <= 18) {
+        gui_draw_str_2x(disp_x + 12, disp_y + 8, g_calc_expr, COLOR_WHITE, COLOR_BLACK, true);
+    } else {
+        gui_draw_str(disp_x + 12, disp_y + 12, g_calc_expr, COLOR_WHITE, COLOR_BLACK, true);
     }
 
-    /* Keypad */
-    static const char *labels[5][4] = {
-        { "C", "+/-", "%", "/" },
-        { "7", "8",   "9", "*" },
-        { "4", "5",   "6", "-" },
-        { "1", "2",   "3", "+" },
-        { "0", ".",   "=", "OK" }
+    /* Bottom Line: Result in Neon Green (2x typography) */
+    if (g_calc_res[0]) {
+        int rlen = 0;
+        while (g_calc_res[rlen]) rlen++;
+        int rx = disp_x + disp_w - 14 - (rlen * 16);
+        if (rx < disp_x + 12) rx = disp_x + 12;
+        gui_draw_str_2x(rx, disp_y + 36, g_calc_res, COLOR_GREEN, COLOR_BLACK, true);
+    }
+
+    gui_reset_clip();
+}
+
+/* Full chrome render (drawn once on open) */
+static void render_calc_chrome(int wx, int wy, int ww, int wh) {
+    gui_set_clip(wx, wy, ww, wh);
+    gui_draw_window_frame(wx, wy, ww, wh, "Calculator", COLOR_GREEN);
+
+    /* Keypad Grid (4 cols x 5 rows) */
+    static const char *keys[5][4] = {
+        {"C", "(", ")", "/"},
+        {"7", "8", "9", "*"},
+        {"4", "5", "6", "-"},
+        {"1", "2", "3", "+"},
+        {"0", ".", "DEL", "="}
     };
-    int kx_start = wx + 20, ky_start = wy + 132;
-    int kw = 92, kh = 70, gap = 14;
+
+    int kx_start = wx + 20;
+    int ky_start = wy + 132;
+    int kw = 92;
+    int kh = 70;
+    int gap = 14;
 
     for (int r = 0; r < 5; ++r) {
         for (int c = 0; c < 4; ++c) {
             int kx = kx_start + c * (kw + gap);
             int ky = ky_start + r * (kh + gap);
+            const char *label = keys[r][c];
             uint16_t bg = COLOR_BTN_BG;
             uint16_t fg = COLOR_WHITE;
-            if (c == 3) { bg = 0xa280; fg = COLOR_WHITE; }
-            if (r == 0) { bg = 0x3186; fg = COLOR_CYAN; }
-            gui_draw_button(kx, ky, kw, kh, labels[r][c], bg, fg, COLOR_BTN_BD, false);
+            if (label[0] == '=') {
+                bg = COLOR_GREEN;
+                fg = COLOR_BLACK;
+            } else if (label[0] == 'C' || label[0] == 'D') {
+                bg = COLOR_RED;
+                fg = COLOR_WHITE;
+            } else if (label[0] == '+' || label[0] == '-' || label[0] == '*' || label[0] == '/') {
+                bg = COLOR_CYAN;
+                fg = COLOR_BLACK;
+            } else if (label[0] == '(' || label[0] == ')') {
+                bg = COLOR_BTN_BG;
+                fg = COLOR_YELLOW;
+            }
+            gui_draw_button(kx, ky, kw, kh, label, bg, fg, COLOR_BTN_BD, false);
         }
     }
+
+    gui_reset_clip();
+    render_calc_display(wx, wy, ww);
 }
 
 int maia_module_main(const maia_module_context_t *ctx) {
     if (!ctx || !ctx->host) return 1;
     gui_init(ctx);
 
-    gui_out_str(">>> Starting Calc GUI (/sd/apps/calc.mobj)...\n");
-
     int wx = 415, wy = 70, ww = 450, wh = 580;
-    render_calc(wx, wy, ww, wh);
+
+    /* Render Chrome ONCE */
+    render_calc_chrome(wx, wy, ww, wh);
     gui_sync();
 
     static const char keys_map[5][4] = {
-        { 'C', 0, '%', '/' },
-        { '7', '8', '9', '*' },
-        { '4', '5', '6', '-' },
-        { '1', '2', '3', '+' },
-        { '0', '.', '=', '=' }
+        {'C', '(', ')', '/'},
+        {'7', '8', '9', '*'},
+        {'4', '5', '6', '-'},
+        {'1', '2', '3', '+'},
+        {'0', '.', 'D', '='}
     };
 
     bool running = true;
@@ -182,55 +334,62 @@ int maia_module_main(const maia_module_context_t *ctx) {
 
     while (running) {
         /* Keyboard */
-        if (ctx->host->input && ctx->host->input->read_key) {
-            int32_t k = ctx->host->input->read_key();
-            while (k >= 0) {
-                if (k == 27 || k == 'q' || k == 'Q') {
-                    running = false;
-                    break;
-                } else if ((k >= '0' && k <= '9') || k == '+' || k == '-' || k == '*' || k == '/' || k == '=' || k == '\r' || k == '\n' || k == '.' || k == 'c' || k == 'C') {
-                    calc_input((char)k);
-                    render_calc(wx, wy, ww, wh);
-                    gui_sync();
-                }
-                k = ctx->host->input->read_key();
+        int32_t k = gui_poll_key();
+        while (k >= 0) {
+            if (k == 27 || k == 'q' || k == 'Q') {
+                running = false;
+                break;
+            } else if (k == '\r' || k == '\n' || k == '=') {
+                calc_input('=');
+                render_calc_display(wx, wy, ww);
+                gui_sync();
+            } else if (k == 8 || k == 127) {
+                calc_input('D');
+                render_calc_display(wx, wy, ww);
+                gui_sync();
+            } else if (k == 'c' || k == 'C') {
+                calc_input('C');
+                render_calc_display(wx, wy, ww);
+                gui_sync();
+            } else if ((k >= '0' && k <= '9') || k == '+' || k == '-' || k == '*' || k == '/' || k == '%' || k == '.' || k == '(' || k == ')') {
+                calc_input((char)k);
+                render_calc_display(wx, wy, ww);
+                gui_sync();
             }
+            k = gui_poll_key();
         }
 
         /* Touch */
         int32_t tx = 0, ty = 0;
         bool pressed = false;
         if (gui_poll_touch(&tx, &ty, &pressed)) {
-                if (pressed && !was_touched) {
-                    was_touched = true;
-                    if (gui_is_close_clicked(wx, wy, ww, tx, ty)) {
-                        running = false;
-                        break;
-                    }
+            if (pressed && !was_touched) {
+                was_touched = true;
+                if (gui_is_close_clicked(wx, wy, ww, tx, ty)) {
+                    running = false;
+                    break;
+                }
 
-                    int kx_start = wx + 20, ky_start = wy + 132;
-                    int kw = 92, kh = 70, gap = 14;
-                    for (int r = 0; r < 5; ++r) {
-                        for (int c = 0; c < 4; ++c) {
-                            int kx = kx_start + c * (kw + gap);
-                            int ky = ky_start + r * (kh + gap);
-                            if (tx >= kx && tx <= kx + kw && ty >= ky && ty <= ky + kh) {
-                                if (keys_map[r][c]) {
-                                    calc_input(keys_map[r][c]);
-                                    render_calc(wx, wy, ww, wh);
-                                    gui_sync();
-                                }
-                            }
+                int kx_start = wx + 20, ky_start = wy + 132;
+                int kw = 92, kh = 70, gap = 14;
+                for (int r = 0; r < 5; ++r) {
+                    for (int c = 0; c < 4; ++c) {
+                        int kx = kx_start + c * (kw + gap);
+                        int ky = ky_start + r * (kh + gap);
+                        if (tx >= kx && tx <= kx + kw && ty >= ky && ty <= ky + kh) {
+                            calc_input(keys_map[r][c]);
+                            render_calc_display(wx, wy, ww);
+                            gui_sync();
                         }
                     }
-                } else if (!pressed) {
-                    was_touched = false;
                 }
+            } else if (!pressed) {
+                was_touched = false;
             }
+        }
 
         if (ctx->host->sleep_ms) ctx->host->sleep_ms(20);
     }
 
-    gui_out_str("<<< Calc GUI exited cleanly.\n");
     return 0;
 }

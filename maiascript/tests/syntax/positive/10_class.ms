@@ -1,0 +1,1 @@
+class Counter { private i32 value = 0; public Counter(i32 start) { value = start; } public void inc() { value++; } public i32 get() const { return value; } }; i32 main() { Counter c = new Counter(3); c.inc(); return c.get(); }

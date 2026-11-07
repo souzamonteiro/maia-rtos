@@ -16,21 +16,24 @@ int maia_module_main(const maia_module_context_t *ctx) {
     gui_draw_rect(bx + 2, by + 2, bw - 4, bh - 4, COLOR_BLUE);
 
     /* Header */
-    gui_draw_str_2x(bx + 40, by + 30, "MAIA-RTOS BANNER VISUAL FX", COLOR_YELLOW, COLOR_PANEL, true);
-    gui_draw_str(bx + 42, by + 74, "Standalone Modular App -- Loaded from /sd/apps/banner.mobj", COLOR_WHITE, COLOR_PANEL, true);
+    gui_draw_str_2x(bx + 40, by + 24, "MAIA-RTOS BANNER FX", COLOR_YELLOW, COLOR_PANEL, true);
+    gui_draw_str_2x(bx + 40, by + 60, "Standalone RISC-V Modular App", COLOR_WHITE, COLOR_PANEL, true);
 
     /* Banner wave canvas */
     int wave_x = bx + 40;
-    int wave_y = by + 120;
+    int wave_y = by + 104;
     int wave_w = bw - 80; /* 920 */
-    int wave_h = 320;
+    int wave_h = 330;
     gui_fill_rect(wave_x, wave_y, wave_w, wave_h, COLOR_BLACK);
     gui_draw_rect(wave_x - 1, wave_y - 1, wave_w + 2, wave_h + 2, COLOR_MAGENTA);
 
     /* Footer instruction */
-    gui_fill_rect(bx + 300, by + bh - 54, 400, 36, COLOR_RED);
-    gui_draw_rect(bx + 300, by + bh - 54, 400, 36, COLOR_WHITE);
-    gui_draw_str(bx + 325, by + bh - 44, "Toque na tela ou [ESC] para sair", COLOR_WHITE, COLOR_RED, true);
+    int f_w = 580, f_h = 42;
+    int f_x = bx + (bw - f_w) / 2;
+    int f_y = by + bh - 54;
+    gui_fill_rect(f_x, f_y, f_w, f_h, COLOR_RED);
+    gui_draw_rect(f_x, f_y, f_w, f_h, COLOR_WHITE);
+    gui_draw_str_2x(f_x + 18, f_y + 8, "Tap screen or press [ESC] to exit", COLOR_WHITE, COLOR_RED, true);
 
     gui_sync();
 

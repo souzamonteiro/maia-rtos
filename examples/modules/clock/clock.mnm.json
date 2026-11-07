@@ -1,7 +1,7 @@
 {
   "schema": "maia.native.module/1",
   "name": "clock",
-  "title": "Relogio",
+  "title": "Clock",
   "icon": "clock",
   "color": "0xffe0",
   "hotkey": "r",

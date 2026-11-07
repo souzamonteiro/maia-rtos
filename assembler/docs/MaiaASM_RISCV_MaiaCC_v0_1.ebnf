@@ -1,0 +1,55 @@
+/* MaiaASM RISC-V, MaiaCC/REx-style candidate grammar v0.1.
+ * One physical statement per line; newline is significant.
+ * Mnemonics are parsed as NAME, then validated against an ISA descriptor table.
+ * No macro preprocessing, numeric local labels, or conditional assembly in v0.1.
+ * This grammar is not yet tested with MaiaCC C++ backend.
+ */
+
+AssemblyFile ::= Line* EOF
+Line ::= LabelOnlyLine | StatementLine | EmptyLine
+LabelOnlyLine ::= LabelDef (LabelDef)* NEWLINE
+StatementLine ::= LabelDef* Statement NEWLINE
+EmptyLine ::= NEWLINE
+LabelDef ::= NAME ':'
+Statement ::= Instruction | Directive
+
+/* The first operand is not typed here. Opcode metadata validates the
+ * instruction's operand count and operand kinds after parsing. */
+Instruction ::= NAME OperandList?
+OperandList ::= Operand (',' Operand)*
+Operand ::= MemoryOperand | RegisterOrSymbol | ImmediateExpr | StringOperand
+MemoryOperand ::= Expr '(' NAME ')'
+RegisterOrSymbol ::= NAME
+ImmediateExpr ::= Expr
+StringOperand ::= STRING
+
+/* All directives use a leading dot. A separate directive semantic table
+ * checks .section, .text, .data, .byte, .word, .align, .globl, etc. */
+Directive ::= '.' NAME DirectiveArgs?
+DirectiveArgs ::= DirectiveArg (',' DirectiveArg)*
+DirectiveArg ::= STRING | Expr | NAME
+
+/* Arithmetic expressions are intentionally constant/symbolic only.
+ * Hi/lo relocation operators are syntax, not evaluated here. */
+Expr ::= BitOr
+BitOr ::= BitXor ('|' BitXor)*
+BitXor ::= BitAnd ('^' BitAnd)*
+BitAnd ::= Shift ('&' Shift)*
+Shift ::= Additive (('<<' | '>>') Additive)*
+Additive ::= Multiplicative (('+' | '-') Multiplicative)*
+Multiplicative ::= Unary (('*' | '/' | '%') Unary)*
+Unary ::= ('+' | '-' | '~') Unary | Atom
+Atom ::= NUMBER | NAME | '.' | '(' Expr ')' | RelocationExpr
+RelocationExpr ::= '%' NAME '(' Expr ')'
+
+<?TOKENS?>
+EOF ::= $
+NAME ::= [A-Za-z_$] [A-Za-z0-9_.$]*
+NUMBER ::= '0x' [0-9A-Fa-f]+ | '0X' [0-9A-Fa-f]+ | '0b' [01]+ | '0B' [01]+ | [0-9]+
+STRING ::= #x22 (Escape | [^#x22#x5C#xA#xD])* #x22
+Escape ::= #x5C ('n' | 'r' | 't' | '0' | #x22 | #x5C | 'x' [0-9A-Fa-f] [0-9A-Fa-f])
+NEWLINE ::= #xD #xA | #xA | #xD
+COMMENT ::= '#' [^#xA#xD]* /* ws: definition */
+CPP_COMMENT ::= '//' [^#xA#xD]* /* ws: definition */
+HORIZONTAL_SPACE ::= [#x20#x9#xB#xC]+ /* ws: definition */
+NUMBER << NAME

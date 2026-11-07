@@ -1,7 +1,7 @@
 {
   "schema": "maia.native.module/1",
   "name": "sysinfo",
-  "title": "Sistema",
+  "title": "System",
   "icon": "sysinfo",
   "color": "0x07e0",
   "hotkey": "s",

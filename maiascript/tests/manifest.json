@@ -1,0 +1,338 @@
+[
+  {
+    "name": "01_minimal",
+    "path": "syntax/positive/01_minimal.ms",
+    "kind": "positive",
+    "rules": [
+      "Program",
+      "FunctionDecl",
+      "Block",
+      "ReturnStmt",
+      "INTEGER"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "02_arithmetic",
+    "path": "syntax/positive/02_arithmetic.ms",
+    "kind": "positive",
+    "rules": [
+      "LocalDecl",
+      "Assignment",
+      "Additive",
+      "Multiplicative",
+      "Primary"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "03_logic",
+    "path": "syntax/positive/03_logic.ms",
+    "kind": "positive",
+    "rules": [
+      "ParameterList",
+      "LogicalOr",
+      "LogicalAnd",
+      "Equality",
+      "Relational",
+      "Unary"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "04_bitwise",
+    "path": "syntax/positive/04_bitwise.ms",
+    "kind": "positive",
+    "rules": [
+      "Shift",
+      "BitwiseOr",
+      "BitwiseXor",
+      "BitwiseAnd",
+      "INTEGER"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "05_control",
+    "path": "syntax/positive/05_control.ms",
+    "kind": "positive",
+    "rules": [
+      "IfStmt",
+      "WhileStmt",
+      "DoStmt",
+      "PostfixTail"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "06_for",
+    "path": "syntax/positive/06_for.ms",
+    "kind": "positive",
+    "rules": [
+      "ForStmt",
+      "ForInit",
+      "ContinueStmt",
+      "BreakStmt"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "07_foreach",
+    "path": "syntax/positive/07_foreach.ms",
+    "kind": "positive",
+    "rules": [
+      "ForeachStmt",
+      "TypeSuffix"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "08_switch",
+    "path": "syntax/positive/08_switch.ms",
+    "kind": "positive",
+    "rules": [
+      "SwitchStmt",
+      "SwitchArm",
+      "DefaultArm"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "09_struct",
+    "path": "syntax/positive/09_struct.ms",
+    "kind": "positive",
+    "rules": [
+      "StructDecl",
+      "FieldDecl",
+      "TypeSuffix",
+      "PostfixTail"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "10_class",
+    "path": "syntax/positive/10_class.ms",
+    "kind": "positive",
+    "rules": [
+      "ClassDecl",
+      "Visibility",
+      "ConstructorDecl",
+      "MethodDecl",
+      "new"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "11_modules",
+    "path": "syntax/positive/11_modules.ms",
+    "kind": "positive",
+    "rules": [
+      "ImportDecl",
+      "NamespaceDecl",
+      "ExportDecl",
+      "ExternDecl",
+      "QualifiedName"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "12_literals",
+    "path": "syntax/positive/12_literals.ms",
+    "kind": "positive",
+    "rules": [
+      "FLOAT",
+      "CHAR",
+      "STRING",
+      "Literal"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "13_memory",
+    "path": "syntax/positive/13_memory.ms",
+    "kind": "positive",
+    "rules": [
+      "Unary",
+      "sizeof",
+      "TypeSuffix"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "14_defer_unsafe",
+    "path": "syntax/positive/14_defer_unsafe.ms",
+    "kind": "positive",
+    "rules": [
+      "DeferStmt",
+      "UnsafeStmt",
+      "asm"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "15_ternary",
+    "path": "syntax/positive/15_ternary.ms",
+    "kind": "positive",
+    "rules": [
+      "Conditional"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "16_arrays_index",
+    "path": "syntax/positive/16_arrays_index.ms",
+    "kind": "positive",
+    "rules": [
+      "TypeSuffix",
+      "PostfixTail"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "17_generic_types",
+    "path": "syntax/positive/17_generic_types.ms",
+    "kind": "positive",
+    "rules": [
+      "TypeAtom",
+      "Result",
+      "Option"
+    ],
+    "notes": "Syntactically accepted, semantic type compatibility TBD"
+  },
+  {
+    "name": "18_globals",
+    "path": "syntax/positive/18_globals.ms",
+    "kind": "positive",
+    "rules": [
+      "GlobalDecl"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "19_empty",
+    "path": "syntax/positive/19_empty.ms",
+    "kind": "positive",
+    "rules": [
+      "Statement",
+      "Block"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "20_comments",
+    "path": "syntax/positive/20_comments.ms",
+    "kind": "positive",
+    "rules": [
+      "LINE_COMMENT",
+      "BLOCK_COMMENT"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "21_lvgl_api",
+    "path": "syntax/positive/21_lvgl_api.ms",
+    "kind": "positive",
+    "rules": [
+      "ImportDecl",
+      "QualifiedName",
+      "PostfixTail"
+    ],
+    "notes": "Syntax only; API bindings and method semantics unimplemented"
+  },
+  {
+    "name": "22_compound",
+    "path": "syntax/positive/22_compound.ms",
+    "kind": "positive",
+    "rules": [
+      "AssignOp"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "23_operators",
+    "path": "syntax/positive/23_operators.ms",
+    "kind": "positive",
+    "rules": [
+      "Unary",
+      "PostfixTail"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "24_calls",
+    "path": "syntax/positive/24_calls.ms",
+    "kind": "positive",
+    "rules": [
+      "ArgumentList",
+      "FunctionDecl"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "25_pointer_access",
+    "path": "syntax/positive/25_pointer_access.ms",
+    "kind": "positive",
+    "rules": [
+      "StructDecl",
+      "TypeSuffix",
+      "PostfixTail"
+    ],
+    "notes": ""
+  },
+  {
+    "name": "missing_semicolon",
+    "path": "syntax/negative/missing_semicolon.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "unclosed_block",
+    "path": "syntax/negative/unclosed_block.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "missing_operand",
+    "path": "syntax/negative/missing_operand.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "bad_parameter",
+    "path": "syntax/negative/bad_parameter.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "missing_paren",
+    "path": "syntax/negative/missing_paren.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "missing_case_colon",
+    "path": "syntax/negative/missing_case_colon.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "missing_import_semicolon",
+    "path": "syntax/negative/missing_import_semicolon.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  },
+  {
+    "name": "missing_initializer",
+    "path": "syntax/negative/missing_initializer.ms",
+    "kind": "negative",
+    "rules": [],
+    "notes": ""
+  }
+]
