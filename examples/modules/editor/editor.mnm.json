@@ -1,0 +1,28 @@
+{
+  "schema": "maia.native.module/1",
+  "name": "editor",
+  "title": "Editor",
+  "icon": "editor",
+  "color": "0x07ff",
+  "hotkey": "e",
+  "exec": "/sd/apps/editor.mobj",
+  "version": "1.0.0",
+  "target": "maia-rv32-esp32p4-v1",
+  "abi_major": 1,
+  "abi_minor_min": 0,
+  "entry": "maia_module_main",
+  "memory": {
+    "stack_bytes": 8192,
+    "heap_limit_bytes": 65536
+  },
+  "permissions": [
+    "stdio",
+    "display",
+    "input",
+    "fs"
+  ],
+  "imports": [
+    "maia_host_api_v1"
+  ]
+}
+

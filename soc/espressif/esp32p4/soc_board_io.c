@@ -551,6 +551,33 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
     return -1;
 }
 
+int maia_tab5_touch_get(int32_t *x, int32_t *y, int32_t *pressed) {
+    if (pressed) *pressed = 0;
+    /* Check ST7121 / ST7123 capacitive touch controller on SysI2C @ 0x55 */
+    uint8_t reg_adv[2] = {0x00U, 0x10U};
+    uint8_t adv_info = 0U;
+    if (maia_i2c_write_read(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, 0x55U, reg_adv, 2U, &adv_info, 1U) == 0) {
+        if ((adv_info & 0x08U) != 0U) { /* with_coord flag */
+            uint8_t reg_coord[2] = {0x00U, 0x14U};
+            uint8_t rep[7] = {0};
+            if (maia_i2c_write_read(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, 0x55U, reg_coord, 2U, rep, 7U) == 0) {
+                uint8_t valid = (rep[0] >> 7U) & 1U;
+                if (valid) {
+                    uint32_t rx = (uint32_t)(((rep[0] & 0x3FU) << 8U) | rep[1]);
+                    uint32_t ry = (uint32_t)((rep[2] << 8U) | rep[3]);
+                    int32_t sx = (int32_t)(1279U >= ry ? (1279U - ry) : 0U);
+                    int32_t sy = (int32_t)rx;
+                    if (x) *x = sx;
+                    if (y) *y = sy;
+                    if (pressed) *pressed = 1;
+                    return 0;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 uint32_t maia_tab5_get_detected_panel(void) {
     return g_detected_panel;
 }

@@ -237,8 +237,14 @@ static void term_scroll(void) {
     fb_sync();
 }
 
+static int s_exclusive_mode = 0;
+
+void maia_display_set_exclusive(int exclusive) {
+    s_exclusive_mode = exclusive;
+}
+
 void maia_display_putc(char c) {
-    if (!s_display_ready) {
+    if (s_exclusive_mode || !s_display_ready) {
         return;
     }
     if (s_has_psram) {

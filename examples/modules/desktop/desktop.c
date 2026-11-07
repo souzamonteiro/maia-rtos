@@ -56,6 +56,24 @@ static char g_term_input[64] = "";
 static int g_term_input_len = 0;
 static bool g_term_initialized = false;
 
+/* Editor State */
+#define EDITOR_MAX_LINES 12
+#define EDITOR_LINE_LEN 64
+static char g_editor_lines[EDITOR_MAX_LINES][EDITOR_LINE_LEN] = {
+    "# MaiaRTOS Native Text Document",
+    "# Hardware: M5Stack Tab5 (ESP32-P4 v1.3)",
+    "",
+    "void main() {",
+    "    maia_desktop_init();",
+    "    maia_println(\"Hello MaiaOS!\");",
+    "}",
+    "/* Type via Tab5 physical keyboard */",
+    "", "", "", ""
+};
+static int g_editor_line_count = 8;
+static int g_editor_cur_row = 7;
+static int g_editor_cur_col = 37;
+
 /* Module Global State */
 static const maia_module_context_t *g_ctx = NULL;
 static uint16_t *g_fb = NULL;
@@ -699,19 +717,8 @@ static void render_editor_window(void) {
     fill_rect(wx + 17, ey + 1, 44, eh - 2, COLOR_TASKBAR);
     draw_rect(wx + 61, ey + 1, 1, eh - 2, COLOR_TASK_ACC);
 
-    static const char *editor_lines[] = {
-        "# MaiaRTOS Native Text Document",
-        "# Hardware: M5Stack Tab5 (ESP32-P4 v1.3)",
-        "",
-        "void main() {",
-        "    maia_desktop_init();",
-        "    maia_println(\"Hello MaiaOS!\");",
-        "}",
-        "/* Type via Tab5 physical keyboard */"
-    };
-
     int cy = ey + 10;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < g_editor_line_count && i < EDITOR_MAX_LINES; ++i) {
         char lnum[6];
         lnum[0] = '0' + ((i + 1) / 10);
         lnum[1] = '0' + ((i + 1) % 10);
@@ -719,12 +726,14 @@ static void render_editor_window(void) {
         lnum[3] = '|';
         lnum[4] = '\0';
         draw_str(wx + 22, cy, lnum, COLOR_TEXT_DIM, COLOR_TASKBAR, true);
-        draw_str(wx + 72, cy, editor_lines[i], (i == 0 || i == 1) ? COLOR_GOLD : (i == 3 || i == 6) ? COLOR_CYAN : COLOR_WHITE, COLOR_BLACK, true);
+        draw_str(wx + 72, cy, g_editor_lines[i], (i == 0 || i == 1) ? COLOR_GOLD : (i == 3 || i == 6) ? COLOR_CYAN : COLOR_WHITE, COLOR_BLACK, true);
         cy += 22;
     }
 
-    /* Blinking-style cursor block at line 7 */
-    fill_rect(wx + 72 + 37 * 8, ey + 10 + 7 * 22, 9, 16, COLOR_CYAN);
+    /* Active cursor */
+    if (g_editor_cur_row >= 0 && g_editor_cur_row < g_editor_line_count) {
+        fill_rect(wx + 72 + g_editor_cur_col * 8, ey + 10 + g_editor_cur_row * 22, 8, 16, COLOR_CYAN);
+    }
 }
 
 static void render_calc_window(void) {
@@ -1058,94 +1067,98 @@ static const int16_t s_sin_q10[64] = {
 };
 
 static void render_canvas_background(void) {
-    /* 1. Deep Space Cosmic Background inspired by the new MaiaOS elegant wallpaper */
-    for (int y = 36; y < SCREEN_H; ++y) {
-        int r = (y - 36) * 3 / 684;
-        int g = 1 + (y - 36) * 4 / 684;
-        int b = 5 + (y - 36) * 8 / 684;
-        uint16_t line_col = (uint16_t)((r << 11) | (g << 5) | b);
-        fill_rect(0, y, SCREEN_W, 1, line_col);
-    }
-
-    /* 2. Fluid Cosmic Light Waves (Right quadrant streams of luminous magenta & cyan) */
-    for (int x = 600; x < SCREEN_W; ++x) {
-        int dx = x - 600;
-        /* Stream 1: Cyan / Aqua Wave */
-        int wave1_y = 180 + (dx * 36) / 100 - (dx * dx) / 2200;
-        if (wave1_y >= 36 && wave1_y < SCREEN_H - 10) {
-            put_pixel(x, wave1_y, COLOR_CYAN);
-            put_pixel(x, wave1_y + 1, 0x05ff);
-            put_pixel(x, wave1_y - 1, 0x03df);
-            put_pixel(x, wave1_y + 2, 0x021f);
-        }
-        /* Stream 2: Electric Magenta / Violet Wave */
-        int wave2_y = 240 + (dx * 42) / 100 - (dx * dx) / 2000;
-        if (wave2_y >= 36 && wave2_y < SCREEN_H - 10) {
-            put_pixel(x, wave2_y, COLOR_MAGENTA);
-            put_pixel(x, wave2_y + 1, 0xf810);
-            put_pixel(x, wave2_y - 1, 0xb015);
-            put_pixel(x, wave2_y + 2, 0x700e);
-        }
-        /* Stream 3: Deep Royal Blue Glow */
-        int wave3_y = 310 + (dx * 46) / 100 - (dx * dx) / 1800;
-        if (wave3_y >= 36 && wave3_y < SCREEN_H - 10) {
-            put_pixel(x, wave3_y, 0x02bf);
-            put_pixel(x, wave3_y + 1, 0x01bf);
-            put_pixel(x, wave3_y - 1, 0x041f);
+    /* 1. Permanent Default: High-res custom wallpaper (/sd/wallpaper.raw) */
+    bool wp_ok = false;
+    if (g_ctx && g_ctx->host && g_ctx->host->apply_wallpaper) {
+        if (g_ctx->host->apply_wallpaper("/sd/wallpaper.raw") == 0 ||
+            g_ctx->host->apply_wallpaper(NULL) == 0) {
+            wp_ok = true;
         }
     }
 
-    /* 3. Subtle Constellation Points */
-    static const int stars[][2] = {
-        {180, 80}, {260, 140}, {340, 90}, {780, 80}, {890, 60}, {1020, 90}, {1150, 75},
-        {160, 220}, {290, 270}, {480, 160}, {560, 120},
-        {220, 420}, {310, 470}, {450, 520}, {540, 580}, {700, 620}, {850, 640}
-    };
-    for (size_t s = 0; s < sizeof(stars)/sizeof(stars[0]); ++s) {
-        int sx = stars[s][0], sy = stars[s][1];
-        put_pixel(sx, sy, COLOR_WHITE);
-        put_pixel(sx + 1, sy, 0x8410);
-        put_pixel(sx - 1, sy, 0x8410);
-        put_pixel(sx, sy + 1, 0x8410);
-        put_pixel(sx, sy - 1, 0x8410);
-    }
+    if (!wp_ok) {
+        /* Procedural Cosmic Background fallback */
+        for (int y = 36; y < SCREEN_H; ++y) {
+            int r = (y - 36) * 3 / 684;
+            int g = 1 + (y - 36) * 4 / 684;
+            int b = 5 + (y - 36) * 8 / 684;
+            uint16_t line_col = (uint16_t)((r << 11) | (g << 5) | b);
+            fill_rect(0, y, SCREEN_W, 1, line_col);
+        }
 
-    /* 4. Maia Celestial Core Emblem & Typography */
-    int cx = 580, cy = 240;
+        /* Fluid Cosmic Light Waves */
+        for (int x = 600; x < SCREEN_W; ++x) {
+            int dx = x - 600;
+            int wave1_y = 180 + (dx * 36) / 100 - (dx * dx) / 2200;
+            if (wave1_y >= 36 && wave1_y < SCREEN_H - 10) {
+                put_pixel(x, wave1_y, COLOR_CYAN);
+                put_pixel(x, wave1_y + 1, 0x05ff);
+                put_pixel(x, wave1_y - 1, 0x03df);
+                put_pixel(x, wave1_y + 2, 0x021f);
+            }
+            int wave2_y = 240 + (dx * 42) / 100 - (dx * dx) / 2000;
+            if (wave2_y >= 36 && wave2_y < SCREEN_H - 10) {
+                put_pixel(x, wave2_y, COLOR_MAGENTA);
+                put_pixel(x, wave2_y + 1, 0xf810);
+                put_pixel(x, wave2_y - 1, 0xb015);
+                put_pixel(x, wave2_y + 2, 0x700e);
+            }
+            int wave3_y = 310 + (dx * 46) / 100 - (dx * dx) / 1800;
+            if (wave3_y >= 36 && wave3_y < SCREEN_H - 10) {
+                put_pixel(x, wave3_y, 0x02bf);
+                put_pixel(x, wave3_y + 1, 0x01bf);
+                put_pixel(x, wave3_y - 1, 0x041f);
+            }
+        }
 
-    /* Orbital Rings */
-    int rx1 = 110, ry1 = 44;
-    for (int i = 0; i < 64; ++i) {
-        int32_t sn = s_sin_q10[i];
-        int32_t cs = s_sin_q10[(i + 16) % 64];
-        int32_t px = (rx1 * cs * 935 - ry1 * sn * (-416)) / (1024 * 1024);
-        int32_t py = (rx1 * cs * (-416) + ry1 * sn * 935) / (1024 * 1024);
-        put_pixel(cx + (int)px, cy + (int)py, COLOR_GOLD);
-        put_pixel(cx + (int)px + 1, cy + (int)py, 0xfd20);
-    }
-    for (int i = 0; i < 64; ++i) {
-        int32_t sn = s_sin_q10[i];
-        int32_t cs = s_sin_q10[(i + 16) % 64];
-        int32_t px = (rx1 * cs * 935 - ry1 * sn * 416) / (1024 * 1024);
-        int32_t py = (rx1 * cs * 416 + ry1 * sn * 935) / (1024 * 1024);
-        put_pixel(cx + (int)px, cy + (int)py, COLOR_CYAN);
-        put_pixel(cx + (int)px + 1, cy + (int)py, COLOR_TASK_ACC);
-    }
+        /* Subtle Constellation Points */
+        static const int stars[][2] = {
+            {180, 80}, {260, 140}, {340, 90}, {780, 80}, {890, 60}, {1020, 90}, {1150, 75},
+            {160, 220}, {290, 270}, {480, 160}, {560, 120},
+            {220, 420}, {310, 470}, {450, 520}, {540, 580}, {700, 620}, {850, 640}
+        };
+        for (size_t s = 0; s < sizeof(stars)/sizeof(stars[0]); ++s) {
+            int sx = stars[s][0], sy = stars[s][1];
+            put_pixel(sx, sy, COLOR_WHITE);
+            put_pixel(sx + 1, sy, 0x8410);
+            put_pixel(sx - 1, sy, 0x8410);
+            put_pixel(sx, sy + 1, 0x8410);
+            put_pixel(sx, sy - 1, 0x8410);
+        }
 
-    /* Core Star */
-    fill_rect(cx - 7, cy - 7, 15, 15, COLOR_GOLD);
-    fill_rect(cx - 5, cy - 5, 11, 11, COLOR_YELLOW);
-    fill_rect(cx - 3, cy - 3, 7, 7, COLOR_WHITE);
-    for (int r = -26; r <= 26; ++r) {
-        uint16_t fc = (r >= -6 && r <= 6) ? COLOR_WHITE : (r >= -15 && r <= 15) ? COLOR_YELLOW : 0x8400;
-        put_pixel(cx + r, cy, fc);
-        put_pixel(cx, cy + r, fc);
-    }
+        /* Maia Celestial Core Emblem & Typography */
+        int cx = 580, cy = 240;
+        int rx1 = 110, ry1 = 44;
+        for (int i = 0; i < 64; ++i) {
+            int32_t sn = s_sin_q10[i];
+            int32_t cs = s_sin_q10[(i + 16) % 64];
+            int32_t px = (rx1 * cs * 935 - ry1 * sn * (-416)) / (1024 * 1024);
+            int32_t py = (rx1 * cs * (-416) + ry1 * sn * 935) / (1024 * 1024);
+            put_pixel(cx + (int)px, cy + (int)py, COLOR_GOLD);
+            put_pixel(cx + (int)px + 1, cy + (int)py, 0xfd20);
+        }
+        for (int i = 0; i < 64; ++i) {
+            int32_t sn = s_sin_q10[i];
+            int32_t cs = s_sin_q10[(i + 16) % 64];
+            int32_t px = (rx1 * cs * 935 - ry1 * sn * 416) / (1024 * 1024);
+            int32_t py = (rx1 * cs * 416 + ry1 * sn * 935) / (1024 * 1024);
+            put_pixel(cx + (int)px, cy + (int)py, COLOR_CYAN);
+            put_pixel(cx + (int)px + 1, cy + (int)py, COLOR_TASK_ACC);
+        }
 
-    /* Typography */
-    draw_str_2x(cx - 160, cy + 80,  "MAIA OPERATING SYSTEM", COLOR_WHITE, 0x0023, true);
-    draw_str_2x(cx - 144, cy + 120, "NATIVE RV32 DUAL-CORE", COLOR_TASK_ACC, 0x0023, true);
-    draw_str(cx - 110, cy + 165, "Touch any desktop shortcut to launch", COLOR_TEXT_DIM, 0x0023, true);
+        fill_rect(cx - 7, cy - 7, 15, 15, COLOR_GOLD);
+        fill_rect(cx - 5, cy - 5, 11, 11, COLOR_YELLOW);
+        fill_rect(cx - 3, cy - 3, 7, 7, COLOR_WHITE);
+        for (int r = -26; r <= 26; ++r) {
+            uint16_t fc = (r >= -6 && r <= 6) ? COLOR_WHITE : (r >= -15 && r <= 15) ? COLOR_YELLOW : 0x8400;
+            put_pixel(cx + r, cy, fc);
+            put_pixel(cx, cy + r, fc);
+        }
+
+        draw_str_2x(cx - 160, cy + 80,  "MAIA OPERATING SYSTEM", COLOR_WHITE, 0x0023, true);
+        draw_str_2x(cx - 144, cy + 120, "NATIVE RV32 DUAL-CORE", COLOR_TASK_ACC, 0x0023, true);
+        draw_str(cx - 110, cy + 165, "Touch any desktop shortcut to launch", COLOR_TEXT_DIM, 0x0023, true);
+    }
 
     /* 5. Left Column Desktop Shortcuts (Clean, 7 full apps!) */
     draw_desktop_icon(24, 48,  WIN_FILES,   "Arquivos", COLOR_GOLD);
@@ -1279,6 +1292,35 @@ static void handle_touch(int tx, int ty) {
             g_dirty_canvas = true;
             g_dirty_window = true;
             return;
+        }
+    }
+
+    /* 3b. Check Editor Window Toolbar Buttons */
+    if (g_active_win == WIN_EDITOR) {
+        int wx = 300, wy = 80;
+        int tby = wy + 46;
+        if (ty >= tby && ty <= tby + 30) {
+            if (tx >= wx + 16 && tx <= wx + 102) {
+                /* NEW */
+                g_editor_line_count = 1;
+                g_editor_lines[0][0] = '\0';
+                g_editor_cur_row = 0;
+                g_editor_cur_col = 0;
+                g_dirty_window = true;
+                return;
+            } else if (tx >= wx + 112 && tx <= wx + 198) {
+                /* SAVE - Saved in RAM buffer */
+                g_dirty_window = true;
+                return;
+            } else if (tx >= wx + 208 && tx <= wx + 294) {
+                /* CLEAR */
+                g_editor_line_count = 1;
+                g_editor_lines[0][0] = '\0';
+                g_editor_cur_row = 0;
+                g_editor_cur_col = 0;
+                g_dirty_window = true;
+                return;
+            }
         }
     }
 
@@ -1423,6 +1465,57 @@ int maia_module_main(const maia_module_context_t *ctx) {
                             g_term_input[g_term_input_len] = '\0';
                             g_dirty_window = true;
                         }
+                    }
+                } else if (g_active_win == WIN_EDITOR) {
+                    if (k == '\r' || k == '\n') {
+                        if (g_editor_cur_row + 1 < EDITOR_MAX_LINES) {
+                            g_editor_cur_row++;
+                            g_editor_cur_col = 0;
+                            if (g_editor_cur_row >= g_editor_line_count) {
+                                g_editor_line_count = g_editor_cur_row + 1;
+                            }
+                            g_dirty_window = true;
+                        }
+                    } else if (k == '\b' || k == 127) {
+                        if (g_editor_cur_col > 0) {
+                            g_editor_cur_col--;
+                            g_editor_lines[g_editor_cur_row][g_editor_cur_col] = '\0';
+                            g_dirty_window = true;
+                        } else if (g_editor_cur_row > 0) {
+                            g_editor_cur_row--;
+                            size_t elen = 0;
+                            while (g_editor_lines[g_editor_cur_row][elen]) elen++;
+                            g_editor_cur_col = (int)elen;
+                            g_dirty_window = true;
+                        }
+                    } else if (k >= 32 && k <= 126) {
+                        if (g_editor_cur_col < EDITOR_LINE_LEN - 2) {
+                            g_editor_lines[g_editor_cur_row][g_editor_cur_col++] = (char)k;
+                            g_editor_lines[g_editor_cur_row][g_editor_cur_col] = '\0';
+                            g_dirty_window = true;
+                        }
+                    } else if (k == 0x80) { /* Arrow UP */
+                        if (g_editor_cur_row > 0) {
+                            g_editor_cur_row--;
+                            size_t elen = 0;
+                            while (g_editor_lines[g_editor_cur_row][elen]) elen++;
+                            if (g_editor_cur_col > (int)elen) g_editor_cur_col = (int)elen;
+                            g_dirty_window = true;
+                        }
+                    } else if (k == 0x81) { /* Arrow DOWN */
+                        if (g_editor_cur_row + 1 < g_editor_line_count) {
+                            g_editor_cur_row++;
+                            size_t elen = 0;
+                            while (g_editor_lines[g_editor_cur_row][elen]) elen++;
+                            if (g_editor_cur_col > (int)elen) g_editor_cur_col = (int)elen;
+                            g_dirty_window = true;
+                        }
+                    } else if (k == 0x82) { /* Arrow LEFT */
+                        if (g_editor_cur_col > 0) { g_editor_cur_col--; g_dirty_window = true; }
+                    } else if (k == 0x83) { /* Arrow RIGHT */
+                        size_t elen = 0;
+                        while (g_editor_lines[g_editor_cur_row][elen]) elen++;
+                        if (g_editor_cur_col < (int)elen) { g_editor_cur_col++; g_dirty_window = true; }
                     }
                 } else if (g_active_win == WIN_CALC) {
                     if (k == '\r' || k == '\n' || k == '=') calc_input('=');

@@ -3,6 +3,10 @@
 #if defined(ARDUINO)
 #include <Arduino.h>
 #include <M5Unified.h>
+#include <esp_heap_caps.h>
+#include <esp_psram.h>
+#include <esp_chip_info.h>
+#include <mbedtls/sha256.h>
 #elif defined(ESP_PLATFORM)
 #include <esp_system.h>
 #include <esp_heap_caps.h>
@@ -10,6 +14,57 @@
 #include <esp_chip_info.h>
 #include <esp_timer.h>
 #include <mbedtls/sha256.h>
+#endif
+
+#if defined(ESP_PLATFORM)
+extern "C" int32_t host_apply_wallpaper(const char *path);
+extern "C" bool host_is_usb_mounted(void);
+extern "C" int32_t host_usb_unmount(void);
+extern "C" int32_t host_play_beep(uint32_t freq_hz, uint32_t duration_ms);
+extern "C" int32_t host_play_wav(const char *path);
+extern "C" int32_t host_record_wav(const char *path, uint32_t duration_sec);
+extern "C" int32_t host_set_volume(uint32_t vol);
+extern "C" int32_t host_get_volume(void);
+extern "C" int32_t host_wifi_init(void);
+extern "C" int32_t host_wifi_scan(char *buf, size_t max_len);
+extern "C" int32_t host_wifi_connect(const char *ssid, const char *pass);
+extern "C" int32_t host_wifi_disconnect(void);
+extern "C" int32_t host_wifi_status(char *buf, size_t max_len);
+extern "C" int32_t host_sntp_sync(const char *server);
+extern "C" int32_t host_get_datetime(char *buf, size_t max_len);
+extern "C" int32_t host_camera_init(void);
+extern "C" int32_t host_camera_status(char *buf, size_t max_len);
+extern "C" int32_t host_camera_snap(const char *path);
+extern "C" int32_t host_camera_view(uint32_t duration_sec);
+extern "C" int32_t host_video_record(const char *path, uint32_t duration_sec, uint32_t fps);
+extern "C" int32_t host_video_play(const char *path, uint32_t fps_override);
+extern "C" int32_t host_webserver_start(uint16_t port);
+extern "C" int32_t host_webserver_stop(void);
+extern "C" int32_t host_webserver_status(char *buf, size_t max_len);
+#else
+static inline bool host_is_usb_mounted(void) { return false; }
+static inline int32_t host_usb_unmount(void) { return -1; }
+static inline int32_t host_play_beep(uint32_t freq_hz, uint32_t duration_ms) { return -1; }
+static inline int32_t host_play_wav(const char *path) { return -1; }
+static inline int32_t host_record_wav(const char *path, uint32_t duration_sec) { return -1; }
+static inline int32_t host_set_volume(uint32_t vol) { return -1; }
+static inline int32_t host_get_volume(void) { return -1; }
+static inline int32_t host_wifi_init(void) { return -1; }
+static inline int32_t host_wifi_scan(char *buf, size_t max_len) { return -1; }
+static inline int32_t host_wifi_connect(const char *ssid, const char *pass) { return -1; }
+static inline int32_t host_wifi_disconnect(void) { return -1; }
+static inline int32_t host_wifi_status(char *buf, size_t max_len) { if (buf && max_len) snprintf(buf, max_len, "Wi-Fi not supported\n"); return -1; }
+static inline int32_t host_sntp_sync(const char *server) { return -1; }
+static inline int32_t host_get_datetime(char *buf, size_t max_len) { return -1; }
+static inline int32_t host_camera_init(void) { return -1; }
+static inline int32_t host_camera_status(char *buf, size_t max_len) { if (buf && max_len) snprintf(buf, max_len, "Camera not supported\n"); return -1; }
+static inline int32_t host_camera_snap(const char *path) { (void)path; return -1; }
+static inline int32_t host_camera_view(uint32_t duration_sec) { (void)duration_sec; return -1; }
+static inline int32_t host_video_record(const char *path, uint32_t duration_sec, uint32_t fps) { (void)path; (void)duration_sec; (void)fps; return -1; }
+static inline int32_t host_video_play(const char *path, uint32_t fps_override) { (void)path; (void)fps_override; return -1; }
+static inline int32_t host_webserver_start(uint16_t port) { (void)port; return -1; }
+static inline int32_t host_webserver_stop(void) { return -1; }
+static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf && max_len) snprintf(buf, max_len, "Web server not supported\n"); return -1; }
 #endif
 
 #include <stdint.h>
@@ -21,13 +76,15 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include <maia/exec/elf_validator.h>
-#include <maia/exec/elf_loader.h>
-#include <maia/exec/hello_mobj.h>
+#include "../maia/exec/elf_validator.h"
+#include "../maia/exec/elf_loader.h"
+#include "../maia/exec/hello_mobj.h"
 
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
 #include <maia/soc/esp32p4_board_io.h>
+static inline void *malloc(size_t sz) { return maia_mem_alloc((uint32_t)sz); }
+static inline void free(void *p) { maia_mem_free(p); }
 #endif
 
 #include <stdarg.h>
@@ -65,6 +122,12 @@ static inline int msh_vsnprintf(char *buf, size_t size, const char *fmt, va_list
         }
 
         // Length modifiers
+        // Skip flags, width and precision modifiers (e.g. %-24.24s, %02d, %4d)
+        while (*fmt == '-' || *fmt == '+' || *fmt == ' ' || *fmt == '#' || *fmt == '0' ||
+               (*fmt >= '0' && *fmt <= '9') || *fmt == '.') {
+            fmt++;
+        }
+
         bool is_long = false;
         if (*fmt == 'l') {
             is_long = true;
@@ -346,6 +409,21 @@ public:
 
     static void set_input_driver(const maia_input_api_t *input) {
         get_global_input_api() = input;
+    }
+
+    static MaiaShell *&get_active_instance() {
+        static MaiaShell *s_inst = nullptr;
+        return s_inst;
+    }
+
+    struct ShellExecDivert {
+        void (*out_cb)(const char *str, void *user_data);
+        void *user_data;
+    };
+
+    static ShellExecDivert *&get_active_divert() {
+        static ShellExecDivert *s_div = nullptr;
+        return s_div;
     }
 
     bool unset_var(const char *key) {
@@ -919,7 +997,8 @@ public:
                         st.buf[st.len] = '\0';
                     }
                 };
-                get_global_out_cb() = this->output_cb;
+                get_active_instance() = this;
+        get_global_out_cb() = this->output_cb;
             }
         }
 
@@ -966,7 +1045,22 @@ public:
         else if (strcmp(cmd, "reboot") == 0)   ret = cmd_reboot(argc, argv);
         else if (strcmp(cmd, "mkdir") == 0)    ret = cmd_mkdir(argc, argv);
         else if (strcmp(cmd, "rm") == 0)       ret = cmd_rm(argc, argv);
+        else if (strcmp(cmd, "cp") == 0)       ret = cmd_cp(argc, argv);
         else if (strcmp(cmd, "touch") == 0)    ret = cmd_touch(argc, argv);
+        else if (strcmp(cmd, "mount") == 0)    ret = cmd_mount(argc, argv);
+        else if (strcmp(cmd, "umount") == 0 || strcmp(cmd, "unmount") == 0) ret = cmd_umount(argc, argv);
+        else if (strcmp(cmd, "wallpaper") == 0) ret = cmd_wallpaper(argc, argv);
+        else if (strcmp(cmd, "beep") == 0)     ret = cmd_beep(argc, argv);
+        else if (strcmp(cmd, "volume") == 0)   ret = cmd_volume(argc, argv);
+        else if (strcmp(cmd, "play") == 0)     ret = cmd_play(argc, argv);
+        else if (strcmp(cmd, "rec") == 0)      ret = cmd_rec(argc, argv);
+        else if (strcmp(cmd, "wifi") == 0)     ret = cmd_wifi(argc, argv);
+        else if (strcmp(cmd, "sntp") == 0)     ret = cmd_sntp(argc, argv);
+        else if (strcmp(cmd, "date") == 0)     ret = cmd_date(argc, argv);
+        else if (strcmp(cmd, "camera") == 0)   ret = cmd_camera(argc, argv);
+        else if (strcmp(cmd, "vidrec") == 0)   ret = cmd_vidrec(argc, argv);
+        else if (strcmp(cmd, "vidplay") == 0)  ret = cmd_vidplay(argc, argv);
+        else if (strcmp(cmd, "webcam") == 0 || strcmp(cmd, "httpd") == 0 || strcmp(cmd, "web") == 0) ret = cmd_webcam(argc, argv);
         else if (strcmp(cmd, "write") == 0)    ret = cmd_write(argc, argv);
         else if (strcmp(cmd, "hexwrite") == 0) ret = cmd_hexwrite(argc, argv);
         else if (strcmp(cmd, "hexread") == 0)  ret = cmd_hexread(argc, argv);
@@ -1250,7 +1344,8 @@ public:
                         st.buf[st.len] = '\0';
                     }
                 };
-                get_global_out_cb() = this->output_cb;
+                get_active_instance() = this;
+        get_global_out_cb() = this->output_cb;
 
                 last_rc = execute_single_cmd(stages[k]);
 
@@ -1616,6 +1711,20 @@ private:
         println("  wc [-l -w -c]     - Count lines, words and bytes of file or pipe");
         println("  cmd1 | cmd2       - Pipeline execution chaining output to input");
         println("  mkdir / rm        - Create directories or remove files");
+        println("  cp <src> <dst>    - Copy files between SD card and USB drive");
+        println("  mount / umount    - Inspect and cleanly unmount /usb storage");
+        println("  wallpaper [file]  - Apply 1280x720 RGB565 wallpaper to display");
+        println("  beep [hz] [ms]    - Synthesize PCM audio beep through ES8388 speaker");
+        println("  volume [0-100]    - Get or set master audio volume percentage");
+        println("  play <file.wav>   - Playback standard PCM WAV audio file");
+        println("  rec <file> [sec]  - Record stereo audio from ES7210 microphone array");
+        println("  wifi [scan|connect|status|disconnect] - Manage Wi-Fi via ESP32-C6 Hosted");
+        println("  sntp [server]     - Synchronize system clock with NTP pool");
+        println("  date              - Print current system date and time");
+        println("  camera [init|snap|view] - MIPI CSI camera control, photo capture and live preview");
+        println("  vidrec <file> [s] - Record camera video to .mvid file with hardware PPA");
+        println("  vidplay <file>    - Playback video stream on display with hardware PPA");
+        println("  webcam [start|stop]- Web server HTTP MJPEG live stream & VFS Explorer");
         println("  touch / write     - Create empty files or append lines of text");
         println("  hexwrite / hexread- Binary file hex transfer and raw inspection");
         println("  hexdump [-n N]    - Canonical hex + ASCII dump");
@@ -2000,6 +2109,7 @@ private:
             console_cb(title);
         }
 
+        get_active_instance() = this;
         get_global_out_cb() = this->output_cb;
 
         maia_host_api_v1 host_api;
@@ -2049,7 +2159,11 @@ private:
                     p.pos += to_read;
                     return (int32_t)to_read;
                 }
+#if defined(ESP_PLATFORM)
                 return (int32_t)read(STDIN_FILENO, buf, n);
+#else
+                return 0;
+#endif
             }
             return 0;
         };
@@ -2089,6 +2203,172 @@ private:
         };
         host_api.display = get_global_display_api();
         host_api.input = get_global_input_api();
+        host_api.copy_file = [](const char *src_path, const char *dst_path) -> int32_t {
+            if (!src_path || !dst_path) return -1;
+            FILE *in = fopen(src_path, "rb");
+            if (!in) return -2;
+            FILE *out = fopen(dst_path, "wb");
+            if (!out) { fclose(in); return -3; }
+            const size_t sz = 16384;
+            uint8_t *b = (uint8_t *)malloc(sz);
+            if (!b) { fclose(in); fclose(out); return -4; }
+            size_t n = 0;
+            while ((n = fread(b, 1, sz, in)) > 0) {
+                if (fwrite(b, 1, n, out) != n) {
+                    free(b); fclose(in); fclose(out); return -5;
+                }
+            }
+            free(b); fclose(in); fclose(out);
+            return 0;
+        };
+        host_api.apply_wallpaper = [](const char *path) -> int32_t {
+#if defined(ESP_PLATFORM)
+            return host_apply_wallpaper(path);
+#else
+            (void)path;
+            return -1;
+#endif
+        };
+        host_api.shell_exec = [](const char *cmd, void (*out_cb)(const char *str, void *user_data), void *user_data) -> int32_t {
+            if (!cmd) return -1;
+            MaiaShell *sh = get_active_instance();
+            if (!sh) return -2;
+
+            ShellExecDivert div = { out_cb, user_data };
+            get_active_divert() = &div;
+
+            OutputFn prev_out = sh->output_cb;
+            OutputFn prev_glob = get_global_out_cb();
+
+            auto diverter = [](const char *str) {
+                ShellExecDivert *d = get_active_divert();
+                if (d && d->out_cb && str) {
+                    d->out_cb(str, d->user_data);
+                }
+            };
+
+            sh->output_cb = diverter;
+            get_global_out_cb() = diverter;
+
+            int rc = sh->execute(cmd);
+
+            sh->output_cb = prev_out;
+            get_global_out_cb() = prev_glob;
+            get_active_divert() = nullptr;
+
+            return (int32_t)rc;
+        };
+        host_api.list_dir = [](const char *path, maia_dir_entry_t *entries, uint32_t max_entries) -> int32_t {
+            if (!path || !entries || max_entries == 0) return -1;
+            if (strcmp(path, "/") == 0) {
+                uint32_t count = 0;
+                strncpy(entries[count].name, "sd", sizeof(entries[count].name) - 1);
+                entries[count].name[sizeof(entries[count].name) - 1] = '\0';
+                entries[count].is_dir = 1;
+                entries[count].size = 0;
+                entries[count].is_exec = 0;
+                count++;
+                if (host_is_usb_mounted() && count < max_entries) {
+                    strncpy(entries[count].name, "usb", sizeof(entries[count].name) - 1);
+                    entries[count].name[sizeof(entries[count].name) - 1] = '\0';
+                    entries[count].is_dir = 1;
+                    entries[count].size = 0;
+                    entries[count].is_exec = 0;
+                    count++;
+                }
+                return (int32_t)count;
+            }
+            DIR *d = opendir(path);
+            if (!d) return -2;
+
+            uint32_t count = 0;
+            struct dirent *de;
+            while ((de = readdir(d)) != nullptr && count < max_entries) {
+                if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+
+                maia_dir_entry_t &e = entries[count];
+                strncpy(e.name, de->d_name, sizeof(e.name) - 1);
+                e.name[sizeof(e.name) - 1] = '\0';
+
+                char full[256];
+                int plen = strlen(path);
+                if (plen > 0 && path[plen - 1] == '/') {
+                    snprintf(full, sizeof(full), "%s%s", path, de->d_name);
+                } else {
+                    snprintf(full, sizeof(full), "%s/%s", path, de->d_name);
+                }
+
+                struct stat st;
+                if (stat(full, &st) == 0) {
+                    e.is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
+                    e.size = (uint32_t)st.st_size;
+                } else {
+                    e.is_dir = (de->d_type == DT_DIR) ? 1 : 0;
+                    e.size = 0;
+                }
+
+                int nlen = strlen(e.name);
+                if (!e.is_dir && nlen > 5 && strcmp(e.name + nlen - 5, ".mobj") == 0) {
+                    e.is_exec = 1;
+                } else {
+                    e.is_exec = 0;
+                }
+                count++;
+            }
+            closedir(d);
+            return (int32_t)count;
+        };
+        host_api.remove_file = [](const char *path) -> int32_t {
+            if (!path || !*path) return -1;
+            struct stat st;
+            if (stat(path, &st) != 0) return -2;
+            if (S_ISDIR(st.st_mode)) {
+                return (int32_t)rmdir(path);
+            }
+            return (int32_t)unlink(path);
+        };
+        host_api.rename_file = [](const char *old_path, const char *new_path) -> int32_t {
+            if (!old_path || !new_path) return -1;
+            return (int32_t)rename(old_path, new_path);
+        };
+        host_api.make_dir = [](const char *path) -> int32_t {
+            if (!path || !*path) return -1;
+            return (int32_t)mkdir(path, 0755);
+        };
+        host_api.read_text_file = [](const char *path, char *buf, uint32_t max_len) -> int32_t {
+            if (!path || !buf || max_len == 0) return -1;
+            FILE *f = fopen(path, "r");
+            if (!f) return -2;
+            size_t rd = fread(buf, 1, max_len - 1, f);
+            buf[rd] = '\0';
+            fclose(f);
+            return (int32_t)rd;
+        };
+        host_api.write_text_file = [](const char *path, const char *buf, uint32_t len) -> int32_t {
+            if (!path || !buf) return -1;
+            FILE *f = fopen(path, "w");
+            if (!f) return -2;
+            size_t wr = fwrite(buf, 1, len, f);
+            fclose(f);
+            return (int32_t)wr;
+        };
+        host_api.play_beep = host_play_beep;
+        host_api.play_wav = host_play_wav;
+        host_api.record_wav = host_record_wav;
+        host_api.set_volume = host_set_volume;
+        host_api.get_volume = host_get_volume;
+        host_api.is_usb_mounted = []() -> int32_t { return host_is_usb_mounted() ? 1 : 0; };
+        host_api.usb_unmount = host_usb_unmount;
+        host_api.wifi_scan = [](char *b, uint32_t m) -> int32_t { return host_wifi_scan(b, (size_t)m); };
+        host_api.wifi_connect = host_wifi_connect;
+        host_api.wifi_status = [](char *b, uint32_t m) -> int32_t { return host_wifi_status(b, (size_t)m); };
+        host_api.wifi_disconnect = host_wifi_disconnect;
+        host_api.sntp_sync = host_sntp_sync;
+        host_api.get_datetime = [](char *b, uint32_t m) -> int32_t { return host_get_datetime(b, (size_t)m); };
+        host_api.camera_snap = host_camera_snap;
+        host_api.camera_view = host_camera_view;
+        host_api.video_record = host_video_record;
+        host_api.video_play = host_video_play;
 
         int exit_code = 0;
         int res = mnm_load_and_run(elf_bytes, elf_len,
@@ -2252,7 +2532,12 @@ private:
         if (strcmp(target_dir, "/") == 0) {
             println("Directory of /:");
             println("  [MOUNT] /sd/ (SDMMC FAT32)");
-            println("Total 1 mount point");
+            if (host_is_usb_mounted()) {
+                println("  [MOUNT] /usb/ (USB MSC Host)");
+                println("Total 2 mount points");
+            } else {
+                println("Total 1 mount point");
+            }
             return 0;
         }
 
@@ -2570,6 +2855,125 @@ private:
         return 0;
     }
 
+    int cmd_cp(int argc, char **argv) {
+        if (argc < 3) {
+            println("Usage: cp <src> <dst>");
+            return 1;
+        }
+        char src[128];
+        char dst[128];
+        resolve_path(argv[1], src, sizeof(src));
+        resolve_path(argv[2], dst, sizeof(dst));
+
+        FILE *f_in = fopen(src, "rb");
+        if (!f_in) {
+            char err[160];
+            snprintf(err, sizeof(err), "cp: cannot open source '%s'", src);
+            println(err);
+            return 1;
+        }
+
+        FILE *f_out = fopen(dst, "wb");
+        if (!f_out) {
+            fclose(f_in);
+            char err[160];
+            snprintf(err, sizeof(err), "cp: cannot create destination '%s'", dst);
+            println(err);
+            return 1;
+        }
+
+        const size_t buf_sz = 16384;
+        uint8_t *buf = (uint8_t *)malloc(buf_sz);
+        if (!buf) {
+            fclose(f_in);
+            fclose(f_out);
+            println("cp: out of memory for copy buffer");
+            return 1;
+        }
+
+        size_t total = 0;
+        size_t n = 0;
+        while ((n = fread(buf, 1, buf_sz, f_in)) > 0) {
+            size_t w = fwrite(buf, 1, n, f_out);
+            if (w != n) {
+                free(buf);
+                fclose(f_in);
+                fclose(f_out);
+                println("cp: write error during file copy");
+                return 1;
+            }
+            total += w;
+        }
+
+        free(buf);
+        fclose(f_in);
+        fclose(f_out);
+
+        char msg[96];
+        snprintf(msg, sizeof(msg), "cp: successfully copied %u bytes", (unsigned int)total);
+        println(msg);
+        return 0;
+    }
+
+    int cmd_wallpaper(int argc, char **argv) {
+        const char *p = (argc > 1) ? argv[1] : nullptr;
+        print("Aplicando papel de parede");
+        if (p) { print(" de '"); print(p); print("'"); }
+        print("...\n");
+#if defined(ESP_PLATFORM)
+        int ret = host_apply_wallpaper(p);
+        if (ret == 0) {
+            println("Papel de parede aplicado com sucesso!");
+        } else {
+            char num[16]; snprintf(num, sizeof(num), "%d", ret);
+            print("Falha ao aplicar papel de parede (erro "); print(num); println(")");
+        }
+        return ret;
+#else
+        println("Comando nao suportado em modo de emulacao.");
+        return 1;
+#endif
+    }
+
+    int cmd_mount(int argc, char **argv) {
+        println("Mounted filesystems:");
+        println("  /sd  on  SDMMC FAT32 (4-bit 40MHz) [rw]");
+        if (host_is_usb_mounted()) {
+            println("  /usb on  USB MSC Host Storage (FAT32/exFAT) [rw]");
+        } else {
+            println("  (USB pendrive disconnected or unmounted)");
+        }
+        return 0;
+    }
+
+    int cmd_umount(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: umount <mountpoint> (e.g. umount /usb)");
+            return 1;
+        }
+        if (strcmp(argv[1], "/usb") == 0 || strcmp(argv[1], "usb") == 0) {
+            if (!host_is_usb_mounted()) {
+                println("umount: /usb is not mounted");
+                return 1;
+            }
+            int rc = host_usb_unmount();
+            if (rc == 0) {
+                println("umount: /usb unmounted successfully. You can safely remove the pendrive.");
+                return 0;
+            } else {
+                println("umount: failed to unmount /usb");
+                return 1;
+            }
+        } else if (strcmp(argv[1], "/sd") == 0 || strcmp(argv[1], "sd") == 0) {
+            println("umount: /sd is system root storage and cannot be unmounted");
+            return 1;
+        }
+        char err[128];
+        snprintf(err, sizeof(err), "umount: %s: not a valid mount point", argv[1]);
+        println(err);
+        return 1;
+    }
+
     int cmd_touch(int argc, char **argv) {
         if (argc < 2) {
             println("Usage: touch <file>");
@@ -2586,6 +2990,294 @@ private:
         }
         fclose(f);
         return 0;
+    }
+
+    int cmd_beep(int argc, char **argv) {
+        uint32_t freq = 880;
+        uint32_t dur = 80;
+        if (argc >= 2) freq = (uint32_t)msh_atoi(argv[1]);
+        if (argc >= 3) dur = (uint32_t)msh_atoi(argv[2]);
+        if (freq == 0) freq = 880;
+        if (dur == 0) dur = 80;
+        int rc = host_play_beep(freq, dur);
+        if (rc != 0) {
+            println("beep: audio codec not initialized or failed");
+            return 1;
+        }
+        return 0;
+    }
+
+    int cmd_volume(int argc, char **argv) {
+        if (argc >= 2) {
+            int vol = msh_atoi(argv[1]);
+            if (vol < 0) vol = 0;
+            if (vol > 100) vol = 100;
+            host_set_volume((uint32_t)vol);
+            char msg[48];
+            snprintf(msg, sizeof(msg), "Audio volume set to %d%%", vol);
+            println(msg);
+            return 0;
+        }
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Audio volume is %d%%", host_get_volume());
+        println(msg);
+        return 0;
+    }
+
+    int cmd_play(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: play <file.wav>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        print("Playing audio: ");
+        println(target);
+        int rc = host_play_wav(target);
+        if (rc == 0) {
+            println("Playback finished.");
+            return 0;
+        }
+        char err[128];
+        snprintf(err, sizeof(err), "play: failed to play WAV (code: %d)", rc);
+        println(err);
+        return 1;
+    }
+
+    int cmd_rec(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: rec <file.wav> [duration_seconds]");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        uint32_t sec = (argc >= 3) ? (uint32_t)msh_atoi(argv[2]) : 5;
+        if (sec == 0) sec = 5;
+        if (sec > 60) sec = 60;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Recording %u seconds of stereo audio to %s...", (unsigned int)sec, target);
+        println(msg);
+        int bytes = host_record_wav(target, sec);
+        if (bytes > 0) {
+            snprintf(msg, sizeof(msg), "Recording complete: %d bytes written.", bytes);
+            println(msg);
+            return 0;
+        }
+        println("rec: failed to record audio");
+        return 1;
+    }
+
+    int cmd_wifi(int argc, char **argv) {
+        if (argc < 2 || strcmp(argv[1], "status") == 0) {
+            char st[256];
+            host_wifi_status(st, sizeof(st));
+            print(st);
+            return 0;
+        }
+
+        if (strcmp(argv[1], "scan") == 0) {
+            println("Scanning 2.4GHz Wi-Fi channels (ESP32-C6 Hosted)...");
+            char scan_buf[1536];
+            int rc = host_wifi_scan(scan_buf, sizeof(scan_buf));
+            if (rc >= 0) {
+                print(scan_buf);
+                return 0;
+            }
+            println("wifi: scan failed (verify ESP32-C6 firmware or try again)");
+            return 1;
+        }
+
+        if (strcmp(argv[1], "connect") == 0) {
+            if (argc < 3) {
+                println("Usage: wifi connect <ssid> [password]");
+                return 1;
+            }
+            const char *pass = (argc >= 4) ? argv[3] : "";
+            print("Connecting to Wi-Fi SSID '");
+            print(argv[2]);
+            println("'...");
+            int rc = host_wifi_connect(argv[2], pass);
+            if (rc == 0) {
+                println("Wi-Fi connection requested. Use 'wifi status' to check IP.");
+                return 0;
+            }
+            println("wifi: failed to initiate connection");
+            return 1;
+        }
+
+        if (strcmp(argv[1], "disconnect") == 0) {
+            host_wifi_disconnect();
+            println("Wi-Fi disconnected.");
+            return 0;
+        }
+
+        println("Usage: wifi [scan | connect <ssid> [pwd] | status | disconnect]");
+        return 1;
+    }
+
+    int cmd_sntp(int argc, char **argv) {
+        const char *server = (argc >= 2) ? argv[1] : "pool.ntp.org";
+        print("Synchronizing system time via SNTP (");
+        print(server);
+        println(")...");
+        int rc = host_sntp_sync(server);
+        if (rc == 0) {
+            char dt[64];
+            host_get_datetime(dt, sizeof(dt));
+            print("Time synchronized successfully: ");
+            println(dt);
+            return 0;
+        }
+        println("sntp: synchronization failed (ensure Wi-Fi is connected)");
+        return 1;
+    }
+
+    int cmd_date(int argc, char **argv) {
+        (void)argc; (void)argv;
+        char dt[64];
+        host_get_datetime(dt, sizeof(dt));
+        println(dt);
+        return 0;
+    }
+
+    int cmd_camera(int argc, char **argv) {
+        if (argc < 2 || strcmp(argv[1], "status") == 0) {
+            char st[160];
+            host_camera_status(st, sizeof(st));
+            println(st);
+            return 0;
+        }
+
+        if (strcmp(argv[1], "init") == 0) {
+            println("Initializing MIPI CSI camera sensor (SC202CS)...");
+            int rc = host_camera_init();
+            if (rc == 0) {
+                println("Camera initialized successfully: 1280x720 RGB565 /dev/video0");
+                return 0;
+            }
+            char err[64];
+            snprintf(err, sizeof(err), "camera: initialization failed (rc = %d)", rc);
+            println(err);
+            return 1;
+        }
+
+        if (strcmp(argv[1], "snap") == 0) {
+            if (argc < 3) {
+                println("Usage: camera snap <file.bmp|file.jpg|file.raw>");
+                return 1;
+            }
+            char target[128];
+            resolve_path(argv[2], target, sizeof(target));
+            print("Capturing photo to '");
+            print(target);
+            println("'...");
+            int rc = host_camera_snap(target);
+            if (rc == 0) {
+                println("Snapshot saved successfully!");
+                return 0;
+            }
+            char err[64];
+            snprintf(err, sizeof(err), "camera: snapshot failed (rc = %d)", rc);
+            println(err);
+            return 1;
+        }
+
+        if (strcmp(argv[1], "view") == 0) {
+            uint32_t duration = (argc >= 3) ? (uint32_t)strtoul(argv[2], NULL, 10) : 10;
+            println("Starting live camera view (press any key to exit)...");
+            int frames = host_camera_view(duration);
+            char msg[80];
+            snprintf(msg, sizeof(msg), "Camera view finished (%d frames displayed)", frames);
+            println(msg);
+            return 0;
+        }
+
+        println("Usage: camera [init | status | snap <file> | view [sec]]");
+        return 1;
+    }
+
+    int cmd_vidrec(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: vidrec <file.mvid> [duration_sec] [fps]");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        uint32_t dur = (argc >= 3) ? (uint32_t)strtoul(argv[2], NULL, 10) : 5;
+        uint32_t fps = (argc >= 4) ? (uint32_t)strtoul(argv[3], NULL, 10) : 15;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Recording video to '%s' (%lu sec @ %lu fps)...", target, (unsigned long)dur, (unsigned long)fps);
+        println(msg);
+
+        int frames = host_video_record(target, dur, fps);
+        if (frames > 0) {
+            snprintf(msg, sizeof(msg), "Video recorded successfully (%d frames written)", frames);
+            println(msg);
+            return 0;
+        }
+        println("vidrec: failed to record video");
+        return 1;
+    }
+
+    int cmd_vidplay(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: vidplay <file.mvid> [fps]");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        uint32_t fps = (argc >= 3) ? (uint32_t)strtoul(argv[2], NULL, 10) : 0;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Playing video '%s'...", target);
+        println(msg);
+
+        int frames = host_video_play(target, fps);
+        if (frames >= 0) {
+            snprintf(msg, sizeof(msg), "Playback completed (%d frames played)", frames);
+            println(msg);
+            return 0;
+        }
+        println("vidplay: failed to open or play video");
+        return 1;
+    }
+
+    int cmd_webcam(int argc, char **argv) {
+        if (argc < 2 || strcmp(argv[1], "status") == 0) {
+            char st[256];
+            host_webserver_status(st, sizeof(st));
+            println(st);
+            return 0;
+        }
+
+        if (strcmp(argv[1], "start") == 0) {
+            uint16_t port = 80;
+            if (argc >= 3) {
+                port = (uint16_t)strtoul(argv[2], NULL, 10);
+            }
+            char msg[128];
+            snprintf(msg, sizeof(msg), "Starting HTTP Webcam & File Server on port %u...", port);
+            println(msg);
+            int rc = host_webserver_start(port);
+            if (rc == 0) {
+                println("Webcam & File Server active! Connect your browser to the Tab5 IP.");
+                return 0;
+            }
+            println("webcam: failed to start web server");
+            return 1;
+        }
+
+        if (strcmp(argv[1], "stop") == 0) {
+            println("Stopping HTTP Webcam & File Server...");
+            host_webserver_stop();
+            println("Server stopped.");
+            return 0;
+        }
+
+        println("Usage: webcam [status | start [port] | stop]");
+        return 1;
     }
 
     int cmd_write(int argc, char **argv) {

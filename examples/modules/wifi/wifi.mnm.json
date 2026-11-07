@@ -1,0 +1,28 @@
+{
+  "schema": "maia.native.module/1",
+  "name": "wifi",
+  "title": "Wi-Fi",
+  "icon": "wifi",
+  "color": "0x07ff",
+  "hotkey": "w",
+  "exec": "/sd/apps/wifi.mobj",
+  "version": "1.0.0",
+  "target": "maia-rv32-esp32p4-v1",
+  "abi_major": 1,
+  "abi_minor_min": 0,
+  "entry": "maia_module_main",
+  "memory": {
+    "stack_bytes": 8192,
+    "heap_limit_bytes": 65536
+  },
+  "permissions": [
+    "stdio",
+    "display",
+    "input",
+    "network"
+  ],
+  "imports": [
+    "maia_host_api_v1"
+  ]
+}
+

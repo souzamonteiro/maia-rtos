@@ -10,7 +10,17 @@ extern "C" {
 typedef uint32_t maia_handle_t;
 
 #define MAIA_HOST_ABI_MAJOR 1
-#define MAIA_HOST_ABI_MINOR 1
+#define MAIA_HOST_ABI_MINOR 4
+
+/**
+ * @brief Directory entry structure for VFS navigation.
+ */
+typedef struct maia_dir_entry_t {
+    char name[64];
+    uint32_t size;
+    uint8_t is_dir;
+    uint8_t is_exec;
+} maia_dir_entry_t;
 
 /**
  * @brief Display primitive driver callbacks for native modules.
@@ -51,6 +61,32 @@ typedef struct maia_host_api_v1 {
     uint64_t (*get_time_us)(void);
     const maia_display_api_t *display;
     const maia_input_api_t *input;
+    int32_t (*copy_file)(const char *src_path, const char *dst_path);
+    int32_t (*apply_wallpaper)(const char *path);
+    int32_t (*shell_exec)(const char *cmd, void (*out_cb)(const char *str, void *user_data), void *user_data);
+    int32_t (*list_dir)(const char *path, maia_dir_entry_t *entries, uint32_t max_entries);
+    int32_t (*remove_file)(const char *path);
+    int32_t (*rename_file)(const char *old_path, const char *new_path);
+    int32_t (*make_dir)(const char *path);
+    int32_t (*read_text_file)(const char *path, char *buf, uint32_t max_len);
+    int32_t (*write_text_file)(const char *path, const char *buf, uint32_t len);
+    int32_t (*play_beep)(uint32_t freq_hz, uint32_t duration_ms);
+    int32_t (*play_wav)(const char *path);
+    int32_t (*record_wav)(const char *path, uint32_t duration_sec);
+    int32_t (*set_volume)(uint32_t vol);
+    int32_t (*get_volume)(void);
+    int32_t (*is_usb_mounted)(void);
+    int32_t (*usb_unmount)(void);
+    int32_t (*wifi_scan)(char *buf, uint32_t max_len);
+    int32_t (*wifi_connect)(const char *ssid, const char *pass);
+    int32_t (*wifi_status)(char *buf, uint32_t max_len);
+    int32_t (*wifi_disconnect)(void);
+    int32_t (*sntp_sync)(const char *server);
+    int32_t (*get_datetime)(char *buf, uint32_t max_len);
+    int32_t (*camera_snap)(const char *path);
+    int32_t (*camera_view)(uint32_t duration_sec);
+    int32_t (*video_record)(const char *path, uint32_t duration_sec, uint32_t fps);
+    int32_t (*video_play)(const char *path, uint32_t fps);
 } maia_host_api_v1;
 
 /**

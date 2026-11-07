@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <maia/exec/mnm.h>
-#include <maia/exec/elf_validator.h>
+#include "mnm.h"
+#include "elf_validator.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,0 +1,29 @@
+{
+  "schema": "maia.native.module/1",
+  "name": "camera",
+  "title": "Camera",
+  "icon": "camera",
+  "color": "0xf81f",
+  "hotkey": "a",
+  "exec": "/sd/apps/camera.mobj",
+  "version": "1.0.0",
+  "target": "maia-rv32-esp32p4-v1",
+  "abi_major": 1,
+  "abi_minor_min": 0,
+  "entry": "maia_module_main",
+  "memory": {
+    "stack_bytes": 8192,
+    "heap_limit_bytes": 65536
+  },
+  "permissions": [
+    "stdio",
+    "display",
+    "input",
+    "camera",
+    "video"
+  ],
+  "imports": [
+    "maia_host_api_v1"
+  ]
+}
+

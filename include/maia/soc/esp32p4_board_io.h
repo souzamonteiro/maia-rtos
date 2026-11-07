@@ -19,6 +19,11 @@ void maia_tab5_board_io_init(void);
  */
 int maia_tab5_keyboard_getc_nonblocking(void);
 
+/* Poll capacitive touchscreen (ST7121/ST7123 @ 0x55 or GT911 on SysI2C).
+ * Sets *pressed to 1 and outputs landscape 1280x720 coordinates (*x, *y).
+ */
+int maia_tab5_touch_get(int32_t *x, int32_t *y, int32_t *pressed);
+
 /* Microsecond busy-wait delay using SYSTIMER. */
 void maia_udelay(uint32_t us);
 

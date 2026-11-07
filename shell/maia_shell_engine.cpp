@@ -1,8 +1,38 @@
 #include <maia/console.h>
 #include <maia/kernel.h>
 #include <maia/version.h>
+#include <maia/soc/esp32p4_board_io.h>
+#include <maia/soc/esp32p4_display.h>
 #include <maia_shell/shell_engine.h>
 #include <maia_shell/maia_shell.hpp>
+
+static maia_input_api_t s_shell_input_api = {
+    .get_touch = [](int32_t *x, int32_t *y, int32_t *pressed) -> int32_t {
+        return maia_tab5_touch_get(x, y, pressed);
+    },
+    .read_key = [](void) -> int32_t {
+        return (int32_t)maia_tab5_keyboard_getc_nonblocking();
+    }
+};
+
+static maia_display_api_t s_shell_display_api = {
+    .width = 1280,
+    .height = 720,
+    .put_pixel = nullptr,
+    .fill_rect = nullptr,
+    .sync = nullptr,
+    .acquire_exclusive = []() -> int32_t {
+        maia_display_set_exclusive(1);
+        return 0;
+    },
+    .release_exclusive = []() -> int32_t {
+        maia_display_set_exclusive(0);
+        return 0;
+    },
+    .get_framebuffer = [](void) -> uint16_t * {
+        return (uint16_t *)0x48100000UL;
+    }
+};
 
 extern "C" {
 
@@ -91,6 +121,8 @@ static void shell_console_out(const char *str) {
 
 void maia_shell_engine_init(void) {
     s_shell.init(shell_console_out);
+    MaiaShell::set_input_driver(&s_shell_input_api);
+    MaiaShell::set_display_driver(&s_shell_display_api);
     s_line_len = 0;
     s_line_buf[0] = '\0';
 }

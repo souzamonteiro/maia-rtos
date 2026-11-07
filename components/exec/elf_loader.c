@@ -1,6 +1,7 @@
 #include <maia/exec/elf_loader.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #if defined(ESP_PLATFORM)
 #include <esp_heap_caps.h>
@@ -8,9 +9,10 @@
 
 // On ESP32-P4, instruction execution is strictly limited to sram_low (0x4FF00000 - 0x4FF3AFC0).
 // sram_high (0x4FF40000 - 0x4FF80000) is rw-only and triggers an Illegal instruction abort on fetch.
-// We maintain a dedicated 32 KB execution pool in .iram0.data to guarantee execution safety.
-static uint8_t s_module_exec_pool[32768] __attribute__((aligned(64), section(".iram.data")));
-static bool s_module_pool_in_use = false;
+// We maintain a dedicated 64 KB execution pool in .iram0.data with LIFO stack allocation
+// to support nested execution (e.g. Desktop -> App -> Desktop) with zero fragmentation.
+static uint8_t s_module_exec_pool[65536] __attribute__((aligned(64), section(".iram.data")));
+static size_t s_module_pool_offset = 0;
 #else
 #include <stdlib.h>
 #endif
@@ -85,9 +87,10 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     bool using_static_pool = false;
 
 #if defined(ESP_PLATFORM)
-    if (!s_module_pool_in_use && total_alloc <= sizeof(s_module_exec_pool)) {
-        s_module_pool_in_use = true;
-        module_base = s_module_exec_pool;
+    size_t alloc_aligned = (total_alloc + 63) & ~63;
+    if (s_module_pool_offset + alloc_aligned <= sizeof(s_module_exec_pool)) {
+        module_base = s_module_exec_pool + s_module_pool_offset;
+        s_module_pool_offset += alloc_aligned;
         using_static_pool = true;
     } else {
         // Fallback: dynamically allocate ensuring address is strictly within sram_low
@@ -173,7 +176,12 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
         if (log_fn) log_fn("Loader Error: Symbol 'maia_module_main' not found");
 #if defined(ESP_PLATFORM)
         if (using_static_pool) {
-            s_module_pool_in_use = false;
+            size_t alloc_aligned = (total_alloc + 63) & ~63;
+            if (s_module_pool_offset >= alloc_aligned) {
+                s_module_pool_offset -= alloc_aligned;
+            } else {
+                s_module_pool_offset = 0;
+            }
         } else if (module_base) {
             free(module_base);
         }
@@ -367,7 +375,12 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     // 8. Cleanup and free loaded executable memory
 #if defined(ESP_PLATFORM)
     if (using_static_pool) {
-        s_module_pool_in_use = false;
+        size_t alloc_aligned = (total_alloc + 63) & ~63;
+        if (s_module_pool_offset >= alloc_aligned) {
+            s_module_pool_offset -= alloc_aligned;
+        } else {
+            s_module_pool_offset = 0;
+        }
     } else if (module_base) {
         free(module_base);
     }
