@@ -32,10 +32,14 @@
 #define COLOR_BTN_BG    0x2169
 #define COLOR_BTN_PR    0x04bf
 #define COLOR_BTN_BD    0x4a4d
+#define COLOR_GOLD      0xfe00
+#define COLOR_FOLDER    0xfd60
 
 /* Window Identifiers */
 enum {
     WIN_NONE = 0,
+    WIN_FILES,
+    WIN_EDITOR,
     WIN_CALC,
     WIN_CLOCK,
     WIN_SYSINFO,
@@ -457,9 +461,9 @@ static void render_taskbar(uint64_t now_us) {
 }
 
 static void render_dock(int active_win) {
-    int dock_x = 340;
+    int dock_x = 280;
     int dock_y = 642;
-    int dock_w = 600;
+    int dock_w = 720;
     int dock_h = 68;
 
     /* Floating Dock Panel */
@@ -467,19 +471,150 @@ static void render_dock(int active_win) {
     draw_rect(dock_x, dock_y, dock_w, dock_h, COLOR_DOCK_BD);
     draw_rect(dock_x + 1, dock_y + 1, dock_w - 2, dock_h - 2, COLOR_DOCK_BD);
 
-    /* 4 App Launcher Buttons (Width=130, Height=48, Gap=15) */
-    int bx = dock_x + 16;
+    /* 6 App Launcher Buttons (Width=104, Height=48, Gap=14) */
+    int bx = dock_x + 18;
     int by = dock_y + 10;
-    int bw = 130;
+    int bw = 104;
     int bh = 48;
+    int gap = 14;
 
-    draw_button(bx, by, bw, bh, "CALC", (active_win == WIN_CALC) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_CALC) ? COLOR_CYAN : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + 14;
+    draw_button(bx, by, bw, bh, "FILES", (active_win == WIN_FILES) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_FILES) ? COLOR_GOLD : COLOR_WHITE, COLOR_BTN_BD, false);
+    bx += bw + gap;
+    draw_button(bx, by, bw, bh, "EDITOR", (active_win == WIN_EDITOR) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_EDITOR) ? COLOR_CYAN : COLOR_WHITE, COLOR_BTN_BD, false);
+    bx += bw + gap;
+    draw_button(bx, by, bw, bh, "CALC", (active_win == WIN_CALC) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_CALC) ? COLOR_GREEN : COLOR_WHITE, COLOR_BTN_BD, false);
+    bx += bw + gap;
     draw_button(bx, by, bw, bh, "CLOCK", (active_win == WIN_CLOCK) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_CLOCK) ? COLOR_YELLOW : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + 14;
+    bx += bw + gap;
     draw_button(bx, by, bw, bh, "SYSINFO", (active_win == WIN_SYSINFO) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_SYSINFO) ? COLOR_GREEN : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + 14;
+    bx += bw + gap;
     draw_button(bx, by, bw, bh, "BANNER", (active_win == WIN_BANNER) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_BANNER) ? COLOR_MAGENTA : COLOR_WHITE, COLOR_BTN_BD, false);
+}
+
+static void render_files_window(void) {
+    int wx = 280, wy = 70, ww = 720, wh = 540;
+
+    /* Window Frame */
+    fill_rect(wx, wy, ww, wh, COLOR_WIN_BG);
+    draw_rect(wx, wy, ww, wh, COLOR_WIN_BD);
+
+    /* Header Bar */
+    fill_rect(wx + 1, wy + 1, ww - 2, 36, COLOR_WIN_HDR);
+    draw_rect(wx + 1, wy + 37, ww - 2, 1, COLOR_TASK_ACC);
+    draw_str_2x(wx + 14, wy + 3, "File Manager (/sd)", COLOR_GOLD, COLOR_WIN_HDR, true);
+    draw_button(wx + ww - 44, wy + 5, 36, 26, "X", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
+
+    /* Path / Toolbar */
+    int ty = wy + 46;
+    draw_button(wx + 16, ty, 86, 30, "[^] UP", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+    fill_rect(wx + 112, ty, ww - 260, 30, COLOR_BLACK);
+    draw_rect(wx + 112, ty, ww - 260, 30, COLOR_TASK_ACC);
+    draw_str(wx + 124, ty + 7, "Path: /sd (FAT32 SDMMC 4-bit)", COLOR_CYAN, COLOR_BLACK, true);
+    draw_button(wx + ww - 138, ty, 122, 30, "REFRESH", COLOR_BTN_BG, COLOR_GREEN, COLOR_BTN_BD, false);
+
+    /* File List Header */
+    int ly = ty + 40;
+    fill_rect(wx + 16, ly, ww - 32, 26, COLOR_TASKBAR);
+    draw_rect(wx + 16, ly, ww - 32, 26, COLOR_BTN_BD);
+    draw_str(wx + 32,  ly + 5, "NAME", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+    draw_str(wx + 340, ly + 5, "TYPE", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+    draw_str(wx + 490, ly + 5, "SIZE", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+    draw_str(wx + 600, ly + 5, "ACTION", COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+
+    /* File List Rows */
+    static const struct {
+        const char *name;
+        const char *type;
+        const char *size;
+        uint16_t color;
+        bool is_exec;
+    } files[] = {
+        {"[DIR] testdir",     "Directory",  "-",        COLOR_GOLD,   false},
+        {"desktop.mobj",      "MNM-1 Exec", "27.3 KB",  COLOR_CYAN,   true},
+        {"calc.mobj",         "MNM-1 Exec", "2.6 KB",   COLOR_CYAN,   true},
+        {"hello.mobj",        "MNM-1 Exec", "1.6 KB",   COLOR_CYAN,   true},
+        {"sysinfo.mobj",      "MNM-1 Exec", "6.5 KB",   COLOR_CYAN,   true},
+        {"banner.mobj",       "MNM-1 Exec", "8.2 KB",   COLOR_CYAN,   true},
+        {"notas.txt",         "Plain Text", "512 B",    COLOR_WHITE,  false},
+        {"teste_tab5.txt",    "Plain Text", "104 B",    COLOR_WHITE,  false},
+        {"desktop.mnm.json",  "JSON Meta",  "425 B",    COLOR_YELLOW, false}
+    };
+
+    int row_y = ly + 32;
+    for (int i = 0; i < 9; ++i) {
+        fill_rect(wx + 16, row_y, ww - 32, 34, (i % 2 == 0) ? COLOR_WIN_BG : 0x1464);
+        draw_rect(wx + 16, row_y, ww - 32, 34, 0x2128);
+
+        draw_str(wx + 32,  row_y + 9, files[i].name, files[i].color, (i % 2 == 0) ? COLOR_WIN_BG : 0x1464, true);
+        draw_str(wx + 340, row_y + 9, files[i].type, COLOR_TEXT_DIM, (i % 2 == 0) ? COLOR_WIN_BG : 0x1464, true);
+        draw_str(wx + 490, row_y + 9, files[i].size, COLOR_TEXT, (i % 2 == 0) ? COLOR_WIN_BG : 0x1464, true);
+
+        if (files[i].is_exec) {
+            draw_button(wx + 596, row_y + 4, 76, 26, "RUN", COLOR_GREEN, COLOR_BLACK, COLOR_GREEN, false);
+        } else {
+            draw_button(wx + 596, row_y + 4, 76, 26, "OPEN", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
+        }
+        row_y += 38;
+    }
+}
+
+static void render_editor_window(void) {
+    int wx = 300, wy = 80, ww = 680, wh = 520;
+
+    /* Window Frame */
+    fill_rect(wx, wy, ww, wh, COLOR_WIN_BG);
+    draw_rect(wx, wy, ww, wh, COLOR_WIN_BD);
+
+    /* Header Bar */
+    fill_rect(wx + 1, wy + 1, ww - 2, 36, COLOR_WIN_HDR);
+    draw_rect(wx + 1, wy + 37, ww - 2, 1, COLOR_TASK_ACC);
+    draw_str_2x(wx + 14, wy + 3, "Text Editor - /sd/notas.txt", COLOR_CYAN, COLOR_WIN_HDR, true);
+    draw_button(wx + ww - 44, wy + 5, 36, 26, "X", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
+
+    /* Toolbar */
+    int ty = wy + 46;
+    draw_button(wx + 16, ty, 86, 30, "NEW", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+    draw_button(wx + 112, ty, 86, 30, "SAVE", COLOR_GREEN, COLOR_BLACK, COLOR_GREEN, false);
+    draw_button(wx + 208, ty, 86, 30, "CLEAR", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
+    draw_str(wx + 320, ty + 7, "Lines: 8 | Chars: 245 | UTF-8", COLOR_TEXT_DIM, COLOR_WIN_BG, true);
+
+    /* Text Canvas Area */
+    int ey = ty + 40;
+    int ew = ww - 32;
+    int eh = wh - 100;
+    fill_rect(wx + 16, ey, ew, eh, COLOR_BLACK);
+    draw_rect(wx + 16, ey, ew, eh, COLOR_TASK_ACC);
+
+    /* Line Numbers Gutter */
+    fill_rect(wx + 17, ey + 1, 44, eh - 2, COLOR_TASKBAR);
+    draw_rect(wx + 61, ey + 1, 1, eh - 2, COLOR_TASK_ACC);
+
+    static const char *editor_lines[] = {
+        "# MaiaRTOS Native Text Document",
+        "# Hardware: M5Stack Tab5 (ESP32-P4 v1.3)",
+        "",
+        "void main() {",
+        "    maia_desktop_init();",
+        "    maia_println(\"Hello MaiaOS!\");",
+        "}",
+        "/* Type via Tab5 physical keyboard */"
+    };
+
+    int cy = ey + 10;
+    for (int i = 0; i < 8; ++i) {
+        char lnum[6];
+        lnum[0] = '0' + ((i + 1) / 10);
+        lnum[1] = '0' + ((i + 1) % 10);
+        lnum[2] = ' ';
+        lnum[3] = '|';
+        lnum[4] = '\0';
+        draw_str(wx + 22, cy, lnum, COLOR_TEXT_DIM, COLOR_TASKBAR, true);
+        draw_str(wx + 72, cy, editor_lines[i], (i == 0 || i == 1) ? COLOR_GOLD : (i == 3 || i == 6) ? COLOR_CYAN : COLOR_WHITE, COLOR_BLACK, true);
+        cy += 22;
+    }
+
+    /* Blinking-style cursor block at line 7 */
+    fill_rect(wx + 72 + 37 * 8, ey + 10 + 7 * 22, 9, 16, COLOR_CYAN);
 }
 
 static void render_calc_window(void) {
@@ -730,21 +865,101 @@ static void render_banner_wave(uint64_t now_us) {
     }
 }
 
-static void render_canvas_background(void) {
-    /* 1. Canvas Background with watermark */
-    fill_rect(0, 36, SCREEN_W, SCREEN_H - 36, COLOR_BG);
+static void draw_desktop_icon(int x, int y, int win_id, const char *label, uint16_t accent_color) {
+    /* Subtle acrylic tile for icon */
+    fill_rect(x + 8, y, 52, 52, COLOR_WIN_BG);
+    draw_rect(x + 8, y, 52, 52, accent_color);
 
-    /* Subtle geometric grid / dots */
-    for (int y = 50; y < SCREEN_H - 80; y += 40) {
-        for (int x = 40; x < SCREEN_W; x += 40) {
-            put_pixel(x, y, 0x18e5);
+    int gx = x + 18;
+    int gy = y + 10;
+    switch (win_id) {
+        case WIN_FILES:
+            fill_rect(gx, gy, 12, 4, COLOR_GOLD);
+            fill_rect(gx, gy + 4, 32, 24, COLOR_FOLDER);
+            fill_rect(gx + 3, gy + 8, 26, 17, COLOR_GOLD);
+            break;
+        case WIN_EDITOR:
+            fill_rect(gx + 4, gy, 24, 30, COLOR_WHITE);
+            draw_rect(gx + 4, gy, 24, 30, COLOR_CYAN);
+            fill_rect(gx + 8, gy + 6, 16, 2, COLOR_BLACK);
+            fill_rect(gx + 8, gy + 12, 16, 2, COLOR_BLACK);
+            fill_rect(gx + 8, gy + 18, 12, 2, COLOR_CYAN);
+            break;
+        case WIN_CALC:
+            fill_rect(gx + 2, gy + 2, 28, 28, COLOR_TASKBAR);
+            draw_rect(gx + 2, gy + 2, 28, 28, COLOR_CYAN);
+            fill_rect(gx + 5, gy + 5, 22, 6, COLOR_BLACK);
+            fill_rect(gx + 5, gy + 13, 5, 4, COLOR_WHITE);
+            fill_rect(gx + 13, gy + 13, 5, 4, COLOR_WHITE);
+            fill_rect(gx + 21, gy + 13, 5, 4, COLOR_CYAN);
+            fill_rect(gx + 5, gy + 20, 5, 4, COLOR_WHITE);
+            fill_rect(gx + 13, gy + 20, 5, 4, COLOR_WHITE);
+            fill_rect(gx + 21, gy + 20, 5, 4, COLOR_GREEN);
+            break;
+        case WIN_CLOCK:
+            fill_rect(gx + 2, gy + 2, 28, 28, COLOR_WIN_HDR);
+            draw_rect(gx + 2, gy + 2, 28, 28, COLOR_YELLOW);
+            fill_rect(gx + 15, gy + 6, 2, 11, COLOR_YELLOW);
+            fill_rect(gx + 15, gy + 15, 9, 2, COLOR_YELLOW);
+            break;
+        case WIN_SYSINFO:
+            fill_rect(gx + 4, gy + 4, 24, 24, COLOR_TASKBAR);
+            draw_rect(gx + 4, gy + 4, 24, 24, COLOR_GREEN);
+            fill_rect(gx + 9, gy + 9, 14, 14, COLOR_GREEN);
+            for (int p = 0; p < 4; ++p) {
+                fill_rect(gx + 6 + p * 5, gy, 2, 4, COLOR_CYAN);
+                fill_rect(gx + 6 + p * 5, gy + 28, 2, 4, COLOR_CYAN);
+                fill_rect(gx, gy + 6 + p * 5, 4, 2, COLOR_CYAN);
+                fill_rect(gx + 28, gy + 6 + p * 5, 4, 2, COLOR_CYAN);
+            }
+            break;
+        case WIN_BANNER:
+            fill_rect(gx + 2, gy + 4, 28, 22, COLOR_BLACK);
+            draw_rect(gx + 2, gy + 4, 28, 22, COLOR_MAGENTA);
+            fill_rect(gx + 5, gy + 16, 4, 6, COLOR_RED);
+            fill_rect(gx + 11, gy + 11, 4, 11, COLOR_YELLOW);
+            fill_rect(gx + 17, gy + 7, 4, 15, COLOR_GREEN);
+            fill_rect(gx + 23, gy + 13, 4, 9, COLOR_CYAN);
+            break;
+        default: break;
+    }
+
+    int len = 0;
+    const char *p = label;
+    while (*p++) len++;
+    int lx = x + (68 - len * 8) / 2;
+    draw_str(lx, y + 58, label, COLOR_TEXT, 0x1107, true);
+}
+
+static void render_canvas_background(void) {
+    /* 1. Vertical Gradient Wallpaper from Midnight Blue (top) to Slate Blue (bottom) */
+    for (int y = 36; y < SCREEN_H; ++y) {
+        int r = 1 + (y - 36) * 3 / 684;
+        int g = 3 + (y - 36) * 6 / 684;
+        int b = 6 + (y - 36) * 7 / 684;
+        uint16_t line_col = (uint16_t)((r << 11) | (g << 5) | b);
+        fill_rect(0, y, SCREEN_W, 1, line_col);
+    }
+
+    /* Subtle geometric grid / accent dots */
+    for (int y = 60; y < SCREEN_H - 90; y += 48) {
+        for (int x = 140; x < SCREEN_W - 40; x += 48) {
+            put_pixel(x, y, 0x21a8);
         }
     }
 
     /* Centered OS Logo Watermark */
-    draw_str_2x(440, 260, "MAIA OPERATING SYSTEM", COLOR_TASKBAR, COLOR_BG, true);
-    draw_str_2x(460, 300, "NATIVE RV32 DUAL-CORE", COLOR_TASKBAR, COLOR_BG, true);
-    draw_str(510, 345, "Touch any app in the dock to begin", COLOR_TEXT_DIM, COLOR_BG, true);
+    draw_str_2x(440, 240, "[ MAIA OS DESKTOP ]", COLOR_TASK_ACC, 0x1509, true);
+    draw_str_2x(450, 280, "NATIVE RV32 DUAL-CORE", COLOR_TEXT, 0x1509, true);
+    draw_str(470, 325, "Touch any shortcut or dock icon to open", COLOR_TEXT_DIM, 0x1509, true);
+
+    /* 2. Desktop Shortcut Icons (Left Column) */
+    draw_desktop_icon(24, 60,  WIN_FILES,   "Arquivos", COLOR_GOLD);
+    draw_desktop_icon(24, 152, WIN_EDITOR,  "Editor",   COLOR_CYAN);
+    draw_desktop_icon(24, 244, WIN_CALC,    "Calc",     COLOR_GREEN);
+    draw_desktop_icon(24, 336, WIN_CLOCK,   "Relogio",  COLOR_YELLOW);
+    draw_desktop_icon(24, 428, WIN_SYSINFO, "Sistema",  COLOR_GREEN);
+    draw_desktop_icon(24, 520, WIN_BANNER,  "Banner",   COLOR_MAGENTA);
 }
 
 static void render_desktop(uint64_t now_us) {
@@ -786,6 +1001,8 @@ static void render_desktop(uint64_t now_us) {
     /* 4. Active Window Redraw */
     if (g_dirty_window) {
         switch (g_active_win) {
+            case WIN_FILES:   render_files_window(); break;
+            case WIN_EDITOR:  render_editor_window(); break;
             case WIN_CALC:    render_calc_window(); break;
             case WIN_CLOCK:   render_clock_window(now_us); break;
             case WIN_SYSINFO: render_sysinfo_window(); break;
@@ -828,7 +1045,13 @@ static void handle_touch(int tx, int ty) {
     /* 2. Check Active Window Close Button [X] */
     if (g_active_win != WIN_NONE) {
         int close_x1 = 0, close_x2 = 0, close_y1 = 0, close_y2 = 0;
-        if (g_active_win == WIN_CALC) {
+        if (g_active_win == WIN_FILES) {
+            close_x1 = 280 + 720 - 46; close_x2 = close_x1 + 40;
+            close_y1 = 70 + 4;         close_y2 = close_y1 + 30;
+        } else if (g_active_win == WIN_EDITOR) {
+            close_x1 = 300 + 680 - 46; close_x2 = close_x1 + 40;
+            close_y1 = 80 + 4;         close_y2 = close_y1 + 30;
+        } else if (g_active_win == WIN_CALC) {
             close_x1 = 415 + 450 - 46; close_x2 = close_x1 + 40;
             close_y1 = 70 + 4;         close_y2 = close_y1 + 30;
         } else if (g_active_win == WIN_CLOCK) {
@@ -846,6 +1069,25 @@ static void handle_touch(int tx, int ty) {
             g_active_win = WIN_NONE;
             g_dirty_canvas = true;
             g_dirty_dock = true;
+            return;
+        }
+    }
+
+    /* 3. Check Desktop Left Column Shortcut Icons (When no window captures input) */
+    if (g_active_win == WIN_NONE && tx >= 16 && tx <= 104) {
+        int clicked = WIN_NONE;
+        if (ty >= 55 && ty <= 135) clicked = WIN_FILES;
+        else if (ty >= 147 && ty <= 227) clicked = WIN_EDITOR;
+        else if (ty >= 239 && ty <= 319) clicked = WIN_CALC;
+        else if (ty >= 331 && ty <= 411) clicked = WIN_CLOCK;
+        else if (ty >= 423 && ty <= 503) clicked = WIN_SYSINFO;
+        else if (ty >= 515 && ty <= 595) clicked = WIN_BANNER;
+
+        if (clicked != WIN_NONE) {
+            g_active_win = clicked;
+            g_dirty_canvas = true;
+            g_dirty_dock = true;
+            g_dirty_window = true;
             return;
         }
     }
@@ -909,27 +1151,25 @@ static void handle_touch(int tx, int ty) {
         }
     }
 
-    /* 5. Check Bottom Dock Launchers */
+    /* 5. Check Bottom Dock Launchers (6 Buttons) */
     if (ty >= 642 && ty <= 714) {
-        int dock_x = 340;
-        int bx = dock_x + 16;
-        int bw = 130;
+        int dock_x = 280;
+        int bx = dock_x + 18;
+        int bw = 104;
+        int gap = 14;
         int clicked = WIN_NONE;
-        if (tx >= bx && tx <= bx + bw) {
-            clicked = WIN_CALC;
-        }
-        bx += bw + 14;
-        if (tx >= bx && tx <= bx + bw) {
-            clicked = WIN_CLOCK;
-        }
-        bx += bw + 14;
-        if (tx >= bx && tx <= bx + bw) {
-            clicked = WIN_SYSINFO;
-        }
-        bx += bw + 14;
-        if (tx >= bx && tx <= bx + bw) {
-            clicked = WIN_BANNER;
-        }
+
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_FILES;
+        bx += bw + gap;
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_EDITOR;
+        bx += bw + gap;
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_CALC;
+        bx += bw + gap;
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_CLOCK;
+        bx += bw + gap;
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_SYSINFO;
+        bx += bw + gap;
+        if (tx >= bx && tx <= bx + bw) clicked = WIN_BANNER;
 
         if (clicked != WIN_NONE) {
             if (g_active_win == clicked) {
@@ -997,10 +1237,12 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     }
                 } else if (g_active_win == WIN_NONE) {
                     int next_win = WIN_NONE;
-                    if (k == 'c' || k == 'C' || k == '1') next_win = WIN_CALC;
-                    else if (k == 't' || k == 'T' || k == '2') next_win = WIN_CLOCK;
-                    else if (k == 's' || k == 'S' || k == '3') next_win = WIN_SYSINFO;
-                    else if (k == 'b' || k == 'B' || k == '4') next_win = WIN_BANNER;
+                    if (k == 'f' || k == 'F' || k == '1') next_win = WIN_FILES;
+                    else if (k == 'e' || k == 'E' || k == '2') next_win = WIN_EDITOR;
+                    else if (k == 'c' || k == 'C' || k == '3') next_win = WIN_CALC;
+                    else if (k == 't' || k == 'T' || k == '4') next_win = WIN_CLOCK;
+                    else if (k == 's' || k == 'S' || k == '5') next_win = WIN_SYSINFO;
+                    else if (k == 'b' || k == 'B' || k == '6') next_win = WIN_BANNER;
                     if (next_win != WIN_NONE) {
                         g_active_win = next_win;
                         g_dirty_canvas = true;
