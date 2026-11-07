@@ -40,11 +40,21 @@ enum {
     WIN_NONE = 0,
     WIN_FILES,
     WIN_EDITOR,
+    WIN_TERM,
     WIN_CALC,
     WIN_CLOCK,
     WIN_SYSINFO,
     WIN_BANNER
 };
+
+/* Terminal State */
+#define TERM_MAX_LINES 16
+#define TERM_LINE_LEN 72
+static char g_term_lines[TERM_MAX_LINES][TERM_LINE_LEN];
+static int g_term_line_count = 0;
+static char g_term_input[64] = "";
+static int g_term_input_len = 0;
+static bool g_term_initialized = false;
 
 /* Module Global State */
 static const maia_module_context_t *g_ctx = NULL;
@@ -56,7 +66,6 @@ static bool g_running = true;
 /* Selective Redraw / Dirty State Flags (LVGL-style Invalidation) */
 static bool g_dirty_canvas  = true;
 static bool g_dirty_taskbar = true;
-static bool g_dirty_dock    = true;
 static bool g_dirty_window  = true;
 static uint32_t g_prev_sec  = 0xFFFFFFFF;
 
@@ -460,35 +469,136 @@ static void render_taskbar(uint64_t now_us) {
     draw_button(1160, 4, 104, 28, "X EXIT", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
 }
 
-static void render_dock(int active_win) {
-    int dock_x = 280;
-    int dock_y = 642;
-    int dock_w = 720;
-    int dock_h = 68;
+static void term_append_line(const char *text) {
+    if (g_term_line_count < TERM_MAX_LINES) {
+        int i = 0;
+        while (text[i] && i < TERM_LINE_LEN - 1) {
+            g_term_lines[g_term_line_count][i] = text[i];
+            i++;
+        }
+        g_term_lines[g_term_line_count][i] = '\0';
+        g_term_line_count++;
+    } else {
+        /* Scroll up */
+        for (int r = 0; r < TERM_MAX_LINES - 1; ++r) {
+            for (int c = 0; c < TERM_LINE_LEN; ++c) {
+                g_term_lines[r][c] = g_term_lines[r + 1][c];
+            }
+        }
+        int i = 0;
+        while (text[i] && i < TERM_LINE_LEN - 1) {
+            g_term_lines[TERM_MAX_LINES - 1][i] = text[i];
+            i++;
+        }
+        g_term_lines[TERM_MAX_LINES - 1][i] = '\0';
+    }
+}
 
-    /* Floating Dock Panel */
-    fill_rect(dock_x, dock_y, dock_w, dock_h, COLOR_DOCK_BG);
-    draw_rect(dock_x, dock_y, dock_w, dock_h, COLOR_DOCK_BD);
-    draw_rect(dock_x + 1, dock_y + 1, dock_w - 2, dock_h - 2, COLOR_DOCK_BD);
+static void term_init(void) {
+    g_term_line_count = 0;
+    term_append_line("MaiaRTOS Kernel v1.0.0 (ESP32-P4 v1.3 @ 400 MHz)");
+    term_append_line("ST7121 MIPI-DSI 1280x720 | 32MB Octal PSRAM @ 200MHz");
+    term_append_line("Storage: SDMMC 4-bit FAT32 (/sd) mounted");
+    term_append_line("Type 'help' for commands, or 'exit' to close.");
+    term_append_line("");
+    g_term_input[0] = '\0';
+    g_term_input_len = 0;
+    g_term_initialized = true;
+}
 
-    /* 6 App Launcher Buttons (Width=104, Height=48, Gap=14) */
-    int bx = dock_x + 18;
-    int by = dock_y + 10;
-    int bw = 104;
-    int bh = 48;
-    int gap = 14;
+static void term_exec_cmd(const char *cmd) {
+    char echo_buf[TERM_LINE_LEN];
+    echo_buf[0] = 'm'; echo_buf[1] = 's'; echo_buf[2] = 'h'; echo_buf[3] = '>'; echo_buf[4] = ' ';
+    int j = 5;
+    for (int i = 0; cmd[i] && j < TERM_LINE_LEN - 1; ++i) {
+        echo_buf[j++] = cmd[i];
+    }
+    echo_buf[j] = '\0';
+    term_append_line(echo_buf);
 
-    draw_button(bx, by, bw, bh, "FILES", (active_win == WIN_FILES) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_FILES) ? COLOR_GOLD : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + gap;
-    draw_button(bx, by, bw, bh, "EDITOR", (active_win == WIN_EDITOR) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_EDITOR) ? COLOR_CYAN : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + gap;
-    draw_button(bx, by, bw, bh, "CALC", (active_win == WIN_CALC) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_CALC) ? COLOR_GREEN : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + gap;
-    draw_button(bx, by, bw, bh, "CLOCK", (active_win == WIN_CLOCK) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_CLOCK) ? COLOR_YELLOW : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + gap;
-    draw_button(bx, by, bw, bh, "SYSINFO", (active_win == WIN_SYSINFO) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_SYSINFO) ? COLOR_GREEN : COLOR_WHITE, COLOR_BTN_BD, false);
-    bx += bw + gap;
-    draw_button(bx, by, bw, bh, "BANNER", (active_win == WIN_BANNER) ? COLOR_BTN_PR : COLOR_BTN_BG, (active_win == WIN_BANNER) ? COLOR_MAGENTA : COLOR_WHITE, COLOR_BTN_BD, false);
+    while (*cmd == ' ') cmd++;
+    if (*cmd == '\0') return;
+
+    if (cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' && cmd[3] == 'p') {
+        term_append_line("Available commands:");
+        term_append_line("  ps, ls, free, mem, date, echo, clear, exit");
+    } else if (cmd[0] == 'p' && cmd[1] == 's') {
+        term_append_line("TID PRIO STATE   STACK  SWITCHES NAME");
+        term_append_line("  0    0 READY    4096         1 idle");
+        term_append_line("  1    2 SLEEP    4096        24 telemetry");
+        term_append_line("  2    2 RUN      8192       142 maia_shell");
+        term_append_line("  3    1 RUN     25600       850 desktop.mobj");
+    } else if (cmd[0] == 'l' && cmd[1] == 's') {
+        term_append_line("Directory of /sd:");
+        term_append_line("  [DIR]  testdir/");
+        term_append_line("  [FILE] desktop.mobj (41.6 KB)");
+        term_append_line("  [FILE] calc.mobj (2.6 KB)");
+        term_append_line("  [FILE] hello.mobj (1.6 KB)");
+        term_append_line("  [FILE] sysinfo.mobj (6.5 KB)");
+        term_append_line("  [FILE] notas.txt (512 B)");
+    } else if (cmd[0] == 'f' && cmd[1] == 'r' && cmd[2] == 'e' && cmd[3] == 'e') {
+        term_append_line("Memory Status:");
+        term_append_line("  PSRAM Total: 32.0 MB | Free: 30.3 MB (94%)");
+        term_append_line("  L2 SRAM    : 384 KB  | Free: 311 KB (81%)");
+    } else if (cmd[0] == 'c' && cmd[1] == 'l' && cmd[2] == 'e' && cmd[3] == 'a' && cmd[4] == 'r') {
+        g_term_line_count = 0;
+    } else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') {
+        g_active_win = WIN_NONE;
+        g_dirty_canvas = true;
+    } else {
+        term_append_line("Command not recognized. Type 'help'.");
+    }
+}
+
+static void render_term_window(void) {
+    int wx = 260, wy = 70, ww = 760, wh = 540;
+
+    /* Window Frame */
+    fill_rect(wx, wy, ww, wh, COLOR_WIN_BG);
+    draw_rect(wx, wy, ww, wh, COLOR_WIN_BD);
+
+    /* Header Bar */
+    fill_rect(wx + 1, wy + 1, ww - 2, 36, COLOR_WIN_HDR);
+    draw_rect(wx + 1, wy + 37, ww - 2, 1, COLOR_TASK_ACC);
+    draw_str_2x(wx + 14, wy + 3, "Terminal Shell (msh)", COLOR_GREEN, COLOR_WIN_HDR, true);
+    draw_button(wx + ww - 44, wy + 5, 36, 26, "X", COLOR_RED, COLOR_WHITE, COLOR_RED, false);
+
+    /* Terminal Console Screen */
+    int cx = wx + 16, cy = wy + 48, cw = ww - 32, ch = wh - 64;
+    fill_rect(cx, cy, cw, ch, COLOR_BLACK);
+    draw_rect(cx, cy, cw, ch, COLOR_GREEN);
+
+    if (!g_term_initialized) {
+        term_init();
+    }
+
+    /* Render History Lines */
+    int ty = cy + 10;
+    for (int i = 0; i < g_term_line_count; ++i) {
+        uint16_t col = COLOR_GREEN;
+        if (g_term_lines[i][0] == 'm' && g_term_lines[i][1] == 's' && g_term_lines[i][2] == 'h') {
+            col = COLOR_WHITE;
+        } else if (g_term_lines[i][0] == 'M' || g_term_lines[i][0] == 'S') {
+            col = COLOR_CYAN;
+        } else if (g_term_lines[i][0] == 'C' && g_term_lines[i][1] == 'o') {
+            col = COLOR_YELLOW;
+        }
+        draw_str(cx + 12, ty, g_term_lines[i], col, COLOR_BLACK, true);
+        ty += 22;
+    }
+
+    /* Render Active Input Line with Blinking Cursor */
+    char prompt_line[TERM_LINE_LEN];
+    prompt_line[0] = 'm'; prompt_line[1] = 's'; prompt_line[2] = 'h'; prompt_line[3] = '>'; prompt_line[4] = ' ';
+    int j = 5;
+    for (int i = 0; g_term_input[i] && j < TERM_LINE_LEN - 1; ++i) {
+        prompt_line[j++] = g_term_input[i];
+    }
+    prompt_line[j] = '\0';
+    draw_str(cx + 12, ty, prompt_line, COLOR_TASK_ACC, COLOR_BLACK, true);
+
+    /* Cursor */
+    fill_rect(cx + 12 + j * 8, ty, 8, 16, COLOR_TASK_ACC);
 }
 
 static void render_files_window(void) {
@@ -885,6 +995,11 @@ static void draw_desktop_icon(int x, int y, int win_id, const char *label, uint1
             fill_rect(gx + 8, gy + 12, 16, 2, COLOR_BLACK);
             fill_rect(gx + 8, gy + 18, 12, 2, COLOR_CYAN);
             break;
+        case WIN_TERM:
+            fill_rect(gx + 2, gy + 4, 28, 22, COLOR_BLACK);
+            draw_rect(gx + 2, gy + 4, 28, 22, COLOR_GREEN);
+            draw_str(gx + 6, gy + 7, ">_", COLOR_GREEN, COLOR_BLACK, true);
+            break;
         case WIN_CALC:
             fill_rect(gx + 2, gy + 2, 28, 28, COLOR_TASKBAR);
             draw_rect(gx + 2, gy + 2, 28, 28, COLOR_CYAN);
@@ -943,48 +1058,48 @@ static const int16_t s_sin_q10[64] = {
 };
 
 static void render_canvas_background(void) {
-    /* 1. Deep Space Cosmic Background (#01041a down to #08112c) */
+    /* 1. Deep Space Cosmic Background inspired by the new MaiaOS elegant wallpaper */
     for (int y = 36; y < SCREEN_H; ++y) {
-        int r = (y - 36) * 2 / 684;
-        int g = 1 + (y - 36) * 3 / 684;
-        int b = 4 + (y - 36) * 5 / 684;
+        int r = (y - 36) * 3 / 684;
+        int g = 1 + (y - 36) * 4 / 684;
+        int b = 5 + (y - 36) * 8 / 684;
         uint16_t line_col = (uint16_t)((r << 11) | (g << 5) | b);
         fill_rect(0, y, SCREEN_W, 1, line_col);
     }
 
-    /* 2. Luminous Planetary Horizon Arc (Inspired by MaiaLinux) */
-    for (int x = 0; x < SCREEN_W; ++x) {
-        int dx = x - 640;
-        int arc_y = 574 - (dx * dx) / 11200;
-        if (arc_y >= 36 && arc_y < SCREEN_H) {
-            /* Neon Core Line */
-            put_pixel(x, arc_y, 0xbfff);     /* Intense Ice Cyan / White */
-            put_pixel(x, arc_y - 1, 0x07ff); /* Pure Cyan */
-            put_pixel(x, arc_y + 1, 0x07ff);
-
-            /* Upward atmospheric glow */
-            put_pixel(x, arc_y - 2, 0x05df);
-            put_pixel(x, arc_y - 3, 0x03df);
-            put_pixel(x, arc_y - 4, 0x021f);
-            put_pixel(x, arc_y - 5, 0x011a);
-
-            /* Downward planetary glow */
-            put_pixel(x, arc_y + 2, 0x05ff);
-            put_pixel(x, arc_y + 3, 0x04df);
-            put_pixel(x, arc_y + 4, 0x039f);
-            put_pixel(x, arc_y + 5, 0x02bf);
-            put_pixel(x, arc_y + 6, 0x01bf);
-            put_pixel(x, arc_y + 7, 0x013c);
-            put_pixel(x, arc_y + 8, 0x00d8);
-            put_pixel(x, arc_y + 9, 0x0074);
+    /* 2. Fluid Cosmic Light Waves (Right quadrant streams of luminous magenta & cyan) */
+    for (int x = 600; x < SCREEN_W; ++x) {
+        int dx = x - 600;
+        /* Stream 1: Cyan / Aqua Wave */
+        int wave1_y = 180 + (dx * 36) / 100 - (dx * dx) / 2200;
+        if (wave1_y >= 36 && wave1_y < SCREEN_H - 10) {
+            put_pixel(x, wave1_y, COLOR_CYAN);
+            put_pixel(x, wave1_y + 1, 0x05ff);
+            put_pixel(x, wave1_y - 1, 0x03df);
+            put_pixel(x, wave1_y + 2, 0x021f);
+        }
+        /* Stream 2: Electric Magenta / Violet Wave */
+        int wave2_y = 240 + (dx * 42) / 100 - (dx * dx) / 2000;
+        if (wave2_y >= 36 && wave2_y < SCREEN_H - 10) {
+            put_pixel(x, wave2_y, COLOR_MAGENTA);
+            put_pixel(x, wave2_y + 1, 0xf810);
+            put_pixel(x, wave2_y - 1, 0xb015);
+            put_pixel(x, wave2_y + 2, 0x700e);
+        }
+        /* Stream 3: Deep Royal Blue Glow */
+        int wave3_y = 310 + (dx * 46) / 100 - (dx * dx) / 1800;
+        if (wave3_y >= 36 && wave3_y < SCREEN_H - 10) {
+            put_pixel(x, wave3_y, 0x02bf);
+            put_pixel(x, wave3_y + 1, 0x01bf);
+            put_pixel(x, wave3_y - 1, 0x041f);
         }
     }
 
-    /* 3. Subtle Cosmic Stars / Constellation Points */
+    /* 3. Subtle Constellation Points */
     static const int stars[][2] = {
-        {180, 80}, {260, 140}, {340, 90}, {780, 110}, {890, 70}, {1020, 130}, {1150, 95},
-        {160, 220}, {290, 270}, {950, 230}, {1080, 260}, {1200, 190},
-        {220, 420}, {310, 470}, {920, 440}, {1050, 480}, {1160, 410}
+        {180, 80}, {260, 140}, {340, 90}, {780, 80}, {890, 60}, {1020, 90}, {1150, 75},
+        {160, 220}, {290, 270}, {480, 160}, {560, 120},
+        {220, 420}, {310, 470}, {450, 520}, {540, 580}, {700, 620}, {850, 640}
     };
     for (size_t s = 0; s < sizeof(stars)/sizeof(stars[0]); ++s) {
         int sx = stars[s][0], sy = stars[s][1];
@@ -995,60 +1110,51 @@ static void render_canvas_background(void) {
         put_pixel(sx, sy - 1, 0x8410);
     }
 
-    /* 4. Maia Celestial Orbital Rings & Radiant Star Core */
-    int cx = 640, cy = 210;
+    /* 4. Maia Celestial Core Emblem & Typography */
+    int cx = 580, cy = 240;
 
-    /* Orbital Ring 1: Tilted Gold Ellipse */
+    /* Orbital Rings */
     int rx1 = 110, ry1 = 44;
     for (int i = 0; i < 64; ++i) {
         int32_t sn = s_sin_q10[i];
         int32_t cs = s_sin_q10[(i + 16) % 64];
-        /* Rotate by -24 deg: cos ~ 935, sin ~ -416 */
         int32_t px = (rx1 * cs * 935 - ry1 * sn * (-416)) / (1024 * 1024);
         int32_t py = (rx1 * cs * (-416) + ry1 * sn * 935) / (1024 * 1024);
         put_pixel(cx + (int)px, cy + (int)py, COLOR_GOLD);
         put_pixel(cx + (int)px + 1, cy + (int)py, 0xfd20);
     }
-
-    /* Orbital Ring 2: Tilted Cyan / Blue Ellipse */
-    int rx2 = 110, ry2 = 44;
     for (int i = 0; i < 64; ++i) {
         int32_t sn = s_sin_q10[i];
         int32_t cs = s_sin_q10[(i + 16) % 64];
-        /* Rotate by +24 deg: cos ~ 935, sin ~ 416 */
-        int32_t px = (rx2 * cs * 935 - ry2 * sn * 416) / (1024 * 1024);
-        int32_t py = (rx2 * cs * 416 + ry2 * sn * 935) / (1024 * 1024);
+        int32_t px = (rx1 * cs * 935 - ry1 * sn * 416) / (1024 * 1024);
+        int32_t py = (rx1 * cs * 416 + ry1 * sn * 935) / (1024 * 1024);
         put_pixel(cx + (int)px, cy + (int)py, COLOR_CYAN);
         put_pixel(cx + (int)px + 1, cy + (int)py, COLOR_TASK_ACC);
     }
 
-    /* Radiant Core Star */
+    /* Core Star */
     fill_rect(cx - 7, cy - 7, 15, 15, COLOR_GOLD);
     fill_rect(cx - 5, cy - 5, 11, 11, COLOR_YELLOW);
     fill_rect(cx - 3, cy - 3, 7, 7, COLOR_WHITE);
-    /* Cross flare rays */
-    for (int r = -28; r <= 28; ++r) {
-        uint16_t fc = (r >= -6 && r <= 6) ? COLOR_WHITE : (r >= -16 && r <= 16) ? COLOR_YELLOW : 0x8400;
+    for (int r = -26; r <= 26; ++r) {
+        uint16_t fc = (r >= -6 && r <= 6) ? COLOR_WHITE : (r >= -15 && r <= 15) ? COLOR_YELLOW : 0x8400;
         put_pixel(cx + r, cy, fc);
         put_pixel(cx, cy + r, fc);
     }
 
-    /* Small Celestial Bodies on orbits */
-    fill_rect(cx + 80, cy - 30, 6, 6, COLOR_GOLD);
-    fill_rect(cx - 75, cy - 25, 6, 6, COLOR_CYAN);
+    /* Typography */
+    draw_str_2x(cx - 160, cy + 80,  "MAIA OPERATING SYSTEM", COLOR_WHITE, 0x0023, true);
+    draw_str_2x(cx - 144, cy + 120, "NATIVE RV32 DUAL-CORE", COLOR_TASK_ACC, 0x0023, true);
+    draw_str(cx - 110, cy + 165, "Touch any desktop shortcut to launch", COLOR_TEXT_DIM, 0x0023, true);
 
-    /* 5. Typography */
-    draw_str_2x(440, 290, "MAIA OPERATING SYSTEM", COLOR_WHITE, 0x0023, true);
-    draw_str_2x(456, 330, "NATIVE RV32 DUAL-CORE", COLOR_TASK_ACC, 0x0023, true);
-    draw_str(490, 375, "Touch any shortcut or dock icon to open", COLOR_TEXT_DIM, 0x0023, true);
-
-    /* 6. Desktop Shortcut Icons (Left Column) */
-    draw_desktop_icon(24, 60,  WIN_FILES,   "Arquivos", COLOR_GOLD);
-    draw_desktop_icon(24, 152, WIN_EDITOR,  "Editor",   COLOR_CYAN);
-    draw_desktop_icon(24, 244, WIN_CALC,    "Calc",     COLOR_GREEN);
-    draw_desktop_icon(24, 336, WIN_CLOCK,   "Relogio",  COLOR_YELLOW);
-    draw_desktop_icon(24, 428, WIN_SYSINFO, "Sistema",  COLOR_GREEN);
-    draw_desktop_icon(24, 520, WIN_BANNER,  "Banner",   COLOR_MAGENTA);
+    /* 5. Left Column Desktop Shortcuts (Clean, 7 full apps!) */
+    draw_desktop_icon(24, 48,  WIN_FILES,   "Arquivos", COLOR_GOLD);
+    draw_desktop_icon(24, 138, WIN_EDITOR,  "Editor",   COLOR_CYAN);
+    draw_desktop_icon(24, 228, WIN_TERM,    "Terminal", COLOR_GREEN);
+    draw_desktop_icon(24, 318, WIN_CALC,    "Calc",     COLOR_GREEN);
+    draw_desktop_icon(24, 408, WIN_CLOCK,   "Relogio",  COLOR_YELLOW);
+    draw_desktop_icon(24, 498, WIN_SYSINFO, "Sistema",  COLOR_GREEN);
+    draw_desktop_icon(24, 588, WIN_BANNER,  "Banner",   COLOR_MAGENTA);
 }
 
 static void render_desktop(uint64_t now_us) {
@@ -1059,7 +1165,6 @@ static void render_desktop(uint64_t now_us) {
     if (g_dirty_canvas) {
         render_canvas_background();
         g_dirty_taskbar = true;
-        g_dirty_dock    = true;
         g_dirty_window  = true;
         g_dirty_canvas  = false;
         need_sync = true;
@@ -1080,18 +1185,12 @@ static void render_desktop(uint64_t now_us) {
         need_sync = true;
     }
 
-    /* 3. Dock Redraw */
-    if (g_dirty_dock) {
-        render_dock(g_active_win);
-        g_dirty_dock = false;
-        need_sync = true;
-    }
-
-    /* 4. Active Window Redraw */
+    /* 3. Active Window Redraw (No bottom dock obstruction!) */
     if (g_dirty_window) {
         switch (g_active_win) {
             case WIN_FILES:   render_files_window(); break;
             case WIN_EDITOR:  render_editor_window(); break;
+            case WIN_TERM:    render_term_window(); break;
             case WIN_CALC:    render_calc_window(); break;
             case WIN_CLOCK:   render_clock_window(now_us); break;
             case WIN_SYSINFO: render_sysinfo_window(); break;
@@ -1114,7 +1213,7 @@ static void render_desktop(uint64_t now_us) {
         }
     }
 
-    /* 5. Sync Framebuffer ONLY if something changed */
+    /* 4. Sync Framebuffer ONLY if something changed */
     if (need_sync && g_ctx && g_ctx->host && g_ctx->host->display && g_ctx->host->display->sync) {
         g_ctx->host->display->sync();
     }
@@ -1140,6 +1239,9 @@ static void handle_touch(int tx, int ty) {
         } else if (g_active_win == WIN_EDITOR) {
             close_x1 = 300 + 680 - 46; close_x2 = close_x1 + 40;
             close_y1 = 80 + 4;         close_y2 = close_y1 + 30;
+        } else if (g_active_win == WIN_TERM) {
+            close_x1 = 260 + 760 - 46; close_x2 = close_x1 + 40;
+            close_y1 = 70 + 4;         close_y2 = close_y1 + 30;
         } else if (g_active_win == WIN_CALC) {
             close_x1 = 415 + 450 - 46; close_x2 = close_x1 + 40;
             close_y1 = 70 + 4;         close_y2 = close_y1 + 30;
@@ -1157,31 +1259,30 @@ static void handle_touch(int tx, int ty) {
         if (tx >= close_x1 && tx <= close_x2 && ty >= close_y1 && ty <= close_y2) {
             g_active_win = WIN_NONE;
             g_dirty_canvas = true;
-            g_dirty_dock = true;
             return;
         }
     }
 
-    /* 3. Check Desktop Left Column Shortcut Icons (When no window captures input) */
+    /* 3. Check Desktop Left Column Shortcut Icons (When no window is open) */
     if (g_active_win == WIN_NONE && tx >= 16 && tx <= 104) {
         int clicked = WIN_NONE;
-        if (ty >= 55 && ty <= 135) clicked = WIN_FILES;
-        else if (ty >= 147 && ty <= 227) clicked = WIN_EDITOR;
-        else if (ty >= 239 && ty <= 319) clicked = WIN_CALC;
-        else if (ty >= 331 && ty <= 411) clicked = WIN_CLOCK;
-        else if (ty >= 423 && ty <= 503) clicked = WIN_SYSINFO;
-        else if (ty >= 515 && ty <= 595) clicked = WIN_BANNER;
+        if (ty >= 44 && ty <= 124) clicked = WIN_FILES;
+        else if (ty >= 134 && ty <= 214) clicked = WIN_EDITOR;
+        else if (ty >= 224 && ty <= 304) clicked = WIN_TERM;
+        else if (ty >= 314 && ty <= 394) clicked = WIN_CALC;
+        else if (ty >= 404 && ty <= 484) clicked = WIN_CLOCK;
+        else if (ty >= 494 && ty <= 574) clicked = WIN_SYSINFO;
+        else if (ty >= 584 && ty <= 664) clicked = WIN_BANNER;
 
         if (clicked != WIN_NONE) {
             g_active_win = clicked;
             g_dirty_canvas = true;
-            g_dirty_dock = true;
             g_dirty_window = true;
             return;
         }
     }
 
-    /* 3. Check Calculator Window Keypad */
+    /* 4. Check Calculator Window Keypad */
     if (g_active_win == WIN_CALC) {
         static const char keys_map[5][4] = {
             {'C', '(', ')', '/'},
@@ -1209,7 +1310,7 @@ static void handle_touch(int tx, int ty) {
         }
     }
 
-    /* 4. Check Clock & Stopwatch Buttons */
+    /* 5. Check Clock & Stopwatch Buttons */
     if (g_active_win == WIN_CLOCK) {
         int wx = 430, wy = 120;
         int btn_w = 100, btn_h = 52, btn_y = wy + 270;
@@ -1237,39 +1338,6 @@ static void handle_touch(int tx, int ty) {
                 g_dirty_window = true;
                 return;
             }
-        }
-    }
-
-    /* 5. Check Bottom Dock Launchers (6 Buttons) */
-    if (ty >= 642 && ty <= 714) {
-        int dock_x = 280;
-        int bx = dock_x + 18;
-        int bw = 104;
-        int gap = 14;
-        int clicked = WIN_NONE;
-
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_FILES;
-        bx += bw + gap;
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_EDITOR;
-        bx += bw + gap;
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_CALC;
-        bx += bw + gap;
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_CLOCK;
-        bx += bw + gap;
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_SYSINFO;
-        bx += bw + gap;
-        if (tx >= bx && tx <= bx + bw) clicked = WIN_BANNER;
-
-        if (clicked != WIN_NONE) {
-            if (g_active_win == clicked) {
-                g_active_win = WIN_NONE;
-            } else {
-                g_active_win = clicked;
-            }
-            g_dirty_canvas = true;
-            g_dirty_dock = true;
-            g_dirty_window = true;
-            return;
         }
     }
 }
@@ -1319,7 +1387,6 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     if (g_active_win != WIN_NONE) {
                         g_active_win = WIN_NONE;
                         g_dirty_canvas = true;
-                        g_dirty_dock = true;
                     } else {
                         g_running = false;
                         break;
@@ -1328,15 +1395,34 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     int next_win = WIN_NONE;
                     if (k == 'f' || k == 'F' || k == '1') next_win = WIN_FILES;
                     else if (k == 'e' || k == 'E' || k == '2') next_win = WIN_EDITOR;
-                    else if (k == 'c' || k == 'C' || k == '3') next_win = WIN_CALC;
-                    else if (k == 't' || k == 'T' || k == '4') next_win = WIN_CLOCK;
-                    else if (k == 's' || k == 'S' || k == '5') next_win = WIN_SYSINFO;
-                    else if (k == 'b' || k == 'B' || k == '6') next_win = WIN_BANNER;
+                    else if (k == 'm' || k == 'M' || k == '3') next_win = WIN_TERM;
+                    else if (k == 'c' || k == 'C' || k == '4') next_win = WIN_CALC;
+                    else if (k == 'r' || k == 'R' || k == '5') next_win = WIN_CLOCK;
+                    else if (k == 's' || k == 'S' || k == '6') next_win = WIN_SYSINFO;
+                    else if (k == 'b' || k == 'B' || k == '7') next_win = WIN_BANNER;
                     if (next_win != WIN_NONE) {
                         g_active_win = next_win;
                         g_dirty_canvas = true;
-                        g_dirty_dock = true;
                         g_dirty_window = true;
+                    }
+                } else if (g_active_win == WIN_TERM) {
+                    if (k == '\r' || k == '\n') {
+                        term_exec_cmd(g_term_input);
+                        g_term_input[0] = '\0';
+                        g_term_input_len = 0;
+                        g_dirty_window = true;
+                    } else if (k == '\b' || k == 127) {
+                        if (g_term_input_len > 0) {
+                            g_term_input_len--;
+                            g_term_input[g_term_input_len] = '\0';
+                            g_dirty_window = true;
+                        }
+                    } else if (k >= 32 && k <= 126) {
+                        if (g_term_input_len < (int)sizeof(g_term_input) - 2) {
+                            g_term_input[g_term_input_len++] = (char)k;
+                            g_term_input[g_term_input_len] = '\0';
+                            g_dirty_window = true;
+                        }
                     }
                 } else if (g_active_win == WIN_CALC) {
                     if (k == '\r' || k == '\n' || k == '=') calc_input('=');
