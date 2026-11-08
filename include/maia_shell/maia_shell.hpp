@@ -79,6 +79,16 @@ static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf
 #include "../maia/exec/elf_validator.h"
 #include "../maia/exec/elf_loader.h"
 #include "../maia/exec/hello_mobj.h"
+#include "riscv_asm.hpp"
+#include "riscv_disasm.hpp"
+#include "ast.hpp"
+#include "parser.hpp"
+#include "codegen_riscv.hpp"
+#include "maia_glob.h"
+#include "maia_regex.h"
+#include <vector>
+#include <string>
+#include <algorithm>
 
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
@@ -314,7 +324,7 @@ static inline long msh_atol(const char *s) {
 #define atol msh_atol
 #endif
 
-#define MSH_MAX_ARGS    16
+#define MSH_MAX_ARGS    64
 #define MSH_MAX_VARS    32
 #define MSH_KEY_LEN     32
 #define MSH_VAL_LEN     96
@@ -349,6 +359,8 @@ public:
 
     void init(OutputFn cb) {
         output_cb = cb;
+        get_active_instance() = this;
+        get_global_out_cb() = cb;
         set_var("BOARD", "M5Stack-Tab5");
         set_var("SOC", "ESP32-P4");
         set_var("ARCH", "RV32IMAFC");
@@ -871,11 +883,25 @@ public:
         return s_fp;
     }
 
+    void set_cwd(const char *path) {
+        if (!path || !*path) return;
+        strncpy(cwd, path, sizeof(cwd) - 1);
+        cwd[sizeof(cwd) - 1] = '\0';
+    }
+
     void resolve_path(const char *in, char *out, size_t out_sz) {
-        if (!in || !*in) {
+        if (!in || !*in || strcmp(in, ".") == 0) {
             strncpy(out, cwd, out_sz - 1);
             out[out_sz - 1] = '\0';
             return;
+        }
+        if (strncmp(in, "./", 2) == 0) {
+            in += 2;
+            if (!*in) {
+                strncpy(out, cwd, out_sz - 1);
+                out[out_sz - 1] = '\0';
+                return;
+            }
         }
         if (in[0] == '/') {
             strncpy(out, in, out_sz - 1);
@@ -887,6 +913,152 @@ public:
             strncat(out, in, out_sz - strlen(out) - 1);
         }
         out[out_sz - 1] = '\0';
+
+        // Fallback: If cwd is "/" and file does not exist, check if it exists in "/sd"
+        if (strcmp(cwd, "/") == 0 && in[0] != '/') {
+            struct stat st;
+            if (stat(out, &st) != 0) {
+                char sd_try[128];
+                snprintf(sd_try, sizeof(sd_try), "/sd/%s", in);
+                if (stat(sd_try, &st) == 0) {
+                    strncpy(out, sd_try, out_sz - 1);
+                    out[out_sz - 1] = '\0';
+                }
+            }
+        }
+    }
+
+    static bool has_wildcards(const char *str) {
+        if (!str) return false;
+        for (; *str; ++str) {
+            if (*str == '*' || *str == '?' || *str == '[') return true;
+        }
+        return false;
+    }
+
+    int expand_glob_pattern(const char *pattern_arg, char **out_argv, std::vector<std::string> &storage, int &out_argc, int max_args) {
+        char dir_part[128];
+        const char *pat = pattern_arg;
+        const char *last_slash = strrchr(pat, '/');
+        bool has_dir = (last_slash != nullptr);
+
+        if (has_dir) {
+            size_t dlen = last_slash - pat;
+            if (dlen == 0) {
+                strcpy(dir_part, "/");
+            } else {
+                if (dlen >= sizeof(dir_part)) dlen = sizeof(dir_part) - 1;
+                strncpy(dir_part, pat, dlen);
+                dir_part[dlen] = '\0';
+            }
+            pat = last_slash + 1;
+        } else {
+            strcpy(dir_part, cwd);
+        }
+
+        char resolved_dir[128];
+        resolve_path(dir_part, resolved_dir, sizeof(resolved_dir));
+
+        DIR *d = opendir(resolved_dir);
+        if (!d && strcmp(resolved_dir, "/") == 0) {
+            d = opendir("/sd");
+            if (d) {
+                strcpy(dir_part, "/sd");
+            }
+        }
+        if (!d) return 0;
+
+        MaiaGlobInstruction *code = (MaiaGlobInstruction *)malloc(257 * sizeof(MaiaGlobInstruction));
+        MaiaGlobRange *ranges = (MaiaGlobRange *)malloc(256 * sizeof(MaiaGlobRange));
+        size_t ws_size = maia_glob_compile_workspace_size();
+        void *ws_mem = malloc(ws_size);
+
+        if (!code || !ranges || !ws_mem) {
+            if (code) free(code);
+            if (ranges) free(ranges);
+            if (ws_mem) free(ws_mem);
+            closedir(d);
+            return 0;
+        }
+
+        MaiaGlobStorage glob_store;
+        glob_store.code = code;
+        glob_store.code_capacity = 257;
+        glob_store.ranges = ranges;
+        glob_store.range_capacity = 256;
+        glob_store.compiler_workspace_bytes = ws_size;
+        glob_store.compiler_workspace = ws_mem;
+
+        MaiaGlobLimits limits;
+        maia_glob_default_limits(&limits);
+
+        MaiaGlobProgram program;
+        int rc = maia_glob_compile_utf8((const unsigned char*)pat, (unsigned int)strlen(pat),
+                                        NULL, &glob_store, &limits, &program);
+        if (rc != MAIA_GLOB_MATCH) {
+            free(code);
+            free(ranges);
+            free(ws_mem);
+            closedir(d);
+            return 0;
+        }
+
+        int initial_count = out_argc;
+        std::vector<std::string> matched_entries;
+
+        struct dirent *de;
+        unsigned char *ws_a = (unsigned char *)malloc(257);
+        unsigned char *ws_b = (unsigned char *)malloc(257);
+        if (!ws_a || !ws_b) {
+            if (ws_a) free(ws_a);
+            if (ws_b) free(ws_b);
+            free(code);
+            free(ranges);
+            free(ws_mem);
+            closedir(d);
+            return 0;
+        }
+
+        MaiaGlobWorkspace match_ws;
+        match_ws.first = ws_a;
+        match_ws.second = ws_b;
+        match_ws.capacity = 257;
+
+        while ((de = readdir(d)) != nullptr) {
+            if (de->d_name[0] == '.' && pat[0] != '.') continue;
+            match_ws.steps = 0;
+            int m_rc = maia_glob_match_utf8(&program, (const unsigned char*)de->d_name,
+                                            (unsigned int)strlen(de->d_name), &match_ws, &limits);
+            if (m_rc == MAIA_GLOB_MATCH) {
+                if (has_dir) {
+                    char full[128];
+                    if (strcmp(dir_part, "/") == 0) {
+                        snprintf(full, sizeof(full), "/%s", de->d_name);
+                    } else {
+                        snprintf(full, sizeof(full), "%s/%s", dir_part, de->d_name);
+                    }
+                    matched_entries.push_back(full);
+                } else {
+                    matched_entries.push_back(de->d_name);
+                }
+            }
+        }
+        closedir(d);
+        free(ws_a);
+        free(ws_b);
+        free(code);
+        free(ranges);
+        free(ws_mem);
+
+        std::sort(matched_entries.begin(), matched_entries.end());
+
+        for (const auto &entry : matched_entries) {
+            if (out_argc >= max_args) break;
+            storage.push_back(entry);
+            out_argv[out_argc++] = const_cast<char*>(storage.back().c_str());
+        }
+
+        return (out_argc - initial_count);
     }
 
     int execute_single_cmd(const char *cmd_in) {
@@ -900,34 +1072,55 @@ public:
         char exp_line[MSH_LINE_LEN];
         expand_variables(cmdline, exp_line, sizeof(exp_line));
 
-        char *argv[MSH_MAX_ARGS];
-        int argc = 0;
+        char *raw_argv[MSH_MAX_ARGS];
+        bool raw_quoted[MSH_MAX_ARGS];
+        int raw_argc = 0;
         char *p = exp_line;
 
-        while (*p && argc < MSH_MAX_ARGS) {
+        while (*p && raw_argc < MSH_MAX_ARGS) {
             while (*p == ' ' || *p == '\t') p++;
             if (!*p) break;
             if (*p == '\"' || *p == '\'') {
                 char q = *p++;
-                argv[argc++] = p;
+                raw_argv[raw_argc] = p;
+                raw_quoted[raw_argc++] = true;
                 while (*p && *p != q) p++;
                 if (*p) *p++ = '\0';
             } else {
-                argv[argc++] = p;
+                raw_argv[raw_argc] = p;
+                raw_quoted[raw_argc++] = false;
                 while (*p && *p != ' ' && *p != '\t') p++;
                 if (*p) *p++ = '\0';
             }
         }
 
-        if (argc == 0) return 0;
+        if (raw_argc == 0) return 0;
 
-        char *eq = strchr(argv[0], '=');
-        if (eq && argc == 1) {
+        char *eq = strchr(raw_argv[0], '=');
+        if (eq && raw_argc == 1) {
             *eq = '\0';
-            set_var(argv[0], eq + 1);
+            set_var(raw_argv[0], eq + 1);
             int st = (sub_count > 0) ? sub_status : 0;
             set_last_status(st);
             return st;
+        }
+
+        // Wildcard expansion using maiaglob
+        std::vector<std::string> glob_storage;
+        glob_storage.reserve(16);
+        char *argv[MSH_MAX_ARGS];
+        int argc = 0;
+
+        for (int i = 0; i < raw_argc && argc < MSH_MAX_ARGS; ++i) {
+            if (i == 0 || raw_quoted[i] || !has_wildcards(raw_argv[i])) {
+                argv[argc++] = raw_argv[i];
+                continue;
+            }
+
+            int matches = expand_glob_pattern(raw_argv[i], argv, glob_storage, argc, MSH_MAX_ARGS);
+            if (matches == 0) {
+                argv[argc++] = raw_argv[i];
+            }
         }
 
         // Parse I/O redirection (> or >>)
@@ -1017,6 +1210,9 @@ public:
         else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
         else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
         else if (strcmp(cmd, "runelf") == 0 || strcmp(cmd, "exec") == 0) ret = cmd_runelf(argc, argv);
+        else if (strcmp(cmd, "maiasc") == 0) ret = cmd_maiasc(argc, argv);
+        else if (strcmp(cmd, "maiaasm") == 0 || strcmp(cmd, "asm") == 0) ret = cmd_maiaasm(argc, argv);
+        else if (strcmp(cmd, "disasm") == 0 || strcmp(cmd, "objdump") == 0) ret = cmd_disasm(argc, argv);
         else if (strcmp(cmd, "modinfo") == 0 || strcmp(cmd, "mnminfo") == 0) ret = cmd_modinfo(argc, argv);
         else if (strcmp(cmd, "ps") == 0)     ret = cmd_ps(argc, argv);
         else if (strcmp(cmd, "mem") == 0)    ret = cmd_mem(argc, argv);
@@ -1702,6 +1898,9 @@ private:
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
+        println("  maiasc <f.ms> [-o out.mobj] [--run] - Compile MaiaScript to native RISC-V ELF");
+        println("  maiaasm <f.s> [-o out.mobj]         - Assemble RISC-V assembly into ELF module");
+        println("  disasm <f.mobj|f.bin>               - Disassemble native machine instructions");
         println("  modinfo <file.mobj> - Inspect module, SHA-256 and manifest integrity");
         println("  ls [dir]          - List files & directories in storage/SD-card");
         println("  cd <dir>          - Change current working directory");
@@ -2246,6 +2445,12 @@ private:
                 if (d && d->out_cb && str) {
                     d->out_cb(str, d->user_data);
                 }
+#if defined(ESP_PLATFORM)
+                if (str) {
+                    printf("%s", str);
+                    fflush(stdout);
+                }
+#endif
             };
 
             sh->output_cb = diverter;
@@ -2405,6 +2610,322 @@ private:
         return (res == MNM_LOAD_OK) ? exit_code : 1;
     }
 
+    int cmd_maiasc(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: maiasc <input.ms> [-o output.mobj] [--run] [-S]");
+            return 1;
+        }
+
+        const char *input_arg = nullptr;
+        const char *output_arg = nullptr;
+        bool do_run = false;
+        bool emit_s = false;
+
+        for (int i = 1; i < argc; ++i) {
+            if (strcmp(argv[i], "--run") == 0) {
+                do_run = true;
+            } else if (strcmp(argv[i], "-S") == 0) {
+                emit_s = true;
+            } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+                output_arg = argv[++i];
+            } else if (argv[i][0] != '-') {
+                input_arg = argv[i];
+            }
+        }
+
+        if (!input_arg) {
+            println("maiasc: error: no input file specified");
+            return 1;
+        }
+
+        char resolved_in[128];
+        resolve_path(input_arg, resolved_in, sizeof(resolved_in));
+
+        FILE *f = fopen(resolved_in, "r");
+        if (!f && input_arg[0] != '/') {
+            char sd_try[128];
+            snprintf(sd_try, sizeof(sd_try), "/sd/%s", input_arg);
+            f = fopen(sd_try, "r");
+            if (f) {
+                strncpy(resolved_in, sd_try, sizeof(resolved_in) - 1);
+                resolved_in[sizeof(resolved_in) - 1] = '\0';
+            }
+        }
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "maiasc: cannot open '%s'", resolved_in);
+            println(err);
+            return 1;
+        }
+        fseek(f, 0, SEEK_END);
+        long fsz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (fsz <= 0 || fsz > 1024 * 1024) {
+            fclose(f);
+            println("maiasc: invalid input file size");
+            return 1;
+        }
+        std::string source;
+        source.resize(fsz);
+        size_t nread = fread(&source[0], 1, fsz, f);
+        fclose(f);
+        source.resize(nread);
+
+        print(">>> Compiling MaiaScript: ");
+        println(resolved_in);
+
+        std::string asm_code;
+        {
+            std::string parse_err;
+            auto prog = maiascript::Parser::parseSource(source, parse_err);
+            if (!prog) {
+                print("maiasc: parse error: ");
+                println(parse_err.c_str());
+                return 1;
+            }
+
+            maiascript::CodegenRISCV codegen;
+            asm_code = codegen.generateAssembly(prog);
+        }
+
+        char out_path[128];
+        if (output_arg) {
+            resolve_path(output_arg, out_path, sizeof(out_path));
+        } else {
+            strncpy(out_path, resolved_in, sizeof(out_path) - 1);
+            out_path[sizeof(out_path) - 1] = '\0';
+            char *dot = strrchr(out_path, '.');
+            if (dot) *dot = '\0';
+            strncat(out_path, emit_s ? ".s" : ".mobj", sizeof(out_path) - strlen(out_path) - 1);
+        }
+
+        if (emit_s) {
+            FILE *fout = fopen(out_path, "w");
+            if (!fout) {
+                println("maiasc: cannot write assembly file");
+                return 1;
+            }
+            fwrite(asm_code.data(), 1, asm_code.size(), fout);
+            fclose(fout);
+            print("Wrote assembly: ");
+            println(out_path);
+            return 0;
+        }
+
+        maia::riscv::Assembler as;
+        if (!as.assemble_string(asm_code)) {
+            println("maiasc: assembly generation error:");
+            for (const auto &diag : as.get_diagnostics()) {
+                char dmsg[128];
+                snprintf(dmsg, sizeof(dmsg), "  Line %d: %s\n", diag.line, diag.message.c_str());
+                print(dmsg);
+            }
+            return 1;
+        }
+
+        std::vector<uint8_t> elf_data = as.emit_elf32();
+
+        FILE *fout = fopen(out_path, "wb");
+        if (fout) {
+            fwrite(elf_data.data(), 1, elf_data.size(), fout);
+            fclose(fout);
+            char ok_msg[160];
+            snprintf(ok_msg, sizeof(ok_msg), "[SUCCESS] Compiled %s -> %s (%u bytes ELF32)\n",
+                     resolved_in, out_path, (unsigned int)elf_data.size());
+            print(ok_msg);
+        }
+
+        if (do_run || !output_arg) {
+            println(">>> Executing compiled MaiaScript module...");
+            char *elf_argv[2];
+            char run_cmd[] = "runelf";
+            elf_argv[0] = run_cmd;
+            elf_argv[1] = out_path;
+            return cmd_runelf(2, elf_argv);
+        }
+
+        return 0;
+    }
+
+    int cmd_maiaasm(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: maiaasm <input.s> [-o output.mobj]");
+            return 1;
+        }
+
+        const char *input_arg = nullptr;
+        const char *output_arg = nullptr;
+
+        for (int i = 1; i < argc; ++i) {
+            if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+                output_arg = argv[++i];
+            } else if (argv[i][0] != '-') {
+                input_arg = argv[i];
+            }
+        }
+
+        if (!input_arg) {
+            println("maiaasm: error: no input file specified");
+            return 1;
+        }
+
+        char resolved_in[128];
+        resolve_path(input_arg, resolved_in, sizeof(resolved_in));
+
+        FILE *f = fopen(resolved_in, "r");
+        if (!f && input_arg[0] != '/') {
+            char sd_try[128];
+            snprintf(sd_try, sizeof(sd_try), "/sd/%s", input_arg);
+            f = fopen(sd_try, "r");
+            if (f) {
+                strncpy(resolved_in, sd_try, sizeof(resolved_in) - 1);
+                resolved_in[sizeof(resolved_in) - 1] = '\0';
+            }
+        }
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "maiaasm: cannot open '%s'", resolved_in);
+            println(err);
+            return 1;
+        }
+        fseek(f, 0, SEEK_END);
+        long fsz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (fsz <= 0 || fsz > 1024 * 1024) {
+            fclose(f);
+            println("maiaasm: invalid input file size");
+            return 1;
+        }
+        std::string src;
+        src.resize(fsz);
+        size_t nread = fread(&src[0], 1, fsz, f);
+        fclose(f);
+        src.resize(nread);
+
+        maia::riscv::Assembler as;
+        if (!as.assemble_string(src)) {
+            println("maiaasm: assembly failed:");
+            for (const auto &diag : as.get_diagnostics()) {
+                char dmsg[128];
+                snprintf(dmsg, sizeof(dmsg), "  Line %d: %s\n", diag.line, diag.message.c_str());
+                print(dmsg);
+            }
+            return 1;
+        }
+
+        char out_path[128];
+        if (output_arg) {
+            resolve_path(output_arg, out_path, sizeof(out_path));
+        } else {
+            strncpy(out_path, resolved_in, sizeof(out_path) - 1);
+            out_path[sizeof(out_path) - 1] = '\0';
+            char *dot = strrchr(out_path, '.');
+            if (dot) *dot = '\0';
+            strncat(out_path, ".mobj", sizeof(out_path) - strlen(out_path) - 1);
+        }
+
+        std::vector<uint8_t> elf_data = as.emit_elf32();
+        FILE *fout = fopen(out_path, "wb");
+        if (!fout) {
+            println("maiaasm: cannot open output file for writing");
+            return 1;
+        }
+        fwrite(elf_data.data(), 1, elf_data.size(), fout);
+        fclose(fout);
+
+        char ok_msg[160];
+        snprintf(ok_msg, sizeof(ok_msg), "[SUCCESS] Assembled %s -> %s (%u bytes ELF32)\n",
+                 resolved_in, out_path, (unsigned int)elf_data.size());
+        print(ok_msg);
+        return 0;
+    }
+
+    int cmd_disasm(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: disasm <file.mobj|file.bin>");
+            return 1;
+        }
+
+        char resolved[128];
+        resolve_path(argv[1], resolved, sizeof(resolved));
+
+        FILE *f = fopen(resolved, "rb");
+        if (!f && argv[1][0] != '/') {
+            char sd_try[128];
+            snprintf(sd_try, sizeof(sd_try), "/sd/%s", argv[1]);
+            f = fopen(sd_try, "rb");
+            if (f) {
+                strncpy(resolved, sd_try, sizeof(resolved) - 1);
+                resolved[sizeof(resolved) - 1] = '\0';
+            }
+        }
+        if (!f) {
+            char err[160];
+            snprintf(err, sizeof(err), "disasm: cannot open '%s'", resolved);
+            println(err);
+            return 1;
+        }
+        fseek(f, 0, SEEK_END);
+        long fsz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (fsz <= 0 || fsz > 1024 * 1024) {
+            fclose(f);
+            println("disasm: invalid file size");
+            return 1;
+        }
+
+        std::vector<uint8_t> bytes(fsz);
+        size_t nread = fread(bytes.data(), 1, fsz, f);
+        fclose(f);
+        bytes.resize(nread);
+
+        size_t code_start = 0;
+        size_t code_size = bytes.size();
+
+        if (bytes.size() >= 52 && bytes[0] == 0x7f && bytes[1] == 'E' && bytes[2] == 'L' && bytes[3] == 'F') {
+            uint32_t shoff = (uint32_t)bytes[32] | ((uint32_t)bytes[33] << 8) | ((uint32_t)bytes[34] << 16) | ((uint32_t)bytes[35] << 24);
+            uint16_t shentsize = (uint16_t)bytes[46] | ((uint16_t)bytes[47] << 8);
+            uint16_t shnum = (uint16_t)bytes[48] | ((uint16_t)bytes[49] << 8);
+            uint16_t shstrndx = (uint16_t)bytes[50] | ((uint16_t)bytes[51] << 8);
+
+            if (shstrndx < shnum && shoff + shstrndx * shentsize + 40 <= bytes.size()) {
+                size_t strhdr_off = shoff + shstrndx * shentsize;
+                uint32_t str_off = (uint32_t)bytes[strhdr_off + 16] | ((uint32_t)bytes[strhdr_off + 17] << 8) | ((uint32_t)bytes[strhdr_off + 18] << 16) | ((uint32_t)bytes[strhdr_off + 19] << 24);
+
+                for (uint16_t i = 0; i < shnum; ++i) {
+                    size_t h = shoff + i * shentsize;
+                    uint32_t name_off = (uint32_t)bytes[h] | ((uint32_t)bytes[h + 1] << 8) | ((uint32_t)bytes[h + 2] << 16) | ((uint32_t)bytes[h + 3] << 24);
+                    if (str_off + name_off < bytes.size()) {
+                        const char *sname = (const char *)&bytes[str_off + name_off];
+                        if (strcmp(sname, ".text") == 0) {
+                            code_start = (uint32_t)bytes[h + 16] | ((uint32_t)bytes[h + 17] << 8) | ((uint32_t)bytes[h + 18] << 16) | ((uint32_t)bytes[h + 19] << 24);
+                            code_size = (uint32_t)bytes[h + 20] | ((uint32_t)bytes[h + 21] << 8) | ((uint32_t)bytes[h + 22] << 16) | ((uint32_t)bytes[h + 23] << 24);
+                            char hdr_msg[128];
+                            snprintf(hdr_msg, sizeof(hdr_msg), "; ELF .text section at offset 0x%zx (%zu bytes)\n", code_start, code_size);
+                            print(hdr_msg);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        maia::riscv::Disassembler dis;
+        dis.set_show_hex(true);
+        for (size_t off = 0; off + 4 <= code_size; off += 4) {
+            size_t pos = code_start + off;
+            if (pos + 4 > bytes.size()) break;
+            uint32_t w = (uint32_t)bytes[pos] |
+                         ((uint32_t)bytes[pos + 1] << 8) |
+                         ((uint32_t)bytes[pos + 2] << 16) |
+                         ((uint32_t)bytes[pos + 3] << 24);
+            maia::riscv::DisasmResult res = dis.disassemble(w, (uint32_t)off);
+            print(res.full_text.c_str());
+            print("\n");
+        }
+        return 0;
+    }
+
     int cmd_ticks(int argc, char **argv) {
         (void)argc; (void)argv;
 #if defined(MAIA_KERNEL_H)
@@ -2524,13 +3045,9 @@ private:
         return 0;
     }
 
-    int cmd_ls(int argc, char **argv) {
+    int list_single_target(const char *path, bool show_header) {
         char target_dir[128];
-        if (argc >= 2) {
-            resolve_path(argv[1], target_dir, sizeof(target_dir));
-        } else {
-            resolve_path(cwd, target_dir, sizeof(target_dir));
-        }
+        resolve_path(path, target_dir, sizeof(target_dir));
 
         if (strcmp(target_dir, "/") == 0) {
             println("Directory of /:");
@@ -2544,6 +3061,21 @@ private:
             return 0;
         }
 
+        struct stat st;
+        if (stat(target_dir, &st) != 0) {
+            char err[160];
+            snprintf(err, sizeof(err), "ls: cannot access '%s': No such file or directory", target_dir);
+            println(err);
+            return 1;
+        }
+
+        if (!S_ISDIR(st.st_mode)) {
+            char line[256];
+            snprintf(line, sizeof(line), "  [FILE] %s (%u bytes)", target_dir, (unsigned int)st.st_size);
+            println(line);
+            return 0;
+        }
+
         DIR *d = opendir(target_dir);
         if (!d) {
             char err[160];
@@ -2553,8 +3085,10 @@ private:
         }
 
         char line[256];
-        snprintf(line, sizeof(line), "Directory of %s:", target_dir);
-        println(line);
+        if (show_header) {
+            snprintf(line, sizeof(line), "Directory of %s:", target_dir);
+            println(line);
+        }
 
         int count = 0;
         struct dirent *de;
@@ -2563,12 +3097,12 @@ private:
             snprintf(full_path, sizeof(full_path), "%s/%s", 
                      strcmp(target_dir, "/") == 0 ? "" : target_dir, de->d_name);
 
-            struct stat st;
+            struct stat fst;
             bool is_dir = false;
             size_t sz = 0;
-            if (stat(full_path, &st) == 0) {
-                is_dir = S_ISDIR(st.st_mode);
-                sz = (size_t)st.st_size;
+            if (stat(full_path, &fst) == 0) {
+                is_dir = S_ISDIR(fst.st_mode);
+                sz = (size_t)fst.st_size;
             }
 
             if (is_dir) {
@@ -2581,9 +3115,24 @@ private:
         }
         closedir(d);
 
-        snprintf(line, sizeof(line), "Total %d entries", count);
-        println(line);
+        if (show_header) {
+            snprintf(line, sizeof(line), "Total %d entries", count);
+            println(line);
+        }
         return 0;
+    }
+
+    int cmd_ls(int argc, char **argv) {
+        if (argc < 2) {
+            return list_single_target(cwd, true);
+        }
+        int total_ret = 0;
+        bool multiple = (argc > 2);
+        for (int i = 1; i < argc; ++i) {
+            int ret = list_single_target(argv[i], multiple);
+            if (ret != 0) total_ret = ret;
+        }
+        return total_ret;
     }
 
     int cmd_cat(int argc, char **argv) {
@@ -2595,26 +3144,38 @@ private:
                 }
                 return 0;
             }
-            println("Usage: cat <file>");
-            return 1;
-        }
-        char target[128];
-        resolve_path(argv[1], target, sizeof(target));
-
-        FILE *f = fopen(target, "r");
-        if (!f) {
-            char err[160];
-            snprintf(err, sizeof(err), "cat: cannot open '%s'", target);
-            println(err);
+            println("Usage: cat <file> [file2...]");
             return 1;
         }
 
-        char buf[128];
-        while (fgets(buf, sizeof(buf), f)) {
-            print(buf);
+        int ret = 0;
+        for (int i = 1; i < argc; ++i) {
+            char target[128];
+            resolve_path(argv[i], target, sizeof(target));
+
+            FILE *f = fopen(target, "r");
+            if (!f && argv[i][0] != '/') {
+                char sd_try[128];
+                snprintf(sd_try, sizeof(sd_try), "/sd/%s", argv[i]);
+                f = fopen(sd_try, "r");
+                if (f) strcpy(target, sd_try);
+            }
+
+            if (!f) {
+                char err[160];
+                snprintf(err, sizeof(err), "cat: cannot open '%s'", target);
+                println(err);
+                ret = 1;
+                continue;
+            }
+
+            char buf[128];
+            while (fgets(buf, sizeof(buf), f)) {
+                print(buf);
+            }
+            fclose(f);
         }
-        fclose(f);
-        return 0;
+        return ret;
     }
 
     int cmd_grep(int argc, char **argv) {

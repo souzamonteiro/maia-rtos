@@ -4,7 +4,7 @@
   "title": "Terminal",
   "icon": "term",
   "color": "0x07e0",
-  "hotkey": "m",
+  "hotkey": "t",
   "exec": "/sd/apps/term.mobj",
   "version": "1.0.0",
   "target": "maia-rv32-esp32p4-v1",

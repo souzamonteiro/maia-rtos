@@ -16,6 +16,12 @@ static char g_term_input[64] = "";
 static int g_term_input_len = 0;
 static bool g_term_initialized = false;
 
+/* Terminal Command History */
+#define TERM_HIST_MAX 16
+static char g_term_history[TERM_HIST_MAX][64];
+static int  g_term_hist_count = 0;
+static int  g_term_hist_browse = -1;
+
 /* Desktop State */
 static int g_active_win = WIN_NONE;
 static bool g_running = true;
@@ -57,6 +63,49 @@ static inline void str_copy(char *dst, const char *src, size_t max) {
         while (src[i] && i < max - 1) { dst[i] = src[i]; i++; }
     }
     dst[i] = '\0';
+}
+
+static void term_hist_add(const char *cmd) {
+    if (!cmd || cmd[0] == '\0') return;
+    if (g_term_hist_count > 0 && strcmp(g_term_history[g_term_hist_count - 1], cmd) == 0) {
+        g_term_hist_browse = -1;
+        return;
+    }
+    if (g_term_hist_count < TERM_HIST_MAX) {
+        str_copy(g_term_history[g_term_hist_count++], cmd, sizeof(g_term_history[0]));
+    } else {
+        for (int i = 0; i < TERM_HIST_MAX - 1; ++i) {
+            str_copy(g_term_history[i], g_term_history[i + 1], sizeof(g_term_history[0]));
+        }
+        str_copy(g_term_history[TERM_HIST_MAX - 1], cmd, sizeof(g_term_history[0]));
+    }
+    g_term_hist_browse = -1;
+}
+
+static void term_hist_up(void) {
+    if (g_term_hist_count == 0) return;
+    if (g_term_hist_browse == -1) {
+        g_term_hist_browse = g_term_hist_count - 1;
+    } else if (g_term_hist_browse > 0) {
+        g_term_hist_browse--;
+    }
+    str_copy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input));
+    g_term_input_len = (int)strlen(g_term_input);
+    g_dirty_term_content = true;
+}
+
+static void term_hist_down(void) {
+    if (g_term_hist_browse == -1) return;
+    if (g_term_hist_browse + 1 < g_term_hist_count) {
+        g_term_hist_browse++;
+        str_copy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input));
+        g_term_input_len = (int)strlen(g_term_input);
+    } else {
+        g_term_hist_browse = -1;
+        g_term_input[0] = '\0';
+        g_term_input_len = 0;
+    }
+    g_dirty_term_content = true;
 }
 
 static inline uint16_t parse_hex_color(const char *s) {
@@ -302,7 +351,7 @@ static void scan_manifests(void) {
             /* Defaults */
             if (i == 0) { str_copy(app->name, "files", 24); str_copy(app->title, "Files", 24); str_copy(app->icon, "files", 16); app->color = COLOR_GOLD; app->hotkey = 'f'; str_copy(app->exec_path, "/sd/apps/files.mobj", 80); }
             else if (i == 1) { str_copy(app->name, "editor", 24); str_copy(app->title, "Editor", 24); str_copy(app->icon, "editor", 16); app->color = COLOR_CYAN; app->hotkey = 'e'; str_copy(app->exec_path, "/sd/apps/editor.mobj", 80); }
-            else if (i == 2) { str_copy(app->name, "term", 24); str_copy(app->title, "Terminal", 24); str_copy(app->icon, "term", 16); app->color = COLOR_GREEN; app->hotkey = 'm'; str_copy(app->exec_path, "", 80); }
+            else if (i == 2) { str_copy(app->name, "term", 24); str_copy(app->title, "Terminal", 24); str_copy(app->icon, "term", 16); app->color = COLOR_GREEN; app->hotkey = 't'; str_copy(app->exec_path, "", 80); }
             else if (i == 3) { str_copy(app->name, "calc", 24); str_copy(app->title, "Calc", 24); str_copy(app->icon, "calc", 16); app->color = COLOR_GREEN; app->hotkey = 'c'; str_copy(app->exec_path, "/sd/apps/calc.mobj", 80); }
             else if (i == 4) { str_copy(app->name, "clock", 24); str_copy(app->title, "Clock", 24); str_copy(app->icon, "clock", 16); app->color = COLOR_YELLOW; app->hotkey = 'r'; str_copy(app->exec_path, "/sd/apps/clock.mobj", 80); }
             else if (i == 5) { str_copy(app->name, "sysinfo", 24); str_copy(app->title, "System", 24); str_copy(app->icon, "sysinfo", 16); app->color = COLOR_GREEN; app->hotkey = 's'; str_copy(app->exec_path, "/sd/apps/sysinfo.mobj", 80); }
@@ -452,6 +501,9 @@ static void launch_app(int idx) {
     desktop_app_t *app = &g_apps[idx];
 
     if (app->is_builtin_term) {
+        if (!g_term_initialized) {
+            term_init();
+        }
         g_active_win = WIN_TERM;
         g_term_input[0] = '\0';
         g_term_input_len = 0;
@@ -569,10 +621,17 @@ int maia_module_main(const maia_module_context_t *ctx) {
                 }
             } else if (g_active_win == WIN_TERM) {
                 if (k == '\r' || k == '\n') {
+                    if (g_term_input_len > 0) {
+                        term_hist_add(g_term_input);
+                    }
                     term_exec_cmd(g_term_input);
                     g_term_input[0] = '\0';
                     g_term_input_len = 0;
                     g_dirty_term_content = true;
+                } else if (k == 0x80) { /* Up Arrow (History Back) */
+                    term_hist_up();
+                } else if (k == 0x81) { /* Down Arrow (History Forward) */
+                    term_hist_down();
                 } else if (k == '\b' || k == 127) {
                     if (g_term_input_len > 0) {
                         g_term_input_len--;
@@ -589,6 +648,16 @@ int maia_module_main(const maia_module_context_t *ctx) {
             } else if (g_active_win == WIN_NONE) {
                 char lk = (char)k;
                 if (lk >= 'A' && lk <= 'Z') lk += 32;
+                if (lk == 't' || lk == 'm') {
+                    for (int i = 0; i < g_app_count; ++i) {
+                        if (g_apps[i].is_builtin_term) {
+                            launch_app(i);
+                            break;
+                        }
+                    }
+                    k = gui_poll_key();
+                    continue;
+                }
                 for (int i = 0; i < g_app_count; ++i) {
                     if (g_apps[i].hotkey && (g_apps[i].hotkey == lk || (g_apps[i].hotkey >= 'A' && g_apps[i].hotkey <= 'Z' && g_apps[i].hotkey + 32 == lk))) {
                         launch_app(i);

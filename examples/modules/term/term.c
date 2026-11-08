@@ -1,4 +1,5 @@
 #include "gui_kit.h"
+#include <string.h>
 
 #define TERM_MAX_LINES 18
 #define TERM_LINE_LEN  80
@@ -7,6 +8,55 @@ static char g_term_lines[TERM_MAX_LINES][TERM_LINE_LEN];
 static int g_term_line_count = 0;
 static char g_term_input[72] = "";
 static int g_term_input_len = 0;
+
+/* Terminal History */
+#define TERM_HIST_MAX 16
+static char g_term_history[TERM_HIST_MAX][72];
+static int  g_term_hist_count = 0;
+static int  g_term_hist_browse = -1;
+
+static void term_hist_add(const char *cmd) {
+    if (!cmd || cmd[0] == '\0') return;
+    if (g_term_hist_count > 0 && strcmp(g_term_history[g_term_hist_count - 1], cmd) == 0) {
+        g_term_hist_browse = -1;
+        return;
+    }
+    if (g_term_hist_count < TERM_HIST_MAX) {
+        strncpy(g_term_history[g_term_hist_count++], cmd, sizeof(g_term_history[0]) - 1);
+    } else {
+        for (int i = 0; i < TERM_HIST_MAX - 1; ++i) {
+            strncpy(g_term_history[i], g_term_history[i + 1], sizeof(g_term_history[0]) - 1);
+        }
+        strncpy(g_term_history[TERM_HIST_MAX - 1], cmd, sizeof(g_term_history[0]) - 1);
+    }
+    g_term_hist_browse = -1;
+}
+
+static void term_hist_up(void) {
+    if (g_term_hist_count == 0) return;
+    if (g_term_hist_browse == -1) {
+        g_term_hist_browse = g_term_hist_count - 1;
+    } else if (g_term_hist_browse > 0) {
+        g_term_hist_browse--;
+    }
+    strncpy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input) - 1);
+    g_term_input[sizeof(g_term_input) - 1] = '\0';
+    g_term_input_len = (int)strlen(g_term_input);
+}
+
+static void term_hist_down(void) {
+    if (g_term_hist_browse == -1) return;
+    if (g_term_hist_browse + 1 < g_term_hist_count) {
+        g_term_hist_browse++;
+        strncpy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input) - 1);
+        g_term_input[sizeof(g_term_input) - 1] = '\0';
+        g_term_input_len = (int)strlen(g_term_input);
+    } else {
+        g_term_hist_browse = -1;
+        g_term_input[0] = '\0';
+        g_term_input_len = 0;
+    }
+}
 
 static void term_add_line(const char *str) {
     if (g_term_line_count < TERM_MAX_LINES) {
@@ -122,6 +172,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     break;
                 } else if (k == '\r' || k == '\n') {
                     if (g_term_input_len > 0) {
+                        term_hist_add(g_term_input);
                         char echo_line[96];
                         int ep = 0;
                         const char pfx[] = "msh> ";
@@ -144,6 +195,14 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         g_term_input[0] = '\0';
                         g_term_input_len = 0;
                     }
+                    render_term(wx, wy, ww, wh);
+                    gui_sync();
+                } else if (k == 0x80) { /* Up Arrow */
+                    term_hist_up();
+                    render_term(wx, wy, ww, wh);
+                    gui_sync();
+                } else if (k == 0x81) { /* Down Arrow */
+                    term_hist_down();
                     render_term(wx, wy, ww, wh);
                     gui_sync();
                 } else if (k == 8 || k == 127) { /* Backspace */
