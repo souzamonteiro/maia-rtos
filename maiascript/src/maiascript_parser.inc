@@ -112,7 +112,7 @@
 #define MAIACC_TOKEN_BLOCK_COMMENT 106
 #define MAIACC_TOKEN_WS 107
 #define MAIACC_TOKEN_COUNT 108
-#define MAIACC_RULE_COUNT 61
+#define MAIACC_RULE_COUNT 62
 
 static const char* maiaCCParserTokenName(unsigned int type) {
   switch (type) {
@@ -2935,6 +2935,7 @@ static int maiaCC_parse_Postfix(MaiaCCParserState* self);
 static int isTernaryQuestion(MaiaCCParserState* self);
 static int maiaCC_parse_PostfixTail(MaiaCCParserState* self);
 static int maiaCC_parse_ArgumentList(MaiaCCParserState* self);
+static int maiaCC_parse_Argument(MaiaCCParserState* self);
 static int maiaCC_parse_Primary(MaiaCCParserState* self);
 static int maiaCC_parse_Literal(MaiaCCParserState* self);
 
@@ -6091,12 +6092,12 @@ static int maiaCC_parse_ArgumentList(MaiaCCParserState* self) {
   if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ArgumentList");
-    if (!self->failed && !maiaCC_parse_Expression(self)) self->failed = 1;
+    if (!self->failed && !maiaCC_parse_Argument(self)) self->failed = 1;
     while (!self->failed) {
       const unsigned int _iterationStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__2C_);
-    if (!self->failed && !maiaCC_parse_Expression(self)) self->failed = 1;
+    if (!self->failed && !maiaCC_parse_Argument(self)) self->failed = 1;
       if (self->failed) {
         self->position = _iterationStart;
         maiaCC_restoreEvents(self, _eventMark);
@@ -6116,10 +6117,40 @@ static int maiaCC_parse_ArgumentList(MaiaCCParserState* self) {
   return 0;
 }
 
-static int maiaCC_parse_Primary(MaiaCCParserState* self) {
+static int maiaCC_parse_Argument(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)59 * ((size_t)self->tokenCount + 1) + __ruleStart;
+  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  const unsigned int __eventMark = maiaCC_checkpointEvents(self);
+  maiaCC_startNonterminal(self, "Argument");
+    if (!self->failed) {
+      const unsigned int _optionalStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_NAME);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__3A_);
+      if (self->failed) {
+        self->position = _optionalStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
+    if (!self->failed && !maiaCC_parse_Expression(self)) self->failed = 1;
+  if (!self->failed) {
+    maiaCC_endNonterminal(self, "Argument");
+    return 1;
+  }
+  self->position = __ruleStart;
+  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  maiaCC_restoreEvents(self, __eventMark);
+  maiaCC_abortNonterminal(self, "Argument");
+  return 0;
+}
+
+static int maiaCC_parse_Primary(MaiaCCParserState* self) {
+  if (self->failed) return 0;
+  const unsigned int __ruleStart = self->position;
+  const size_t __memoSlot = (size_t)60 * ((size_t)self->tokenCount + 1) + __ruleStart;
   if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Primary");
@@ -6244,7 +6275,7 @@ static int maiaCC_parse_Primary(MaiaCCParserState* self) {
 static int maiaCC_parse_Literal(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
-  const size_t __memoSlot = (size_t)60 * ((size_t)self->tokenCount + 1) + __ruleStart;
+  const size_t __memoSlot = (size_t)61 * ((size_t)self->tokenCount + 1) + __ruleStart;
   if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Literal");

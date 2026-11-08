@@ -150,7 +150,8 @@ enum class ASTKind {
     NewExpr,
     DeleteExpr,
     SizeofExpr,
-    TryExpr
+    TryExpr,
+    GlobalVarDecl
 };
 
 class ASTNode {
@@ -477,6 +478,17 @@ public:
     StructDecl(const std::string& n, const std::vector<FieldDecl>& f) : ASTNode(KIND), name(n), fields(f) {}
 };
 
+class GlobalVarDecl : public ASTNode {
+public:
+    static constexpr ASTKind KIND = ASTKind::GlobalVarDecl;
+    Type type;
+    std::string name;
+    std::shared_ptr<Expr> init;
+    bool isConst;
+    GlobalVarDecl(const Type& t, const std::string& n, const std::shared_ptr<Expr>& i, bool c = false)
+        : ASTNode(KIND), type(t), name(n), init(i), isConst(c) {}
+};
+
 class Program : public ASTNode {
 public:
     static constexpr ASTKind KIND = ASTKind::Program;
@@ -484,6 +496,16 @@ public:
     std::unordered_set<std::string> namespaces;
 
     Program() : ASTNode(KIND) {}
+
+    std::vector<std::shared_ptr<GlobalVarDecl>> getGlobals() const {
+        std::vector<std::shared_ptr<GlobalVarDecl>> globals;
+        for (const auto& d : decls) {
+            if (auto g = ast_cast<GlobalVarDecl>(d)) {
+                globals.push_back(g);
+            }
+        }
+        return globals;
+    }
 
     std::vector<std::shared_ptr<FunctionDecl>> getFunctions() const {
         std::vector<std::shared_ptr<FunctionDecl>> funcs;

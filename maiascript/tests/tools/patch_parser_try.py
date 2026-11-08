@@ -46,3 +46,4 @@ static int isTernaryQuestion(MaiaCCParserState* self) {
 
 if __name__ == '__main__':
     main()
+

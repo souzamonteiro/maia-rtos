@@ -112,7 +112,8 @@ PostfixTail ::= '(' ArgumentList? ')'
               | '++'
               | '--'
               | '?'
-ArgumentList ::= Expression (',' Expression)*
+ArgumentList ::= Argument (',' Argument)*
+Argument ::= (NAME ':')? Expression
 Primary ::= Literal
           | NAME
           | '(' Expression ')'

@@ -56,3 +56,4 @@ i32 main() {
 
     return sum; // 42
 }
+

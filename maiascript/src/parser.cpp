@@ -134,6 +134,20 @@ static Type convertType(const std::shared_ptr<CSTNode>& node) {
     return Type::fromString(raw);
 }
 
+static std::vector<std::shared_ptr<Expr>> extractArguments(const std::shared_ptr<CSTNode>& argList) {
+    std::vector<std::shared_ptr<Expr>> args;
+    if (!argList) return args;
+    for (const auto& ch : argList->children) {
+        if (ch->name == "Argument") {
+            auto e = ch->findFirst("Expression");
+            if (e) args.push_back(convertExpr(e));
+        } else if (ch->name == "Expression") {
+            args.push_back(convertExpr(ch));
+        }
+    }
+    return args;
+}
+
 static std::shared_ptr<Expr> convertPrimary(const std::shared_ptr<CSTNode>& node) {
     if (!node) return nullptr;
 
@@ -152,13 +166,7 @@ static std::shared_ptr<Expr> convertPrimary(const std::shared_ptr<CSTNode>& node
     if (hasNew) {
         auto qnameNode = node->findFirst("QualifiedName");
         std::string className = qnameNode ? collectAllTokens(qnameNode) : "";
-        std::vector<std::shared_ptr<Expr>> args;
-        auto argList = node->findFirst("ArgumentList");
-        if (argList) {
-            for (const auto& a : argList->findAll("Expression")) {
-                args.push_back(convertExpr(a));
-            }
-        }
+        auto args = extractArguments(node->findFirst("ArgumentList"));
         return std::make_shared<NewExpr>(className, args);
     }
 
@@ -258,13 +266,7 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
         }
 
         if (hasCall) {
-            std::vector<std::shared_ptr<Expr>> args;
-            auto argList = tail->findFirst("ArgumentList");
-            if (argList) {
-                for (const auto& a : argList->findAll("Expression")) {
-                    args.push_back(convertExpr(a));
-                }
-            }
+            auto args = extractArguments(tail->findFirst("ArgumentList"));
             if (auto mem = ast_cast<MemberExpr>(expr)) {
                 auto mcall = std::make_shared<MethodCallExpr>(mem->target, mem->member, args);
                 mcall->isArrow = mem->isArrow;
@@ -877,6 +879,28 @@ static void processTopLevel(const std::shared_ptr<CSTNode>& top,
     if (ext) {
         program->decls.push_back(convertExternDecl(ext));
     }
+    auto glob = top->findFirst("GlobalDecl");
+    if (glob) {
+        auto typeNode = glob->findFirst("Type");
+        Type t = typeNode ? convertType(typeNode) : Type(TypeKind::I32);
+        std::string varName;
+        for (const auto& tok : glob->children) {
+            if (tok->isToken() && tok->tokenVal != "const" && tok->tokenVal != "static" && tok->tokenVal != "=" && tok->tokenVal != ";") {
+                varName = tok->tokenVal;
+                break;
+            }
+        }
+        auto exprNode = glob->findFirst("Expression");
+        std::shared_ptr<Expr> init = exprNode ? convertExpr(exprNode) : nullptr;
+        bool isConst = false;
+        for (const auto& tok : glob->children) {
+            if (tok->isToken() && tok->tokenVal == "const") isConst = true;
+        }
+        if (!currentNamespace.empty()) {
+            varName = currentNamespace + "_" + varName;
+        }
+        program->decls.push_back(std::make_shared<GlobalVarDecl>(t, varName, init, isConst));
+    }
 }
 
 namespace fs = std::filesystem;
@@ -1137,9 +1161,9 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
     int res = maiaCC_parse(&parser);
     if (!res || parser.failed) {
         std::stringstream ss;
-        ss << "Syntax error at token index " << parser.position << "/" << lexer.tokenCount;
-        if (parser.position < lexer.tokenCount) {
-            ss << " (token: '" << std::string(tokens[parser.position].value, tokens[parser.position].length) << "')";
+        ss << "Syntax error at token index " << parser.position << " (errPos " << parser.errorPosition << "/" << lexer.tokenCount << ")";
+        if (parser.errorPosition < lexer.tokenCount) {
+            ss << " (err token: '" << std::string(tokens[parser.errorPosition].value, tokens[parser.errorPosition].length) << "')";
         }
         outError = ss.str();
         return nullptr;

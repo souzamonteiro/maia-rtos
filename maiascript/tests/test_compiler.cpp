@@ -36,7 +36,9 @@ int main() {
         {"19_include_modules", 86},
         {"20_defer_stmt", 42},
         {"21_result_try_operator", 42},
-        {"22_gui_app", 42}
+        {"22_gui_app", 42},
+        {"23_gui_layout_widgets", 42},
+        {"24_text_editor_fs", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -136,6 +138,55 @@ int main() {
         });
         emu.registerHostFunction("host_app_run", [](maiascript::EmulatorRV32&) -> int32_t {
             return s_app_exit_code;
+        });
+
+        static std::unordered_map<std::string, std::string> s_virtual_fs;
+        s_virtual_fs["/home/notes.txt"] = "Hello MaiaRTOS!";
+
+        emu.registerHostFunction("host_fs_exists", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t path_ptr = e.regs[10];
+            std::string path;
+            while (path_ptr < e.memory.size() && e.memory[path_ptr] != 0) path += (char)e.memory[path_ptr++];
+            return s_virtual_fs.count(path) ? 1 : 0;
+        });
+
+        emu.registerHostFunction("host_fs_read_text", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t path_ptr = e.regs[10];
+            std::string path;
+            while (path_ptr < e.memory.size() && e.memory[path_ptr] != 0) path += (char)e.memory[path_ptr++];
+            if (s_virtual_fs.count(path)) {
+                const std::string& content = s_virtual_fs[path];
+                uint32_t str_addr = s_test_heap;
+                for (char c : content) {
+                    if (s_test_heap < e.memory.size()) e.memory[s_test_heap++] = (uint8_t)c;
+                }
+                if (s_test_heap < e.memory.size()) e.memory[s_test_heap++] = 0;
+                s_test_heap = (s_test_heap + 7) & ~7;
+                return (int32_t)str_addr;
+            }
+            return 0;
+        });
+
+        emu.registerHostFunction("host_fs_write_text", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t path_ptr = e.regs[10];
+            uint32_t content_ptr = e.regs[11];
+            std::string path;
+            while (path_ptr < e.memory.size() && e.memory[path_ptr] != 0) path += (char)e.memory[path_ptr++];
+            std::string content;
+            while (content_ptr < e.memory.size() && e.memory[content_ptr] != 0) content += (char)e.memory[content_ptr++];
+            s_virtual_fs[path] = content;
+            return (int32_t)content.length();
+        });
+
+        emu.registerHostFunction("host_fs_remove", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t path_ptr = e.regs[10];
+            std::string path;
+            while (path_ptr < e.memory.size() && e.memory[path_ptr] != 0) path += (char)e.memory[path_ptr++];
+            if (s_virtual_fs.count(path)) {
+                s_virtual_fs.erase(path);
+                return 0;
+            }
+            return -1;
         });
         emu.registerHostFunction("printf", [](maiascript::EmulatorRV32& e) -> int32_t {
             uint32_t fmt_ptr = e.regs[10];
