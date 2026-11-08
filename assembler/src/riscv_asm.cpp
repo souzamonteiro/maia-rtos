@@ -468,6 +468,37 @@ int Assembler::parse_freg(const std::string &token) const {
     return parse_freg_name(trim(token).c_str());
 }
 
+static int parse_csr_name(const std::string& token) {
+    std::string s = to_lower(trim(token));
+    if (s == "cycle") return 0xc00;
+    if (s == "time") return 0xc01;
+    if (s == "instret") return 0xc02;
+    if (s == "cycleh") return 0xc80;
+    if (s == "timeh") return 0xc81;
+    if (s == "instreth") return 0xc82;
+    if (s == "mcycle") return 0xb00;
+    if (s == "mtime") return 0x701;
+    if (s == "minstret") return 0xb02;
+    if (s == "mcycleh") return 0xb80;
+    if (s == "minstreth") return 0xb82;
+    if (s == "mstatus") return 0x300;
+    if (s == "mie") return 0x304;
+    if (s == "mtvec") return 0x305;
+    if (s == "mepc") return 0x341;
+    if (s == "mcause") return 0x342;
+    if (s == "mtval") return 0x343;
+    if (s == "fcsr") return 0x003;
+    if (s == "fflags") return 0x001;
+    if (s == "frm") return 0x002;
+
+    char *endptr = NULL;
+    long val = strtol(s.c_str(), &endptr, 0);
+    if (endptr && *endptr == '\0' && val >= 0 && val <= 4095) {
+        return (int)val;
+    }
+    return -1;
+}
+
 /* Avaliador simples de expressões aritméticas com suporte a constantes e símbolos */
 bool Assembler::parse_expression(const std::string &expr_str, int32_t &result, int line) const {
     std::string s = trim(expr_str);
@@ -687,6 +718,74 @@ bool Assembler::assemble_instruction(const std::string &mnemonic,
         int rs = parse_reg(operands[1]);
         if (rd < 0 || rs < 0) { add_error(line, "Invalid registers in sgtz"); return false; }
         active_section().append_word(encode_R(0, rs, 0, 2, rd, 0x33));
+        return true;
+    }
+
+    /* rdcycle rd -> csrrs rd, 0xc00, x0 */
+    if (mnem == "rdcycle" && argc == 1) {
+        int rd = parse_reg(operands[0]);
+        if (rd < 0) { add_error(line, "Invalid register in rdcycle"); return false; }
+        active_section().append_word(0xc0002073 | ((rd & 0x1f) << 7));
+        return true;
+    }
+
+    /* rdcycleh rd -> csrrs rd, 0xc80, x0 */
+    if (mnem == "rdcycleh" && argc == 1) {
+        int rd = parse_reg(operands[0]);
+        if (rd < 0) { add_error(line, "Invalid register in rdcycleh"); return false; }
+        active_section().append_word(0xc8002073 | ((rd & 0x1f) << 7));
+        return true;
+    }
+
+    /* rdtime rd -> csrrs rd, 0xc01, x0 */
+    if (mnem == "rdtime" && argc == 1) {
+        int rd = parse_reg(operands[0]);
+        if (rd < 0) { add_error(line, "Invalid register in rdtime"); return false; }
+        active_section().append_word(0xc0102073 | ((rd & 0x1f) << 7));
+        return true;
+    }
+
+    /* rdinstret rd -> csrrs rd, 0xc02, x0 */
+    if (mnem == "rdinstret" && argc == 1) {
+        int rd = parse_reg(operands[0]);
+        if (rd < 0) { add_error(line, "Invalid register in rdinstret"); return false; }
+        active_section().append_word(0xc0202073 | ((rd & 0x1f) << 7));
+        return true;
+    }
+
+    /* csrr rd, csr -> csrrs rd, csr, x0 */
+    if (mnem == "csrr" && argc == 2) {
+        int rd = parse_reg(operands[0]);
+        int csr = parse_csr_name(operands[1]);
+        if (rd < 0 || csr < 0) { add_error(line, "Invalid operands in csrr"); return false; }
+        active_section().append_word(0x00002073 | ((csr & 0xfff) << 20) | ((rd & 0x1f) << 7));
+        return true;
+    }
+
+    /* csrw csr, rs -> csrrw x0, csr, rs */
+    if (mnem == "csrw" && argc == 2) {
+        int csr = parse_csr_name(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (csr < 0 || rs < 0) { add_error(line, "Invalid operands in csrw"); return false; }
+        active_section().append_word(0x00001073 | ((csr & 0xfff) << 20) | ((rs & 0x1f) << 15));
+        return true;
+    }
+
+    /* csrs csr, rs -> csrrs x0, csr, rs */
+    if (mnem == "csrs" && argc == 2) {
+        int csr = parse_csr_name(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (csr < 0 || rs < 0) { add_error(line, "Invalid operands in csrs"); return false; }
+        active_section().append_word(0x00002073 | ((csr & 0xfff) << 20) | ((rs & 0x1f) << 15));
+        return true;
+    }
+
+    /* csrc csr, rs -> csrrc x0, csr, rs */
+    if (mnem == "csrc" && argc == 2) {
+        int csr = parse_csr_name(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (csr < 0 || rs < 0) { add_error(line, "Invalid operands in csrc"); return false; }
+        active_section().append_word(0x00003073 | ((csr & 0xfff) << 20) | ((rs & 0x1f) << 15));
         return true;
     }
 
@@ -979,6 +1078,34 @@ bool Assembler::assemble_instruction(const std::string &mnemonic,
         case FMT_SYSTEM:
             active_section().append_word(desc->match);
             return true;
+
+        case FMT_CSR: {
+            if (argc != 3) { add_error(line, mnem + " requires 3 operands: rd, csr, rs1"); return false; }
+            int rd = parse_reg(operands[0]);
+            int csr = parse_csr_name(operands[1]);
+            int rs1 = parse_reg(operands[2]);
+            if (rd < 0 || csr < 0 || rs1 < 0) {
+                add_error(line, "Invalid operands in " + mnem);
+                return false;
+            }
+            uint32_t inst = desc->match | ((csr & 0xfff) << 20) | ((rs1 & 0x1f) << 15) | ((rd & 0x1f) << 7);
+            active_section().append_word(inst);
+            return true;
+        }
+
+        case FMT_CSRI: {
+            if (argc != 3) { add_error(line, mnem + " requires 3 operands: rd, csr, uimm"); return false; }
+            int rd = parse_reg(operands[0]);
+            int csr = parse_csr_name(operands[1]);
+            int32_t uimm = 0;
+            if (!parse_expression(operands[2], uimm, line) || uimm < 0 || uimm > 31) {
+                add_error(line, "Invalid immediate (0-31) in " + mnem);
+                return false;
+            }
+            uint32_t inst = desc->match | ((csr & 0xfff) << 20) | ((uimm & 0x1f) << 15) | ((rd & 0x1f) << 7);
+            active_section().append_word(inst);
+            return true;
+        }
 
         case FMT_ATOMIC: {
             /* amoadd.w[.aq][.rl] rd, rs2, (rs1) */

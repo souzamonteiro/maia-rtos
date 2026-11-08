@@ -59,6 +59,7 @@ private:
                   int depth = 0);
 
     void scanLocals(const std::shared_ptr<Stmt>& stmt, std::vector<std::pair<std::string, Type>>& locals);
+    std::string optimizeAssembly(const std::string& input);
 };
 
 } // namespace maiascript

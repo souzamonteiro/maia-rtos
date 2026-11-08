@@ -91,6 +91,20 @@ static uint32_t maia_host_millis(void) {
 #endif
 }
 
+static uint32_t maia_host_cycles(void) {
+#if defined(__riscv)
+    uint32_t c;
+    asm volatile("rdcycle %0" : "=r"(c));
+    return c;
+#elif defined(ESP_PLATFORM)
+    return (uint32_t)esp_timer_get_time();
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)(ts.tv_sec * 1000000000ULL + ts.tv_nsec);
+#endif
+}
+
 static int32_t maia_host_fill_rect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color) {
     if (s_active_host && s_active_host->display && s_active_host->display->fill_rect) {
         return s_active_host->display->fill_rect(x, y, w, h, color);
@@ -342,6 +356,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                             else if (strcmp(sname, "print_int") == 0) sym_val = (uintptr_t)maia_host_print_int;
                             else if (strcmp(sname, "delay_ms") == 0 || strcmp(sname, "sleep_ms") == 0) sym_val = (uintptr_t)maia_host_delay_ms;
                             else if (strcmp(sname, "millis") == 0) sym_val = (uintptr_t)maia_host_millis;
+                            else if (strcmp(sname, "cycles") == 0 || strcmp(sname, "rdcycle") == 0) sym_val = (uintptr_t)maia_host_cycles;
                             else if (strcmp(sname, "fill_rect") == 0) sym_val = (uintptr_t)maia_host_fill_rect;
                             else if (strcmp(sname, "display_sync") == 0) sym_val = (uintptr_t)maia_host_display_sync;
                             else if (strcmp(sname, "play_beep") == 0) sym_val = (uintptr_t)maia_host_play_beep;

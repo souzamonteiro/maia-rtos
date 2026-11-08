@@ -34,6 +34,8 @@ public:
         reset();
     }
 
+    uint64_t getCycleCount() const { return instructionCount; }
+
     void reset() {
         std::memset(regs, 0, sizeof(regs));
         std::memset(fregs, 0, sizeof(fregs));
@@ -328,6 +330,23 @@ public:
                         else if (funct3 == 1) regs[rd] = (f1 < f2) ? 1 : 0;
                         else if (funct3 == 0) regs[rd] = (f1 <= f2) ? 1 : 0;
                         break;
+                }
+                break;
+            }
+            case 0x73: { // SYSTEM / CSR (Zicsr)
+                uint32_t csr = (instr >> 20) & 0xfff;
+                uint32_t val = 0;
+                if (csr == 0xc00 || csr == 0xb00) { // cycle / mcycle
+                    val = (uint32_t)instructionCount;
+                } else if (csr == 0xc80 || csr == 0xb80) { // cycleh / mcycleh
+                    val = (uint32_t)(instructionCount >> 32);
+                } else if (csr == 0xc01 || csr == 0x701) { // time / mtime
+                    val = (uint32_t)(instructionCount / 1000);
+                } else if (csr == 0xc02 || csr == 0xb02) { // instret / minstret
+                    val = (uint32_t)instructionCount;
+                }
+                if (rd != 0) {
+                    regs[rd] = val;
                 }
                 break;
             }

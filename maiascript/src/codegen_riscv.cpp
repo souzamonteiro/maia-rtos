@@ -161,6 +161,99 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
         out << "\n";
     }
 
+    return optimizeAssembly(out.str());
+}
+
+std::string CodegenRISCV::optimizeAssembly(const std::string& input) {
+    std::vector<std::string> lines;
+    std::stringstream in(input);
+    std::string line;
+    while (std::getline(in, line)) {
+        lines.push_back(line);
+    }
+
+    auto trim_str = [](const std::string& s) -> std::string {
+        size_t b = s.find_first_not_of(" \t\r\n");
+        if (b == std::string::npos) return "";
+        size_t e = s.find_last_not_of(" \t\r\n");
+        return s.substr(b, e - b + 1);
+    };
+
+    bool changed = true;
+    int passes = 0;
+    while (changed && passes < 10) {
+        changed = false;
+        passes++;
+        std::vector<std::string> next_lines;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            std::string cur = lines[i];
+            std::string cur_t = trim_str(cur);
+
+            // 1. Remove NOP: addi r, r, 0 or mv r, r
+            if (cur_t.rfind("addi ", 0) == 0) {
+                std::string rest = cur_t.substr(5);
+                size_t c1 = rest.find(',');
+                size_t c2 = rest.rfind(',');
+                if (c1 != std::string::npos && c2 != std::string::npos && c1 < c2) {
+                    std::string r1 = trim_str(rest.substr(0, c1));
+                    std::string r2 = trim_str(rest.substr(c1 + 1, c2 - c1 - 1));
+                    std::string imm = trim_str(rest.substr(c2 + 1));
+                    if (r1 == r2 && imm == "0") {
+                        changed = true;
+                        continue;
+                    }
+                }
+            }
+            if (cur_t.rfind("mv ", 0) == 0) {
+                std::string rest = cur_t.substr(3);
+                size_t c = rest.find(',');
+                if (c != std::string::npos) {
+                    std::string r1 = trim_str(rest.substr(0, c));
+                    std::string r2 = trim_str(rest.substr(c + 1));
+                    if (r1 == r2) {
+                        changed = true;
+                        continue;
+                    }
+                }
+            }
+
+            // 2. Lookahead optimizations
+            if (i + 1 < lines.size()) {
+                std::string next = lines[i + 1];
+                std::string next_t = trim_str(next);
+
+                // 2a. sw r, off(sp) followed immediately by lw r, off(sp)
+                if (cur_t.rfind("sw ", 0) == 0 && next_t.rfind("lw ", 0) == 0) {
+                    std::string sw_rest = cur_t.substr(3);
+                    std::string lw_rest = next_t.substr(3);
+                    if (sw_rest == lw_rest) {
+                        next_lines.push_back(cur);
+                        i++; // skip lw
+                        changed = true;
+                        continue;
+                    }
+                }
+
+                // 2b. Jump to immediate next label: j .L or jal zero, .L followed by .L:
+                if (cur_t.rfind("jal zero, ", 0) == 0 || cur_t.rfind("j ", 0) == 0) {
+                    std::string tgt = (cur_t.rfind("jal zero, ", 0) == 0) ? cur_t.substr(10) : cur_t.substr(2);
+                    tgt = trim_str(tgt);
+                    if (next_t == tgt + ":") {
+                        changed = true;
+                        continue; // drop jump to next line
+                    }
+                }
+            }
+
+            next_lines.push_back(cur);
+        }
+        lines = next_lines;
+    }
+
+    std::stringstream out;
+    for (const auto& l : lines) {
+        out << l << "\n";
+    }
     return out.str();
 }
 
@@ -587,6 +680,77 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 out << "    xori " << targetReg << ", t2, 1\n";
             }
             return;
+        }
+
+        // 1. Constant Folding: Both operands are integer literals
+        auto litL = ast_cast<LiteralExpr>(bin->left);
+        auto litR = ast_cast<LiteralExpr>(bin->right);
+        if (litL && litR && litL->litKind == LiteralKind::Int && litR->litKind == LiteralKind::Int) {
+            int64_t l = litL->intVal;
+            int64_t r = litR->intVal;
+            int64_t res = 0;
+            const std::string& op = bin->op;
+            if (op == "+") res = l + r;
+            else if (op == "-") res = l - r;
+            else if (op == "*") res = l * r;
+            else if (op == "/" && r != 0) res = l / r;
+            else if (op == "%" && r != 0) res = l % r;
+            else if (op == "&") res = l & r;
+            else if (op == "|") res = l | r;
+            else if (op == "^") res = l ^ r;
+            else if (op == "<<") res = l << r;
+            else if (op == ">>") res = l >> r;
+            else if (op == "<") res = (l < r) ? 1 : 0;
+            else if (op == ">") res = (l > r) ? 1 : 0;
+            else if (op == "<=") res = (l <= r) ? 1 : 0;
+            else if (op == ">=") res = (l >= r) ? 1 : 0;
+            else if (op == "==") res = (l == r) ? 1 : 0;
+            else if (op == "!=") res = (l != r) ? 1 : 0;
+            if (res >= -2048 && res <= 2047) {
+                out << "    addi " << targetReg << ", zero, " << res << "\n";
+            } else {
+                out << "    li " << targetReg << ", " << res << "\n";
+            }
+            return;
+        }
+
+        // 2. Immediate Optimization: Right operand is integer literal
+        if (litR && litR->litKind == LiteralKind::Int) {
+            int64_t val = litR->intVal;
+            const std::string& op = bin->op;
+            if (op == "+" && val >= -2048 && val <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    addi " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == "-" && (-val) >= -2048 && (-val) <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    addi " << targetReg << ", " << targetReg << ", " << (-val) << "\n";
+                return;
+            } else if (op == "<<" && val >= 0 && val <= 31) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    slli " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == ">>" && val >= 0 && val <= 31) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    srai " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == "&" && val >= -2048 && val <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    andi " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == "|" && val >= -2048 && val <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    ori " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == "^" && val >= -2048 && val <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    xori " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            } else if (op == "<" && val >= -2048 && val <= 2047) {
+                emitExpr(bin->left, targetReg, out, varOffsets, depth);
+                out << "    slti " << targetReg << ", " << targetReg << ", " << val << "\n";
+                return;
+            }
         }
 
         int scratchOffset = depth * 4;

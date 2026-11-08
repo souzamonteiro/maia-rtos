@@ -27,7 +27,8 @@ int main() {
         {"10_struct", 42},
         {"11_arrays", 150},
         {"12_float", 42},
-        {"13_extern", 100}
+        {"13_extern", 100},
+        {"14_profiling", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -95,6 +96,9 @@ int main() {
             int32_t a = (int32_t)e.regs[10];
             int32_t b = (int32_t)e.regs[11];
             return a * b;
+        });
+        emu.registerHostFunction("cycles", [](maiascript::EmulatorRV32& e) -> int32_t {
+            return (int32_t)e.getCycleCount();
         });
 
         // Patch external calls from relocations
