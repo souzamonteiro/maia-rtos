@@ -19,6 +19,11 @@ all: bin/maiasc bin/test_compiler
 
 parser: $(GRAMMAR_EBNF)
 	bash $(TREX_SH) --ebnf --language cpp98 $< $(PARSER_INC)
+	@echo "==> Running full regression test suite after grammar update..."
+	$(MAKE) test
+
+src/parser.o: src/parser.cpp $(PARSER_INC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 ../lib/maiaregex/maia_regex.o: $(REGEX_SRC)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
