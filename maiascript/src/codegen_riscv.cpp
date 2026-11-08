@@ -27,6 +27,7 @@ int CodegenRISCV::getTypeSize(const Type& t) {
         return t.isArray() ? 4 * t.arraySize : 4;
     }
     if (t.kind == TypeKind::String) return 4;
+    if (t.kind == TypeKind::Result || t.kind == TypeKind::Option) return 4;
     uint32_t sz = t.size();
     return sz > 0 ? (int)sz : 4;
 }
@@ -108,6 +109,17 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         }
     }
     if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        if (mcall->method == "value") {
+            if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+                auto vtIt = currentVarTypes.find(targetVar->name);
+                if (vtIt != currentVarTypes.end()) {
+                    if (vtIt->second.name.find("<f32") != std::string::npos ||
+                        vtIt->second.name.find("<f64") != std::string::npos) {
+                        return true;
+                    }
+                }
+            }
+        }
         if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
             if (namespaces.count(targetVar->name)) {
                 auto fit = functionReturnTypes.find(targetVar->name + "_" + mcall->method);
@@ -1389,6 +1401,56 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             }
         }
     } else if (auto call = ast_cast<CallExpr>(expr)) {
+        if (call->callee == "Ok") {
+            if (!call->args.empty()) {
+                int argSlot = (depth + 1) * 4;
+                if (isFloatExpr(call->args[0])) {
+                    emitExpr(call->args[0], "ft0", out, varOffsets, depth + 1);
+                    out << "    fsw ft0, " << argSlot << "(sp)\n";
+                } else {
+                    emitExpr(call->args[0], "t0", out, varOffsets, depth + 1);
+                    out << "    sw t0, " << argSlot << "(sp)\n";
+                }
+            }
+            out << "    li a0, 12\n";
+            out << "    call malloc\n";
+            out << "    sw zero, 0(a0)\n";
+            if (!call->args.empty()) {
+                int argSlot = (depth + 1) * 4;
+                out << "    lw t1, " << argSlot << "(sp)\n";
+                out << "    sw t1, 4(a0)\n";
+            } else {
+                out << "    sw zero, 4(a0)\n";
+            }
+            out << "    sw zero, 8(a0)\n";
+            if (targetReg != "a0") {
+                out << "    addi " << targetReg << ", a0, 0\n";
+            }
+            return;
+        } else if (call->callee == "Err") {
+            if (!call->args.empty()) {
+                int argSlot = (depth + 1) * 4;
+                emitExpr(call->args[0], "t0", out, varOffsets, depth + 1);
+                out << "    sw t0, " << argSlot << "(sp)\n";
+            }
+            out << "    li a0, 12\n";
+            out << "    call malloc\n";
+            out << "    li t1, 1\n";
+            out << "    sw t1, 0(a0)\n";
+            out << "    sw zero, 4(a0)\n";
+            if (!call->args.empty()) {
+                int argSlot = (depth + 1) * 4;
+                out << "    lw t1, " << argSlot << "(sp)\n";
+                out << "    sw t1, 8(a0)\n";
+            } else {
+                out << "    sw zero, 8(a0)\n";
+            }
+            if (targetReg != "a0") {
+                out << "    addi " << targetReg << ", a0, 0\n";
+            }
+            return;
+        }
+
         int intArgIdx = 0;
         int floatArgIdx = 0;
         for (size_t i = 0; i < call->args.size() && i < 8; ++i) {
@@ -1429,6 +1491,26 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             }
         }
     } else if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        if (mcall->method == "isError" || mcall->method == "isOk" ||
+            mcall->method == "value" || mcall->method == "error") {
+            emitExpr(mcall->object, "t0", out, varOffsets, depth);
+            if (mcall->method == "isError") {
+                out << "    lw " << targetReg << ", 0(t0)\n";
+            } else if (mcall->method == "isOk") {
+                out << "    lw t1, 0(t0)\n";
+                out << "    seqz " << targetReg << ", t1\n";
+            } else if (mcall->method == "value") {
+                if (targetReg[0] == 'f') {
+                    out << "    flw " << targetReg << ", 4(t0)\n";
+                } else {
+                    out << "    lw " << targetReg << ", 4(t0)\n";
+                }
+            } else if (mcall->method == "error") {
+                out << "    lw " << targetReg << ", 8(t0)\n";
+            }
+            return;
+        }
+
         // Check if object is a namespace
         if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
             if (namespaces.count(targetVar->name)) {
@@ -1629,6 +1711,33 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
 
         // 8. Result is the allocated pointer (saved in ptrSlot)
         out << "    lw " << targetReg << ", " << ptrSlot << "(sp)\n";
+    } else if (auto tryExp = ast_cast<TryExpr>(expr)) {
+        // Evaluate the inner expression (produces a Result*) into t0
+        emitExpr(tryExp->expr, "t0", out, varOffsets, depth);
+        // Result layout:
+        // offset 0: is_err (i32)
+        // offset 4: val (i32)
+        // offset 8: err (i32)
+        std::string lblOk = newLabel("try_ok");
+        out << "    lw t1, 0(t0)\n";
+        out << "    beq t1, zero, " << lblOk << "\n";
+        // It's an error: propagate Result* by loading into a0, run defers, and return immediately!
+        out << "    addi a0, t0, 0\n";
+        if (!currentDefers.empty()) {
+            out << "    sw a0, 0(sp)\n";
+            for (auto it = currentDefers.rbegin(); it != currentDefers.rend(); ++it) {
+                emitStmt(*it, out, varOffsets);
+            }
+            out << "    lw a0, 0(sp)\n";
+        }
+        out << "    jal zero, .Lret_" << currentFunc << "\n";
+        out << lblOk << ":\n";
+        // Success: extract the unwrapped value from 4(t0) into targetReg
+        if (targetReg[0] == 'f') {
+            out << "    flw " << targetReg << ", 4(t0)\n";
+        } else {
+            out << "    lw " << targetReg << ", 4(t0)\n";
+        }
     }
 }
 

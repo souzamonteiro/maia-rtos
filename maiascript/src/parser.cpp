@@ -233,6 +233,7 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
         bool hasInc = false;
         bool hasDec = false;
         bool hasIndex = false;
+        bool hasTry = false;
         std::string memberName;
 
         for (size_t i = 0; i < tail->children.size(); ++i) {
@@ -240,6 +241,7 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
             if (ch->isToken()) {
                 if (ch->tokenVal == "(") hasCall = true;
                 else if (ch->tokenVal == "[") hasIndex = true;
+                else if (ch->tokenVal == "?") hasTry = true;
                 else if (ch->tokenVal == "->") {
                     hasArrow = true;
                     if (i + 1 < tail->children.size() && tail->children[i + 1]->isToken()) {
@@ -285,6 +287,8 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
             expr = std::make_shared<UnaryExpr>("++", expr, false);
         } else if (hasDec) {
             expr = std::make_shared<UnaryExpr>("--", expr, false);
+        } else if (hasTry) {
+            expr = std::make_shared<TryExpr>(expr);
         }
     }
     return expr;

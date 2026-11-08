@@ -2932,6 +2932,7 @@ static int maiaCC_parse_Additive(MaiaCCParserState* self);
 static int maiaCC_parse_Multiplicative(MaiaCCParserState* self);
 static int maiaCC_parse_Unary(MaiaCCParserState* self);
 static int maiaCC_parse_Postfix(MaiaCCParserState* self);
+static int isTernaryQuestion(MaiaCCParserState* self);
 static int maiaCC_parse_PostfixTail(MaiaCCParserState* self);
 static int maiaCC_parse_ArgumentList(MaiaCCParserState* self);
 static int maiaCC_parse_Primary(MaiaCCParserState* self);
@@ -2954,6 +2955,25 @@ static int maiaCC_parse(MaiaCCParserState* self) {
   free(self->failureMemo);
   self->failureMemo = 0;
   return accepted;
+}
+
+
+static int isTernaryQuestion(MaiaCCParserState* self) {
+    if (self->position >= self->tokenCount) return 0;
+    if (self->tokens[self->position].type != MAIACC_TOKEN_TOKEN__3F_) return 0;
+    int depth = 0;
+    for (unsigned int i = self->position + 1; i < self->tokenCount; ++i) {
+        unsigned int t = self->tokens[i].type;
+        if (t == MAIACC_TOKEN_TOKEN__28_ || t == MAIACC_TOKEN_TOKEN__7B_ || t == MAIACC_TOKEN_TOKEN__5B_) depth++;
+        else if (t == MAIACC_TOKEN_TOKEN__29_ || t == MAIACC_TOKEN_TOKEN__7D_ || t == MAIACC_TOKEN_TOKEN__5D_) {
+            if (depth == 0) break;
+            depth--;
+        } else if (depth == 0) {
+            if (t == MAIACC_TOKEN_TOKEN__3A_) return 1;
+            if (t == MAIACC_TOKEN_TOKEN__3B_ || t == MAIACC_TOKEN_TOKEN__2C_ || t == MAIACC_TOKEN_EOF) break;
+        }
+    }
+    return 0;
 }
 
 static int maiaCC_parse_Program(MaiaCCParserState* self) {
@@ -4074,7 +4094,7 @@ static int maiaCC_parse_TypeSuffix(MaiaCCParserState* self) {
         self->failed = 0;
       }
     }
-    if (!_matched && !self->failed) {
+    if (!_matched && !self->failed && !isTernaryQuestion(self)) {
       const unsigned int _alternativeStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__3F_);
@@ -6032,6 +6052,18 @@ static int maiaCC_parse_PostfixTail(MaiaCCParserState* self) {
       const unsigned int _alternativeStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__2D__2D_);
+      if (!self->failed) {
+        _matched = 1;
+      } else {
+        self->position = _alternativeStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
+    if (!_matched && !self->failed && !isTernaryQuestion(self)) {
+      const unsigned int _alternativeStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__3F_);
       if (!self->failed) {
         _matched = 1;
       } else {

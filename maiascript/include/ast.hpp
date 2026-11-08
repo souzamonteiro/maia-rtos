@@ -24,6 +24,8 @@ enum class TypeKind {
     F32,
     F64,
     String,
+    Result,
+    Option,
     Custom
 };
 
@@ -66,6 +68,8 @@ struct Type {
             case TypeKind::I64:
             case TypeKind::U64:
             case TypeKind::F64: baseSz = 8; break;
+            case TypeKind::Result: baseSz = 12; break;
+            case TypeKind::Option: baseSz = 8; break;
             default: baseSz = 4; break;
         }
         if (arraySize > 0) return baseSz * arraySize;
@@ -107,6 +111,8 @@ struct Type {
         if (s == "f32") return Type(TypeKind::F32, s, ptr, arr);
         if (s == "f64") return Type(TypeKind::F64, s, ptr, arr);
         if (s == "string") return Type(TypeKind::String, s, ptr, arr);
+        if (s.rfind("Result", 0) == 0) return Type(TypeKind::Result, s, ptr, arr);
+        if (s.rfind("Option", 0) == 0) return Type(TypeKind::Option, s, ptr, arr);
         return Type(TypeKind::Custom, s, ptr, arr);
     }
 };
@@ -139,7 +145,8 @@ enum class ASTKind {
     IndexExpr,
     NewExpr,
     DeleteExpr,
-    SizeofExpr
+    SizeofExpr,
+    TryExpr
 };
 
 class ASTNode {
@@ -293,6 +300,14 @@ public:
 
     SizeofExpr(const Type& t)
         : Expr(KIND), targetType(t) {}
+};
+
+class TryExpr : public Expr {
+public:
+    static constexpr ASTKind KIND = ASTKind::TryExpr;
+    std::shared_ptr<Expr> expr;
+    TryExpr(std::shared_ptr<Expr> e)
+        : Expr(KIND), expr(e) {}
 };
 
 class Stmt : public ASTNode {

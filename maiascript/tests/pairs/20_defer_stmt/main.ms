@@ -30,3 +30,4 @@ i32 main() {
     printf("Test 20 defer executed: compute=%d\n", res);
     return res - 63;
 }
+

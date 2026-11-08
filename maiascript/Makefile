@@ -19,6 +19,7 @@ all: bin/maiasc bin/test_compiler
 
 parser: $(GRAMMAR_EBNF)
 	bash $(TREX_SH) --ebnf --language cpp98 $< $(PARSER_INC)
+	@python3 tests/tools/patch_parser_try.py $(PARSER_INC)
 	@echo "==> Running full regression test suite after grammar update..."
 	$(MAKE) test
 
