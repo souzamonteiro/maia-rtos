@@ -18,6 +18,7 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 #include <freertos/idf_additions.h>
+#include "maia/exec/elf_loader.h"
 #endif
 
 #if defined(ESP_PLATFORM)
@@ -1217,6 +1218,8 @@ public:
         else if (strcmp(cmd, "maiasc") == 0) ret = cmd_maiasc(argc, argv);
         else if (strcmp(cmd, "maiaasm") == 0 || strcmp(cmd, "asm") == 0) ret = cmd_maiaasm(argc, argv);
         else if (strcmp(cmd, "disasm") == 0 || strcmp(cmd, "objdump") == 0) ret = cmd_disasm(argc, argv);
+        else if (strcmp(cmd, "symbols") == 0 || strcmp(cmd, "syms") == 0) ret = cmd_symbols(argc, argv);
+        else if (strcmp(cmd, "gdb") == 0)     ret = cmd_gdb(argc, argv);
         else if (strcmp(cmd, "modinfo") == 0 || strcmp(cmd, "mnminfo") == 0) ret = cmd_modinfo(argc, argv);
         else if (strcmp(cmd, "ps") == 0)     ret = cmd_ps(argc, argv);
         else if (strcmp(cmd, "mem") == 0)    ret = cmd_mem(argc, argv);
@@ -1904,7 +1907,9 @@ private:
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
         println("  maiasc <f.ms> [-o out.mobj] [--run] - Compile MaiaScript to native RISC-V ELF");
         println("  maiaasm <f.s> [-o out.mobj]         - Assemble RISC-V assembly into ELF module");
-        println("  disasm <f.mobj|f.bin>               - Disassemble native machine instructions");
+        println("  disasm <f.mobj|0xADDR> [N] - Disassemble machine instructions from file or memory");
+        println("  symbols           - List registered dynamic host symbols and runtime addresses");
+        println("  gdb               - Activate GDB Stub for remote debugging via USB-Serial-JTAG");
         println("  modinfo <file.mobj> - Inspect module, SHA-256 and manifest integrity");
         println("  ls [dir]          - List files & directories in storage/SD-card");
         println("  cd <dir>          - Change current working directory");
@@ -2894,8 +2899,28 @@ private:
 
     int cmd_disasm(int argc, char **argv) {
         if (argc < 2) {
-            println("Usage: disasm <file.mobj|file.bin>");
+            println("Usage: disasm <file.mobj|file.bin|0xADDRESS> [count]");
             return 1;
+        }
+
+        // Live memory disassembly mode
+        if (strncmp(argv[1], "0x", 2) == 0 || strncmp(argv[1], "0X", 2) == 0) {
+            uintptr_t addr = (uintptr_t)strtoul(argv[1], nullptr, 16);
+            int count = (argc >= 3) ? atoi(argv[2]) : 16;
+            if (count <= 0 || count > 128) count = 16;
+            char hdr[96];
+            snprintf(hdr, sizeof(hdr), "; Disassembly of memory at 0x%08lx (%d instructions):\n", (unsigned long)addr, count);
+            print(hdr);
+            maia::riscv::Disassembler dis;
+            dis.set_show_hex(true);
+            for (int i = 0; i < count; ++i) {
+                uintptr_t cur = addr + (i * 4);
+                uint32_t w = *(const volatile uint32_t *)cur;
+                auto res = dis.disassemble(w, (uint32_t)cur);
+                print(res.full_text.c_str());
+                print("\n");
+            }
+            return 0;
         }
 
         char resolved[128];
@@ -2975,6 +3000,38 @@ private:
             print(res.full_text.c_str());
             print("\n");
         }
+        return 0;
+    }
+
+    int cmd_symbols(int argc, char **argv) {
+        (void)argc; (void)argv;
+        println("=== Registered Host Dynamic Symbols ===");
+        const char *names[64] = {0};
+        uintptr_t addrs[64] = {0};
+        int count = mnm_get_registered_symbols(names, addrs, 64);
+        for (int i = 0; i < count; ++i) {
+            char line[128];
+            snprintf(line, sizeof(line), "  [%2d] 0x%08lx  %s", i + 1, (unsigned long)addrs[i], names[i]);
+            println(line);
+        }
+        char sum[64];
+        snprintf(sum, sizeof(sum), "Total: %d dynamic symbol(s) available.", count);
+        println(sum);
+        return 0;
+    }
+
+    int cmd_gdb(int argc, char **argv) {
+        (void)argc; (void)argv;
+        println("=== MaiaRTOS GDB Stub Activator ===");
+        println("Hardware target: ESP32-P4 (RV32IMAFC) on /dev/cu.usbmodem1301");
+        println("Host command to attach GDB:");
+        println("  riscv32-esp-elf-gdb build/m5stack_tab5.elf -ex \"target remote /dev/cu.usbmodem1301\"");
+        println("To load symbols of an active module:");
+        println("  (gdb) add-symbol-file /sd/<app>.mobj <text_address>");
+        println("Entering GDB Stub via software breakpoint (ebreak)...");
+#if defined(__riscv)
+        asm volatile("ebreak");
+#endif
         return 0;
     }
 

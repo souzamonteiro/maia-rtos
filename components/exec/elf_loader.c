@@ -47,6 +47,15 @@ int mnm_register_symbol(const char *name, uintptr_t address) {
     return 0;
 }
 
+int mnm_get_registered_symbols(const char **names, uintptr_t *addrs, int max) {
+    int count = s_dyn_sym_count < max ? s_dyn_sym_count : max;
+    for (int i = 0; i < count; ++i) {
+        if (names) names[i] = s_dyn_syms[i].name;
+        if (addrs) addrs[i] = s_dyn_syms[i].addr;
+    }
+    return count;
+}
+
 static const maia_host_api_v1 *s_active_host = NULL;
 
 static void maia_host_print(const char *s) {
@@ -542,6 +551,9 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
         char msg[128];
         snprintf(msg, sizeof(msg), "Loader: Executing maia_module_main at %p...", (void *)entry_point);
         log_fn(msg);
+        char gdb_msg[160];
+        snprintf(gdb_msg, sizeof(gdb_msg), "GDB: add-symbol-file <module.mobj> 0x%lx", (unsigned long)sec_addrs[text_sec_idx]);
+        log_fn(gdb_msg);
     }
 
 #if defined(__riscv)

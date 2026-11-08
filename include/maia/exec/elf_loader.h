@@ -44,6 +44,16 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
  */
 int mnm_register_symbol(const char *name, uintptr_t address);
 
+/**
+ * @brief Retrieve list of registered dynamic symbols for debugging/introspection.
+ *
+ * @param names Out array receiving symbol name pointers.
+ * @param addrs Out array receiving symbol addresses.
+ * @param max Maximum number of symbols to retrieve.
+ * @return Number of symbols copied.
+ */
+int mnm_get_registered_symbols(const char **names, uintptr_t *addrs, int max);
+
 #ifdef __cplusplus
 }
 #endif
