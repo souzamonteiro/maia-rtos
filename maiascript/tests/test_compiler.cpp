@@ -28,7 +28,8 @@ int main() {
         {"11_arrays", 150},
         {"12_float", 42},
         {"13_extern", 100},
-        {"14_profiling", 42}
+        {"14_profiling", 42},
+        {"15_classes", 2}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";

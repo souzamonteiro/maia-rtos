@@ -222,11 +222,17 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
                     args.push_back(convertExpr(a));
                 }
             }
-            std::string calleeName;
-            if (auto v = ast_cast<VarExpr>(expr)) {
-                calleeName = v->name;
+            if (auto mem = ast_cast<MemberExpr>(expr)) {
+                auto mcall = std::make_shared<MethodCallExpr>(mem->target, mem->member, args);
+                mcall->isArrow = mem->isArrow;
+                expr = mcall;
+            } else {
+                std::string calleeName;
+                if (auto v = ast_cast<VarExpr>(expr)) {
+                    calleeName = v->name;
+                }
+                expr = std::make_shared<CallExpr>(calleeName, args);
             }
-            expr = std::make_shared<CallExpr>(calleeName, args);
         } else if (hasIndex) {
             auto idxNode = tail->findFirst("Expression");
             if (idxNode) {
@@ -576,11 +582,132 @@ static std::shared_ptr<StructDecl> convertStructDecl(const std::shared_ptr<CSTNo
         for (const auto& tok : fNode->children) {
             if (tok->isToken() && tok->tokenVal != ";" && tok->tokenVal != "=" && tok->tokenVal != ft.name) {
                 fName = tok->tokenVal;
+                break;
             }
         }
-        fields.emplace_back(ft, fName);
+        std::shared_ptr<Expr> dInit = nullptr;
+        auto exprNode = fNode->findFirst("Expression");
+        if (exprNode) {
+            dInit = convertExpr(exprNode);
+        }
+        fields.emplace_back(ft, fName, dInit);
     }
     return std::make_shared<StructDecl>(name, fields);
+}
+
+static std::shared_ptr<ClassDecl> convertClassDecl(const std::shared_ptr<CSTNode>& node) {
+    if (!node) return nullptr;
+    std::string name;
+    for (const auto& ch : node->children) {
+        if (ch->isToken() && ch->tokenVal != "class" && ch->tokenVal != "{" && ch->tokenVal != "}" && ch->tokenVal != ";") {
+            name = ch->tokenVal;
+            break;
+        }
+    }
+
+    std::vector<FieldDecl> fields;
+    std::vector<Visibility> fieldVisibilities;
+    std::vector<std::shared_ptr<MethodDecl>> methods;
+
+    for (const auto& mNode : node->findAll("ClassMember")) {
+        Visibility vis = Visibility::Public;
+        auto visNode = mNode->findFirst("Visibility");
+        if (visNode) {
+            for (const auto& ch : visNode->children) {
+                if (ch->isToken()) {
+                    if (ch->tokenVal == "private") vis = Visibility::Private;
+                    else if (ch->tokenVal == "protected") vis = Visibility::Protected;
+                    else if (ch->tokenVal == "public") vis = Visibility::Public;
+                    break;
+                }
+            }
+        }
+
+        auto fNode = mNode->findFirst("FieldDecl");
+        if (fNode) {
+            auto typeNode = fNode->findFirst("Type");
+            Type ft = typeNode ? convertType(typeNode) : Type(TypeKind::I32);
+            std::string fName;
+            for (const auto& tok : fNode->children) {
+                if (tok->isToken() && tok->tokenVal != ";" && tok->tokenVal != "=" && tok->tokenVal != ft.name) {
+                    fName = tok->tokenVal;
+                    break;
+                }
+            }
+            std::shared_ptr<Expr> dInit = nullptr;
+            auto exprNode = fNode->findFirst("Expression");
+            if (exprNode) {
+                dInit = convertExpr(exprNode);
+            }
+            fields.emplace_back(ft, fName, dInit);
+            fieldVisibilities.push_back(vis);
+        }
+
+        auto methodNode = mNode->findFirst("MethodDecl");
+        if (methodNode) {
+            auto typeNode = methodNode->findFirst("Type");
+            Type retType = typeNode ? convertType(typeNode) : Type(TypeKind::Void);
+            std::string mName;
+            bool isConst = false;
+            for (const auto& ch : methodNode->children) {
+                if (ch->isToken()) {
+                    if (ch->tokenVal == "const") isConst = true;
+                    else if (ch->tokenVal != "(" && ch->tokenVal != ")" && mName.empty() && ch->tokenVal != retType.name) {
+                        mName = ch->tokenVal;
+                    }
+                }
+            }
+            std::vector<ParamDecl> params;
+            auto pList = methodNode->findFirst("ParameterList");
+            if (pList) {
+                for (const auto& pNode : pList->findAll("Parameter")) {
+                    auto pTypeNode = pNode->findFirst("Type");
+                    Type pt = pTypeNode ? convertType(pTypeNode) : Type(TypeKind::I32);
+                    std::string pName;
+                    for (const auto& tok : pNode->children) {
+                        if (tok->isToken()) {
+                            pName = tok->tokenVal;
+                            break;
+                        }
+                    }
+                    params.emplace_back(pt, pName);
+                }
+            }
+            auto body = convertBlock(methodNode->findFirst("Block"));
+            methods.push_back(std::make_shared<MethodDecl>(vis, retType, mName, params, body, isConst, false));
+        }
+
+        auto ctorNode = mNode->findFirst("ConstructorDecl");
+        if (ctorNode) {
+            std::string ctorName;
+            for (const auto& ch : ctorNode->children) {
+                if (ch->isToken() && ch->tokenVal != "(" && ch->tokenVal != ")") {
+                    ctorName = ch->tokenVal;
+                    break;
+                }
+            }
+            std::vector<ParamDecl> params;
+            auto pList = ctorNode->findFirst("ParameterList");
+            if (pList) {
+                for (const auto& pNode : pList->findAll("Parameter")) {
+                    auto pTypeNode = pNode->findFirst("Type");
+                    Type pt = pTypeNode ? convertType(pTypeNode) : Type(TypeKind::I32);
+                    std::string pName;
+                    for (const auto& tok : pNode->children) {
+                        if (tok->isToken()) {
+                            pName = tok->tokenVal;
+                            break;
+                        }
+                    }
+                    params.emplace_back(pt, pName);
+                }
+            }
+            auto body = convertBlock(ctorNode->findFirst("Block"));
+            methods.push_back(std::make_shared<MethodDecl>(vis, Type(TypeKind::Void), ctorName, params, body, false, true));
+        }
+    }
+
+    return std::make_shared<ClassDecl>(name, fields, fieldVisibilities, methods);
 }
 
 static std::shared_ptr<FunctionDecl> convertFunctionDecl(const std::shared_ptr<CSTNode>& node) {
@@ -699,6 +826,10 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
         auto st = top->findFirst("StructDecl");
         if (st) {
             program->decls.push_back(convertStructDecl(st));
+        }
+        auto cl = top->findFirst("ClassDecl");
+        if (cl) {
+            program->decls.push_back(convertClassDecl(cl));
         }
         auto fn = top->findFirst("FunctionDecl");
         if (fn) {

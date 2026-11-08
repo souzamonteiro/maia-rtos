@@ -37,10 +37,12 @@ private:
     int labelCounter;
     int currentFrameSize;
     std::string currentFunc;
+    std::string currentClass;
 
     std::vector<std::string> stringLiterals;
     std::unordered_map<std::string, std::string> stringLabels;
     std::unordered_map<std::string, StructInfo> structs;
+    std::unordered_map<std::string, std::shared_ptr<ClassDecl>> classes;
     std::unordered_map<std::string, Type> currentVarTypes;
     std::unordered_map<std::string, Type> functionReturnTypes;
     Type currentFuncReturnType;
@@ -52,6 +54,7 @@ private:
 
     std::string newLabel(const std::string& prefix = "L");
     void emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::stringstream& out);
+    void emitMethod(const std::shared_ptr<ClassDecl>& c, const std::shared_ptr<MethodDecl>& m, std::stringstream& out);
     void emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream& out,
                   std::unordered_map<std::string, int>& varOffsets);
     void emitExpr(const std::shared_ptr<Expr>& expr, const std::string& targetReg,

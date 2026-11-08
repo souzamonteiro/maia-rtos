@@ -62,6 +62,35 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         if (it != currentVarTypes.end()) {
             return it->second.isFloat();
         }
+        if (!currentClass.empty()) {
+            auto sit = structs.find(currentClass);
+            if (sit != structs.end()) {
+                auto fit = sit->second.fields.find(v->name);
+                if (fit != sit->second.fields.end()) {
+                    return fit->second.type.isFloat();
+                }
+            }
+        }
+    }
+    if (auto mem = ast_cast<MemberExpr>(expr)) {
+        if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
+            std::string tName;
+            if (targetVar->name == "this") {
+                tName = currentClass;
+            } else {
+                auto vtIt = currentVarTypes.find(targetVar->name);
+                if (vtIt != currentVarTypes.end()) tName = vtIt->second.name;
+            }
+            if (!tName.empty()) {
+                auto sit = structs.find(tName);
+                if (sit != structs.end()) {
+                    auto fit = sit->second.fields.find(mem->member);
+                    if (fit != sit->second.fields.end()) {
+                        return fit->second.type.isFloat();
+                    }
+                }
+            }
+        }
     }
     if (auto bin = ast_cast<BinaryExpr>(expr)) {
         if (bin->op == "<" || bin->op == ">" || bin->op == "<=" || bin->op == ">=" || bin->op == "==" || bin->op == "!=") {
@@ -76,6 +105,23 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         auto fit = functionReturnTypes.find(call->callee);
         if (fit != functionReturnTypes.end()) {
             return fit->second.isFloat();
+        }
+    }
+    if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        std::string cName;
+        if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+            if (targetVar->name == "this") {
+                cName = currentClass;
+            } else {
+                auto vtIt = currentVarTypes.find(targetVar->name);
+                if (vtIt != currentVarTypes.end()) cName = vtIt->second.name;
+            }
+        }
+        if (!cName.empty()) {
+            auto fit = functionReturnTypes.find(cName + "_" + mcall->method);
+            if (fit != functionReturnTypes.end()) {
+                return fit->second.isFloat();
+            }
         }
     }
     return false;
@@ -116,6 +162,8 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
     stringLiterals.clear();
     stringLabels.clear();
     structs.clear();
+    classes.clear();
+    currentClass.clear();
     functionReturnTypes.clear();
 
     // 1. Pre-scan struct definitions
@@ -135,6 +183,35 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
         structs[s->name] = sinfo;
     }
 
+    // 1b. Pre-scan class definitions
+    for (const auto& c : program->getClasses()) {
+        classes[c->name] = c;
+        StructInfo sinfo;
+        sinfo.name = c->name;
+        int offset = 0;
+        for (const auto& f : c->fields) {
+            int fsize = f.type.size();
+            if (fsize == 0) fsize = 4;
+            int align = (fsize >= 4) ? 4 : (fsize == 2 ? 2 : 1);
+            offset = (offset + align - 1) & ~(align - 1);
+            sinfo.fields[f.name] = {f.name, f.type, offset};
+            offset += fsize;
+        }
+        sinfo.totalSize = (offset + 3) & ~3;
+        if (sinfo.totalSize == 0) sinfo.totalSize = 4;
+        structs[c->name] = sinfo;
+
+        bool hasCtor = false;
+        for (const auto& m : c->methods) {
+            std::string mName = m->isConstructor ? c->name : m->name;
+            if (m->isConstructor) hasCtor = true;
+            functionReturnTypes[c->name + "_" + mName] = m->returnType;
+        }
+        if (!hasCtor) {
+            functionReturnTypes[c->name + "_" + c->name] = Type(TypeKind::Void);
+        }
+    }
+
     // 2. Pre-scan function signatures
     for (const auto& fn : program->getFunctions()) {
         functionReturnTypes[fn->name] = fn->returnType;
@@ -143,6 +220,45 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
     // 3. Emit functions
     for (const auto& fn : program->getFunctions()) {
         emitFunction(fn, out);
+    }
+
+    // 3b. Emit class methods
+    for (const auto& c : program->getClasses()) {
+        bool hasCtor = false;
+        for (const auto& m : c->methods) {
+            if (m->isConstructor) hasCtor = true;
+            emitMethod(c, m, out);
+        }
+        if (!hasCtor) {
+            std::string ctorName = c->name + "_" + c->name;
+            out << ".globl " << ctorName << "\n";
+            out << ctorName << ":\n";
+            const auto& sinfo = structs[c->name];
+            for (const auto& f : c->fields) {
+                int fOffset = sinfo.fields.at(f.name).offset;
+                if (f.defaultInit) {
+                    if (auto lit = ast_cast<LiteralExpr>(f.defaultInit)) {
+                        if (lit->litKind == LiteralKind::Int) {
+                            out << "    li t0, " << lit->intVal << "\n";
+                            out << "    sw t0, " << fOffset << "(a0)\n";
+                        } else if (lit->litKind == LiteralKind::Float) {
+                            float fl = (float)lit->floatVal;
+                            uint32_t bits = 0;
+                            std::memcpy(&bits, &fl, 4);
+                            out << "    li t0, " << (int32_t)bits << "\n";
+                            out << "    sw t0, " << fOffset << "(a0)\n";
+                        } else {
+                            out << "    sw zero, " << fOffset << "(a0)\n";
+                        }
+                    } else {
+                        out << "    sw zero, " << fOffset << "(a0)\n";
+                    }
+                } else {
+                    out << "    sw zero, " << fOffset << "(a0)\n";
+                }
+            }
+            out << "    ret\n\n";
+        }
     }
 
     // 4. Emit string literals in .rodata
@@ -340,13 +456,140 @@ void CodegenRISCV::emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::st
     out << "    ret\n\n";
 }
 
+void CodegenRISCV::emitMethod(const std::shared_ptr<ClassDecl>& c,
+                              const std::shared_ptr<MethodDecl>& m,
+                              std::stringstream& out) {
+    std::string mName = m->isConstructor ? c->name : m->name;
+    std::string mangledName = c->name + "_" + mName;
+    currentFunc = mangledName;
+    currentClass = c->name;
+    currentFuncReturnType = m->returnType;
+    currentVarTypes.clear();
+
+    out << ".globl " << mangledName << "\n";
+    out << mangledName << ":\n";
+
+    // 1. Collect params and locals
+    // Param 0 is implicit "this"
+    std::vector<std::pair<std::string, Type>> locals;
+    Type thisType(TypeKind::Custom, c->name, 1, 0); // ClassName*
+    locals.emplace_back("this", thisType);
+
+    for (const auto& p : m->params) {
+        locals.emplace_back(p.name, p.type);
+    }
+    scanLocals(m->body, locals);
+
+    int scratchWords = 16;
+    int runningOffset = scratchWords * 4;
+    std::unordered_map<std::string, int> varOffsets;
+
+    for (const auto& loc : locals) {
+        int varSize = getTypeSize(loc.second);
+        varSize = (varSize + 3) & ~3; // 4-byte align
+        varOffsets[loc.first] = runningOffset;
+        currentVarTypes[loc.first] = loc.second;
+        runningOffset += varSize;
+    }
+
+    int totalBytes = runningOffset + 4; // for saved ra
+    currentFrameSize = (totalBytes + 15) & ~15;
+    int raOffset = currentFrameSize - 4;
+
+    // Prologue
+    out << "    addi sp, sp, -" << currentFrameSize << "\n";
+    out << "    sw ra, " << raOffset << "(sp)\n";
+
+    // Save incoming "this" from a0 to its stack slot
+    out << "    sw a0, " << varOffsets["this"] << "(sp)\n";
+
+    // Save incoming arguments (starting at a1 / fa0)
+    int intArgIdx = 1; // a1 onwards
+    int floatArgIdx = 0;
+    for (size_t i = 0; i < m->params.size(); ++i) {
+        int off = varOffsets[m->params[i].name];
+        if (m->params[i].type.isFloat()) {
+            if (floatArgIdx < 8) {
+                out << "    fsw fa" << floatArgIdx++ << ", " << off << "(sp)\n";
+            }
+        } else {
+            if (intArgIdx < 8) {
+                out << "    sw a" << intArgIdx++ << ", " << off << "(sp)\n";
+            }
+        }
+    }
+
+    // Body
+    if (m->body) {
+        for (const auto& s : m->body->statements) {
+            emitStmt(s, out, varOffsets);
+        }
+    }
+
+    // Default return 0 or this (for constructor)
+    if (m->isConstructor) {
+        out << "    lw a0, " << varOffsets["this"] << "(sp)\n";
+    } else if (currentFuncReturnType.isFloat()) {
+        out << "    fmv.w.x fa0, zero\n";
+    } else {
+        out << "    addi a0, zero, 0\n";
+    }
+
+    // Epilogue
+    out << ".Lret_" << mangledName << ":\n";
+    out << "    lw ra, " << raOffset << "(sp)\n";
+    out << "    addi sp, sp, " << currentFrameSize << "\n";
+    out << "    ret\n\n";
+
+    currentClass.clear();
+}
+
 void CodegenRISCV::emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream& out,
                             std::unordered_map<std::string, int>& varOffsets) {
     if (!stmt) return;
 
     if (auto v = ast_cast<VarDeclStmt>(stmt)) {
-        if (v->initExpr) {
-            int off = varOffsets[v->name];
+        int off = varOffsets[v->name];
+        if (classes.find(v->type.name) != classes.end()) {
+            auto call = ast_cast<CallExpr>(v->initExpr);
+            if (call && call->callee == v->type.name) {
+                // Constructor call with args
+                for (size_t i = 0; i < call->args.size() && i < 7; ++i) {
+                    int argSlot = (i + 1) * 4;
+                    if (isFloatExpr(call->args[i])) {
+                        emitExpr(call->args[i], "ft0", out, varOffsets, i + 1);
+                        out << "    fsw ft0, " << argSlot << "(sp)\n";
+                    } else {
+                        emitExpr(call->args[i], "t0", out, varOffsets, i + 1);
+                        out << "    sw t0, " << argSlot << "(sp)\n";
+                    }
+                }
+                out << "    addi a0, sp, " << off << "\n";
+                int intArgIdx = 1;
+                int floatArgIdx = 0;
+                for (size_t i = 0; i < call->args.size() && i < 7; ++i) {
+                    int argSlot = (i + 1) * 4;
+                    if (isFloatExpr(call->args[i])) {
+                        if (floatArgIdx < 8) {
+                            out << "    flw fa" << floatArgIdx++ << ", " << argSlot << "(sp)\n";
+                        }
+                    } else {
+                        if (intArgIdx < 8) {
+                            out << "    lw a" << intArgIdx++ << ", " << argSlot << "(sp)\n";
+                        }
+                    }
+                }
+                out << "    call " << v->type.name << "_" << v->type.name << "\n";
+            } else if (!v->initExpr && functionReturnTypes.count(v->type.name + "_" + v->type.name)) {
+                // Default constructor call
+                out << "    addi a0, sp, " << off << "\n";
+                out << "    call " << v->type.name << "_" << v->type.name << "\n";
+            } else if (v->initExpr) {
+                // Other initialization
+                emitExpr(v->initExpr, "t0", out, varOffsets);
+                out << "    sw t0, " << off << "(sp)\n";
+            }
+        } else if (v->initExpr) {
             if (v->type.isFloat()) {
                 if (isFloatExpr(v->initExpr)) {
                     emitExpr(v->initExpr, "ft0", out, varOffsets);
@@ -497,6 +740,24 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             } else {
                 out << "    lw " << targetReg << ", " << it->second << "(sp)\n";
             }
+        } else if (!currentClass.empty()) {
+            auto sit = structs.find(currentClass);
+            if (sit != structs.end()) {
+                auto fit = sit->second.fields.find(v->name);
+                if (fit != sit->second.fields.end()) {
+                    int mOffset = fit->second.offset;
+                    bool isFieldFloat = fit->second.type.isFloat();
+                    out << "    lw t1, " << varOffsets["this"] << "(sp)\n";
+                    if (isFieldFloat && targetReg[0] == 'f') {
+                        out << "    flw " << targetReg << ", " << mOffset << "(t1)\n";
+                    } else {
+                        out << "    lw " << targetReg << ", " << mOffset << "(t1)\n";
+                    }
+                    return;
+                }
+            }
+            out << "    # unknown variable " << v->name << "\n";
+            out << "    addi " << targetReg << ", zero, 0\n";
         } else {
             out << "    # unknown variable " << v->name << "\n";
             out << "    addi " << targetReg << ", zero, 0\n";
@@ -507,14 +768,25 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             int mOffset = 0;
             bool isFieldFloat = false;
             if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
-                auto vtIt = currentVarTypes.find(targetVar->name);
-                if (vtIt != currentVarTypes.end()) {
-                    auto sit = structs.find(vtIt->second.name);
+                if (targetVar->name == "this") {
+                    auto sit = structs.find(currentClass);
                     if (sit != structs.end()) {
                         auto fit = sit->second.fields.find(mem->member);
                         if (fit != sit->second.fields.end()) {
                             mOffset = fit->second.offset;
                             isFieldFloat = fit->second.type.isFloat();
+                        }
+                    }
+                } else {
+                    auto vtIt = currentVarTypes.find(targetVar->name);
+                    if (vtIt != currentVarTypes.end()) {
+                        auto sit = structs.find(vtIt->second.name);
+                        if (sit != structs.end()) {
+                            auto fit = sit->second.fields.find(mem->member);
+                            if (fit != sit->second.fields.end()) {
+                                mOffset = fit->second.offset;
+                                isFieldFloat = fit->second.type.isFloat();
+                            }
                         }
                     }
                 }
@@ -526,11 +798,10 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             }
         } else {
             if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
-                auto vtIt = currentVarTypes.find(targetVar->name);
-                int mOffset = 0;
-                bool isFieldFloat = false;
-                if (vtIt != currentVarTypes.end()) {
-                    auto sit = structs.find(vtIt->second.name);
+                if (targetVar->name == "this") {
+                    auto sit = structs.find(currentClass);
+                    int mOffset = 0;
+                    bool isFieldFloat = false;
                     if (sit != structs.end()) {
                         auto fit = sit->second.fields.find(mem->member);
                         if (fit != sit->second.fields.end()) {
@@ -538,12 +809,32 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                             isFieldFloat = fit->second.type.isFloat();
                         }
                     }
-                }
-                int totalOff = varOffsets[targetVar->name] + mOffset;
-                if (isFieldFloat && targetReg[0] == 'f') {
-                    out << "    flw " << targetReg << ", " << totalOff << "(sp)\n";
+                    out << "    lw t0, " << varOffsets["this"] << "(sp)\n";
+                    if (isFieldFloat && targetReg[0] == 'f') {
+                        out << "    flw " << targetReg << ", " << mOffset << "(t0)\n";
+                    } else {
+                        out << "    lw " << targetReg << ", " << mOffset << "(t0)\n";
+                    }
                 } else {
-                    out << "    lw " << targetReg << ", " << totalOff << "(sp)\n";
+                    auto vtIt = currentVarTypes.find(targetVar->name);
+                    int mOffset = 0;
+                    bool isFieldFloat = false;
+                    if (vtIt != currentVarTypes.end()) {
+                        auto sit = structs.find(vtIt->second.name);
+                        if (sit != structs.end()) {
+                            auto fit = sit->second.fields.find(mem->member);
+                            if (fit != sit->second.fields.end()) {
+                                mOffset = fit->second.offset;
+                                isFieldFloat = fit->second.type.isFloat();
+                            }
+                        }
+                    }
+                    int totalOff = varOffsets[targetVar->name] + mOffset;
+                    if (isFieldFloat && targetReg[0] == 'f') {
+                        out << "    flw " << targetReg << ", " << totalOff << "(sp)\n";
+                    } else {
+                        out << "    lw " << targetReg << ", " << totalOff << "(sp)\n";
+                    }
                 }
             } else {
                 emitExpr(mem->target, "t0", out, varOffsets, depth);
@@ -799,6 +1090,63 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         }
     } else if (auto asgn = ast_cast<AssignExpr>(expr)) {
         if (auto v = ast_cast<VarExpr>(asgn->target)) {
+            auto it = varOffsets.find(v->name);
+            if (it == varOffsets.end() && !currentClass.empty()) {
+                auto sit = structs.find(currentClass);
+                if (sit != structs.end()) {
+                    auto fit = sit->second.fields.find(v->name);
+                    if (fit != sit->second.fields.end()) {
+                        int mOffset = fit->second.offset;
+                        bool isFieldFloat = fit->second.type.isFloat();
+                        if (isFieldFloat) {
+                            if (isFloatExpr(asgn->value)) {
+                                emitExpr(asgn->value, "ft0", out, varOffsets, depth);
+                            } else {
+                                emitExpr(asgn->value, "t0", out, varOffsets, depth);
+                                out << "    fcvt.s.w ft0, t0\n";
+                            }
+                            out << "    lw t1, " << varOffsets["this"] << "(sp)\n";
+                            if (asgn->op == "+=") {
+                                out << "    flw ft1, " << mOffset << "(t1)\n";
+                                out << "    fadd.s ft0, ft1, ft0\n";
+                            } else if (asgn->op == "-=") {
+                                out << "    flw ft1, " << mOffset << "(t1)\n";
+                                out << "    fsub.s ft0, ft1, ft0\n";
+                            } else if (asgn->op == "*=") {
+                                out << "    flw ft1, " << mOffset << "(t1)\n";
+                                out << "    fmul.s ft0, ft1, ft0\n";
+                            } else if (asgn->op == "/=") {
+                                out << "    flw ft1, " << mOffset << "(t1)\n";
+                                out << "    fdiv.s ft0, ft1, ft0\n";
+                            }
+                            out << "    fsw ft0, " << mOffset << "(t1)\n";
+                            if (targetReg != "ft0" && targetReg[0] == 'f') {
+                                out << "    fsgnj.s " << targetReg << ", ft0, ft0\n";
+                            }
+                            return;
+                        }
+
+                        emitExpr(asgn->value, "t0", out, varOffsets, depth);
+                        out << "    lw t1, " << varOffsets["this"] << "(sp)\n";
+                        if (asgn->op == "+=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    add t0, t2, t0\n";
+                        } else if (asgn->op == "-=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    sub t0, t2, t0\n";
+                        } else if (asgn->op == "*=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    mul t0, t2, t0\n";
+                        }
+                        out << "    sw t0, " << mOffset << "(t1)\n";
+                        if (targetReg != "t0") {
+                            out << "    addi " << targetReg << ", t0, 0\n";
+                        }
+                        return;
+                    }
+                }
+            }
+
             int off = varOffsets[v->name];
             auto vtIt = currentVarTypes.find(v->name);
             bool isTargetFloat = (vtIt != currentVarTypes.end() && vtIt->second.isFloat());
@@ -853,31 +1201,81 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 emitExpr(mem->target, "t1", out, varOffsets, depth + 1);
                 int mOffset = 0;
                 if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
-                    auto vtIt = currentVarTypes.find(targetVar->name);
-                    if (vtIt != currentVarTypes.end()) {
-                        auto sit = structs.find(vtIt->second.name);
+                    if (targetVar->name == "this") {
+                        auto sit = structs.find(currentClass);
                         if (sit != structs.end()) {
                             auto fit = sit->second.fields.find(mem->member);
                             if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
+                        }
+                    } else {
+                        auto vtIt = currentVarTypes.find(targetVar->name);
+                        if (vtIt != currentVarTypes.end()) {
+                            auto sit = structs.find(vtIt->second.name);
+                            if (sit != structs.end()) {
+                                auto fit = sit->second.fields.find(mem->member);
+                                if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
+                            }
                         }
                     }
                 }
                 out << "    lw t0, " << scratchOffset << "(sp)\n";
+                if (asgn->op == "+=") {
+                    out << "    lw t2, " << mOffset << "(t1)\n";
+                    out << "    add t0, t2, t0\n";
+                } else if (asgn->op == "-=") {
+                    out << "    lw t2, " << mOffset << "(t1)\n";
+                    out << "    sub t0, t2, t0\n";
+                } else if (asgn->op == "*=") {
+                    out << "    lw t2, " << mOffset << "(t1)\n";
+                    out << "    mul t0, t2, t0\n";
+                }
                 out << "    sw t0, " << mOffset << "(t1)\n";
             } else {
                 if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
-                    auto vtIt = currentVarTypes.find(targetVar->name);
-                    int mOffset = 0;
-                    if (vtIt != currentVarTypes.end()) {
-                        auto sit = structs.find(vtIt->second.name);
+                    if (targetVar->name == "this") {
+                        auto sit = structs.find(currentClass);
+                        int mOffset = 0;
                         if (sit != structs.end()) {
                             auto fit = sit->second.fields.find(mem->member);
                             if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
                         }
+                        out << "    lw t1, " << varOffsets["this"] << "(sp)\n";
+                        out << "    lw t0, " << scratchOffset << "(sp)\n";
+                        if (asgn->op == "+=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    add t0, t2, t0\n";
+                        } else if (asgn->op == "-=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    sub t0, t2, t0\n";
+                        } else if (asgn->op == "*=") {
+                            out << "    lw t2, " << mOffset << "(t1)\n";
+                            out << "    mul t0, t2, t0\n";
+                        }
+                        out << "    sw t0, " << mOffset << "(t1)\n";
+                    } else {
+                        auto vtIt = currentVarTypes.find(targetVar->name);
+                        int mOffset = 0;
+                        if (vtIt != currentVarTypes.end()) {
+                            auto sit = structs.find(vtIt->second.name);
+                            if (sit != structs.end()) {
+                                auto fit = sit->second.fields.find(mem->member);
+                                if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
+                            }
+                        }
+                        int totalOff = varOffsets[targetVar->name] + mOffset;
+                        out << "    lw t0, " << scratchOffset << "(sp)\n";
+                        if (asgn->op == "+=") {
+                            out << "    lw t2, " << totalOff << "(sp)\n";
+                            out << "    add t0, t2, t0\n";
+                        } else if (asgn->op == "-=") {
+                            out << "    lw t2, " << totalOff << "(sp)\n";
+                            out << "    sub t0, t2, t0\n";
+                        } else if (asgn->op == "*=") {
+                            out << "    lw t2, " << totalOff << "(sp)\n";
+                            out << "    mul t0, t2, t0\n";
+                        }
+                        out << "    sw t0, " << totalOff << "(sp)\n";
                     }
-                    int totalOff = varOffsets[targetVar->name] + mOffset;
-                    out << "    lw t0, " << scratchOffset << "(sp)\n";
-                    out << "    sw t0, " << totalOff << "(sp)\n";
                 }
             }
             if (targetReg != "t0") {
@@ -970,6 +1368,91 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
 
         bool isFloatRet = false;
         auto fit = functionReturnTypes.find(call->callee);
+        if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
+
+        if (isFloatRet) {
+            if (targetReg != "fa0" && targetReg[0] == 'f') {
+                out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+            }
+        } else {
+            if (targetReg != "a0") {
+                out << "    addi " << targetReg << ", a0, 0\n";
+            }
+        }
+    } else if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        // 1. Determine target class name
+        std::string className;
+        bool isPointerObj = false;
+        if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+            if (targetVar->name == "this") {
+                className = currentClass;
+                isPointerObj = true;
+            } else {
+                auto vtIt = currentVarTypes.find(targetVar->name);
+                if (vtIt != currentVarTypes.end()) {
+                    className = vtIt->second.name;
+                    isPointerObj = vtIt->second.isPointer();
+                }
+            }
+        }
+        if (className.empty()) {
+            className = currentClass; // fallback
+        }
+
+        // 2. Evaluate object address and store in scratch slot (depth * 4)
+        int objSlot = depth * 4;
+        if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+            if (targetVar->name == "this") {
+                out << "    lw t0, " << varOffsets["this"] << "(sp)\n";
+            } else if (isPointerObj) {
+                out << "    lw t0, " << varOffsets[targetVar->name] << "(sp)\n";
+            } else {
+                // Stack object: pass address &obj
+                out << "    addi t0, sp, " << varOffsets[targetVar->name] << "\n";
+            }
+        } else {
+            emitExpr(mcall->object, "t0", out, varOffsets, depth);
+        }
+        out << "    sw t0, " << objSlot << "(sp)\n";
+
+        // 3. Evaluate arguments into scratch slots (depth + 1 + i) * 4
+        for (size_t i = 0; i < mcall->args.size() && i < 7; ++i) {
+            int argSlot = (depth + 1 + i) * 4;
+            if (isFloatExpr(mcall->args[i])) {
+                emitExpr(mcall->args[i], "ft0", out, varOffsets, depth + 1 + i);
+                out << "    fsw ft0, " << argSlot << "(sp)\n";
+            } else {
+                emitExpr(mcall->args[i], "t0", out, varOffsets, depth + 1 + i);
+                out << "    sw t0, " << argSlot << "(sp)\n";
+            }
+        }
+
+        // 4. Load object address into a0
+        out << "    lw a0, " << objSlot << "(sp)\n";
+
+        // 5. Load arguments into a1..a7 / fa0..fa7
+        int intArgIdx = 1; // start at a1
+        int floatArgIdx = 0;
+        for (size_t i = 0; i < mcall->args.size() && i < 7; ++i) {
+            int argSlot = (depth + 1 + i) * 4;
+            if (isFloatExpr(mcall->args[i])) {
+                if (floatArgIdx < 8) {
+                    out << "    flw fa" << floatArgIdx++ << ", " << argSlot << "(sp)\n";
+                }
+            } else {
+                if (intArgIdx < 8) {
+                    out << "    lw a" << intArgIdx++ << ", " << argSlot << "(sp)\n";
+                }
+            }
+        }
+
+        // 6. Call ClassName_methodName
+        std::string mangledName = className + "_" + mcall->method;
+        out << "    call " << mangledName << "\n";
+
+        // 7. Handle return value
+        bool isFloatRet = false;
+        auto fit = functionReturnTypes.find(mangledName);
         if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
 
         if (isFloatRet) {

@@ -115,6 +115,8 @@ enum class ASTKind {
     Program,
     FunctionDecl,
     StructDecl,
+    ClassDecl,
+    MethodDecl,
     ExprStmt,
     VarDeclStmt,
     BlockStmt,
@@ -130,6 +132,7 @@ enum class ASTKind {
     UnaryExpr,
     AssignExpr,
     CallExpr,
+    MethodCallExpr,
     MemberExpr,
     IndexExpr
 };
@@ -224,6 +227,18 @@ public:
 
     CallExpr(const std::string& fn, const std::vector<std::shared_ptr<Expr>>& a)
         : Expr(KIND), callee(fn), args(a) {}
+};
+
+class MethodCallExpr : public Expr {
+public:
+    static constexpr ASTKind KIND = ASTKind::MethodCallExpr;
+    std::shared_ptr<Expr> object;
+    std::string method;
+    std::vector<std::shared_ptr<Expr>> args;
+    bool isArrow = false;
+
+    MethodCallExpr(std::shared_ptr<Expr> obj, const std::string& m, const std::vector<std::shared_ptr<Expr>>& a, bool arrow = false)
+        : Expr(KIND), object(obj), method(m), args(a), isArrow(arrow) {}
 };
 
 class MemberExpr : public Expr {
@@ -351,7 +366,48 @@ public:
 struct FieldDecl {
     Type type;
     std::string name;
-    FieldDecl(const Type& t, const std::string& n) : type(t), name(n) {}
+    std::shared_ptr<Expr> defaultInit;
+    FieldDecl(const Type& t, const std::string& n, std::shared_ptr<Expr> init = nullptr)
+        : type(t), name(n), defaultInit(init) {}
+};
+
+enum class Visibility {
+    Public,
+    Private,
+    Protected
+};
+
+class MethodDecl : public ASTNode {
+public:
+    static constexpr ASTKind KIND = ASTKind::MethodDecl;
+    Visibility visibility;
+    Type returnType;
+    std::string name;
+    std::vector<ParamDecl> params;
+    std::shared_ptr<BlockStmt> body;
+    bool isConst;
+    bool isConstructor;
+
+    MethodDecl(Visibility vis, const Type& ret, const std::string& n,
+               const std::vector<ParamDecl>& p, std::shared_ptr<BlockStmt> b,
+               bool c = false, bool ctor = false)
+        : ASTNode(KIND), visibility(vis), returnType(ret), name(n),
+          params(p), body(b), isConst(c), isConstructor(ctor) {}
+};
+
+class ClassDecl : public ASTNode {
+public:
+    static constexpr ASTKind KIND = ASTKind::ClassDecl;
+    std::string name;
+    std::vector<FieldDecl> fields;
+    std::vector<Visibility> fieldVisibilities;
+    std::vector<std::shared_ptr<MethodDecl>> methods;
+
+    ClassDecl(const std::string& n,
+              const std::vector<FieldDecl>& f,
+              const std::vector<Visibility>& fv,
+              const std::vector<std::shared_ptr<MethodDecl>>& m)
+        : ASTNode(KIND), name(n), fields(f), fieldVisibilities(fv), methods(m) {}
 };
 
 class StructDecl : public ASTNode {
@@ -387,6 +443,16 @@ public:
             }
         }
         return structs;
+    }
+
+    std::vector<std::shared_ptr<ClassDecl>> getClasses() const {
+        std::vector<std::shared_ptr<ClassDecl>> classes;
+        for (const auto& d : decls) {
+            if (auto c = ast_cast<ClassDecl>(d)) {
+                classes.push_back(c);
+            }
+        }
+        return classes;
     }
 };
 
