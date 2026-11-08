@@ -32,7 +32,7 @@ MethodDecl ::= Type NAME '(' ParameterList? ')' 'const'? Block
 ConstructorDecl ::= NAME '(' ParameterList? ')' Block
 
 FunctionDecl ::= Type NAME '(' ParameterList? ')' Block
-ExternDecl ::= 'extern' Type NAME '(' ParameterList? ')' ';'
+ExternDecl ::= 'extern' Type NAME '(' (ParameterList (',' '...')? | '...')? ')' ';'
 GlobalDecl ::= ('const' | 'static')? Type NAME ('=' Expression)? ';'
 ParameterList ::= Parameter (',' Parameter)*
 Parameter ::= Type NAME

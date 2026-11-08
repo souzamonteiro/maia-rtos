@@ -21,96 +21,97 @@
 #define MAIACC_TOKEN_TOKEN__29_ 15
 #define MAIACC_TOKEN_TOKEN_const 16
 #define MAIACC_TOKEN_TOKEN_extern 17
-#define MAIACC_TOKEN_TOKEN_static 18
-#define MAIACC_TOKEN_TOKEN__2C_ 19
-#define MAIACC_TOKEN_TOKEN_Result 20
-#define MAIACC_TOKEN_TOKEN__3C_ 21
-#define MAIACC_TOKEN_TOKEN__3E_ 22
-#define MAIACC_TOKEN_TOKEN_Option 23
-#define MAIACC_TOKEN_TOKEN_void 24
-#define MAIACC_TOKEN_TOKEN_bool 25
-#define MAIACC_TOKEN_TOKEN_char 26
-#define MAIACC_TOKEN_TOKEN_string 27
-#define MAIACC_TOKEN_TOKEN_i8 28
-#define MAIACC_TOKEN_TOKEN_i16 29
-#define MAIACC_TOKEN_TOKEN_i32 30
-#define MAIACC_TOKEN_TOKEN_i64 31
-#define MAIACC_TOKEN_TOKEN_u8 32
-#define MAIACC_TOKEN_TOKEN_u16 33
-#define MAIACC_TOKEN_TOKEN_u32 34
-#define MAIACC_TOKEN_TOKEN_u64 35
-#define MAIACC_TOKEN_TOKEN_f32 36
-#define MAIACC_TOKEN_TOKEN_f64 37
-#define MAIACC_TOKEN_TOKEN__2A_ 38
-#define MAIACC_TOKEN_TOKEN__5B_ 39
-#define MAIACC_TOKEN_TOKEN__5D_ 40
-#define MAIACC_TOKEN_TOKEN__3F_ 41
-#define MAIACC_TOKEN_TOKEN__2E_ 42
-#define MAIACC_TOKEN_TOKEN_auto 43
-#define MAIACC_TOKEN_TOKEN_if 44
-#define MAIACC_TOKEN_TOKEN_else 45
-#define MAIACC_TOKEN_TOKEN_while 46
-#define MAIACC_TOKEN_TOKEN_do 47
-#define MAIACC_TOKEN_TOKEN_for 48
-#define MAIACC_TOKEN_TOKEN_foreach 49
-#define MAIACC_TOKEN_TOKEN__3A_ 50
-#define MAIACC_TOKEN_TOKEN_switch 51
-#define MAIACC_TOKEN_TOKEN_case 52
-#define MAIACC_TOKEN_TOKEN_default 53
-#define MAIACC_TOKEN_TOKEN_return 54
-#define MAIACC_TOKEN_TOKEN_break 55
-#define MAIACC_TOKEN_TOKEN_continue 56
-#define MAIACC_TOKEN_TOKEN_defer 57
-#define MAIACC_TOKEN_TOKEN_unsafe 58
-#define MAIACC_TOKEN_TOKEN__2B__3D_ 59
-#define MAIACC_TOKEN_TOKEN__2D__3D_ 60
-#define MAIACC_TOKEN_TOKEN__2A__3D_ 61
-#define MAIACC_TOKEN_TOKEN__2F__3D_ 62
-#define MAIACC_TOKEN_TOKEN__25__3D_ 63
-#define MAIACC_TOKEN_TOKEN__26__3D_ 64
-#define MAIACC_TOKEN_TOKEN__7C__3D_ 65
-#define MAIACC_TOKEN_TOKEN__5E__3D_ 66
-#define MAIACC_TOKEN_TOKEN__3C__3C__3D_ 67
-#define MAIACC_TOKEN_TOKEN__3E__3E__3D_ 68
-#define MAIACC_TOKEN_TOKEN__7C__7C_ 69
-#define MAIACC_TOKEN_TOKEN__26__26_ 70
-#define MAIACC_TOKEN_TOKEN__7C_ 71
-#define MAIACC_TOKEN_TOKEN__5E_ 72
-#define MAIACC_TOKEN_TOKEN__26_ 73
-#define MAIACC_TOKEN_TOKEN__3D__3D_ 74
-#define MAIACC_TOKEN_TOKEN__21__3D_ 75
-#define MAIACC_TOKEN_TOKEN__3C__3D_ 76
-#define MAIACC_TOKEN_TOKEN__3E__3D_ 77
-#define MAIACC_TOKEN_TOKEN__3C__3C_ 78
-#define MAIACC_TOKEN_TOKEN__3E__3E_ 79
-#define MAIACC_TOKEN_TOKEN__2B_ 80
-#define MAIACC_TOKEN_TOKEN__2D_ 81
-#define MAIACC_TOKEN_TOKEN__2F_ 82
-#define MAIACC_TOKEN_TOKEN__25_ 83
-#define MAIACC_TOKEN_TOKEN__21_ 84
-#define MAIACC_TOKEN_TOKEN__7E_ 85
-#define MAIACC_TOKEN_TOKEN__2B__2B_ 86
-#define MAIACC_TOKEN_TOKEN__2D__2D_ 87
-#define MAIACC_TOKEN_TOKEN__2D__3E_ 88
-#define MAIACC_TOKEN_TOKEN_new 89
-#define MAIACC_TOKEN_TOKEN_delete 90
-#define MAIACC_TOKEN_TOKEN_sizeof 91
-#define MAIACC_TOKEN_TOKEN_asm 92
-#define MAIACC_TOKEN_TOKEN_true 93
-#define MAIACC_TOKEN_TOKEN_false 94
-#define MAIACC_TOKEN_TOKEN_null 95
-#define MAIACC_TOKEN_EOF 96
-#define MAIACC_TOKEN_NAME 97
-#define MAIACC_TOKEN_Keyword 98
-#define MAIACC_TOKEN_INTEGER 99
-#define MAIACC_TOKEN_FLOAT 100
-#define MAIACC_TOKEN_STRING 101
-#define MAIACC_TOKEN_CHAR 102
-#define MAIACC_TOKEN_Escape 103
-#define MAIACC_TOKEN_LINE_COMMENT 104
-#define MAIACC_TOKEN_BLOCK_COMMENT 105
-#define MAIACC_TOKEN_WS 106
-#define MAIACC_TOKEN_COUNT 107
+#define MAIACC_TOKEN_TOKEN__2C_ 18
+#define MAIACC_TOKEN_TOKEN__2E__2E__2E_ 19
+#define MAIACC_TOKEN_TOKEN_static 20
+#define MAIACC_TOKEN_TOKEN_Result 21
+#define MAIACC_TOKEN_TOKEN__3C_ 22
+#define MAIACC_TOKEN_TOKEN__3E_ 23
+#define MAIACC_TOKEN_TOKEN_Option 24
+#define MAIACC_TOKEN_TOKEN_void 25
+#define MAIACC_TOKEN_TOKEN_bool 26
+#define MAIACC_TOKEN_TOKEN_char 27
+#define MAIACC_TOKEN_TOKEN_string 28
+#define MAIACC_TOKEN_TOKEN_i8 29
+#define MAIACC_TOKEN_TOKEN_i16 30
+#define MAIACC_TOKEN_TOKEN_i32 31
+#define MAIACC_TOKEN_TOKEN_i64 32
+#define MAIACC_TOKEN_TOKEN_u8 33
+#define MAIACC_TOKEN_TOKEN_u16 34
+#define MAIACC_TOKEN_TOKEN_u32 35
+#define MAIACC_TOKEN_TOKEN_u64 36
+#define MAIACC_TOKEN_TOKEN_f32 37
+#define MAIACC_TOKEN_TOKEN_f64 38
+#define MAIACC_TOKEN_TOKEN__2A_ 39
+#define MAIACC_TOKEN_TOKEN__5B_ 40
+#define MAIACC_TOKEN_TOKEN__5D_ 41
+#define MAIACC_TOKEN_TOKEN__3F_ 42
+#define MAIACC_TOKEN_TOKEN__2E_ 43
+#define MAIACC_TOKEN_TOKEN_auto 44
+#define MAIACC_TOKEN_TOKEN_if 45
+#define MAIACC_TOKEN_TOKEN_else 46
+#define MAIACC_TOKEN_TOKEN_while 47
+#define MAIACC_TOKEN_TOKEN_do 48
+#define MAIACC_TOKEN_TOKEN_for 49
+#define MAIACC_TOKEN_TOKEN_foreach 50
+#define MAIACC_TOKEN_TOKEN__3A_ 51
+#define MAIACC_TOKEN_TOKEN_switch 52
+#define MAIACC_TOKEN_TOKEN_case 53
+#define MAIACC_TOKEN_TOKEN_default 54
+#define MAIACC_TOKEN_TOKEN_return 55
+#define MAIACC_TOKEN_TOKEN_break 56
+#define MAIACC_TOKEN_TOKEN_continue 57
+#define MAIACC_TOKEN_TOKEN_defer 58
+#define MAIACC_TOKEN_TOKEN_unsafe 59
+#define MAIACC_TOKEN_TOKEN__2B__3D_ 60
+#define MAIACC_TOKEN_TOKEN__2D__3D_ 61
+#define MAIACC_TOKEN_TOKEN__2A__3D_ 62
+#define MAIACC_TOKEN_TOKEN__2F__3D_ 63
+#define MAIACC_TOKEN_TOKEN__25__3D_ 64
+#define MAIACC_TOKEN_TOKEN__26__3D_ 65
+#define MAIACC_TOKEN_TOKEN__7C__3D_ 66
+#define MAIACC_TOKEN_TOKEN__5E__3D_ 67
+#define MAIACC_TOKEN_TOKEN__3C__3C__3D_ 68
+#define MAIACC_TOKEN_TOKEN__3E__3E__3D_ 69
+#define MAIACC_TOKEN_TOKEN__7C__7C_ 70
+#define MAIACC_TOKEN_TOKEN__26__26_ 71
+#define MAIACC_TOKEN_TOKEN__7C_ 72
+#define MAIACC_TOKEN_TOKEN__5E_ 73
+#define MAIACC_TOKEN_TOKEN__26_ 74
+#define MAIACC_TOKEN_TOKEN__3D__3D_ 75
+#define MAIACC_TOKEN_TOKEN__21__3D_ 76
+#define MAIACC_TOKEN_TOKEN__3C__3D_ 77
+#define MAIACC_TOKEN_TOKEN__3E__3D_ 78
+#define MAIACC_TOKEN_TOKEN__3C__3C_ 79
+#define MAIACC_TOKEN_TOKEN__3E__3E_ 80
+#define MAIACC_TOKEN_TOKEN__2B_ 81
+#define MAIACC_TOKEN_TOKEN__2D_ 82
+#define MAIACC_TOKEN_TOKEN__2F_ 83
+#define MAIACC_TOKEN_TOKEN__25_ 84
+#define MAIACC_TOKEN_TOKEN__21_ 85
+#define MAIACC_TOKEN_TOKEN__7E_ 86
+#define MAIACC_TOKEN_TOKEN__2B__2B_ 87
+#define MAIACC_TOKEN_TOKEN__2D__2D_ 88
+#define MAIACC_TOKEN_TOKEN__2D__3E_ 89
+#define MAIACC_TOKEN_TOKEN_new 90
+#define MAIACC_TOKEN_TOKEN_delete 91
+#define MAIACC_TOKEN_TOKEN_sizeof 92
+#define MAIACC_TOKEN_TOKEN_asm 93
+#define MAIACC_TOKEN_TOKEN_true 94
+#define MAIACC_TOKEN_TOKEN_false 95
+#define MAIACC_TOKEN_TOKEN_null 96
+#define MAIACC_TOKEN_EOF 97
+#define MAIACC_TOKEN_NAME 98
+#define MAIACC_TOKEN_Keyword 99
+#define MAIACC_TOKEN_INTEGER 100
+#define MAIACC_TOKEN_FLOAT 101
+#define MAIACC_TOKEN_STRING 102
+#define MAIACC_TOKEN_CHAR 103
+#define MAIACC_TOKEN_Escape 104
+#define MAIACC_TOKEN_LINE_COMMENT 105
+#define MAIACC_TOKEN_BLOCK_COMMENT 106
+#define MAIACC_TOKEN_WS 107
+#define MAIACC_TOKEN_COUNT 108
 #define MAIACC_RULE_COUNT 61
 
 static const char* maiaCCParserTokenName(unsigned int type) {
@@ -132,8 +133,9 @@ static const char* maiaCCParserTokenName(unsigned int type) {
     case MAIACC_TOKEN_TOKEN__29_: return "TOKEN__29_";
     case MAIACC_TOKEN_TOKEN_const: return "TOKEN_const";
     case MAIACC_TOKEN_TOKEN_extern: return "TOKEN_extern";
-    case MAIACC_TOKEN_TOKEN_static: return "TOKEN_static";
     case MAIACC_TOKEN_TOKEN__2C_: return "TOKEN__2C_";
+    case MAIACC_TOKEN_TOKEN__2E__2E__2E_: return "TOKEN__2E__2E__2E_";
+    case MAIACC_TOKEN_TOKEN_static: return "TOKEN_static";
     case MAIACC_TOKEN_TOKEN_Result: return "TOKEN_Result";
     case MAIACC_TOKEN_TOKEN__3C_: return "TOKEN__3C_";
     case MAIACC_TOKEN_TOKEN__3E_: return "TOKEN__3E_";
@@ -441,6 +443,22 @@ static const MaiaCCLexRange maiaCCLexRanges16[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode17[] = {
   { 0, 0, 0, 0 },
+  { 1, 44, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges17[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode18[] = {
+  { 0, 0, 0, 0 },
+  { 1, 46, 0, 0 },
+  { 1, 46, 0, 1 },
+  { 1, 46, 0, 2 }
+};
+static const MaiaCCLexRange maiaCCLexRanges18[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode19[] = {
+  { 0, 0, 0, 0 },
   { 1, 99, 0, 0 },
   { 1, 105, 0, 1 },
   { 1, 116, 0, 2 },
@@ -448,17 +466,10 @@ static const MaiaCCLexInstruction maiaCCLexCode17[] = {
   { 1, 116, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges17[] = {
+static const MaiaCCLexRange maiaCCLexRanges19[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode18[] = {
-  { 0, 0, 0, 0 },
-  { 1, 44, 0, 0 }
-};
-static const MaiaCCLexRange maiaCCLexRanges18[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode19[] = {
+static const MaiaCCLexInstruction maiaCCLexCode20[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 108, 0, 1 },
@@ -467,24 +478,24 @@ static const MaiaCCLexInstruction maiaCCLexCode19[] = {
   { 1, 101, 0, 4 },
   { 1, 82, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges19[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode20[] = {
-  { 0, 0, 0, 0 },
-  { 1, 60, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges20[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode21[] = {
   { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 }
+  { 1, 60, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges21[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode22[] = {
+  { 0, 0, 0, 0 },
+  { 1, 62, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges22[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode23[] = {
   { 0, 0, 0, 0 },
   { 1, 110, 0, 0 },
   { 1, 111, 0, 1 },
@@ -493,40 +504,40 @@ static const MaiaCCLexInstruction maiaCCLexCode22[] = {
   { 1, 112, 0, 4 },
   { 1, 79, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges22[] = {
+static const MaiaCCLexRange maiaCCLexRanges23[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode23[] = {
+static const MaiaCCLexInstruction maiaCCLexCode24[] = {
   { 0, 0, 0, 0 },
   { 1, 100, 0, 0 },
   { 1, 105, 0, 1 },
   { 1, 111, 0, 2 },
   { 1, 118, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges23[] = {
+static const MaiaCCLexRange maiaCCLexRanges24[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode24[] = {
+static const MaiaCCLexInstruction maiaCCLexCode25[] = {
   { 0, 0, 0, 0 },
   { 1, 108, 0, 0 },
   { 1, 111, 0, 1 },
   { 1, 111, 0, 2 },
   { 1, 98, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges24[] = {
+static const MaiaCCLexRange maiaCCLexRanges25[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode25[] = {
+static const MaiaCCLexInstruction maiaCCLexCode26[] = {
   { 0, 0, 0, 0 },
   { 1, 114, 0, 0 },
   { 1, 97, 0, 1 },
   { 1, 104, 0, 2 },
   { 1, 99, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges25[] = {
+static const MaiaCCLexRange maiaCCLexRanges26[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode26[] = {
+static const MaiaCCLexInstruction maiaCCLexCode27[] = {
   { 0, 0, 0, 0 },
   { 1, 103, 0, 0 },
   { 1, 110, 0, 1 },
@@ -535,30 +546,21 @@ static const MaiaCCLexInstruction maiaCCLexCode26[] = {
   { 1, 116, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges26[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode27[] = {
-  { 0, 0, 0, 0 },
-  { 1, 56, 0, 0 },
-  { 1, 105, 0, 1 }
-};
 static const MaiaCCLexRange maiaCCLexRanges27[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode28[] = {
   { 0, 0, 0, 0 },
-  { 1, 54, 0, 0 },
-  { 1, 49, 0, 1 },
-  { 1, 105, 0, 2 }
+  { 1, 56, 0, 0 },
+  { 1, 105, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges28[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode29[] = {
   { 0, 0, 0, 0 },
-  { 1, 50, 0, 0 },
-  { 1, 51, 0, 1 },
+  { 1, 54, 0, 0 },
+  { 1, 49, 0, 1 },
   { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges29[] = {
@@ -566,8 +568,8 @@ static const MaiaCCLexRange maiaCCLexRanges29[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode30[] = {
   { 0, 0, 0, 0 },
-  { 1, 52, 0, 0 },
-  { 1, 54, 0, 1 },
+  { 1, 50, 0, 0 },
+  { 1, 51, 0, 1 },
   { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges30[] = {
@@ -575,25 +577,25 @@ static const MaiaCCLexRange maiaCCLexRanges30[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode31[] = {
   { 0, 0, 0, 0 },
-  { 1, 56, 0, 0 },
-  { 1, 117, 0, 1 }
+  { 1, 52, 0, 0 },
+  { 1, 54, 0, 1 },
+  { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges31[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode32[] = {
   { 0, 0, 0, 0 },
-  { 1, 54, 0, 0 },
-  { 1, 49, 0, 1 },
-  { 1, 117, 0, 2 }
+  { 1, 56, 0, 0 },
+  { 1, 117, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges32[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode33[] = {
   { 0, 0, 0, 0 },
-  { 1, 50, 0, 0 },
-  { 1, 51, 0, 1 },
+  { 1, 54, 0, 0 },
+  { 1, 49, 0, 1 },
   { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges33[] = {
@@ -601,8 +603,8 @@ static const MaiaCCLexRange maiaCCLexRanges33[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode34[] = {
   { 0, 0, 0, 0 },
-  { 1, 52, 0, 0 },
-  { 1, 54, 0, 1 },
+  { 1, 50, 0, 0 },
+  { 1, 51, 0, 1 },
   { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges34[] = {
@@ -610,17 +612,17 @@ static const MaiaCCLexRange maiaCCLexRanges34[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode35[] = {
   { 0, 0, 0, 0 },
-  { 1, 50, 0, 0 },
-  { 1, 51, 0, 1 },
-  { 1, 102, 0, 2 }
+  { 1, 52, 0, 0 },
+  { 1, 54, 0, 1 },
+  { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges35[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode36[] = {
   { 0, 0, 0, 0 },
-  { 1, 52, 0, 0 },
-  { 1, 54, 0, 1 },
+  { 1, 50, 0, 0 },
+  { 1, 51, 0, 1 },
   { 1, 102, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges36[] = {
@@ -628,63 +630,62 @@ static const MaiaCCLexRange maiaCCLexRanges36[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode37[] = {
   { 0, 0, 0, 0 },
-  { 1, 42, 0, 0 }
+  { 1, 52, 0, 0 },
+  { 1, 54, 0, 1 },
+  { 1, 102, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges37[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode38[] = {
   { 0, 0, 0, 0 },
-  { 1, 91, 0, 0 }
+  { 1, 42, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges38[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode39[] = {
   { 0, 0, 0, 0 },
-  { 1, 93, 0, 0 }
+  { 1, 91, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges39[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode40[] = {
   { 0, 0, 0, 0 },
-  { 1, 63, 0, 0 }
+  { 1, 93, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges40[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode41[] = {
   { 0, 0, 0, 0 },
-  { 1, 46, 0, 0 }
+  { 1, 63, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges41[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode42[] = {
   { 0, 0, 0, 0 },
-  { 1, 111, 0, 0 },
-  { 1, 116, 0, 1 },
-  { 1, 117, 0, 2 },
-  { 1, 97, 0, 3 }
+  { 1, 46, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges42[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode43[] = {
   { 0, 0, 0, 0 },
-  { 1, 102, 0, 0 },
-  { 1, 105, 0, 1 }
+  { 1, 111, 0, 0 },
+  { 1, 116, 0, 1 },
+  { 1, 117, 0, 2 },
+  { 1, 97, 0, 3 }
 };
 static const MaiaCCLexRange maiaCCLexRanges43[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode44[] = {
   { 0, 0, 0, 0 },
-  { 1, 101, 0, 0 },
-  { 1, 115, 0, 1 },
-  { 1, 108, 0, 2 },
-  { 1, 101, 0, 3 }
+  { 1, 102, 0, 0 },
+  { 1, 105, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges44[] = {
   { 0, 0 }
@@ -692,32 +693,42 @@ static const MaiaCCLexRange maiaCCLexRanges44[] = {
 static const MaiaCCLexInstruction maiaCCLexCode45[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
-  { 1, 108, 0, 1 },
-  { 1, 105, 0, 2 },
-  { 1, 104, 0, 3 },
-  { 1, 119, 0, 4 }
+  { 1, 115, 0, 1 },
+  { 1, 108, 0, 2 },
+  { 1, 101, 0, 3 }
 };
 static const MaiaCCLexRange maiaCCLexRanges45[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode46[] = {
   { 0, 0, 0, 0 },
-  { 1, 111, 0, 0 },
-  { 1, 100, 0, 1 }
+  { 1, 101, 0, 0 },
+  { 1, 108, 0, 1 },
+  { 1, 105, 0, 2 },
+  { 1, 104, 0, 3 },
+  { 1, 119, 0, 4 }
 };
 static const MaiaCCLexRange maiaCCLexRanges46[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode47[] = {
   { 0, 0, 0, 0 },
-  { 1, 114, 0, 0 },
-  { 1, 111, 0, 1 },
-  { 1, 102, 0, 2 }
+  { 1, 111, 0, 0 },
+  { 1, 100, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges47[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode48[] = {
+  { 0, 0, 0, 0 },
+  { 1, 114, 0, 0 },
+  { 1, 111, 0, 1 },
+  { 1, 102, 0, 2 }
+};
+static const MaiaCCLexRange maiaCCLexRanges48[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode49[] = {
   { 0, 0, 0, 0 },
   { 1, 104, 0, 0 },
   { 1, 99, 0, 1 },
@@ -727,17 +738,17 @@ static const MaiaCCLexInstruction maiaCCLexCode48[] = {
   { 1, 111, 0, 5 },
   { 1, 102, 0, 6 }
 };
-static const MaiaCCLexRange maiaCCLexRanges48[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode49[] = {
-  { 0, 0, 0, 0 },
-  { 1, 58, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges49[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode50[] = {
+  { 0, 0, 0, 0 },
+  { 1, 58, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges50[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode51[] = {
   { 0, 0, 0, 0 },
   { 1, 104, 0, 0 },
   { 1, 99, 0, 1 },
@@ -746,20 +757,20 @@ static const MaiaCCLexInstruction maiaCCLexCode50[] = {
   { 1, 119, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges50[] = {
+static const MaiaCCLexRange maiaCCLexRanges51[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode51[] = {
+static const MaiaCCLexInstruction maiaCCLexCode52[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 115, 0, 1 },
   { 1, 97, 0, 2 },
   { 1, 99, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges51[] = {
+static const MaiaCCLexRange maiaCCLexRanges52[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode52[] = {
+static const MaiaCCLexInstruction maiaCCLexCode53[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 108, 0, 1 },
@@ -769,10 +780,10 @@ static const MaiaCCLexInstruction maiaCCLexCode52[] = {
   { 1, 101, 0, 5 },
   { 1, 100, 0, 6 }
 };
-static const MaiaCCLexRange maiaCCLexRanges52[] = {
+static const MaiaCCLexRange maiaCCLexRanges53[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode53[] = {
+static const MaiaCCLexInstruction maiaCCLexCode54[] = {
   { 0, 0, 0, 0 },
   { 1, 110, 0, 0 },
   { 1, 114, 0, 1 },
@@ -781,10 +792,10 @@ static const MaiaCCLexInstruction maiaCCLexCode53[] = {
   { 1, 101, 0, 4 },
   { 1, 114, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges53[] = {
+static const MaiaCCLexRange maiaCCLexRanges54[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode54[] = {
+static const MaiaCCLexInstruction maiaCCLexCode55[] = {
   { 0, 0, 0, 0 },
   { 1, 107, 0, 0 },
   { 1, 97, 0, 1 },
@@ -792,10 +803,10 @@ static const MaiaCCLexInstruction maiaCCLexCode54[] = {
   { 1, 114, 0, 3 },
   { 1, 98, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges54[] = {
+static const MaiaCCLexRange maiaCCLexRanges55[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode55[] = {
+static const MaiaCCLexInstruction maiaCCLexCode56[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 117, 0, 1 },
@@ -806,10 +817,10 @@ static const MaiaCCLexInstruction maiaCCLexCode55[] = {
   { 1, 111, 0, 6 },
   { 1, 99, 0, 7 }
 };
-static const MaiaCCLexRange maiaCCLexRanges55[] = {
+static const MaiaCCLexRange maiaCCLexRanges56[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode56[] = {
+static const MaiaCCLexInstruction maiaCCLexCode57[] = {
   { 0, 0, 0, 0 },
   { 1, 114, 0, 0 },
   { 1, 101, 0, 1 },
@@ -817,10 +828,10 @@ static const MaiaCCLexInstruction maiaCCLexCode56[] = {
   { 1, 101, 0, 3 },
   { 1, 100, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges56[] = {
+static const MaiaCCLexRange maiaCCLexRanges57[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode57[] = {
+static const MaiaCCLexInstruction maiaCCLexCode58[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 102, 0, 1 },
@@ -829,21 +840,13 @@ static const MaiaCCLexInstruction maiaCCLexCode57[] = {
   { 1, 110, 0, 4 },
   { 1, 117, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges57[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode58[] = {
-  { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 43, 0, 1 }
-};
 static const MaiaCCLexRange maiaCCLexRanges58[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode59[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 45, 0, 1 }
+  { 1, 43, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges59[] = {
   { 0, 0 }
@@ -851,7 +854,7 @@ static const MaiaCCLexRange maiaCCLexRanges59[] = {
 static const MaiaCCLexInstruction maiaCCLexCode60[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 42, 0, 1 }
+  { 1, 45, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges60[] = {
   { 0, 0 }
@@ -859,7 +862,7 @@ static const MaiaCCLexRange maiaCCLexRanges60[] = {
 static const MaiaCCLexInstruction maiaCCLexCode61[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 47, 0, 1 }
+  { 1, 42, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges61[] = {
   { 0, 0 }
@@ -867,7 +870,7 @@ static const MaiaCCLexRange maiaCCLexRanges61[] = {
 static const MaiaCCLexInstruction maiaCCLexCode62[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 37, 0, 1 }
+  { 1, 47, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges62[] = {
   { 0, 0 }
@@ -875,7 +878,7 @@ static const MaiaCCLexRange maiaCCLexRanges62[] = {
 static const MaiaCCLexInstruction maiaCCLexCode63[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 38, 0, 1 }
+  { 1, 37, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges63[] = {
   { 0, 0 }
@@ -883,7 +886,7 @@ static const MaiaCCLexRange maiaCCLexRanges63[] = {
 static const MaiaCCLexInstruction maiaCCLexCode64[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 124, 0, 1 }
+  { 1, 38, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges64[] = {
   { 0, 0 }
@@ -891,7 +894,7 @@ static const MaiaCCLexRange maiaCCLexRanges64[] = {
 static const MaiaCCLexInstruction maiaCCLexCode65[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 94, 0, 1 }
+  { 1, 124, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges65[] = {
   { 0, 0 }
@@ -899,8 +902,7 @@ static const MaiaCCLexRange maiaCCLexRanges65[] = {
 static const MaiaCCLexInstruction maiaCCLexCode66[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 60, 0, 1 },
-  { 1, 60, 0, 2 }
+  { 1, 94, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges66[] = {
   { 0, 0 }
@@ -908,53 +910,54 @@ static const MaiaCCLexRange maiaCCLexRanges66[] = {
 static const MaiaCCLexInstruction maiaCCLexCode67[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 62, 0, 1 },
-  { 1, 62, 0, 2 }
+  { 1, 60, 0, 1 },
+  { 1, 60, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges67[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode68[] = {
   { 0, 0, 0, 0 },
-  { 1, 124, 0, 0 },
-  { 1, 124, 0, 1 }
+  { 1, 61, 0, 0 },
+  { 1, 62, 0, 1 },
+  { 1, 62, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges68[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode69[] = {
   { 0, 0, 0, 0 },
-  { 1, 38, 0, 0 },
-  { 1, 38, 0, 1 }
+  { 1, 124, 0, 0 },
+  { 1, 124, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges69[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode70[] = {
   { 0, 0, 0, 0 },
-  { 1, 124, 0, 0 }
+  { 1, 38, 0, 0 },
+  { 1, 38, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges70[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode71[] = {
   { 0, 0, 0, 0 },
-  { 1, 94, 0, 0 }
+  { 1, 124, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges71[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode72[] = {
   { 0, 0, 0, 0 },
-  { 1, 38, 0, 0 }
+  { 1, 94, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges72[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode73[] = {
   { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 61, 0, 1 }
+  { 1, 38, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges73[] = {
   { 0, 0 }
@@ -962,7 +965,7 @@ static const MaiaCCLexRange maiaCCLexRanges73[] = {
 static const MaiaCCLexInstruction maiaCCLexCode74[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 33, 0, 1 }
+  { 1, 61, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges74[] = {
   { 0, 0 }
@@ -970,7 +973,7 @@ static const MaiaCCLexRange maiaCCLexRanges74[] = {
 static const MaiaCCLexInstruction maiaCCLexCode75[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 60, 0, 1 }
+  { 1, 33, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges75[] = {
   { 0, 0 }
@@ -978,88 +981,88 @@ static const MaiaCCLexRange maiaCCLexRanges75[] = {
 static const MaiaCCLexInstruction maiaCCLexCode76[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 62, 0, 1 }
+  { 1, 60, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges76[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode77[] = {
   { 0, 0, 0, 0 },
-  { 1, 60, 0, 0 },
-  { 1, 60, 0, 1 }
+  { 1, 61, 0, 0 },
+  { 1, 62, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges77[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode78[] = {
   { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 },
-  { 1, 62, 0, 1 }
+  { 1, 60, 0, 0 },
+  { 1, 60, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges78[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode79[] = {
   { 0, 0, 0, 0 },
-  { 1, 43, 0, 0 }
+  { 1, 62, 0, 0 },
+  { 1, 62, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges79[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode80[] = {
   { 0, 0, 0, 0 },
-  { 1, 45, 0, 0 }
+  { 1, 43, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges80[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode81[] = {
   { 0, 0, 0, 0 },
-  { 1, 47, 0, 0 }
+  { 1, 45, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges81[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode82[] = {
   { 0, 0, 0, 0 },
-  { 1, 37, 0, 0 }
+  { 1, 47, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges82[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode83[] = {
   { 0, 0, 0, 0 },
-  { 1, 33, 0, 0 }
+  { 1, 37, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges83[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode84[] = {
   { 0, 0, 0, 0 },
-  { 1, 126, 0, 0 }
+  { 1, 33, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges84[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode85[] = {
   { 0, 0, 0, 0 },
-  { 1, 43, 0, 0 },
-  { 1, 43, 0, 1 }
+  { 1, 126, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges85[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode86[] = {
   { 0, 0, 0, 0 },
-  { 1, 45, 0, 0 },
-  { 1, 45, 0, 1 }
+  { 1, 43, 0, 0 },
+  { 1, 43, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges86[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode87[] = {
   { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 },
+  { 1, 45, 0, 0 },
   { 1, 45, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges87[] = {
@@ -1067,14 +1070,22 @@ static const MaiaCCLexRange maiaCCLexRanges87[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode88[] = {
   { 0, 0, 0, 0 },
-  { 1, 119, 0, 0 },
-  { 1, 101, 0, 1 },
-  { 1, 110, 0, 2 }
+  { 1, 62, 0, 0 },
+  { 1, 45, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges88[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode89[] = {
+  { 0, 0, 0, 0 },
+  { 1, 119, 0, 0 },
+  { 1, 101, 0, 1 },
+  { 1, 110, 0, 2 }
+};
+static const MaiaCCLexRange maiaCCLexRanges89[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode90[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 116, 0, 1 },
@@ -1083,10 +1094,10 @@ static const MaiaCCLexInstruction maiaCCLexCode89[] = {
   { 1, 101, 0, 4 },
   { 1, 100, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges89[] = {
+static const MaiaCCLexRange maiaCCLexRanges90[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode90[] = {
+static const MaiaCCLexInstruction maiaCCLexCode91[] = {
   { 0, 0, 0, 0 },
   { 1, 102, 0, 0 },
   { 1, 111, 0, 1 },
@@ -1095,24 +1106,14 @@ static const MaiaCCLexInstruction maiaCCLexCode90[] = {
   { 1, 105, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges90[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode91[] = {
-  { 0, 0, 0, 0 },
-  { 1, 109, 0, 0 },
-  { 1, 115, 0, 1 },
-  { 1, 97, 0, 2 }
-};
 static const MaiaCCLexRange maiaCCLexRanges91[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode92[] = {
   { 0, 0, 0, 0 },
-  { 1, 101, 0, 0 },
-  { 1, 117, 0, 1 },
-  { 1, 114, 0, 2 },
-  { 1, 116, 0, 3 }
+  { 1, 109, 0, 0 },
+  { 1, 115, 0, 1 },
+  { 1, 97, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges92[] = {
   { 0, 0 }
@@ -1120,31 +1121,41 @@ static const MaiaCCLexRange maiaCCLexRanges92[] = {
 static const MaiaCCLexInstruction maiaCCLexCode93[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
-  { 1, 115, 0, 1 },
-  { 1, 108, 0, 2 },
-  { 1, 97, 0, 3 },
-  { 1, 102, 0, 4 }
+  { 1, 117, 0, 1 },
+  { 1, 114, 0, 2 },
+  { 1, 116, 0, 3 }
 };
 static const MaiaCCLexRange maiaCCLexRanges93[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode94[] = {
   { 0, 0, 0, 0 },
-  { 1, 108, 0, 0 },
-  { 1, 108, 0, 1 },
-  { 1, 117, 0, 2 },
-  { 1, 110, 0, 3 }
+  { 1, 101, 0, 0 },
+  { 1, 115, 0, 1 },
+  { 1, 108, 0, 2 },
+  { 1, 97, 0, 3 },
+  { 1, 102, 0, 4 }
 };
 static const MaiaCCLexRange maiaCCLexRanges94[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode95[] = {
   { 0, 0, 0, 0 },
+  { 1, 108, 0, 0 },
+  { 1, 108, 0, 1 },
+  { 1, 117, 0, 2 },
+  { 1, 110, 0, 3 }
+};
+static const MaiaCCLexRange maiaCCLexRanges95[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode96[] = {
+  { 0, 0, 0, 0 },
   { 2, 2, 0, 0 },
   { 3, 0, 4, 1 },
   { 3, 4, 3, 1 }
 };
-static const MaiaCCLexRange maiaCCLexRanges95[] = {
+static const MaiaCCLexRange maiaCCLexRanges96[] = {
   { 65, 90 },
   { 97, 122 },
   { 48, 57 },
@@ -1153,7 +1164,7 @@ static const MaiaCCLexRange maiaCCLexRanges95[] = {
   { 97, 122 },
   { 95, 95 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode96[] = {
+static const MaiaCCLexInstruction maiaCCLexCode97[] = {
   { 0, 0, 0, 0 },
   { 1, 70, 0, 0 },
   { 1, 102, 0, 0 },
@@ -1191,14 +1202,14 @@ static const MaiaCCLexInstruction maiaCCLexCode96[] = {
   { 3, 4, 1, 33 },
   { 2, 34, 15, 0 }
 };
-static const MaiaCCLexRange maiaCCLexRanges96[] = {
+static const MaiaCCLexRange maiaCCLexRanges97[] = {
   { 48, 57 },
   { 48, 57 },
   { 48, 57 },
   { 48, 57 },
   { 48, 57 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode97[] = {
+static const MaiaCCLexInstruction maiaCCLexCode98[] = {
   { 0, 0, 0, 0 },
   { 3, 0, 2, 0 },
   { 3, 2, 2, 0 },
@@ -1217,7 +1228,7 @@ static const MaiaCCLexInstruction maiaCCLexCode97[] = {
   { 1, 48, 0, 14 },
   { 2, 15, 11, 0 }
 };
-static const MaiaCCLexRange maiaCCLexRanges97[] = {
+static const MaiaCCLexRange maiaCCLexRanges98[] = {
   { 108, 108 },
   { 76, 76 },
   { 117, 117 },
@@ -1229,7 +1240,7 @@ static const MaiaCCLexRange maiaCCLexRanges97[] = {
   { 65, 70 },
   { 97, 102 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode98[] = {
+static const MaiaCCLexInstruction maiaCCLexCode99[] = {
   { 0, 0, 0, 0 },
   { 1, 34, 0, 0 },
   { 2, 18, 1, 0 },
@@ -1251,13 +1262,13 @@ static const MaiaCCLexInstruction maiaCCLexCode98[] = {
   { 2, 17, 3, 0 },
   { 1, 34, 0, 2 }
 };
-static const MaiaCCLexRange maiaCCLexRanges98[] = {
+static const MaiaCCLexRange maiaCCLexRanges99[] = {
   { 34, 34 },
   { 92, 92 },
   { 10, 10 },
   { 13, 13 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode99[] = {
+static const MaiaCCLexInstruction maiaCCLexCode100[] = {
   { 0, 0, 0, 0 },
   { 1, 39, 0, 0 },
   { 4, 0, 4, 1 },
@@ -1278,24 +1289,24 @@ static const MaiaCCLexInstruction maiaCCLexCode99[] = {
   { 2, 16, 2, 0 },
   { 1, 39, 0, 17 }
 };
-static const MaiaCCLexRange maiaCCLexRanges99[] = {
+static const MaiaCCLexRange maiaCCLexRanges100[] = {
   { 39, 39 },
   { 92, 92 },
   { 10, 10 },
   { 13, 13 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode100[] = {
+static const MaiaCCLexInstruction maiaCCLexCode101[] = {
   { 0, 0, 0, 0 },
   { 2, 2, 0, 0 },
   { 4, 0, 2, 1 },
   { 1, 47, 0, 1 },
   { 1, 47, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges100[] = {
+static const MaiaCCLexRange maiaCCLexRanges101[] = {
   { 10, 10 },
   { 13, 13 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode101[] = {
+static const MaiaCCLexInstruction maiaCCLexCode102[] = {
   { 0, 0, 0, 0 },
   { 1, 47, 0, 0 },
   { 1, 42, 0, 1 },
@@ -1307,22 +1318,22 @@ static const MaiaCCLexInstruction maiaCCLexCode101[] = {
   { 1, 42, 0, 3 },
   { 1, 47, 0, 8 }
 };
-static const MaiaCCLexRange maiaCCLexRanges101[] = {
+static const MaiaCCLexRange maiaCCLexRanges102[] = {
   { 47, 47 },
   { 42, 42 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode102[] = {
+static const MaiaCCLexInstruction maiaCCLexCode103[] = {
   { 0, 0, 0, 0 },
   { 2, 2, 0, 0 },
   { 3, 0, 4, 1 }
 };
-static const MaiaCCLexRange maiaCCLexRanges102[] = {
+static const MaiaCCLexRange maiaCCLexRanges103[] = {
   { 32, 32 },
   { 9, 9 },
   { 10, 10 },
   { 13, 13 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode103[] = {
+static const MaiaCCLexInstruction maiaCCLexCode104[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 114, 0, 1 },
@@ -1331,25 +1342,25 @@ static const MaiaCCLexInstruction maiaCCLexCode103[] = {
   { 1, 109, 0, 4 },
   { 1, 105, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges103[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode104[] = {
-  { 0, 0, 0, 0 },
-  { 1, 115, 0, 0 },
-  { 1, 97, 0, 1 }
-};
 static const MaiaCCLexRange maiaCCLexRanges104[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode105[] = {
   { 0, 0, 0, 0 },
-  { 1, 59, 0, 0 }
+  { 1, 115, 0, 0 },
+  { 1, 97, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges105[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode106[] = {
+  { 0, 0, 0, 0 },
+  { 1, 59, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges106[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode107[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 114, 0, 1 },
@@ -1358,10 +1369,10 @@ static const MaiaCCLexInstruction maiaCCLexCode106[] = {
   { 1, 120, 0, 4 },
   { 1, 101, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges106[] = {
+static const MaiaCCLexRange maiaCCLexRanges107[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode107[] = {
+static const MaiaCCLexInstruction maiaCCLexCode108[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 99, 0, 1 },
@@ -1373,24 +1384,24 @@ static const MaiaCCLexInstruction maiaCCLexCode107[] = {
   { 1, 97, 0, 7 },
   { 1, 110, 0, 8 }
 };
-static const MaiaCCLexRange maiaCCLexRanges107[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode108[] = {
-  { 0, 0, 0, 0 },
-  { 1, 123, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges108[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode109[] = {
   { 0, 0, 0, 0 },
-  { 1, 125, 0, 0 }
+  { 1, 123, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges109[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode110[] = {
+  { 0, 0, 0, 0 },
+  { 1, 125, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges110[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode111[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 99, 0, 1 },
@@ -1399,17 +1410,17 @@ static const MaiaCCLexInstruction maiaCCLexCode110[] = {
   { 1, 116, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges110[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode111[] = {
-  { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges111[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode112[] = {
+  { 0, 0, 0, 0 },
+  { 1, 61, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges112[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode113[] = {
   { 0, 0, 0, 0 },
   { 1, 115, 0, 0 },
   { 1, 115, 0, 1 },
@@ -1417,10 +1428,10 @@ static const MaiaCCLexInstruction maiaCCLexCode112[] = {
   { 1, 108, 0, 3 },
   { 1, 99, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges112[] = {
+static const MaiaCCLexRange maiaCCLexRanges113[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode113[] = {
+static const MaiaCCLexInstruction maiaCCLexCode114[] = {
   { 0, 0, 0, 0 },
   { 1, 99, 0, 0 },
   { 1, 105, 0, 1 },
@@ -1429,10 +1440,10 @@ static const MaiaCCLexInstruction maiaCCLexCode113[] = {
   { 1, 117, 0, 4 },
   { 1, 112, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges113[] = {
+static const MaiaCCLexRange maiaCCLexRanges114[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode114[] = {
+static const MaiaCCLexInstruction maiaCCLexCode115[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 116, 0, 1 },
@@ -1442,10 +1453,10 @@ static const MaiaCCLexInstruction maiaCCLexCode114[] = {
   { 1, 114, 0, 5 },
   { 1, 112, 0, 6 }
 };
-static const MaiaCCLexRange maiaCCLexRanges114[] = {
+static const MaiaCCLexRange maiaCCLexRanges115[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode115[] = {
+static const MaiaCCLexInstruction maiaCCLexCode116[] = {
   { 0, 0, 0, 0 },
   { 1, 100, 0, 0 },
   { 1, 101, 0, 1 },
@@ -1457,24 +1468,24 @@ static const MaiaCCLexInstruction maiaCCLexCode115[] = {
   { 1, 114, 0, 7 },
   { 1, 112, 0, 8 }
 };
-static const MaiaCCLexRange maiaCCLexRanges115[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode116[] = {
-  { 0, 0, 0, 0 },
-  { 1, 40, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges116[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode117[] = {
   { 0, 0, 0, 0 },
-  { 1, 41, 0, 0 }
+  { 1, 40, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges117[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode118[] = {
+  { 0, 0, 0, 0 },
+  { 1, 41, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges118[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode119[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 115, 0, 1 },
@@ -1482,10 +1493,10 @@ static const MaiaCCLexInstruction maiaCCLexCode118[] = {
   { 1, 111, 0, 3 },
   { 1, 99, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges118[] = {
+static const MaiaCCLexRange maiaCCLexRanges119[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode119[] = {
+static const MaiaCCLexInstruction maiaCCLexCode120[] = {
   { 0, 0, 0, 0 },
   { 1, 110, 0, 0 },
   { 1, 114, 0, 1 },
@@ -1493,18 +1504,6 @@ static const MaiaCCLexInstruction maiaCCLexCode119[] = {
   { 1, 116, 0, 3 },
   { 1, 120, 0, 4 },
   { 1, 101, 0, 5 }
-};
-static const MaiaCCLexRange maiaCCLexRanges119[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode120[] = {
-  { 0, 0, 0, 0 },
-  { 1, 99, 0, 0 },
-  { 1, 105, 0, 1 },
-  { 1, 116, 0, 2 },
-  { 1, 97, 0, 3 },
-  { 1, 116, 0, 4 },
-  { 1, 115, 0, 5 }
 };
 static const MaiaCCLexRange maiaCCLexRanges120[] = {
   { 0, 0 }
@@ -1518,6 +1517,27 @@ static const MaiaCCLexRange maiaCCLexRanges121[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode122[] = {
   { 0, 0, 0, 0 },
+  { 1, 46, 0, 0 },
+  { 1, 46, 0, 1 },
+  { 1, 46, 0, 2 }
+};
+static const MaiaCCLexRange maiaCCLexRanges122[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode123[] = {
+  { 0, 0, 0, 0 },
+  { 1, 99, 0, 0 },
+  { 1, 105, 0, 1 },
+  { 1, 116, 0, 2 },
+  { 1, 97, 0, 3 },
+  { 1, 116, 0, 4 },
+  { 1, 115, 0, 5 }
+};
+static const MaiaCCLexRange maiaCCLexRanges123[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode124[] = {
+  { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 108, 0, 1 },
   { 1, 117, 0, 2 },
@@ -1525,24 +1545,24 @@ static const MaiaCCLexInstruction maiaCCLexCode122[] = {
   { 1, 101, 0, 4 },
   { 1, 82, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges122[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode123[] = {
-  { 0, 0, 0, 0 },
-  { 1, 60, 0, 0 }
-};
-static const MaiaCCLexRange maiaCCLexRanges123[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode124[] = {
-  { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 }
-};
 static const MaiaCCLexRange maiaCCLexRanges124[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode125[] = {
+  { 0, 0, 0, 0 },
+  { 1, 60, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges125[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode126[] = {
+  { 0, 0, 0, 0 },
+  { 1, 62, 0, 0 }
+};
+static const MaiaCCLexRange maiaCCLexRanges126[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode127[] = {
   { 0, 0, 0, 0 },
   { 1, 110, 0, 0 },
   { 1, 111, 0, 1 },
@@ -1551,40 +1571,40 @@ static const MaiaCCLexInstruction maiaCCLexCode125[] = {
   { 1, 112, 0, 4 },
   { 1, 79, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges125[] = {
+static const MaiaCCLexRange maiaCCLexRanges127[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode126[] = {
+static const MaiaCCLexInstruction maiaCCLexCode128[] = {
   { 0, 0, 0, 0 },
   { 1, 100, 0, 0 },
   { 1, 105, 0, 1 },
   { 1, 111, 0, 2 },
   { 1, 118, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges126[] = {
+static const MaiaCCLexRange maiaCCLexRanges128[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode127[] = {
+static const MaiaCCLexInstruction maiaCCLexCode129[] = {
   { 0, 0, 0, 0 },
   { 1, 108, 0, 0 },
   { 1, 111, 0, 1 },
   { 1, 111, 0, 2 },
   { 1, 98, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges127[] = {
+static const MaiaCCLexRange maiaCCLexRanges129[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode128[] = {
+static const MaiaCCLexInstruction maiaCCLexCode130[] = {
   { 0, 0, 0, 0 },
   { 1, 114, 0, 0 },
   { 1, 97, 0, 1 },
   { 1, 104, 0, 2 },
   { 1, 99, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges128[] = {
+static const MaiaCCLexRange maiaCCLexRanges130[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode129[] = {
+static const MaiaCCLexInstruction maiaCCLexCode131[] = {
   { 0, 0, 0, 0 },
   { 1, 103, 0, 0 },
   { 1, 110, 0, 1 },
@@ -1593,39 +1613,21 @@ static const MaiaCCLexInstruction maiaCCLexCode129[] = {
   { 1, 116, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges129[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode130[] = {
-  { 0, 0, 0, 0 },
-  { 1, 56, 0, 0 },
-  { 1, 105, 0, 1 }
-};
-static const MaiaCCLexRange maiaCCLexRanges130[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode131[] = {
-  { 0, 0, 0, 0 },
-  { 1, 54, 0, 0 },
-  { 1, 49, 0, 1 },
-  { 1, 105, 0, 2 }
-};
 static const MaiaCCLexRange maiaCCLexRanges131[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode132[] = {
   { 0, 0, 0, 0 },
-  { 1, 50, 0, 0 },
-  { 1, 51, 0, 1 },
-  { 1, 105, 0, 2 }
+  { 1, 56, 0, 0 },
+  { 1, 105, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges132[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode133[] = {
   { 0, 0, 0, 0 },
-  { 1, 52, 0, 0 },
-  { 1, 54, 0, 1 },
+  { 1, 54, 0, 0 },
+  { 1, 49, 0, 1 },
   { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges133[] = {
@@ -1633,34 +1635,34 @@ static const MaiaCCLexRange maiaCCLexRanges133[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode134[] = {
   { 0, 0, 0, 0 },
-  { 1, 56, 0, 0 },
-  { 1, 117, 0, 1 }
+  { 1, 50, 0, 0 },
+  { 1, 51, 0, 1 },
+  { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges134[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode135[] = {
   { 0, 0, 0, 0 },
-  { 1, 54, 0, 0 },
-  { 1, 49, 0, 1 },
-  { 1, 117, 0, 2 }
+  { 1, 52, 0, 0 },
+  { 1, 54, 0, 1 },
+  { 1, 105, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges135[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode136[] = {
   { 0, 0, 0, 0 },
-  { 1, 50, 0, 0 },
-  { 1, 51, 0, 1 },
-  { 1, 117, 0, 2 }
+  { 1, 56, 0, 0 },
+  { 1, 117, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges136[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode137[] = {
   { 0, 0, 0, 0 },
-  { 1, 52, 0, 0 },
-  { 1, 54, 0, 1 },
+  { 1, 54, 0, 0 },
+  { 1, 49, 0, 1 },
   { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges137[] = {
@@ -1670,7 +1672,7 @@ static const MaiaCCLexInstruction maiaCCLexCode138[] = {
   { 0, 0, 0, 0 },
   { 1, 50, 0, 0 },
   { 1, 51, 0, 1 },
-  { 1, 102, 0, 2 }
+  { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges138[] = {
   { 0, 0 }
@@ -1679,75 +1681,93 @@ static const MaiaCCLexInstruction maiaCCLexCode139[] = {
   { 0, 0, 0, 0 },
   { 1, 52, 0, 0 },
   { 1, 54, 0, 1 },
-  { 1, 102, 0, 2 }
+  { 1, 117, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges139[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode140[] = {
   { 0, 0, 0, 0 },
-  { 1, 42, 0, 0 }
+  { 1, 50, 0, 0 },
+  { 1, 51, 0, 1 },
+  { 1, 102, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges140[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode141[] = {
   { 0, 0, 0, 0 },
-  { 1, 91, 0, 0 }
+  { 1, 52, 0, 0 },
+  { 1, 54, 0, 1 },
+  { 1, 102, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges141[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode142[] = {
   { 0, 0, 0, 0 },
-  { 1, 93, 0, 0 }
+  { 1, 42, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges142[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode143[] = {
   { 0, 0, 0, 0 },
-  { 1, 63, 0, 0 }
+  { 1, 91, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges143[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode144[] = {
   { 0, 0, 0, 0 },
-  { 1, 46, 0, 0 }
+  { 1, 93, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges144[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode145[] = {
   { 0, 0, 0, 0 },
-  { 1, 111, 0, 0 },
-  { 1, 116, 0, 1 },
-  { 1, 117, 0, 2 },
-  { 1, 97, 0, 3 }
+  { 1, 63, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges145[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode146[] = {
   { 0, 0, 0, 0 },
-  { 1, 102, 0, 0 },
-  { 1, 105, 0, 1 }
+  { 1, 46, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges146[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode147[] = {
   { 0, 0, 0, 0 },
-  { 1, 101, 0, 0 },
-  { 1, 115, 0, 1 },
-  { 1, 108, 0, 2 },
-  { 1, 101, 0, 3 }
+  { 1, 111, 0, 0 },
+  { 1, 116, 0, 1 },
+  { 1, 117, 0, 2 },
+  { 1, 97, 0, 3 }
 };
 static const MaiaCCLexRange maiaCCLexRanges147[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode148[] = {
+  { 0, 0, 0, 0 },
+  { 1, 102, 0, 0 },
+  { 1, 105, 0, 1 }
+};
+static const MaiaCCLexRange maiaCCLexRanges148[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode149[] = {
+  { 0, 0, 0, 0 },
+  { 1, 101, 0, 0 },
+  { 1, 115, 0, 1 },
+  { 1, 108, 0, 2 },
+  { 1, 101, 0, 3 }
+};
+static const MaiaCCLexRange maiaCCLexRanges149[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode150[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 108, 0, 1 },
@@ -1755,27 +1775,27 @@ static const MaiaCCLexInstruction maiaCCLexCode148[] = {
   { 1, 104, 0, 3 },
   { 1, 119, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges148[] = {
+static const MaiaCCLexRange maiaCCLexRanges150[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode149[] = {
+static const MaiaCCLexInstruction maiaCCLexCode151[] = {
   { 0, 0, 0, 0 },
   { 1, 111, 0, 0 },
   { 1, 100, 0, 1 }
 };
-static const MaiaCCLexRange maiaCCLexRanges149[] = {
+static const MaiaCCLexRange maiaCCLexRanges151[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode150[] = {
+static const MaiaCCLexInstruction maiaCCLexCode152[] = {
   { 0, 0, 0, 0 },
   { 1, 114, 0, 0 },
   { 1, 111, 0, 1 },
   { 1, 102, 0, 2 }
 };
-static const MaiaCCLexRange maiaCCLexRanges150[] = {
+static const MaiaCCLexRange maiaCCLexRanges152[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode151[] = {
+static const MaiaCCLexInstruction maiaCCLexCode153[] = {
   { 0, 0, 0, 0 },
   { 1, 104, 0, 0 },
   { 1, 99, 0, 1 },
@@ -1785,17 +1805,17 @@ static const MaiaCCLexInstruction maiaCCLexCode151[] = {
   { 1, 111, 0, 5 },
   { 1, 102, 0, 6 }
 };
-static const MaiaCCLexRange maiaCCLexRanges151[] = {
+static const MaiaCCLexRange maiaCCLexRanges153[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode152[] = {
+static const MaiaCCLexInstruction maiaCCLexCode154[] = {
   { 0, 0, 0, 0 },
   { 1, 58, 0, 0 }
 };
-static const MaiaCCLexRange maiaCCLexRanges152[] = {
+static const MaiaCCLexRange maiaCCLexRanges154[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode153[] = {
+static const MaiaCCLexInstruction maiaCCLexCode155[] = {
   { 0, 0, 0, 0 },
   { 1, 104, 0, 0 },
   { 1, 99, 0, 1 },
@@ -1804,20 +1824,20 @@ static const MaiaCCLexInstruction maiaCCLexCode153[] = {
   { 1, 119, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges153[] = {
+static const MaiaCCLexRange maiaCCLexRanges155[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode154[] = {
+static const MaiaCCLexInstruction maiaCCLexCode156[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 115, 0, 1 },
   { 1, 97, 0, 2 },
   { 1, 99, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges154[] = {
+static const MaiaCCLexRange maiaCCLexRanges156[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode155[] = {
+static const MaiaCCLexInstruction maiaCCLexCode157[] = {
   { 0, 0, 0, 0 },
   { 1, 116, 0, 0 },
   { 1, 108, 0, 1 },
@@ -1827,10 +1847,10 @@ static const MaiaCCLexInstruction maiaCCLexCode155[] = {
   { 1, 101, 0, 5 },
   { 1, 100, 0, 6 }
 };
-static const MaiaCCLexRange maiaCCLexRanges155[] = {
+static const MaiaCCLexRange maiaCCLexRanges157[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode156[] = {
+static const MaiaCCLexInstruction maiaCCLexCode158[] = {
   { 0, 0, 0, 0 },
   { 1, 110, 0, 0 },
   { 1, 114, 0, 1 },
@@ -1839,10 +1859,10 @@ static const MaiaCCLexInstruction maiaCCLexCode156[] = {
   { 1, 101, 0, 4 },
   { 1, 114, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges156[] = {
+static const MaiaCCLexRange maiaCCLexRanges158[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode157[] = {
+static const MaiaCCLexInstruction maiaCCLexCode159[] = {
   { 0, 0, 0, 0 },
   { 1, 107, 0, 0 },
   { 1, 97, 0, 1 },
@@ -1850,10 +1870,10 @@ static const MaiaCCLexInstruction maiaCCLexCode157[] = {
   { 1, 114, 0, 3 },
   { 1, 98, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges157[] = {
+static const MaiaCCLexRange maiaCCLexRanges159[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode158[] = {
+static const MaiaCCLexInstruction maiaCCLexCode160[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 117, 0, 1 },
@@ -1864,10 +1884,10 @@ static const MaiaCCLexInstruction maiaCCLexCode158[] = {
   { 1, 111, 0, 6 },
   { 1, 99, 0, 7 }
 };
-static const MaiaCCLexRange maiaCCLexRanges158[] = {
+static const MaiaCCLexRange maiaCCLexRanges160[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode159[] = {
+static const MaiaCCLexInstruction maiaCCLexCode161[] = {
   { 0, 0, 0, 0 },
   { 1, 114, 0, 0 },
   { 1, 101, 0, 1 },
@@ -1875,10 +1895,10 @@ static const MaiaCCLexInstruction maiaCCLexCode159[] = {
   { 1, 101, 0, 3 },
   { 1, 100, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges159[] = {
+static const MaiaCCLexRange maiaCCLexRanges161[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode160[] = {
+static const MaiaCCLexInstruction maiaCCLexCode162[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 102, 0, 1 },
@@ -1887,29 +1907,13 @@ static const MaiaCCLexInstruction maiaCCLexCode160[] = {
   { 1, 110, 0, 4 },
   { 1, 117, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges160[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode161[] = {
-  { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 43, 0, 1 }
-};
-static const MaiaCCLexRange maiaCCLexRanges161[] = {
-  { 0, 0 }
-};
-static const MaiaCCLexInstruction maiaCCLexCode162[] = {
-  { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 45, 0, 1 }
-};
 static const MaiaCCLexRange maiaCCLexRanges162[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode163[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 42, 0, 1 }
+  { 1, 43, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges163[] = {
   { 0, 0 }
@@ -1917,7 +1921,7 @@ static const MaiaCCLexRange maiaCCLexRanges163[] = {
 static const MaiaCCLexInstruction maiaCCLexCode164[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 47, 0, 1 }
+  { 1, 45, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges164[] = {
   { 0, 0 }
@@ -1925,7 +1929,7 @@ static const MaiaCCLexRange maiaCCLexRanges164[] = {
 static const MaiaCCLexInstruction maiaCCLexCode165[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 37, 0, 1 }
+  { 1, 42, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges165[] = {
   { 0, 0 }
@@ -1933,7 +1937,7 @@ static const MaiaCCLexRange maiaCCLexRanges165[] = {
 static const MaiaCCLexInstruction maiaCCLexCode166[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 38, 0, 1 }
+  { 1, 47, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges166[] = {
   { 0, 0 }
@@ -1941,7 +1945,7 @@ static const MaiaCCLexRange maiaCCLexRanges166[] = {
 static const MaiaCCLexInstruction maiaCCLexCode167[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 124, 0, 1 }
+  { 1, 37, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges167[] = {
   { 0, 0 }
@@ -1949,7 +1953,7 @@ static const MaiaCCLexRange maiaCCLexRanges167[] = {
 static const MaiaCCLexInstruction maiaCCLexCode168[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 94, 0, 1 }
+  { 1, 38, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges168[] = {
   { 0, 0 }
@@ -1957,8 +1961,7 @@ static const MaiaCCLexRange maiaCCLexRanges168[] = {
 static const MaiaCCLexInstruction maiaCCLexCode169[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 60, 0, 1 },
-  { 1, 60, 0, 2 }
+  { 1, 124, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges169[] = {
   { 0, 0 }
@@ -1966,61 +1969,62 @@ static const MaiaCCLexRange maiaCCLexRanges169[] = {
 static const MaiaCCLexInstruction maiaCCLexCode170[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 62, 0, 1 },
-  { 1, 62, 0, 2 }
+  { 1, 94, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges170[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode171[] = {
   { 0, 0, 0, 0 },
-  { 1, 124, 0, 0 },
-  { 1, 124, 0, 1 }
+  { 1, 61, 0, 0 },
+  { 1, 60, 0, 1 },
+  { 1, 60, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges171[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode172[] = {
   { 0, 0, 0, 0 },
-  { 1, 38, 0, 0 },
-  { 1, 38, 0, 1 }
+  { 1, 61, 0, 0 },
+  { 1, 62, 0, 1 },
+  { 1, 62, 0, 2 }
 };
 static const MaiaCCLexRange maiaCCLexRanges172[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode173[] = {
   { 0, 0, 0, 0 },
-  { 1, 124, 0, 0 }
+  { 1, 124, 0, 0 },
+  { 1, 124, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges173[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode174[] = {
   { 0, 0, 0, 0 },
-  { 1, 94, 0, 0 }
+  { 1, 38, 0, 0 },
+  { 1, 38, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges174[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode175[] = {
   { 0, 0, 0, 0 },
-  { 1, 38, 0, 0 }
+  { 1, 124, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges175[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode176[] = {
   { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 61, 0, 1 }
+  { 1, 94, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges176[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode177[] = {
   { 0, 0, 0, 0 },
-  { 1, 61, 0, 0 },
-  { 1, 33, 0, 1 }
+  { 1, 38, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges177[] = {
   { 0, 0 }
@@ -2028,7 +2032,7 @@ static const MaiaCCLexRange maiaCCLexRanges177[] = {
 static const MaiaCCLexInstruction maiaCCLexCode178[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 60, 0, 1 }
+  { 1, 61, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges178[] = {
   { 0, 0 }
@@ -2036,14 +2040,14 @@ static const MaiaCCLexRange maiaCCLexRanges178[] = {
 static const MaiaCCLexInstruction maiaCCLexCode179[] = {
   { 0, 0, 0, 0 },
   { 1, 61, 0, 0 },
-  { 1, 62, 0, 1 }
+  { 1, 33, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges179[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode180[] = {
   { 0, 0, 0, 0 },
-  { 1, 60, 0, 0 },
+  { 1, 61, 0, 0 },
   { 1, 60, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges180[] = {
@@ -2051,7 +2055,7 @@ static const MaiaCCLexRange maiaCCLexRanges180[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode181[] = {
   { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 },
+  { 1, 61, 0, 0 },
   { 1, 62, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges181[] = {
@@ -2059,80 +2063,96 @@ static const MaiaCCLexRange maiaCCLexRanges181[] = {
 };
 static const MaiaCCLexInstruction maiaCCLexCode182[] = {
   { 0, 0, 0, 0 },
-  { 1, 43, 0, 0 }
+  { 1, 60, 0, 0 },
+  { 1, 60, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges182[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode183[] = {
   { 0, 0, 0, 0 },
-  { 1, 45, 0, 0 }
+  { 1, 62, 0, 0 },
+  { 1, 62, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges183[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode184[] = {
   { 0, 0, 0, 0 },
-  { 1, 47, 0, 0 }
+  { 1, 43, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges184[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode185[] = {
   { 0, 0, 0, 0 },
-  { 1, 37, 0, 0 }
+  { 1, 45, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges185[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode186[] = {
   { 0, 0, 0, 0 },
-  { 1, 33, 0, 0 }
+  { 1, 47, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges186[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode187[] = {
   { 0, 0, 0, 0 },
-  { 1, 126, 0, 0 }
+  { 1, 37, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges187[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode188[] = {
   { 0, 0, 0, 0 },
-  { 1, 43, 0, 0 },
-  { 1, 43, 0, 1 }
+  { 1, 33, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges188[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode189[] = {
   { 0, 0, 0, 0 },
-  { 1, 45, 0, 0 },
-  { 1, 45, 0, 1 }
+  { 1, 126, 0, 0 }
 };
 static const MaiaCCLexRange maiaCCLexRanges189[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode190[] = {
   { 0, 0, 0, 0 },
-  { 1, 62, 0, 0 },
-  { 1, 45, 0, 1 }
+  { 1, 43, 0, 0 },
+  { 1, 43, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges190[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode191[] = {
   { 0, 0, 0, 0 },
-  { 1, 119, 0, 0 },
-  { 1, 101, 0, 1 },
-  { 1, 110, 0, 2 }
+  { 1, 45, 0, 0 },
+  { 1, 45, 0, 1 }
 };
 static const MaiaCCLexRange maiaCCLexRanges191[] = {
   { 0, 0 }
 };
 static const MaiaCCLexInstruction maiaCCLexCode192[] = {
+  { 0, 0, 0, 0 },
+  { 1, 62, 0, 0 },
+  { 1, 45, 0, 1 }
+};
+static const MaiaCCLexRange maiaCCLexRanges192[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode193[] = {
+  { 0, 0, 0, 0 },
+  { 1, 119, 0, 0 },
+  { 1, 101, 0, 1 },
+  { 1, 110, 0, 2 }
+};
+static const MaiaCCLexRange maiaCCLexRanges193[] = {
+  { 0, 0 }
+};
+static const MaiaCCLexInstruction maiaCCLexCode194[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 116, 0, 1 },
@@ -2141,10 +2161,10 @@ static const MaiaCCLexInstruction maiaCCLexCode192[] = {
   { 1, 101, 0, 4 },
   { 1, 100, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges192[] = {
+static const MaiaCCLexRange maiaCCLexRanges194[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode193[] = {
+static const MaiaCCLexInstruction maiaCCLexCode195[] = {
   { 0, 0, 0, 0 },
   { 1, 102, 0, 0 },
   { 1, 111, 0, 1 },
@@ -2153,29 +2173,29 @@ static const MaiaCCLexInstruction maiaCCLexCode193[] = {
   { 1, 105, 0, 4 },
   { 1, 115, 0, 5 }
 };
-static const MaiaCCLexRange maiaCCLexRanges193[] = {
+static const MaiaCCLexRange maiaCCLexRanges195[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode194[] = {
+static const MaiaCCLexInstruction maiaCCLexCode196[] = {
   { 0, 0, 0, 0 },
   { 1, 109, 0, 0 },
   { 1, 115, 0, 1 },
   { 1, 97, 0, 2 }
 };
-static const MaiaCCLexRange maiaCCLexRanges194[] = {
+static const MaiaCCLexRange maiaCCLexRanges196[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode195[] = {
+static const MaiaCCLexInstruction maiaCCLexCode197[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 117, 0, 1 },
   { 1, 114, 0, 2 },
   { 1, 116, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges195[] = {
+static const MaiaCCLexRange maiaCCLexRanges197[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode196[] = {
+static const MaiaCCLexInstruction maiaCCLexCode198[] = {
   { 0, 0, 0, 0 },
   { 1, 101, 0, 0 },
   { 1, 115, 0, 1 },
@@ -2183,26 +2203,26 @@ static const MaiaCCLexInstruction maiaCCLexCode196[] = {
   { 1, 97, 0, 3 },
   { 1, 102, 0, 4 }
 };
-static const MaiaCCLexRange maiaCCLexRanges196[] = {
+static const MaiaCCLexRange maiaCCLexRanges198[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode197[] = {
+static const MaiaCCLexInstruction maiaCCLexCode199[] = {
   { 0, 0, 0, 0 },
   { 1, 108, 0, 0 },
   { 1, 108, 0, 1 },
   { 1, 117, 0, 2 },
   { 1, 110, 0, 3 }
 };
-static const MaiaCCLexRange maiaCCLexRanges197[] = {
+static const MaiaCCLexRange maiaCCLexRanges199[] = {
   { 0, 0 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode198[] = {
+static const MaiaCCLexInstruction maiaCCLexCode200[] = {
   { 0, 0, 0, 0 },
   { 2, 2, 0, 0 },
   { 3, 0, 4, 1 },
   { 3, 4, 3, 1 }
 };
-static const MaiaCCLexRange maiaCCLexRanges198[] = {
+static const MaiaCCLexRange maiaCCLexRanges200[] = {
   { 65, 90 },
   { 97, 122 },
   { 48, 57 },
@@ -2211,7 +2231,7 @@ static const MaiaCCLexRange maiaCCLexRanges198[] = {
   { 97, 122 },
   { 95, 95 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode199[] = {
+static const MaiaCCLexInstruction maiaCCLexCode201[] = {
   { 0, 0, 0, 0 },
   { 1, 70, 0, 0 },
   { 1, 102, 0, 0 },
@@ -2249,14 +2269,14 @@ static const MaiaCCLexInstruction maiaCCLexCode199[] = {
   { 3, 4, 1, 33 },
   { 2, 34, 15, 0 }
 };
-static const MaiaCCLexRange maiaCCLexRanges199[] = {
+static const MaiaCCLexRange maiaCCLexRanges201[] = {
   { 48, 57 },
   { 48, 57 },
   { 48, 57 },
   { 48, 57 },
   { 48, 57 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode200[] = {
+static const MaiaCCLexInstruction maiaCCLexCode202[] = {
   { 0, 0, 0, 0 },
   { 3, 0, 2, 0 },
   { 3, 2, 2, 0 },
@@ -2275,7 +2295,7 @@ static const MaiaCCLexInstruction maiaCCLexCode200[] = {
   { 1, 48, 0, 14 },
   { 2, 15, 11, 0 }
 };
-static const MaiaCCLexRange maiaCCLexRanges200[] = {
+static const MaiaCCLexRange maiaCCLexRanges202[] = {
   { 108, 108 },
   { 76, 76 },
   { 117, 117 },
@@ -2287,7 +2307,7 @@ static const MaiaCCLexRange maiaCCLexRanges200[] = {
   { 65, 70 },
   { 97, 102 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode201[] = {
+static const MaiaCCLexInstruction maiaCCLexCode203[] = {
   { 0, 0, 0, 0 },
   { 1, 34, 0, 0 },
   { 2, 18, 1, 0 },
@@ -2309,13 +2329,13 @@ static const MaiaCCLexInstruction maiaCCLexCode201[] = {
   { 2, 17, 3, 0 },
   { 1, 34, 0, 2 }
 };
-static const MaiaCCLexRange maiaCCLexRanges201[] = {
+static const MaiaCCLexRange maiaCCLexRanges203[] = {
   { 34, 34 },
   { 92, 92 },
   { 10, 10 },
   { 13, 13 }
 };
-static const MaiaCCLexInstruction maiaCCLexCode202[] = {
+static const MaiaCCLexInstruction maiaCCLexCode204[] = {
   { 0, 0, 0, 0 },
   { 1, 39, 0, 0 },
   { 4, 0, 4, 1 },
@@ -2336,7 +2356,7 @@ static const MaiaCCLexInstruction maiaCCLexCode202[] = {
   { 2, 16, 2, 0 },
   { 1, 39, 0, 17 }
 };
-static const MaiaCCLexRange maiaCCLexRanges202[] = {
+static const MaiaCCLexRange maiaCCLexRanges204[] = {
   { 39, 39 },
   { 92, 92 },
   { 10, 10 },
@@ -2360,195 +2380,197 @@ static const MaiaCCLexPattern maiaCCLexPatterns[] = {
   { maiaCCLexCode14, maiaCCLexRanges14, 2, 1, MAIACC_TOKEN_TOKEN__29_, 0, 0, 0, 0, 0 },
   { maiaCCLexCode15, maiaCCLexRanges15, 6, 5, MAIACC_TOKEN_TOKEN_const, 0, 0, 0, 0, 0 },
   { maiaCCLexCode16, maiaCCLexRanges16, 7, 6, MAIACC_TOKEN_TOKEN_extern, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode17, maiaCCLexRanges17, 7, 6, MAIACC_TOKEN_TOKEN_static, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode18, maiaCCLexRanges18, 2, 1, MAIACC_TOKEN_TOKEN__2C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode19, maiaCCLexRanges19, 7, 6, MAIACC_TOKEN_TOKEN_Result, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode20, maiaCCLexRanges20, 2, 1, MAIACC_TOKEN_TOKEN__3C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode21, maiaCCLexRanges21, 2, 1, MAIACC_TOKEN_TOKEN__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode22, maiaCCLexRanges22, 7, 6, MAIACC_TOKEN_TOKEN_Option, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode23, maiaCCLexRanges23, 5, 4, MAIACC_TOKEN_TOKEN_void, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode24, maiaCCLexRanges24, 5, 4, MAIACC_TOKEN_TOKEN_bool, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode25, maiaCCLexRanges25, 5, 4, MAIACC_TOKEN_TOKEN_char, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode26, maiaCCLexRanges26, 7, 6, MAIACC_TOKEN_TOKEN_string, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode27, maiaCCLexRanges27, 3, 2, MAIACC_TOKEN_TOKEN_i8, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode28, maiaCCLexRanges28, 4, 3, MAIACC_TOKEN_TOKEN_i16, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode29, maiaCCLexRanges29, 4, 3, MAIACC_TOKEN_TOKEN_i32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode30, maiaCCLexRanges30, 4, 3, MAIACC_TOKEN_TOKEN_i64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode31, maiaCCLexRanges31, 3, 2, MAIACC_TOKEN_TOKEN_u8, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode32, maiaCCLexRanges32, 4, 3, MAIACC_TOKEN_TOKEN_u16, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode33, maiaCCLexRanges33, 4, 3, MAIACC_TOKEN_TOKEN_u32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode34, maiaCCLexRanges34, 4, 3, MAIACC_TOKEN_TOKEN_u64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode35, maiaCCLexRanges35, 4, 3, MAIACC_TOKEN_TOKEN_f32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode36, maiaCCLexRanges36, 4, 3, MAIACC_TOKEN_TOKEN_f64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode37, maiaCCLexRanges37, 2, 1, MAIACC_TOKEN_TOKEN__2A_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode38, maiaCCLexRanges38, 2, 1, MAIACC_TOKEN_TOKEN__5B_, 0, 0, 0, 6, 0 },
-  { maiaCCLexCode39, maiaCCLexRanges39, 2, 1, MAIACC_TOKEN_TOKEN__5D_, 0, 0, 1, 7, 0 },
-  { maiaCCLexCode40, maiaCCLexRanges40, 2, 1, MAIACC_TOKEN_TOKEN__3F_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode41, maiaCCLexRanges41, 2, 1, MAIACC_TOKEN_TOKEN__2E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode42, maiaCCLexRanges42, 5, 4, MAIACC_TOKEN_TOKEN_auto, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode43, maiaCCLexRanges43, 3, 2, MAIACC_TOKEN_TOKEN_if, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode44, maiaCCLexRanges44, 5, 4, MAIACC_TOKEN_TOKEN_else, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode45, maiaCCLexRanges45, 6, 5, MAIACC_TOKEN_TOKEN_while, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode46, maiaCCLexRanges46, 3, 2, MAIACC_TOKEN_TOKEN_do, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode47, maiaCCLexRanges47, 4, 3, MAIACC_TOKEN_TOKEN_for, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode48, maiaCCLexRanges48, 8, 7, MAIACC_TOKEN_TOKEN_foreach, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode49, maiaCCLexRanges49, 2, 1, MAIACC_TOKEN_TOKEN__3A_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode50, maiaCCLexRanges50, 7, 6, MAIACC_TOKEN_TOKEN_switch, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode51, maiaCCLexRanges51, 5, 4, MAIACC_TOKEN_TOKEN_case, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode52, maiaCCLexRanges52, 8, 7, MAIACC_TOKEN_TOKEN_default, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode53, maiaCCLexRanges53, 7, 6, MAIACC_TOKEN_TOKEN_return, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode54, maiaCCLexRanges54, 6, 5, MAIACC_TOKEN_TOKEN_break, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode55, maiaCCLexRanges55, 9, 8, MAIACC_TOKEN_TOKEN_continue, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode56, maiaCCLexRanges56, 6, 5, MAIACC_TOKEN_TOKEN_defer, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode57, maiaCCLexRanges57, 7, 6, MAIACC_TOKEN_TOKEN_unsafe, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode58, maiaCCLexRanges58, 3, 2, MAIACC_TOKEN_TOKEN__2B__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode59, maiaCCLexRanges59, 3, 2, MAIACC_TOKEN_TOKEN__2D__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode60, maiaCCLexRanges60, 3, 2, MAIACC_TOKEN_TOKEN__2A__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode61, maiaCCLexRanges61, 3, 2, MAIACC_TOKEN_TOKEN__2F__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode62, maiaCCLexRanges62, 3, 2, MAIACC_TOKEN_TOKEN__25__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode63, maiaCCLexRanges63, 3, 2, MAIACC_TOKEN_TOKEN__26__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode64, maiaCCLexRanges64, 3, 2, MAIACC_TOKEN_TOKEN__7C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode65, maiaCCLexRanges65, 3, 2, MAIACC_TOKEN_TOKEN__5E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode66, maiaCCLexRanges66, 4, 3, MAIACC_TOKEN_TOKEN__3C__3C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode67, maiaCCLexRanges67, 4, 3, MAIACC_TOKEN_TOKEN__3E__3E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode68, maiaCCLexRanges68, 3, 2, MAIACC_TOKEN_TOKEN__7C__7C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode69, maiaCCLexRanges69, 3, 2, MAIACC_TOKEN_TOKEN__26__26_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode70, maiaCCLexRanges70, 2, 1, MAIACC_TOKEN_TOKEN__7C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode71, maiaCCLexRanges71, 2, 1, MAIACC_TOKEN_TOKEN__5E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode72, maiaCCLexRanges72, 2, 1, MAIACC_TOKEN_TOKEN__26_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode73, maiaCCLexRanges73, 3, 2, MAIACC_TOKEN_TOKEN__3D__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode74, maiaCCLexRanges74, 3, 2, MAIACC_TOKEN_TOKEN__21__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode75, maiaCCLexRanges75, 3, 2, MAIACC_TOKEN_TOKEN__3C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode76, maiaCCLexRanges76, 3, 2, MAIACC_TOKEN_TOKEN__3E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode77, maiaCCLexRanges77, 3, 2, MAIACC_TOKEN_TOKEN__3C__3C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode78, maiaCCLexRanges78, 3, 2, MAIACC_TOKEN_TOKEN__3E__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode79, maiaCCLexRanges79, 2, 1, MAIACC_TOKEN_TOKEN__2B_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode80, maiaCCLexRanges80, 2, 1, MAIACC_TOKEN_TOKEN__2D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode81, maiaCCLexRanges81, 2, 1, MAIACC_TOKEN_TOKEN__2F_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode82, maiaCCLexRanges82, 2, 1, MAIACC_TOKEN_TOKEN__25_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode83, maiaCCLexRanges83, 2, 1, MAIACC_TOKEN_TOKEN__21_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode84, maiaCCLexRanges84, 2, 1, MAIACC_TOKEN_TOKEN__7E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode85, maiaCCLexRanges85, 3, 2, MAIACC_TOKEN_TOKEN__2B__2B_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode86, maiaCCLexRanges86, 3, 2, MAIACC_TOKEN_TOKEN__2D__2D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode87, maiaCCLexRanges87, 3, 2, MAIACC_TOKEN_TOKEN__2D__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode88, maiaCCLexRanges88, 4, 3, MAIACC_TOKEN_TOKEN_new, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode89, maiaCCLexRanges89, 7, 6, MAIACC_TOKEN_TOKEN_delete, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode90, maiaCCLexRanges90, 7, 6, MAIACC_TOKEN_TOKEN_sizeof, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode91, maiaCCLexRanges91, 4, 3, MAIACC_TOKEN_TOKEN_asm, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode92, maiaCCLexRanges92, 5, 4, MAIACC_TOKEN_TOKEN_true, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode93, maiaCCLexRanges93, 6, 5, MAIACC_TOKEN_TOKEN_false, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode94, maiaCCLexRanges94, 5, 4, MAIACC_TOKEN_TOKEN_null, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode95, maiaCCLexRanges95, 4, 3, MAIACC_TOKEN_NAME, 0, 0, 0, 0, 7 },
-  { maiaCCLexCode96, maiaCCLexRanges96, 36, 35, MAIACC_TOKEN_FLOAT, 0, 0, 0, 0, 5 },
-  { maiaCCLexCode97, maiaCCLexRanges97, 17, 16, MAIACC_TOKEN_INTEGER, 0, 0, 0, 0, 10 },
-  { maiaCCLexCode98, maiaCCLexRanges98, 20, 19, MAIACC_TOKEN_STRING, 0, 0, 0, 0, 4 },
-  { maiaCCLexCode99, maiaCCLexRanges99, 19, 18, MAIACC_TOKEN_CHAR, 0, 0, 0, 0, 4 },
-  { maiaCCLexCode100, maiaCCLexRanges100, 5, 4, MAIACC_TOKEN_LINE_COMMENT, 1, 0, 0, 0, 2 },
-  { maiaCCLexCode101, maiaCCLexRanges101, 10, 9, MAIACC_TOKEN_BLOCK_COMMENT, 1, 0, 0, 0, 2 },
-  { maiaCCLexCode102, maiaCCLexRanges102, 3, 2, MAIACC_TOKEN_WS, 1, 0, 0, 0, 4 },
-  { maiaCCLexCode103, maiaCCLexRanges103, 7, 6, MAIACC_TOKEN_TOKEN_import, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode104, maiaCCLexRanges104, 3, 2, MAIACC_TOKEN_TOKEN_as, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode105, maiaCCLexRanges105, 2, 1, MAIACC_TOKEN_TOKEN__3B_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode106, maiaCCLexRanges106, 7, 6, MAIACC_TOKEN_TOKEN_export, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode107, maiaCCLexRanges107, 10, 9, MAIACC_TOKEN_TOKEN_namespace, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode108, maiaCCLexRanges108, 2, 1, MAIACC_TOKEN_TOKEN__7B_, 0, 0, 0, 4, 0 },
-  { maiaCCLexCode109, maiaCCLexRanges109, 2, 1, MAIACC_TOKEN_TOKEN__7D_, 0, 0, 0, 5, 0 },
-  { maiaCCLexCode110, maiaCCLexRanges110, 7, 6, MAIACC_TOKEN_TOKEN_struct, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode111, maiaCCLexRanges111, 2, 1, MAIACC_TOKEN_TOKEN__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode112, maiaCCLexRanges112, 6, 5, MAIACC_TOKEN_TOKEN_class, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode113, maiaCCLexRanges113, 7, 6, MAIACC_TOKEN_TOKEN_public, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode114, maiaCCLexRanges114, 8, 7, MAIACC_TOKEN_TOKEN_private, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode115, maiaCCLexRanges115, 10, 9, MAIACC_TOKEN_TOKEN_protected, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode116, maiaCCLexRanges116, 2, 1, MAIACC_TOKEN_TOKEN__28_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode117, maiaCCLexRanges117, 2, 1, MAIACC_TOKEN_TOKEN__29_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode118, maiaCCLexRanges118, 6, 5, MAIACC_TOKEN_TOKEN_const, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode119, maiaCCLexRanges119, 7, 6, MAIACC_TOKEN_TOKEN_extern, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode120, maiaCCLexRanges120, 7, 6, MAIACC_TOKEN_TOKEN_static, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode17, maiaCCLexRanges17, 2, 1, MAIACC_TOKEN_TOKEN__2C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode18, maiaCCLexRanges18, 4, 3, MAIACC_TOKEN_TOKEN__2E__2E__2E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode19, maiaCCLexRanges19, 7, 6, MAIACC_TOKEN_TOKEN_static, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode20, maiaCCLexRanges20, 7, 6, MAIACC_TOKEN_TOKEN_Result, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode21, maiaCCLexRanges21, 2, 1, MAIACC_TOKEN_TOKEN__3C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode22, maiaCCLexRanges22, 2, 1, MAIACC_TOKEN_TOKEN__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode23, maiaCCLexRanges23, 7, 6, MAIACC_TOKEN_TOKEN_Option, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode24, maiaCCLexRanges24, 5, 4, MAIACC_TOKEN_TOKEN_void, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode25, maiaCCLexRanges25, 5, 4, MAIACC_TOKEN_TOKEN_bool, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode26, maiaCCLexRanges26, 5, 4, MAIACC_TOKEN_TOKEN_char, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode27, maiaCCLexRanges27, 7, 6, MAIACC_TOKEN_TOKEN_string, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode28, maiaCCLexRanges28, 3, 2, MAIACC_TOKEN_TOKEN_i8, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode29, maiaCCLexRanges29, 4, 3, MAIACC_TOKEN_TOKEN_i16, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode30, maiaCCLexRanges30, 4, 3, MAIACC_TOKEN_TOKEN_i32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode31, maiaCCLexRanges31, 4, 3, MAIACC_TOKEN_TOKEN_i64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode32, maiaCCLexRanges32, 3, 2, MAIACC_TOKEN_TOKEN_u8, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode33, maiaCCLexRanges33, 4, 3, MAIACC_TOKEN_TOKEN_u16, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode34, maiaCCLexRanges34, 4, 3, MAIACC_TOKEN_TOKEN_u32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode35, maiaCCLexRanges35, 4, 3, MAIACC_TOKEN_TOKEN_u64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode36, maiaCCLexRanges36, 4, 3, MAIACC_TOKEN_TOKEN_f32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode37, maiaCCLexRanges37, 4, 3, MAIACC_TOKEN_TOKEN_f64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode38, maiaCCLexRanges38, 2, 1, MAIACC_TOKEN_TOKEN__2A_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode39, maiaCCLexRanges39, 2, 1, MAIACC_TOKEN_TOKEN__5B_, 0, 0, 0, 6, 0 },
+  { maiaCCLexCode40, maiaCCLexRanges40, 2, 1, MAIACC_TOKEN_TOKEN__5D_, 0, 0, 1, 7, 0 },
+  { maiaCCLexCode41, maiaCCLexRanges41, 2, 1, MAIACC_TOKEN_TOKEN__3F_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode42, maiaCCLexRanges42, 2, 1, MAIACC_TOKEN_TOKEN__2E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode43, maiaCCLexRanges43, 5, 4, MAIACC_TOKEN_TOKEN_auto, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode44, maiaCCLexRanges44, 3, 2, MAIACC_TOKEN_TOKEN_if, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode45, maiaCCLexRanges45, 5, 4, MAIACC_TOKEN_TOKEN_else, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode46, maiaCCLexRanges46, 6, 5, MAIACC_TOKEN_TOKEN_while, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode47, maiaCCLexRanges47, 3, 2, MAIACC_TOKEN_TOKEN_do, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode48, maiaCCLexRanges48, 4, 3, MAIACC_TOKEN_TOKEN_for, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode49, maiaCCLexRanges49, 8, 7, MAIACC_TOKEN_TOKEN_foreach, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode50, maiaCCLexRanges50, 2, 1, MAIACC_TOKEN_TOKEN__3A_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode51, maiaCCLexRanges51, 7, 6, MAIACC_TOKEN_TOKEN_switch, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode52, maiaCCLexRanges52, 5, 4, MAIACC_TOKEN_TOKEN_case, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode53, maiaCCLexRanges53, 8, 7, MAIACC_TOKEN_TOKEN_default, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode54, maiaCCLexRanges54, 7, 6, MAIACC_TOKEN_TOKEN_return, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode55, maiaCCLexRanges55, 6, 5, MAIACC_TOKEN_TOKEN_break, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode56, maiaCCLexRanges56, 9, 8, MAIACC_TOKEN_TOKEN_continue, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode57, maiaCCLexRanges57, 6, 5, MAIACC_TOKEN_TOKEN_defer, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode58, maiaCCLexRanges58, 7, 6, MAIACC_TOKEN_TOKEN_unsafe, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode59, maiaCCLexRanges59, 3, 2, MAIACC_TOKEN_TOKEN__2B__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode60, maiaCCLexRanges60, 3, 2, MAIACC_TOKEN_TOKEN__2D__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode61, maiaCCLexRanges61, 3, 2, MAIACC_TOKEN_TOKEN__2A__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode62, maiaCCLexRanges62, 3, 2, MAIACC_TOKEN_TOKEN__2F__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode63, maiaCCLexRanges63, 3, 2, MAIACC_TOKEN_TOKEN__25__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode64, maiaCCLexRanges64, 3, 2, MAIACC_TOKEN_TOKEN__26__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode65, maiaCCLexRanges65, 3, 2, MAIACC_TOKEN_TOKEN__7C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode66, maiaCCLexRanges66, 3, 2, MAIACC_TOKEN_TOKEN__5E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode67, maiaCCLexRanges67, 4, 3, MAIACC_TOKEN_TOKEN__3C__3C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode68, maiaCCLexRanges68, 4, 3, MAIACC_TOKEN_TOKEN__3E__3E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode69, maiaCCLexRanges69, 3, 2, MAIACC_TOKEN_TOKEN__7C__7C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode70, maiaCCLexRanges70, 3, 2, MAIACC_TOKEN_TOKEN__26__26_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode71, maiaCCLexRanges71, 2, 1, MAIACC_TOKEN_TOKEN__7C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode72, maiaCCLexRanges72, 2, 1, MAIACC_TOKEN_TOKEN__5E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode73, maiaCCLexRanges73, 2, 1, MAIACC_TOKEN_TOKEN__26_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode74, maiaCCLexRanges74, 3, 2, MAIACC_TOKEN_TOKEN__3D__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode75, maiaCCLexRanges75, 3, 2, MAIACC_TOKEN_TOKEN__21__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode76, maiaCCLexRanges76, 3, 2, MAIACC_TOKEN_TOKEN__3C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode77, maiaCCLexRanges77, 3, 2, MAIACC_TOKEN_TOKEN__3E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode78, maiaCCLexRanges78, 3, 2, MAIACC_TOKEN_TOKEN__3C__3C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode79, maiaCCLexRanges79, 3, 2, MAIACC_TOKEN_TOKEN__3E__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode80, maiaCCLexRanges80, 2, 1, MAIACC_TOKEN_TOKEN__2B_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode81, maiaCCLexRanges81, 2, 1, MAIACC_TOKEN_TOKEN__2D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode82, maiaCCLexRanges82, 2, 1, MAIACC_TOKEN_TOKEN__2F_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode83, maiaCCLexRanges83, 2, 1, MAIACC_TOKEN_TOKEN__25_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode84, maiaCCLexRanges84, 2, 1, MAIACC_TOKEN_TOKEN__21_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode85, maiaCCLexRanges85, 2, 1, MAIACC_TOKEN_TOKEN__7E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode86, maiaCCLexRanges86, 3, 2, MAIACC_TOKEN_TOKEN__2B__2B_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode87, maiaCCLexRanges87, 3, 2, MAIACC_TOKEN_TOKEN__2D__2D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode88, maiaCCLexRanges88, 3, 2, MAIACC_TOKEN_TOKEN__2D__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode89, maiaCCLexRanges89, 4, 3, MAIACC_TOKEN_TOKEN_new, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode90, maiaCCLexRanges90, 7, 6, MAIACC_TOKEN_TOKEN_delete, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode91, maiaCCLexRanges91, 7, 6, MAIACC_TOKEN_TOKEN_sizeof, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode92, maiaCCLexRanges92, 4, 3, MAIACC_TOKEN_TOKEN_asm, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode93, maiaCCLexRanges93, 5, 4, MAIACC_TOKEN_TOKEN_true, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode94, maiaCCLexRanges94, 6, 5, MAIACC_TOKEN_TOKEN_false, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode95, maiaCCLexRanges95, 5, 4, MAIACC_TOKEN_TOKEN_null, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode96, maiaCCLexRanges96, 4, 3, MAIACC_TOKEN_NAME, 0, 0, 0, 0, 7 },
+  { maiaCCLexCode97, maiaCCLexRanges97, 36, 35, MAIACC_TOKEN_FLOAT, 0, 0, 0, 0, 5 },
+  { maiaCCLexCode98, maiaCCLexRanges98, 17, 16, MAIACC_TOKEN_INTEGER, 0, 0, 0, 0, 10 },
+  { maiaCCLexCode99, maiaCCLexRanges99, 20, 19, MAIACC_TOKEN_STRING, 0, 0, 0, 0, 4 },
+  { maiaCCLexCode100, maiaCCLexRanges100, 19, 18, MAIACC_TOKEN_CHAR, 0, 0, 0, 0, 4 },
+  { maiaCCLexCode101, maiaCCLexRanges101, 5, 4, MAIACC_TOKEN_LINE_COMMENT, 1, 0, 0, 0, 2 },
+  { maiaCCLexCode102, maiaCCLexRanges102, 10, 9, MAIACC_TOKEN_BLOCK_COMMENT, 1, 0, 0, 0, 2 },
+  { maiaCCLexCode103, maiaCCLexRanges103, 3, 2, MAIACC_TOKEN_WS, 1, 0, 0, 0, 4 },
+  { maiaCCLexCode104, maiaCCLexRanges104, 7, 6, MAIACC_TOKEN_TOKEN_import, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode105, maiaCCLexRanges105, 3, 2, MAIACC_TOKEN_TOKEN_as, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode106, maiaCCLexRanges106, 2, 1, MAIACC_TOKEN_TOKEN__3B_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode107, maiaCCLexRanges107, 7, 6, MAIACC_TOKEN_TOKEN_export, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode108, maiaCCLexRanges108, 10, 9, MAIACC_TOKEN_TOKEN_namespace, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode109, maiaCCLexRanges109, 2, 1, MAIACC_TOKEN_TOKEN__7B_, 0, 0, 0, 4, 0 },
+  { maiaCCLexCode110, maiaCCLexRanges110, 2, 1, MAIACC_TOKEN_TOKEN__7D_, 0, 0, 0, 5, 0 },
+  { maiaCCLexCode111, maiaCCLexRanges111, 7, 6, MAIACC_TOKEN_TOKEN_struct, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode112, maiaCCLexRanges112, 2, 1, MAIACC_TOKEN_TOKEN__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode113, maiaCCLexRanges113, 6, 5, MAIACC_TOKEN_TOKEN_class, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode114, maiaCCLexRanges114, 7, 6, MAIACC_TOKEN_TOKEN_public, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode115, maiaCCLexRanges115, 8, 7, MAIACC_TOKEN_TOKEN_private, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode116, maiaCCLexRanges116, 10, 9, MAIACC_TOKEN_TOKEN_protected, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode117, maiaCCLexRanges117, 2, 1, MAIACC_TOKEN_TOKEN__28_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode118, maiaCCLexRanges118, 2, 1, MAIACC_TOKEN_TOKEN__29_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode119, maiaCCLexRanges119, 6, 5, MAIACC_TOKEN_TOKEN_const, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode120, maiaCCLexRanges120, 7, 6, MAIACC_TOKEN_TOKEN_extern, 0, 0, 0, 0, 0 },
   { maiaCCLexCode121, maiaCCLexRanges121, 2, 1, MAIACC_TOKEN_TOKEN__2C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode122, maiaCCLexRanges122, 7, 6, MAIACC_TOKEN_TOKEN_Result, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode123, maiaCCLexRanges123, 2, 1, MAIACC_TOKEN_TOKEN__3C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode124, maiaCCLexRanges124, 2, 1, MAIACC_TOKEN_TOKEN__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode125, maiaCCLexRanges125, 7, 6, MAIACC_TOKEN_TOKEN_Option, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode126, maiaCCLexRanges126, 5, 4, MAIACC_TOKEN_TOKEN_void, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode127, maiaCCLexRanges127, 5, 4, MAIACC_TOKEN_TOKEN_bool, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode128, maiaCCLexRanges128, 5, 4, MAIACC_TOKEN_TOKEN_char, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode129, maiaCCLexRanges129, 7, 6, MAIACC_TOKEN_TOKEN_string, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode130, maiaCCLexRanges130, 3, 2, MAIACC_TOKEN_TOKEN_i8, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode131, maiaCCLexRanges131, 4, 3, MAIACC_TOKEN_TOKEN_i16, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode132, maiaCCLexRanges132, 4, 3, MAIACC_TOKEN_TOKEN_i32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode133, maiaCCLexRanges133, 4, 3, MAIACC_TOKEN_TOKEN_i64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode134, maiaCCLexRanges134, 3, 2, MAIACC_TOKEN_TOKEN_u8, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode135, maiaCCLexRanges135, 4, 3, MAIACC_TOKEN_TOKEN_u16, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode136, maiaCCLexRanges136, 4, 3, MAIACC_TOKEN_TOKEN_u32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode137, maiaCCLexRanges137, 4, 3, MAIACC_TOKEN_TOKEN_u64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode138, maiaCCLexRanges138, 4, 3, MAIACC_TOKEN_TOKEN_f32, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode139, maiaCCLexRanges139, 4, 3, MAIACC_TOKEN_TOKEN_f64, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode140, maiaCCLexRanges140, 2, 1, MAIACC_TOKEN_TOKEN__2A_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode141, maiaCCLexRanges141, 2, 1, MAIACC_TOKEN_TOKEN__5B_, 0, 0, 0, 6, 0 },
-  { maiaCCLexCode142, maiaCCLexRanges142, 2, 1, MAIACC_TOKEN_TOKEN__5D_, 0, 0, 1, 7, 0 },
-  { maiaCCLexCode143, maiaCCLexRanges143, 2, 1, MAIACC_TOKEN_TOKEN__3F_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode144, maiaCCLexRanges144, 2, 1, MAIACC_TOKEN_TOKEN__2E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode145, maiaCCLexRanges145, 5, 4, MAIACC_TOKEN_TOKEN_auto, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode146, maiaCCLexRanges146, 3, 2, MAIACC_TOKEN_TOKEN_if, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode147, maiaCCLexRanges147, 5, 4, MAIACC_TOKEN_TOKEN_else, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode148, maiaCCLexRanges148, 6, 5, MAIACC_TOKEN_TOKEN_while, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode149, maiaCCLexRanges149, 3, 2, MAIACC_TOKEN_TOKEN_do, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode150, maiaCCLexRanges150, 4, 3, MAIACC_TOKEN_TOKEN_for, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode151, maiaCCLexRanges151, 8, 7, MAIACC_TOKEN_TOKEN_foreach, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode152, maiaCCLexRanges152, 2, 1, MAIACC_TOKEN_TOKEN__3A_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode153, maiaCCLexRanges153, 7, 6, MAIACC_TOKEN_TOKEN_switch, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode154, maiaCCLexRanges154, 5, 4, MAIACC_TOKEN_TOKEN_case, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode155, maiaCCLexRanges155, 8, 7, MAIACC_TOKEN_TOKEN_default, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode156, maiaCCLexRanges156, 7, 6, MAIACC_TOKEN_TOKEN_return, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode157, maiaCCLexRanges157, 6, 5, MAIACC_TOKEN_TOKEN_break, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode158, maiaCCLexRanges158, 9, 8, MAIACC_TOKEN_TOKEN_continue, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode159, maiaCCLexRanges159, 6, 5, MAIACC_TOKEN_TOKEN_defer, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode160, maiaCCLexRanges160, 7, 6, MAIACC_TOKEN_TOKEN_unsafe, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode161, maiaCCLexRanges161, 3, 2, MAIACC_TOKEN_TOKEN__2B__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode162, maiaCCLexRanges162, 3, 2, MAIACC_TOKEN_TOKEN__2D__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode163, maiaCCLexRanges163, 3, 2, MAIACC_TOKEN_TOKEN__2A__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode164, maiaCCLexRanges164, 3, 2, MAIACC_TOKEN_TOKEN__2F__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode165, maiaCCLexRanges165, 3, 2, MAIACC_TOKEN_TOKEN__25__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode166, maiaCCLexRanges166, 3, 2, MAIACC_TOKEN_TOKEN__26__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode167, maiaCCLexRanges167, 3, 2, MAIACC_TOKEN_TOKEN__7C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode168, maiaCCLexRanges168, 3, 2, MAIACC_TOKEN_TOKEN__5E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode169, maiaCCLexRanges169, 4, 3, MAIACC_TOKEN_TOKEN__3C__3C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode170, maiaCCLexRanges170, 4, 3, MAIACC_TOKEN_TOKEN__3E__3E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode171, maiaCCLexRanges171, 3, 2, MAIACC_TOKEN_TOKEN__7C__7C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode172, maiaCCLexRanges172, 3, 2, MAIACC_TOKEN_TOKEN__26__26_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode173, maiaCCLexRanges173, 2, 1, MAIACC_TOKEN_TOKEN__7C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode174, maiaCCLexRanges174, 2, 1, MAIACC_TOKEN_TOKEN__5E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode175, maiaCCLexRanges175, 2, 1, MAIACC_TOKEN_TOKEN__26_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode176, maiaCCLexRanges176, 3, 2, MAIACC_TOKEN_TOKEN__3D__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode177, maiaCCLexRanges177, 3, 2, MAIACC_TOKEN_TOKEN__21__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode178, maiaCCLexRanges178, 3, 2, MAIACC_TOKEN_TOKEN__3C__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode179, maiaCCLexRanges179, 3, 2, MAIACC_TOKEN_TOKEN__3E__3D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode180, maiaCCLexRanges180, 3, 2, MAIACC_TOKEN_TOKEN__3C__3C_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode181, maiaCCLexRanges181, 3, 2, MAIACC_TOKEN_TOKEN__3E__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode182, maiaCCLexRanges182, 2, 1, MAIACC_TOKEN_TOKEN__2B_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode183, maiaCCLexRanges183, 2, 1, MAIACC_TOKEN_TOKEN__2D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode184, maiaCCLexRanges184, 2, 1, MAIACC_TOKEN_TOKEN__2F_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode185, maiaCCLexRanges185, 2, 1, MAIACC_TOKEN_TOKEN__25_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode186, maiaCCLexRanges186, 2, 1, MAIACC_TOKEN_TOKEN__21_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode187, maiaCCLexRanges187, 2, 1, MAIACC_TOKEN_TOKEN__7E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode188, maiaCCLexRanges188, 3, 2, MAIACC_TOKEN_TOKEN__2B__2B_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode189, maiaCCLexRanges189, 3, 2, MAIACC_TOKEN_TOKEN__2D__2D_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode190, maiaCCLexRanges190, 3, 2, MAIACC_TOKEN_TOKEN__2D__3E_, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode191, maiaCCLexRanges191, 4, 3, MAIACC_TOKEN_TOKEN_new, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode192, maiaCCLexRanges192, 7, 6, MAIACC_TOKEN_TOKEN_delete, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode193, maiaCCLexRanges193, 7, 6, MAIACC_TOKEN_TOKEN_sizeof, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode194, maiaCCLexRanges194, 4, 3, MAIACC_TOKEN_TOKEN_asm, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode195, maiaCCLexRanges195, 5, 4, MAIACC_TOKEN_TOKEN_true, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode196, maiaCCLexRanges196, 6, 5, MAIACC_TOKEN_TOKEN_false, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode197, maiaCCLexRanges197, 5, 4, MAIACC_TOKEN_TOKEN_null, 0, 0, 0, 0, 0 },
-  { maiaCCLexCode198, maiaCCLexRanges198, 4, 3, MAIACC_TOKEN_NAME, 0, 0, 0, 0, 7 },
-  { maiaCCLexCode199, maiaCCLexRanges199, 36, 35, MAIACC_TOKEN_FLOAT, 0, 0, 0, 0, 5 },
-  { maiaCCLexCode200, maiaCCLexRanges200, 17, 16, MAIACC_TOKEN_INTEGER, 0, 0, 0, 0, 10 },
-  { maiaCCLexCode201, maiaCCLexRanges201, 20, 19, MAIACC_TOKEN_STRING, 0, 0, 0, 0, 4 },
-  { maiaCCLexCode202, maiaCCLexRanges202, 19, 18, MAIACC_TOKEN_CHAR, 0, 0, 0, 0, 4 }
+  { maiaCCLexCode122, maiaCCLexRanges122, 4, 3, MAIACC_TOKEN_TOKEN__2E__2E__2E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode123, maiaCCLexRanges123, 7, 6, MAIACC_TOKEN_TOKEN_static, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode124, maiaCCLexRanges124, 7, 6, MAIACC_TOKEN_TOKEN_Result, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode125, maiaCCLexRanges125, 2, 1, MAIACC_TOKEN_TOKEN__3C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode126, maiaCCLexRanges126, 2, 1, MAIACC_TOKEN_TOKEN__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode127, maiaCCLexRanges127, 7, 6, MAIACC_TOKEN_TOKEN_Option, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode128, maiaCCLexRanges128, 5, 4, MAIACC_TOKEN_TOKEN_void, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode129, maiaCCLexRanges129, 5, 4, MAIACC_TOKEN_TOKEN_bool, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode130, maiaCCLexRanges130, 5, 4, MAIACC_TOKEN_TOKEN_char, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode131, maiaCCLexRanges131, 7, 6, MAIACC_TOKEN_TOKEN_string, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode132, maiaCCLexRanges132, 3, 2, MAIACC_TOKEN_TOKEN_i8, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode133, maiaCCLexRanges133, 4, 3, MAIACC_TOKEN_TOKEN_i16, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode134, maiaCCLexRanges134, 4, 3, MAIACC_TOKEN_TOKEN_i32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode135, maiaCCLexRanges135, 4, 3, MAIACC_TOKEN_TOKEN_i64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode136, maiaCCLexRanges136, 3, 2, MAIACC_TOKEN_TOKEN_u8, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode137, maiaCCLexRanges137, 4, 3, MAIACC_TOKEN_TOKEN_u16, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode138, maiaCCLexRanges138, 4, 3, MAIACC_TOKEN_TOKEN_u32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode139, maiaCCLexRanges139, 4, 3, MAIACC_TOKEN_TOKEN_u64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode140, maiaCCLexRanges140, 4, 3, MAIACC_TOKEN_TOKEN_f32, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode141, maiaCCLexRanges141, 4, 3, MAIACC_TOKEN_TOKEN_f64, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode142, maiaCCLexRanges142, 2, 1, MAIACC_TOKEN_TOKEN__2A_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode143, maiaCCLexRanges143, 2, 1, MAIACC_TOKEN_TOKEN__5B_, 0, 0, 0, 6, 0 },
+  { maiaCCLexCode144, maiaCCLexRanges144, 2, 1, MAIACC_TOKEN_TOKEN__5D_, 0, 0, 1, 7, 0 },
+  { maiaCCLexCode145, maiaCCLexRanges145, 2, 1, MAIACC_TOKEN_TOKEN__3F_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode146, maiaCCLexRanges146, 2, 1, MAIACC_TOKEN_TOKEN__2E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode147, maiaCCLexRanges147, 5, 4, MAIACC_TOKEN_TOKEN_auto, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode148, maiaCCLexRanges148, 3, 2, MAIACC_TOKEN_TOKEN_if, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode149, maiaCCLexRanges149, 5, 4, MAIACC_TOKEN_TOKEN_else, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode150, maiaCCLexRanges150, 6, 5, MAIACC_TOKEN_TOKEN_while, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode151, maiaCCLexRanges151, 3, 2, MAIACC_TOKEN_TOKEN_do, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode152, maiaCCLexRanges152, 4, 3, MAIACC_TOKEN_TOKEN_for, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode153, maiaCCLexRanges153, 8, 7, MAIACC_TOKEN_TOKEN_foreach, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode154, maiaCCLexRanges154, 2, 1, MAIACC_TOKEN_TOKEN__3A_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode155, maiaCCLexRanges155, 7, 6, MAIACC_TOKEN_TOKEN_switch, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode156, maiaCCLexRanges156, 5, 4, MAIACC_TOKEN_TOKEN_case, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode157, maiaCCLexRanges157, 8, 7, MAIACC_TOKEN_TOKEN_default, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode158, maiaCCLexRanges158, 7, 6, MAIACC_TOKEN_TOKEN_return, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode159, maiaCCLexRanges159, 6, 5, MAIACC_TOKEN_TOKEN_break, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode160, maiaCCLexRanges160, 9, 8, MAIACC_TOKEN_TOKEN_continue, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode161, maiaCCLexRanges161, 6, 5, MAIACC_TOKEN_TOKEN_defer, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode162, maiaCCLexRanges162, 7, 6, MAIACC_TOKEN_TOKEN_unsafe, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode163, maiaCCLexRanges163, 3, 2, MAIACC_TOKEN_TOKEN__2B__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode164, maiaCCLexRanges164, 3, 2, MAIACC_TOKEN_TOKEN__2D__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode165, maiaCCLexRanges165, 3, 2, MAIACC_TOKEN_TOKEN__2A__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode166, maiaCCLexRanges166, 3, 2, MAIACC_TOKEN_TOKEN__2F__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode167, maiaCCLexRanges167, 3, 2, MAIACC_TOKEN_TOKEN__25__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode168, maiaCCLexRanges168, 3, 2, MAIACC_TOKEN_TOKEN__26__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode169, maiaCCLexRanges169, 3, 2, MAIACC_TOKEN_TOKEN__7C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode170, maiaCCLexRanges170, 3, 2, MAIACC_TOKEN_TOKEN__5E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode171, maiaCCLexRanges171, 4, 3, MAIACC_TOKEN_TOKEN__3C__3C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode172, maiaCCLexRanges172, 4, 3, MAIACC_TOKEN_TOKEN__3E__3E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode173, maiaCCLexRanges173, 3, 2, MAIACC_TOKEN_TOKEN__7C__7C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode174, maiaCCLexRanges174, 3, 2, MAIACC_TOKEN_TOKEN__26__26_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode175, maiaCCLexRanges175, 2, 1, MAIACC_TOKEN_TOKEN__7C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode176, maiaCCLexRanges176, 2, 1, MAIACC_TOKEN_TOKEN__5E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode177, maiaCCLexRanges177, 2, 1, MAIACC_TOKEN_TOKEN__26_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode178, maiaCCLexRanges178, 3, 2, MAIACC_TOKEN_TOKEN__3D__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode179, maiaCCLexRanges179, 3, 2, MAIACC_TOKEN_TOKEN__21__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode180, maiaCCLexRanges180, 3, 2, MAIACC_TOKEN_TOKEN__3C__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode181, maiaCCLexRanges181, 3, 2, MAIACC_TOKEN_TOKEN__3E__3D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode182, maiaCCLexRanges182, 3, 2, MAIACC_TOKEN_TOKEN__3C__3C_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode183, maiaCCLexRanges183, 3, 2, MAIACC_TOKEN_TOKEN__3E__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode184, maiaCCLexRanges184, 2, 1, MAIACC_TOKEN_TOKEN__2B_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode185, maiaCCLexRanges185, 2, 1, MAIACC_TOKEN_TOKEN__2D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode186, maiaCCLexRanges186, 2, 1, MAIACC_TOKEN_TOKEN__2F_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode187, maiaCCLexRanges187, 2, 1, MAIACC_TOKEN_TOKEN__25_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode188, maiaCCLexRanges188, 2, 1, MAIACC_TOKEN_TOKEN__21_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode189, maiaCCLexRanges189, 2, 1, MAIACC_TOKEN_TOKEN__7E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode190, maiaCCLexRanges190, 3, 2, MAIACC_TOKEN_TOKEN__2B__2B_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode191, maiaCCLexRanges191, 3, 2, MAIACC_TOKEN_TOKEN__2D__2D_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode192, maiaCCLexRanges192, 3, 2, MAIACC_TOKEN_TOKEN__2D__3E_, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode193, maiaCCLexRanges193, 4, 3, MAIACC_TOKEN_TOKEN_new, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode194, maiaCCLexRanges194, 7, 6, MAIACC_TOKEN_TOKEN_delete, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode195, maiaCCLexRanges195, 7, 6, MAIACC_TOKEN_TOKEN_sizeof, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode196, maiaCCLexRanges196, 4, 3, MAIACC_TOKEN_TOKEN_asm, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode197, maiaCCLexRanges197, 5, 4, MAIACC_TOKEN_TOKEN_true, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode198, maiaCCLexRanges198, 6, 5, MAIACC_TOKEN_TOKEN_false, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode199, maiaCCLexRanges199, 5, 4, MAIACC_TOKEN_TOKEN_null, 0, 0, 0, 0, 0 },
+  { maiaCCLexCode200, maiaCCLexRanges200, 4, 3, MAIACC_TOKEN_NAME, 0, 0, 0, 0, 7 },
+  { maiaCCLexCode201, maiaCCLexRanges201, 36, 35, MAIACC_TOKEN_FLOAT, 0, 0, 0, 0, 5 },
+  { maiaCCLexCode202, maiaCCLexRanges202, 17, 16, MAIACC_TOKEN_INTEGER, 0, 0, 0, 0, 10 },
+  { maiaCCLexCode203, maiaCCLexRanges203, 20, 19, MAIACC_TOKEN_STRING, 0, 0, 0, 0, 4 },
+  { maiaCCLexCode204, maiaCCLexRanges204, 19, 18, MAIACC_TOKEN_CHAR, 0, 0, 0, 0, 4 }
 };
-static const unsigned int maiaCCLexPatternCount = 103;
-static const unsigned int maiaCCLexContextCount = 203;
+static const unsigned int maiaCCLexPatternCount = 104;
+static const unsigned int maiaCCLexContextCount = 205;
 
 static int maiaCCLexWhitespace(unsigned int value) {
   return (value >= 9 && value <= 13) || value == 32 || value == 160 || value == 5760
@@ -3549,7 +3571,44 @@ static int maiaCC_parse_ExternDecl(MaiaCCParserState* self) {
     if (!self->failed) {
       const unsigned int _optionalStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
-      if (!maiaCC_parse_ParameterList(self)) {
+      int _matchedAlternative = 0;
+      if (!_matchedAlternative && !self->failed) {
+        const unsigned int _alternativeStart = self->position;
+        const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed && !maiaCC_parse_ParameterList(self)) self->failed = 1;
+    if (!self->failed) {
+      const unsigned int _optionalStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__2C_);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__2E__2E__2E_);
+      if (self->failed) {
+        self->position = _optionalStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
+        if (!self->failed) {
+          _matchedAlternative = 1;
+        } else {
+          self->position = _alternativeStart;
+          maiaCC_restoreEvents(self, _eventMark);
+          self->failed = 0;
+        }
+      }
+      if (!_matchedAlternative && !self->failed) {
+        const unsigned int _alternativeStart = self->position;
+        const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__2E__2E__2E_);
+        if (!self->failed) {
+          _matchedAlternative = 1;
+        } else {
+          self->position = _alternativeStart;
+          maiaCC_restoreEvents(self, _eventMark);
+          self->failed = 0;
+        }
+      }
+      if (!_matchedAlternative) self->failed = 1;
+      if (self->failed) {
         self->position = _optionalStart;
         maiaCC_restoreEvents(self, _eventMark);
         self->failed = 0;

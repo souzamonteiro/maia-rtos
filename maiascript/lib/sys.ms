@@ -1,4 +1,4 @@
-extern i32 printf(string fmt);
+extern i32 printf(string fmt, ...);
 extern i32 puts(string s);
 extern u32 cycles();
 extern u32 millis();

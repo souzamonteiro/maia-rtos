@@ -2,6 +2,10 @@ CXX ?= clang++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -O2
 INCLUDES = -Iinclude -I../assembler/include -I../lib/maiaregex
 
+GRAMMAR_EBNF = docs/MaiaScript_Native_v0_1_MaiaCC.ebnf
+PARSER_INC = src/maiascript_parser.inc
+TREX_SH = ../tools/maiacc/bin/tREx.sh
+
 REGEX_SRC = ../lib/maiaregex/maia_regex.c
 PARSER_SRC = src/parser.cpp
 CODEGEN_SRC = src/codegen_riscv.cpp
@@ -12,6 +16,9 @@ COMMON_OBJS = $(PARSER_SRC:.cpp=.o) $(CODEGEN_SRC:.cpp=.o) \
               ../lib/maiaregex/maia_regex.o
 
 all: bin/maiasc bin/test_compiler
+
+parser: $(GRAMMAR_EBNF)
+	bash $(TREX_SH) --ebnf --language cpp98 $< $(PARSER_INC)
 
 ../lib/maiaregex/maia_regex.o: $(REGEX_SRC)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
