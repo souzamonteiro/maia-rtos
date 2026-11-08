@@ -14,6 +14,7 @@ static void printUsage(const char* prog) {
     std::cout << "Usage: " << prog << " <input.ms> [options]\n\n"
               << "Options:\n"
               << "  -o <file>      Output file (.s for assembly, .bin for binary, .mobj for ELF)\n"
+              << "  -I <dir>       Add directory to module search path\n"
               << "  -S             Emit RISC-V assembly to stdout or -o file (default)\n"
               << "  -c             Compile and assemble to machine code binary\n"
               << "  --run          Compile, assemble, and execute in RV32 emulator\n"
@@ -31,6 +32,7 @@ int main(int argc, char* argv[]) {
 
     std::string inputPath;
     std::string outputPath;
+    std::vector<std::string> searchPaths;
     bool emitAsm = false;
     bool emitBin = false;
     bool runEmu = false;
@@ -45,6 +47,8 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg == "-o" && i + 1 < argc) {
             outputPath = argv[++i];
+        } else if (arg == "-I" && i + 1 < argc) {
+            searchPaths.push_back(argv[++i]);
         } else if (arg == "-S") {
             emitAsm = true;
         } else if (arg == "-c") {
@@ -72,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     // 1. Parse MaiaScript
     std::string parseErr;
-    auto prog = maiascript::Parser::parseFile(inputPath, parseErr);
+    auto prog = maiascript::Parser::parseFile(inputPath, parseErr, searchPaths);
     if (!prog) {
         std::cerr << "Error parsing " << inputPath << ":\n  " << parseErr << "\n";
         return 1;

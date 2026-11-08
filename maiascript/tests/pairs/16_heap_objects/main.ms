@@ -20,3 +20,4 @@ i32 main() {
     delete c;
     return sz * 10 + val; // 4 * 10 + 3 = 43
 }
+

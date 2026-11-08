@@ -19,3 +19,4 @@ i32 main() {
     i32 a = mathutil.add(10, 20);
     return c - a;
 }
+

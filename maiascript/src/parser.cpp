@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <stdexcept>
+#include <filesystem>
 
 #include "../../lib/maiaregex/maia_regex.h"
 #include "maiascript_parser.inc"
@@ -864,12 +865,228 @@ static void processTopLevel(const std::shared_ptr<CSTNode>& top,
     }
 }
 
-std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::string& outError) {
+namespace fs = std::filesystem;
+
+static std::string trimString(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+static std::string resolveIncludePath(const std::string& requested,
+                                      const std::string& currentPath,
+                                      const std::vector<std::string>& searchPaths) {
+    std::vector<std::string> nameCandidates = { requested };
+    if (requested.size() < 3 || requested.substr(requested.size() - 3) != ".ms") {
+        nameCandidates.push_back(requested + ".ms");
+    }
+
+    // Se o target for absoluto e existir
+    for (const auto& cand : nameCandidates) {
+        std::error_code ec;
+        fs::path p(cand);
+        if (p.is_absolute() && fs::exists(p, ec)) {
+            return fs::canonical(p, ec).string();
+        }
+    }
+
+    // Diretório base
+    fs::path baseDir = ".";
+    if (!currentPath.empty()) {
+        std::error_code ec;
+        fs::path cur(currentPath);
+        if (fs::is_directory(cur, ec)) {
+            baseDir = cur;
+        } else if (cur.has_parent_path()) {
+            baseDir = cur.parent_path();
+        }
+    }
+
+    for (const auto& cand : nameCandidates) {
+        std::error_code ec;
+        fs::path p = baseDir / cand;
+        if (fs::exists(p, ec)) {
+            return fs::canonical(p, ec).string();
+        }
+    }
+
+    // Search paths do usuário
+    for (const auto& sp : searchPaths) {
+        for (const auto& cand : nameCandidates) {
+            std::error_code ec;
+            fs::path p = fs::path(sp) / cand;
+            if (fs::exists(p, ec)) {
+                return fs::canonical(p, ec).string();
+            }
+        }
+    }
+
+    // Caminhos padrão do sistema
+    static const std::vector<std::string> defaultDirs = {
+        "lib",
+        "maiascript/lib",
+        "../maiascript/lib",
+        "../../maiascript/lib",
+        "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/lib",
+        "/sd/lib",
+        "/lib"
+    };
+
+    for (const auto& dd : defaultDirs) {
+        for (const auto& cand : nameCandidates) {
+            std::error_code ec;
+            fs::path p = fs::path(dd) / cand;
+            if (fs::exists(p, ec)) {
+                return fs::canonical(p, ec).string();
+            }
+        }
+    }
+
+    return "";
+}
+
+std::string Parser::expandIncludes(const std::string& source, const std::string& currentPath,
+                                  const std::vector<std::string>& searchPaths,
+                                  std::unordered_set<std::string>& includedFiles,
+                                  std::string& outError) {
+    std::stringstream in(source);
+    std::string line;
+    std::string output;
+    bool inBlockComment = false;
+
+    while (std::getline(in, line)) {
+        std::string trimmed = trimString(line);
+
+        if (inBlockComment) {
+            output += line + "\n";
+            if (trimmed.find("*/") != std::string::npos) {
+                inBlockComment = false;
+            }
+            continue;
+        }
+
+        if (trimmed.rfind("/*", 0) == 0) {
+            output += line + "\n";
+            if (trimmed.find("*/") == std::string::npos) {
+                inBlockComment = true;
+            }
+            continue;
+        }
+
+        if (trimmed.rfind("//", 0) == 0) {
+            output += line + "\n";
+            continue;
+        }
+
+        std::string target;
+        bool isInclude = false;
+
+        // 1. #include "path" ou #include <path>
+        if (trimmed.rfind("#include", 0) == 0) {
+            size_t q1 = trimmed.find_first_of("\"<");
+            size_t q2 = (q1 != std::string::npos) ? trimmed.find_first_of("\">", q1 + 1) : std::string::npos;
+            if (q1 != std::string::npos && q2 != std::string::npos && q2 > q1) {
+                target = trimmed.substr(q1 + 1, q2 - q1 - 1);
+                isInclude = true;
+            }
+        }
+        // 2. include("path"); ou include "path";
+        else if (trimmed.rfind("include", 0) == 0 && trimmed.size() > 7 &&
+                 (trimmed[7] == ' ' || trimmed[7] == '(' || trimmed[7] == '\t' || trimmed[7] == '"')) {
+            size_t q1 = trimmed.find('"');
+            size_t q2 = (q1 != std::string::npos) ? trimmed.find('"', q1 + 1) : std::string::npos;
+            if (q1 != std::string::npos && q2 != std::string::npos && q2 > q1) {
+                target = trimmed.substr(q1 + 1, q2 - q1 - 1);
+                isInclude = true;
+            }
+        }
+        // 3. import ...;
+        else if (trimmed.rfind("import", 0) == 0 && trimmed.size() > 6 &&
+                 (trimmed[6] == ' ' || trimmed[6] == '\t' || trimmed[6] == '"')) {
+            size_t q1 = trimmed.find('"');
+            if (q1 != std::string::npos) {
+                size_t q2 = trimmed.find('"', q1 + 1);
+                if (q2 != std::string::npos && q2 > q1) {
+                    target = trimmed.substr(q1 + 1, q2 - q1 - 1);
+                    isInclude = true;
+                }
+            } else {
+                std::string rest = trimString(trimmed.substr(6));
+                size_t semi = rest.find(';');
+                if (semi != std::string::npos) {
+                    rest = rest.substr(0, semi);
+                }
+                size_t asPos = rest.find(" as ");
+                if (asPos != std::string::npos) {
+                    rest = rest.substr(0, asPos);
+                }
+                rest = trimString(rest);
+                if (!rest.empty()) {
+                    std::string slashRest = rest;
+                    for (char& c : slashRest) {
+                        if (c == '.') c = '/';
+                    }
+                    target = slashRest;
+                    isInclude = true;
+                }
+            }
+        }
+
+        if (isInclude) {
+            std::string resolved = resolveIncludePath(target, currentPath, searchPaths);
+            if (resolved.empty()) {
+                outError = "Include error: could not locate '" + target + "' from '" + currentPath + "'";
+                return "";
+            }
+
+            if (includedFiles.find(resolved) != includedFiles.end()) {
+                output += "// [already included: " + target + "]\n";
+            } else {
+                includedFiles.insert(resolved);
+                std::ifstream f(resolved.c_str());
+                if (!f.is_open()) {
+                    outError = "Include error: cannot open '" + resolved + "'";
+                    return "";
+                }
+                std::stringstream buf;
+                buf << f.rdbuf();
+                std::string subSource = buf.str();
+                std::string expanded = expandIncludes(subSource, resolved, searchPaths, includedFiles, outError);
+                if (!outError.empty()) {
+                    return "";
+                }
+                output += "// [begin: " + target + "]\n" + expanded + "\n// [end: " + target + "]\n";
+            }
+        } else {
+            output += line + "\n";
+        }
+    }
+
+    return output;
+}
+
+std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::string& outError,
+                                            const std::string& currentPath,
+                                            const std::vector<std::string>& searchPaths) {
+    std::string finalSource = source;
+    if (source.find("#include") != std::string::npos ||
+        source.find("include") != std::string::npos ||
+        source.find("import") != std::string::npos) {
+        std::unordered_set<std::string> includedFiles;
+        if (!currentPath.empty()) {
+            includedFiles.insert(currentPath);
+        }
+        std::string exp = expandIncludes(source, currentPath.empty() ? "." : currentPath, searchPaths, includedFiles, outError);
+        if (!outError.empty()) return nullptr;
+        finalSource = exp;
+    }
+
     MaiaCCLexerState lexer;
-    maiaCCLexerStateInit(&lexer, source.c_str(), source.length());
-    size_t max_toks = (source.length() < 256) ? 512 : (source.length() * 2);
+    maiaCCLexerStateInit(&lexer, finalSource.c_str(), finalSource.length());
+    size_t max_toks = (finalSource.length() < 256) ? 512 : (finalSource.length() * 2);
     if (max_toks < 1024) max_toks = 1024;
-    if (max_toks > 16384) max_toks = 16384;
+    if (max_toks > 32768) max_toks = 32768;
     std::vector<MaiaCCParserToken> tokens(max_toks);
     if (!maiaCCLexerTokenize(&lexer, tokens.data(), tokens.size())) {
         outError = "Lexical error";
@@ -915,15 +1132,32 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
     return program;
 }
 
-std::shared_ptr<Program> Parser::parseFile(const std::string& path, std::string& outError) {
-    std::ifstream f(path.c_str());
+std::shared_ptr<Program> Parser::parseFile(const std::string& path, std::string& outError,
+                                          const std::vector<std::string>& searchPaths) {
+    std::error_code ec;
+    std::string canonicalPath = path;
+    if (fs::exists(path, ec)) {
+        canonicalPath = fs::canonical(path, ec).string();
+    }
+
+    std::ifstream f(canonicalPath.c_str());
     if (!f.is_open()) {
         outError = "Could not open file: " + path;
         return nullptr;
     }
     std::stringstream buffer;
     buffer << f.rdbuf();
-    return parseSource(buffer.str(), outError);
+    std::string rawSource = buffer.str();
+
+    std::unordered_set<std::string> includedFiles;
+    includedFiles.insert(canonicalPath);
+
+    std::string expanded = expandIncludes(rawSource, canonicalPath, searchPaths, includedFiles, outError);
+    if (!outError.empty()) {
+        return nullptr;
+    }
+
+    return parseSource(expanded, outError, canonicalPath, searchPaths);
 }
 
 } // namespace maiascript

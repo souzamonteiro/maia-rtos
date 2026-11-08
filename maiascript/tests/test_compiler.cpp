@@ -32,7 +32,8 @@ int main() {
         {"15_classes", 2},
         {"16_heap_objects", 43},
         {"17_printf", 42},
-        {"18_namespaces", 70}
+        {"18_namespaces", 70},
+        {"19_include_modules", 86}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
