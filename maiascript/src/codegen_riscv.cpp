@@ -165,6 +165,11 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
 }
 
 void CodegenRISCV::emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::stringstream& out) {
+    if (fn->isExtern) {
+        out << ".globl " << fn->name << "\n";
+        return;
+    }
+
     currentFunc = fn->name;
     currentFuncReturnType = fn->returnType;
     currentVarTypes.clear();
@@ -797,7 +802,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 }
             }
         }
-        out << "    jal ra, " << call->callee << "\n";
+        out << "    call " << call->callee << "\n";
 
         bool isFloatRet = false;
         auto fit = functionReturnTypes.find(call->callee);

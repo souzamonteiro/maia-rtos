@@ -14,6 +14,10 @@
 #include <esp_chip_info.h>
 #include <esp_timer.h>
 #include <mbedtls/sha256.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#include <freertos/idf_additions.h>
 #endif
 
 #if defined(ESP_PLATFORM)
@@ -2610,7 +2614,7 @@ private:
         return (res == MNM_LOAD_OK) ? exit_code : 1;
     }
 
-    int cmd_maiasc(int argc, char **argv) {
+    int cmd_maiasc_impl(int argc, char **argv) {
         if (argc < 2) {
             println("Usage: maiasc <input.ms> [-o output.mobj] [--run] [-S]");
             return 1;
@@ -2746,6 +2750,54 @@ private:
 
         return 0;
     }
+
+#if defined(ESP_PLATFORM)
+    struct MaiascWorkerArg {
+        MaiaShell *shell;
+        int argc;
+        char **argv;
+        int result;
+        SemaphoreHandle_t sem;
+    };
+
+    static void maiasc_worker_task(void *pv) {
+        MaiascWorkerArg *arg = static_cast<MaiascWorkerArg*>(pv);
+        arg->result = arg->shell->cmd_maiasc_impl(arg->argc, arg->argv);
+        xSemaphoreGive(arg->sem);
+        vTaskDelete(NULL);
+    }
+
+    int cmd_maiasc(int argc, char **argv) {
+        MaiascWorkerArg arg;
+        arg.shell = this;
+        arg.argc = argc;
+        arg.argv = argv;
+        arg.result = -1;
+        arg.sem = xSemaphoreCreateBinary();
+        if (!arg.sem) {
+            return cmd_maiasc_impl(argc, argv);
+        }
+
+        TaskHandle_t hTask = NULL;
+        BaseType_t ret = xTaskCreateWithCaps(maiasc_worker_task, "maiasc_psram", 131072, &arg, 5, &hTask, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (ret != pdPASS) {
+            ret = xTaskCreate(maiasc_worker_task, "maiasc_iram", 32768, &arg, 5, &hTask);
+        }
+
+        if (ret == pdPASS) {
+            xSemaphoreTake(arg.sem, portMAX_DELAY);
+            vSemaphoreDelete(arg.sem);
+            return arg.result;
+        } else {
+            vSemaphoreDelete(arg.sem);
+            return cmd_maiasc_impl(argc, argv);
+        }
+    }
+#else
+    int cmd_maiasc(int argc, char **argv) {
+        return cmd_maiasc_impl(argc, argv);
+    }
+#endif
 
     int cmd_maiaasm(int argc, char **argv) {
         if (argc < 2) {

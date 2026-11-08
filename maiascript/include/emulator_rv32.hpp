@@ -6,6 +6,9 @@
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
+#include <functional>
+#include <unordered_map>
+#include <string>
 
 namespace maiascript {
 
@@ -17,6 +20,10 @@ public:
     std::vector<uint8_t> memory;
     bool halted;
     uint64_t instructionCount;
+
+    using HostFunction = std::function<int32_t(EmulatorRV32&)>;
+    std::unordered_map<std::string, HostFunction> hostFunctions;
+    std::unordered_map<uint32_t, std::string> hostHooks;
 
     static const uint32_t MEM_SIZE = 64 * 1024;      // 64 KB memory
     static const uint32_t STACK_TOP = 0x10000 - 16;  // 64 KB top
@@ -44,6 +51,44 @@ public:
         std::memcpy(&memory[baseAddr], code, size);
     }
 
+    void registerHostFunction(const std::string& name, HostFunction fn) {
+        hostFunctions[name] = fn;
+    }
+
+    void patchCall(uint32_t offset, const std::string& symName) {
+        uint32_t hookAddr = 0;
+        for (const auto& pair : hostHooks) {
+            if (pair.second == symName) {
+                hookAddr = pair.first;
+                break;
+            }
+        }
+        if (hookAddr == 0) {
+            hookAddr = 0x80000000 + (uint32_t)hostHooks.size() * 8;
+            hostHooks[hookAddr] = symName;
+        }
+
+        int32_t off = (int32_t)hookAddr - (int32_t)offset;
+        uint32_t hi = (uint32_t)((off + 0x800) >> 12);
+        uint32_t lo = (uint32_t)(off & 0xFFF);
+
+        uint32_t insn0 = memory[offset] | (memory[offset+1] << 8) | (memory[offset+2] << 16) | (memory[offset+3] << 24);
+        uint32_t insn1 = memory[offset+4] | (memory[offset+5] << 8) | (memory[offset+6] << 16) | (memory[offset+7] << 24);
+
+        insn0 = (insn0 & 0x00000FFF) | (hi << 12);
+        insn1 = (insn1 & 0x000FFFFF) | (lo << 20);
+
+        memory[offset] = insn0 & 0xff;
+        memory[offset+1] = (insn0 >> 8) & 0xff;
+        memory[offset+2] = (insn0 >> 16) & 0xff;
+        memory[offset+3] = (insn0 >> 24) & 0xff;
+
+        memory[offset+4] = insn1 & 0xff;
+        memory[offset+5] = (insn1 >> 8) & 0xff;
+        memory[offset+6] = (insn1 >> 16) & 0xff;
+        memory[offset+7] = (insn1 >> 24) & 0xff;
+    }
+
     int32_t run(uint32_t startPC, uint64_t maxInstructions = 1000000) {
         pc = startPC;
         regs[1] = EXIT_TRAP; // return from main terminates run
@@ -63,6 +108,22 @@ public:
     }
 
     void step() {
+        if (pc >= 0x80000000) {
+            auto it = hostHooks.find(pc);
+            if (it != hostHooks.end()) {
+                auto fit = hostFunctions.find(it->second);
+                if (fit != hostFunctions.end()) {
+                    int32_t ret = fit->second(*this);
+                    regs[10] = (uint32_t)ret; // a0
+                    pc = regs[1]; // return to ra
+                    instructionCount++;
+                    return;
+                }
+            }
+            halted = true;
+            return;
+        }
+
         if (pc + 4 > MEM_SIZE) {
             halted = true;
             return;

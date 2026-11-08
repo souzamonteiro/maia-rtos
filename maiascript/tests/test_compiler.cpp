@@ -26,7 +26,8 @@ int main() {
         {"09_strings", 77},
         {"10_struct", 42},
         {"11_arrays", 150},
-        {"12_float", 42}
+        {"12_float", 42},
+        {"13_extern", 100}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -83,6 +84,26 @@ int main() {
         // 5. Execute in RV32 emulator
         maiascript::EmulatorRV32 emu;
         emu.loadCode(machineCode.data(), machineCode.size(), 0);
+
+        // Register host test mock functions
+        emu.registerHostFunction("add_host", [](maiascript::EmulatorRV32& e) -> int32_t {
+            int32_t a = (int32_t)e.regs[10];
+            int32_t b = (int32_t)e.regs[11];
+            return a + b;
+        });
+        emu.registerHostFunction("multiply_host", [](maiascript::EmulatorRV32& e) -> int32_t {
+            int32_t a = (int32_t)e.regs[10];
+            int32_t b = (int32_t)e.regs[11];
+            return a * b;
+        });
+
+        // Patch external calls from relocations
+        for (const auto& r : assembler.get_relocations()) {
+            if (r.type == 19 || r.type == 18) {
+                emu.patchCall(r.offset, r.symbol);
+            }
+        }
+
         int32_t actualA0 = 0;
         try {
             actualA0 = emu.run(mainOffset, 200000);

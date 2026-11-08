@@ -35,6 +35,15 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      int *exit_code,
                      void (*log_fn)(const char *msg));
 
+/**
+ * @brief Register a global host C symbol dynamically for ELF module relocation.
+ *
+ * @param name Symbol name (e.g. "lv_btn_create").
+ * @param address Pointer to the function or object.
+ * @return 0 on success, negative error code on failure.
+ */
+int mnm_register_symbol(const char *name, uintptr_t address);
+
 #ifdef __cplusplus
 }
 #endif

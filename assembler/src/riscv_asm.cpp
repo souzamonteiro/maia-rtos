@@ -94,6 +94,10 @@ std::vector<uint8_t> Assembler::get_image_binary() const {
     return img;
 }
 
+void Assembler::add_relocation(const std::string &sec, uint32_t off, const std::string &sym, uint32_t type, int32_t addend) {
+    m_relocations.emplace_back(sec, off, sym, type, addend);
+}
+
 std::vector<uint8_t> Assembler::emit_elf32() const {
     struct OutSection {
         std::string name;
@@ -173,6 +177,8 @@ std::vector<uint8_t> Assembler::emit_elf32() const {
 
     std::vector<RawSym> locals;
     std::vector<RawSym> globals;
+    std::vector<std::string> local_names;
+    std::vector<std::string> global_names;
 
     // Symbol 0 is STN_UNDEF
     RawSym s_undef = {0, 0, 0, 0, 0, 0};
@@ -199,14 +205,24 @@ std::vector<uint8_t> Assembler::emit_elf32() const {
 
         if (sym.is_global) {
             globals.push_back(r);
+            global_names.push_back(sym.name);
         } else {
             locals.push_back(r);
+            local_names.push_back(sym.name);
         }
     }
 
     uint32_t first_global_idx = (uint32_t)locals.size();
     std::vector<RawSym> all_syms = locals;
     all_syms.insert(all_syms.end(), globals.begin(), globals.end());
+
+    std::map<std::string, uint32_t> sym_to_idx;
+    for (size_t i = 0; i < local_names.size(); ++i) {
+        sym_to_idx[local_names[i]] = 1 + (uint32_t)i;
+    }
+    for (size_t i = 0; i < global_names.size(); ++i) {
+        sym_to_idx[global_names[i]] = first_global_idx + (uint32_t)i;
+    }
 
     std::vector<uint8_t> symtab_data;
     for (size_t i = 0; i < all_syms.size(); ++i) {
@@ -237,7 +253,6 @@ std::vector<uint8_t> Assembler::emit_elf32() const {
 
     uint32_t symtab_idx = (uint32_t)out_secs.size();
     uint32_t strtab_idx = symtab_idx + 1;
-    uint32_t shstrtab_idx = symtab_idx + 2;
 
     {
         OutSection s_sym;
@@ -266,6 +281,55 @@ std::vector<uint8_t> Assembler::emit_elf32() const {
         s_str.data = strtab;
         out_secs.push_back(s_str);
     }
+
+    // Add .rela.* sections if any relocations exist
+    for (size_t sec_i = 1; sec_i < symtab_idx; ++sec_i) {
+        const std::string& sec_name = out_secs[sec_i].name;
+        std::vector<uint8_t> rela_data;
+        for (const auto& r : m_relocations) {
+            if (r.section == sec_name) {
+                uint32_t sym_idx = 0;
+                auto sit = sym_to_idx.find(r.symbol);
+                if (sit != sym_to_idx.end()) {
+                    sym_idx = sit->second;
+                }
+                // r_offset (uint32_t)
+                rela_data.push_back(r.offset & 0xff);
+                rela_data.push_back((r.offset >> 8) & 0xff);
+                rela_data.push_back((r.offset >> 16) & 0xff);
+                rela_data.push_back((r.offset >> 24) & 0xff);
+
+                // r_info: (sym_idx << 8) | (type & 0xff)
+                uint32_t r_info = (sym_idx << 8) | (r.type & 0xff);
+                rela_data.push_back(r_info & 0xff);
+                rela_data.push_back((r_info >> 8) & 0xff);
+                rela_data.push_back((r_info >> 16) & 0xff);
+                rela_data.push_back((r_info >> 24) & 0xff);
+
+                // r_addend (int32_t)
+                uint32_t r_addend = (uint32_t)r.addend;
+                rela_data.push_back(r_addend & 0xff);
+                rela_data.push_back((r_addend >> 8) & 0xff);
+                rela_data.push_back((r_addend >> 16) & 0xff);
+                rela_data.push_back((r_addend >> 24) & 0xff);
+            }
+        }
+        if (!rela_data.empty()) {
+            OutSection s_rela;
+            s_rela.name = ".rela" + sec_name;
+            s_rela.name_offset = 0;
+            s_rela.type = 4; // SHT_RELA
+            s_rela.flags = 0x40; // SHF_INFO_LINK
+            s_rela.align = 4;
+            s_rela.link = symtab_idx;
+            s_rela.info = (uint32_t)sec_i;
+            s_rela.entsize = 12;
+            s_rela.data = rela_data;
+            out_secs.push_back(s_rela);
+        }
+    }
+
+    uint32_t shstrtab_idx = (uint32_t)out_secs.size();
 
     // Build .shstrtab
     std::vector<uint8_t> shstrtab;
@@ -590,6 +654,42 @@ bool Assembler::assemble_instruction(const std::string &mnemonic,
         return true;
     }
 
+    /* snez rd, rs -> sltu rd, x0, rs */
+    if (mnem == "snez" && argc == 2) {
+        int rd = parse_reg(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (rd < 0 || rs < 0) { add_error(line, "Invalid registers in snez"); return false; }
+        active_section().append_word(encode_R(0, rs, 0, 3, rd, 0x33));
+        return true;
+    }
+
+    /* seqz rd, rs -> sltiu rd, rs, 1 */
+    if (mnem == "seqz" && argc == 2) {
+        int rd = parse_reg(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (rd < 0 || rs < 0) { add_error(line, "Invalid registers in seqz"); return false; }
+        active_section().append_word(encode_I(1, rs, 3, rd, 0x13));
+        return true;
+    }
+
+    /* sltz rd, rs -> slt rd, rs, x0 */
+    if (mnem == "sltz" && argc == 2) {
+        int rd = parse_reg(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (rd < 0 || rs < 0) { add_error(line, "Invalid registers in sltz"); return false; }
+        active_section().append_word(encode_R(0, 0, rs, 2, rd, 0x33));
+        return true;
+    }
+
+    /* sgtz rd, rs -> slt rd, x0, rs */
+    if (mnem == "sgtz" && argc == 2) {
+        int rd = parse_reg(operands[0]);
+        int rs = parse_reg(operands[1]);
+        if (rd < 0 || rs < 0) { add_error(line, "Invalid registers in sgtz"); return false; }
+        active_section().append_word(encode_R(0, rs, 0, 2, rd, 0x33));
+        return true;
+    }
+
     /* li rd, imm */
     if (mnem == "li" && argc == 2) {
         int rd = parse_reg(operands[0]);
@@ -640,6 +740,48 @@ bool Assembler::assemble_instruction(const std::string &mnemonic,
         active_section().append_word(encode_U((uint32_t)hi20, rd, 0x17)); // auipc rd, hi20
         active_section().append_word(encode_I(lo12, rd, 0, rd, 0x13));    // addi rd, rd, lo12
         return true;
+    }
+
+    /* call symbol */
+    if (mnem == "call" && argc == 1) {
+        std::string sym_name = trim(operands[0]);
+        std::map<std::string, Symbol>::const_iterator it = m_symbols.find(sym_name);
+        if (it != m_symbols.end() && it->second.is_defined && !it->second.section.empty()) {
+            uint32_t sym_sec_base = 0;
+            std::map<std::string, uint32_t>::const_iterator s_it = m_section_bases.find(it->second.section);
+            if (s_it != m_section_bases.end()) sym_sec_base = s_it->second;
+
+            uint32_t cur_sec_base = 0;
+            std::map<std::string, uint32_t>::const_iterator c_it = m_section_bases.find(active_section().name);
+            if (c_it != m_section_bases.end()) cur_sec_base = c_it->second;
+
+            uint32_t sym_abs = sym_sec_base + it->second.offset;
+            uint32_t pc_abs = cur_sec_base + current_pc;
+            int32_t delta = (int32_t)sym_abs - (int32_t)pc_abs;
+
+            int32_t hi20 = ((delta + 0x800) >> 12) & 0xfffff;
+            int32_t lo12 = delta - (hi20 << 12);
+            active_section().append_word(encode_U((uint32_t)hi20, 1 /* ra */, 0x17)); // auipc ra, hi20
+            active_section().append_word(encode_I(lo12, 1 /* ra */, 0, 1 /* ra */, 0x67)); // jalr ra, ra, lo12
+            return true;
+        } else {
+            // External / undefined symbol: emit auipc ra, 0 + jalr ra, ra, 0 and record relocation
+            add_relocation(active_section().name, current_pc, sym_name, 19 /* R_RISCV_CALL_PLT */, 0);
+
+            if (it == m_symbols.end()) {
+                Symbol sym;
+                sym.name = sym_name;
+                sym.section = "";
+                sym.offset = 0;
+                sym.is_global = true;
+                sym.is_defined = false;
+                m_symbols[sym_name] = sym;
+            }
+
+            active_section().append_word(0x00000097); // auipc ra, 0
+            active_section().append_word(0x000080e7); // jalr ra, ra, 0
+            return true;
+        }
     }
 
     /* ---------------- Instruções Canônicas do Catálogo ---------------- */
@@ -979,6 +1121,7 @@ struct ParsedLine {
 bool Assembler::assemble_string(const std::string &source) {
     m_diagnostics.clear();
     m_symbols.clear();
+    m_relocations.clear();
     m_sections.clear();
     m_active_section_idx = -1;
 
@@ -1009,8 +1152,16 @@ bool Assembler::assemble_string(const std::string &source) {
         pl.section_at_entry = active_section().name;
         pl.pc_at_entry = (uint32_t)active_section().data.size();
 
-        /* Verifica se há Label ("label:") */
-        size_t colon = raw.find(':');
+        /* Verifica se há Label ("label:") ignorando colons dentro de aspas */
+        bool in_str = false;
+        size_t colon = std::string::npos;
+        for (size_t i = 0; i < raw.size(); ++i) {
+            if (raw[i] == '\"') in_str = !in_str;
+            else if (raw[i] == ':' && !in_str) {
+                colon = i;
+                break;
+            }
+        }
         if (colon != std::string::npos) {
             pl.label = trim(raw.substr(0, colon));
             raw = trim(raw.substr(colon + 1));
@@ -1155,6 +1306,8 @@ bool Assembler::assemble_string(const std::string &source) {
                 }
             } else if (to_lower(pl.instruction) == "la" && pl.args.size() == 2) {
                 active_section().append_word(0); /* la precisa de 8 bytes (auipc + addi) */
+            } else if (to_lower(pl.instruction) == "call" && pl.args.size() == 1) {
+                active_section().append_word(0); /* call precisa de 8 bytes (auipc + jalr) */
             }
         }
 
@@ -1253,6 +1406,7 @@ bool Assembler::assemble_string(const std::string &source) {
                 }
             } else if (d == ".globl" || d == ".global") {
                 if (!pl.args.empty()) {
+                    m_symbols[pl.args[0]].name = pl.args[0];
                     m_symbols[pl.args[0]].is_global = true;
                 }
             }

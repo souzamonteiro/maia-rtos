@@ -342,9 +342,10 @@ public:
     std::string name;
     std::vector<ParamDecl> params;
     std::shared_ptr<BlockStmt> body;
+    bool isExtern = false;
 
-    FunctionDecl(const Type& ret, const std::string& n, const std::vector<ParamDecl>& p, std::shared_ptr<BlockStmt> b)
-        : ASTNode(KIND), returnType(ret), name(n), params(p), body(b) {}
+    FunctionDecl(const Type& ret, const std::string& n, const std::vector<ParamDecl>& p, std::shared_ptr<BlockStmt> b, bool ext = false)
+        : ASTNode(KIND), returnType(ret), name(n), params(p), body(b), isExtern(ext) {}
 };
 
 struct FieldDecl {

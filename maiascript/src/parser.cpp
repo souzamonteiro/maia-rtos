@@ -618,6 +618,39 @@ static std::shared_ptr<FunctionDecl> convertFunctionDecl(const std::shared_ptr<C
     return std::make_shared<FunctionDecl>(retType, name, params, body);
 }
 
+static std::shared_ptr<FunctionDecl> convertExternDecl(const std::shared_ptr<CSTNode>& node) {
+    if (!node) return nullptr;
+    auto typeNode = node->findFirst("Type");
+    Type retType = typeNode ? convertType(typeNode) : Type(TypeKind::Void);
+
+    std::string name;
+    for (const auto& ch : node->children) {
+        if (ch->isToken() && ch->tokenVal != "extern" && ch->tokenVal != "(" && ch->tokenVal != ")" && ch->tokenVal != ";") {
+            name = ch->tokenVal;
+            break;
+        }
+    }
+
+    std::vector<ParamDecl> params;
+    auto pList = node->findFirst("ParameterList");
+    if (pList) {
+        for (const auto& pNode : pList->findAll("Parameter")) {
+            auto pTypeNode = pNode->findFirst("Type");
+            Type pt = pTypeNode ? convertType(pTypeNode) : Type(TypeKind::I32);
+            std::string pName;
+            for (const auto& tok : pNode->children) {
+                if (tok->isToken()) {
+                    pName = tok->tokenVal;
+                    break;
+                }
+            }
+            params.emplace_back(pt, pName);
+        }
+    }
+
+    return std::make_shared<FunctionDecl>(retType, name, params, nullptr, /*isExtern=*/true);
+}
+
 std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::string& outError) {
     MaiaCCLexerState lexer;
     maiaCCLexerStateInit(&lexer, source.c_str(), source.length());
@@ -670,6 +703,10 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
         auto fn = top->findFirst("FunctionDecl");
         if (fn) {
             program->decls.push_back(convertFunctionDecl(fn));
+        }
+        auto ext = top->findFirst("ExternDecl");
+        if (ext) {
+            program->decls.push_back(convertExternDecl(ext));
         }
     }
 

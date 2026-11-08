@@ -6,6 +6,9 @@
 #if defined(ESP_PLATFORM)
 #include <esp_heap_caps.h>
 #include <esp_cache.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_timer.h>
 
 // On ESP32-P4, instruction execution is strictly limited to sram_low (0x4FF00000 - 0x4FF3AFC0).
 // sram_high (0x4FF40000 - 0x4FF80000) is rw-only and triggers an Illegal instruction abort on fetch.
@@ -15,7 +18,98 @@ static uint8_t s_module_exec_pool[65536] __attribute__((aligned(64), section(".i
 static size_t s_module_pool_offset = 0;
 #else
 #include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
 #endif
+
+typedef struct {
+    char name[48];
+    uintptr_t addr;
+} maia_dyn_sym_t;
+
+#define MAX_DYN_SYMS 64
+static maia_dyn_sym_t s_dyn_syms[MAX_DYN_SYMS];
+static int s_dyn_sym_count = 0;
+
+int mnm_register_symbol(const char *name, uintptr_t address) {
+    if (!name || !*name || !address) return -1;
+    for (int i = 0; i < s_dyn_sym_count; ++i) {
+        if (strcmp(s_dyn_syms[i].name, name) == 0) {
+            s_dyn_syms[i].addr = address;
+            return 0;
+        }
+    }
+    if (s_dyn_sym_count >= MAX_DYN_SYMS) return -2;
+    strncpy(s_dyn_syms[s_dyn_sym_count].name, name, sizeof(s_dyn_syms[s_dyn_sym_count].name) - 1);
+    s_dyn_syms[s_dyn_sym_count].name[sizeof(s_dyn_syms[s_dyn_sym_count].name) - 1] = '\0';
+    s_dyn_syms[s_dyn_sym_count].addr = address;
+    s_dyn_sym_count++;
+    return 0;
+}
+
+static const maia_host_api_v1 *s_active_host = NULL;
+
+static void maia_host_print(const char *s) {
+    if (!s) return;
+    printf("%s", s);
+    fflush(stdout);
+}
+
+static void maia_host_println(const char *s) {
+    if (s) printf("%s", s);
+    printf("\n");
+    fflush(stdout);
+}
+
+static void maia_host_print_int(int32_t val) {
+    printf("%d\n", (int)val);
+    fflush(stdout);
+}
+
+static void maia_host_delay_ms(uint32_t ms) {
+    if (s_active_host && s_active_host->sleep_ms) {
+        s_active_host->sleep_ms(ms);
+    } else {
+#if defined(ESP_PLATFORM)
+        vTaskDelay(pdMS_TO_TICKS(ms));
+#else
+        usleep(ms * 1000);
+#endif
+    }
+}
+
+static uint32_t maia_host_millis(void) {
+    if (s_active_host && s_active_host->get_time_us) {
+        return (uint32_t)(s_active_host->get_time_us() / 1000);
+    }
+#if defined(ESP_PLATFORM)
+    return (uint32_t)(esp_timer_get_time() / 1000);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+#endif
+}
+
+static int32_t maia_host_fill_rect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color) {
+    if (s_active_host && s_active_host->display && s_active_host->display->fill_rect) {
+        return s_active_host->display->fill_rect(x, y, w, h, color);
+    }
+    return 0;
+}
+
+static void maia_host_display_sync(void) {
+    if (s_active_host && s_active_host->display && s_active_host->display->sync) {
+        s_active_host->display->sync();
+    }
+}
+
+static int32_t maia_host_play_beep(uint32_t freq_hz, uint32_t duration_ms) {
+    if (s_active_host && s_active_host->play_beep) {
+        return s_active_host->play_beep(freq_hz, duration_ms);
+    }
+    return 0;
+}
 
 static inline uint32_t get_u32(const void *p) {
     uint32_t val;
@@ -43,6 +137,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      int *exit_code,
                      void (*log_fn)(const char *msg))
 {
+    s_active_host = host;
     char rep[256];
     int vres = elf_validate_relocatable(elf_data, elf_size, rep, sizeof(rep));
     if (vres != ELF_VALID_OK) {
@@ -242,6 +337,18 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                             else if (strcmp(sname, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
                             else if (strcmp(sname, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
                             else if (strcmp(sname, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
+                            else if (strcmp(sname, "print") == 0) sym_val = (uintptr_t)maia_host_print;
+                            else if (strcmp(sname, "println") == 0) sym_val = (uintptr_t)maia_host_println;
+                            else if (strcmp(sname, "print_int") == 0) sym_val = (uintptr_t)maia_host_print_int;
+                            else if (strcmp(sname, "delay_ms") == 0 || strcmp(sname, "sleep_ms") == 0) sym_val = (uintptr_t)maia_host_delay_ms;
+                            else if (strcmp(sname, "millis") == 0) sym_val = (uintptr_t)maia_host_millis;
+                            else if (strcmp(sname, "fill_rect") == 0) sym_val = (uintptr_t)maia_host_fill_rect;
+                            else if (strcmp(sname, "display_sync") == 0) sym_val = (uintptr_t)maia_host_display_sync;
+                            else if (strcmp(sname, "play_beep") == 0) sym_val = (uintptr_t)maia_host_play_beep;
+                            else if (strcmp(sname, "puts") == 0) sym_val = (uintptr_t)puts;
+                            else if (strcmp(sname, "printf") == 0) sym_val = (uintptr_t)printf;
+                            else if (strcmp(sname, "malloc") == 0) sym_val = (uintptr_t)malloc;
+                            else if (strcmp(sname, "free") == 0) sym_val = (uintptr_t)free;
                             else if (strcmp(sname, "__divdi3") == 0) sym_val = (uintptr_t)__divdi3;
                             else if (strcmp(sname, "__udivdi3") == 0) sym_val = (uintptr_t)__udivdi3;
                             else if (strcmp(sname, "__umoddi3") == 0) sym_val = (uintptr_t)__umoddi3;
@@ -257,7 +364,13 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                             else if (strcmp(sname, "__eqdf2") == 0) sym_val = (uintptr_t)__eqdf2;
                             else if (strcmp(sname, "__nedf2") == 0) sym_val = (uintptr_t)__nedf2;
                             else {
-                                if (log_fn) {
+                                for (int d = 0; d < s_dyn_sym_count; ++d) {
+                                    if (strcmp(sname, s_dyn_syms[d].name) == 0) {
+                                        sym_val = s_dyn_syms[d].addr;
+                                        break;
+                                    }
+                                }
+                                if (sym_val == 0 && log_fn) {
                                     char err[128];
                                     snprintf(err, sizeof(err), "Loader Warning: Unresolved external symbol '%s'", sname);
                                     log_fn(err);
