@@ -204,6 +204,65 @@ int main(int argc, char* argv[]) {
             return 0;
         });
 
+        static uint32_t s_heap_ptr = 0x4000;
+        emu.registerHostFunction("malloc", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t sz = e.regs[10];
+            sz = (sz + 7) & ~7; // 8-byte align
+            uint32_t alloc = s_heap_ptr;
+            s_heap_ptr += sz;
+            return (int32_t)alloc;
+        });
+        emu.registerHostFunction("free", [](maiascript::EmulatorRV32&) -> int32_t {
+            return 0;
+        });
+        emu.registerHostFunction("printf", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t fmt_ptr = e.regs[10];
+            int argIdx = 11; // a1 is reg 11
+            int fArgIdx = 0;
+            int count = 0;
+            while (fmt_ptr < e.memory.size() && e.memory[fmt_ptr] != 0) {
+                char ch = (char)e.memory[fmt_ptr++];
+                if (ch == '%' && fmt_ptr < e.memory.size()) {
+                    char spec = (char)e.memory[fmt_ptr++];
+                    if (spec == 'd' || spec == 'i') {
+                        int32_t val = (argIdx <= 17) ? (int32_t)e.regs[argIdx++] : 0;
+                        std::cout << val;
+                    } else if (spec == 'u') {
+                        uint32_t val = (argIdx <= 17) ? e.regs[argIdx++] : 0;
+                        std::cout << val;
+                    } else if (spec == 'x') {
+                        uint32_t val = (argIdx <= 17) ? e.regs[argIdx++] : 0;
+                        std::cout << std::hex << val << std::dec;
+                    } else if (spec == 'X') {
+                        uint32_t val = (argIdx <= 17) ? e.regs[argIdx++] : 0;
+                        std::cout << std::uppercase << std::hex << val << std::nouppercase << std::dec;
+                    } else if (spec == 'c') {
+                        char val = (argIdx <= 17) ? (char)e.regs[argIdx++] : 0;
+                        std::cout << val;
+                    } else if (spec == 's') {
+                        uint32_t s_ptr = (argIdx <= 17) ? e.regs[argIdx++] : 0;
+                        while (s_ptr < e.memory.size() && e.memory[s_ptr] != 0) {
+                            std::cout << (char)e.memory[s_ptr++];
+                        }
+                    } else if (spec == 'f') {
+                        float f = 0.0f;
+                        if (fArgIdx < 8) {
+                            uint32_t raw = e.fregs[fArgIdx++];
+                            std::memcpy(&f, &raw, 4);
+                        }
+                        std::cout << f;
+                    } else if (spec == '%') {
+                        std::cout << '%';
+                    }
+                } else {
+                    std::cout << ch;
+                }
+                count++;
+            }
+            std::cout << std::flush;
+            return count;
+        });
+
         // Patch external calls from relocations
         for (const auto& r : assembler.get_relocations()) {
             if (r.type == 19 || r.type == 18) { // R_RISCV_CALL / R_RISCV_CALL_PLT

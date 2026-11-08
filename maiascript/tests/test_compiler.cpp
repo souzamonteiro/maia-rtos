@@ -29,7 +29,10 @@ int main() {
         {"12_float", 42},
         {"13_extern", 100},
         {"14_profiling", 42},
-        {"15_classes", 2}
+        {"15_classes", 2},
+        {"16_heap_objects", 43},
+        {"17_printf", 42},
+        {"18_namespaces", 70}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -100,6 +103,38 @@ int main() {
         });
         emu.registerHostFunction("cycles", [](maiascript::EmulatorRV32& e) -> int32_t {
             return (int32_t)e.getCycleCount();
+        });
+        static uint32_t s_test_heap = 0x4000;
+        emu.registerHostFunction("malloc", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t sz = e.regs[10];
+            sz = (sz + 7) & ~7;
+            uint32_t a = s_test_heap;
+            s_test_heap += sz;
+            return (int32_t)a;
+        });
+        emu.registerHostFunction("free", [](maiascript::EmulatorRV32&) -> int32_t {
+            return 0;
+        });
+        emu.registerHostFunction("printf", [](maiascript::EmulatorRV32& e) -> int32_t {
+            uint32_t fmt_ptr = e.regs[10];
+            int argIdx = 11;
+            int fArgIdx = 0;
+            int count = 0;
+            while (fmt_ptr < e.memory.size() && e.memory[fmt_ptr] != 0) {
+                char ch = (char)e.memory[fmt_ptr++];
+                if (ch == '%' && fmt_ptr < e.memory.size()) {
+                    char spec = (char)e.memory[fmt_ptr++];
+                    if (spec == 'd' || spec == 'i') {
+                        if (argIdx <= 17) argIdx++;
+                    } else if (spec == 'u' || spec == 'x' || spec == 'X' || spec == 'c' || spec == 's') {
+                        if (argIdx <= 17) argIdx++;
+                    } else if (spec == 'f') {
+                        if (fArgIdx < 8) fArgIdx++;
+                    }
+                }
+                count++;
+            }
+            return count;
         });
 
         // Patch external calls from relocations

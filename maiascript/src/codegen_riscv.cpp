@@ -108,6 +108,14 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         }
     }
     if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+            if (namespaces.count(targetVar->name)) {
+                auto fit = functionReturnTypes.find(targetVar->name + "_" + mcall->method);
+                if (fit != functionReturnTypes.end()) {
+                    return fit->second.isFloat();
+                }
+            }
+        }
         std::string cName;
         if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
             if (targetVar->name == "this") {
@@ -163,6 +171,7 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
     stringLabels.clear();
     structs.clear();
     classes.clear();
+    namespaces = program->namespaces;
     currentClass.clear();
     functionReturnTypes.clear();
 
@@ -1380,6 +1389,53 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             }
         }
     } else if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
+        // Check if object is a namespace
+        if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
+            if (namespaces.count(targetVar->name)) {
+                std::string mangledName = targetVar->name + "_" + mcall->method;
+                int intArgIdx = 0;
+                int floatArgIdx = 0;
+                for (size_t i = 0; i < mcall->args.size() && i < 8; ++i) {
+                    int argSlot = (depth + i) * 4;
+                    if (isFloatExpr(mcall->args[i])) {
+                        emitExpr(mcall->args[i], "ft0", out, varOffsets, depth + i);
+                        out << "    fsw ft0, " << argSlot << "(sp)\n";
+                    } else {
+                        emitExpr(mcall->args[i], "t0", out, varOffsets, depth + i);
+                        out << "    sw t0, " << argSlot << "(sp)\n";
+                    }
+                }
+                for (size_t i = 0; i < mcall->args.size() && i < 8; ++i) {
+                    int argSlot = (depth + i) * 4;
+                    if (isFloatExpr(mcall->args[i])) {
+                        if (floatArgIdx < 8) {
+                            out << "    flw fa" << floatArgIdx++ << ", " << argSlot << "(sp)\n";
+                        }
+                    } else {
+                        if (intArgIdx < 8) {
+                            out << "    lw a" << intArgIdx++ << ", " << argSlot << "(sp)\n";
+                        }
+                    }
+                }
+                out << "    call " << mangledName << "\n";
+
+                bool isFloatRet = false;
+                auto fit = functionReturnTypes.find(mangledName);
+                if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
+
+                if (isFloatRet) {
+                    if (targetReg != "fa0" && targetReg[0] == 'f') {
+                        out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+                    }
+                } else {
+                    if (targetReg != "a0") {
+                        out << "    addi " << targetReg << ", a0, 0\n";
+                    }
+                }
+                return;
+            }
+        }
+
         // 1. Determine target class name
         std::string className;
         bool isPointerObj = false;
@@ -1464,6 +1520,75 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 out << "    addi " << targetReg << ", a0, 0\n";
             }
         }
+    } else if (auto sz = ast_cast<SizeofExpr>(expr)) {
+        int s = getTypeSize(sz->targetType);
+        if (s <= 0) s = 4;
+        if (targetReg[0] == 'f') {
+            out << "    li t0, " << s << "\n";
+            out << "    fcvt.s.w " << targetReg << ", t0\n";
+        } else {
+            out << "    li " << targetReg << ", " << s << "\n";
+        }
+    } else if (auto del = ast_cast<DeleteExpr>(expr)) {
+        emitExpr(del->target, "a0", out, varOffsets, depth);
+        out << "    call free\n";
+        if (targetReg != "a0") {
+            out << "    addi " << targetReg << ", zero, 0\n";
+        }
+    } else if (auto nexpr = ast_cast<NewExpr>(expr)) {
+        // 1. Get class size
+        int clsSize = 4;
+        auto sit = structs.find(nexpr->className);
+        if (sit != structs.end()) {
+            clsSize = sit->second.totalSize;
+        }
+        if (clsSize <= 0) clsSize = 4;
+
+        // 2. Evaluate constructor arguments and store in scratch slots (depth + 1 + i) * 4
+        for (size_t i = 0; i < nexpr->args.size() && i < 7; ++i) {
+            int argSlot = (depth + 1 + i) * 4;
+            if (isFloatExpr(nexpr->args[i])) {
+                emitExpr(nexpr->args[i], "ft0", out, varOffsets, depth + 1 + i);
+                out << "    fsw ft0, " << argSlot << "(sp)\n";
+            } else {
+                emitExpr(nexpr->args[i], "t0", out, varOffsets, depth + 1 + i);
+                out << "    sw t0, " << argSlot << "(sp)\n";
+            }
+        }
+
+        // 3. Allocate heap memory: a0 = clsSize; call malloc
+        out << "    li a0, " << clsSize << "\n";
+        out << "    call malloc\n";
+
+        // 4. Save allocated pointer in scratch slot depth * 4
+        int ptrSlot = depth * 4;
+        out << "    sw a0, " << ptrSlot << "(sp)\n";
+
+        // 5. Load constructor arguments into a1..a7 / fa0..fa7
+        int intArgIdx = 1; // starts at a1
+        int floatArgIdx = 0;
+        for (size_t i = 0; i < nexpr->args.size() && i < 7; ++i) {
+            int argSlot = (depth + 1 + i) * 4;
+            if (isFloatExpr(nexpr->args[i])) {
+                if (floatArgIdx < 8) {
+                    out << "    flw fa" << floatArgIdx++ << ", " << argSlot << "(sp)\n";
+                }
+            } else {
+                if (intArgIdx < 8) {
+                    out << "    lw a" << intArgIdx++ << ", " << argSlot << "(sp)\n";
+                }
+            }
+        }
+
+        // 6. Reload allocated pointer to a0
+        out << "    lw a0, " << ptrSlot << "(sp)\n";
+
+        // 7. Call constructor ClassName_ClassName
+        std::string ctorName = nexpr->className + "_" + nexpr->className;
+        out << "    call " << ctorName << "\n";
+
+        // 8. Result is the allocated pointer (saved in ptrSlot)
+        out << "    lw " << targetReg << ", " << ptrSlot << "(sp)\n";
     }
 }
 

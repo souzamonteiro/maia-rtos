@@ -114,6 +114,7 @@ static std::shared_ptr<CSTNode> buildCST(const std::vector<ParseEvent>& log) {
 // Forward declarations of AST builders
 static Type convertType(const std::shared_ptr<CSTNode>& node);
 static std::shared_ptr<Expr> convertExpr(const std::shared_ptr<CSTNode>& node);
+static std::shared_ptr<Expr> convertUnary(const std::shared_ptr<CSTNode>& node);
 static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node);
 static std::shared_ptr<BlockStmt> convertBlock(const std::shared_ptr<CSTNode>& node);
 
@@ -134,6 +135,45 @@ static Type convertType(const std::shared_ptr<CSTNode>& node) {
 
 static std::shared_ptr<Expr> convertPrimary(const std::shared_ptr<CSTNode>& node) {
     if (!node) return nullptr;
+
+    bool hasNew = false;
+    bool hasDelete = false;
+    bool hasSizeof = false;
+
+    for (const auto& ch : node->children) {
+        if (ch->isToken()) {
+            if (ch->tokenVal == "new") hasNew = true;
+            else if (ch->tokenVal == "delete") hasDelete = true;
+            else if (ch->tokenVal == "sizeof") hasSizeof = true;
+        }
+    }
+
+    if (hasNew) {
+        auto qnameNode = node->findFirst("QualifiedName");
+        std::string className = qnameNode ? collectAllTokens(qnameNode) : "";
+        std::vector<std::shared_ptr<Expr>> args;
+        auto argList = node->findFirst("ArgumentList");
+        if (argList) {
+            for (const auto& a : argList->findAll("Expression")) {
+                args.push_back(convertExpr(a));
+            }
+        }
+        return std::make_shared<NewExpr>(className, args);
+    }
+
+    if (hasDelete) {
+        auto uNode = node->findFirst("Unary");
+        if (uNode) {
+            return std::make_shared<DeleteExpr>(convertUnary(uNode));
+        }
+    }
+
+    if (hasSizeof) {
+        auto tNode = node->findFirst("Type");
+        Type t = tNode ? convertType(tNode) : Type(TypeKind::I32);
+        return std::make_shared<SizeofExpr>(t);
+    }
+
     // Primary ::= Literal | NAME | '(' Expression ')' | ...
     for (const auto& ch : node->children) {
         if (ch->name == "Literal") {
@@ -778,6 +818,52 @@ static std::shared_ptr<FunctionDecl> convertExternDecl(const std::shared_ptr<CST
     return std::make_shared<FunctionDecl>(retType, name, params, nullptr, /*isExtern=*/true);
 }
 
+static void processTopLevel(const std::shared_ptr<CSTNode>& top,
+                            const std::shared_ptr<Program>& program,
+                            const std::string& currentNamespace) {
+    auto ns = top->findFirst("NamespaceDecl");
+    if (ns) {
+        auto qnameNode = ns->findFirst("QualifiedName");
+        std::string nsName = qnameNode ? collectAllTokens(qnameNode) : "";
+        std::string fullNs = currentNamespace.empty() ? nsName : (currentNamespace + "_" + nsName);
+        program->namespaces.insert(fullNs);
+
+        for (const auto& subTop : ns->findAll("TopLevel")) {
+            processTopLevel(subTop, program, fullNs);
+        }
+        return;
+    }
+
+    auto st = top->findFirst("StructDecl");
+    if (st) {
+        auto sdecl = convertStructDecl(st);
+        if (!currentNamespace.empty() && sdecl) {
+            sdecl->name = currentNamespace + "_" + sdecl->name;
+        }
+        program->decls.push_back(sdecl);
+    }
+    auto cl = top->findFirst("ClassDecl");
+    if (cl) {
+        auto cdecl = convertClassDecl(cl);
+        if (!currentNamespace.empty() && cdecl) {
+            cdecl->name = currentNamespace + "_" + cdecl->name;
+        }
+        program->decls.push_back(cdecl);
+    }
+    auto fn = top->findFirst("FunctionDecl");
+    if (fn) {
+        auto fdecl = convertFunctionDecl(fn);
+        if (!currentNamespace.empty() && fdecl) {
+            fdecl->name = currentNamespace + "_" + fdecl->name;
+        }
+        program->decls.push_back(fdecl);
+    }
+    auto ext = top->findFirst("ExternDecl");
+    if (ext) {
+        program->decls.push_back(convertExternDecl(ext));
+    }
+}
+
 std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::string& outError) {
     MaiaCCLexerState lexer;
     maiaCCLexerStateInit(&lexer, source.c_str(), source.length());
@@ -823,22 +909,7 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
 
     auto program = std::make_shared<Program>();
     for (const auto& top : programNode->findAll("TopLevel")) {
-        auto st = top->findFirst("StructDecl");
-        if (st) {
-            program->decls.push_back(convertStructDecl(st));
-        }
-        auto cl = top->findFirst("ClassDecl");
-        if (cl) {
-            program->decls.push_back(convertClassDecl(cl));
-        }
-        auto fn = top->findFirst("FunctionDecl");
-        if (fn) {
-            program->decls.push_back(convertFunctionDecl(fn));
-        }
-        auto ext = top->findFirst("ExternDecl");
-        if (ext) {
-            program->decls.push_back(convertExternDecl(ext));
-        }
+        processTopLevel(top, program, "");
     }
 
     return program;

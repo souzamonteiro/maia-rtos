@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "ast.hpp"
 
@@ -43,6 +44,7 @@ private:
     std::unordered_map<std::string, std::string> stringLabels;
     std::unordered_map<std::string, StructInfo> structs;
     std::unordered_map<std::string, std::shared_ptr<ClassDecl>> classes;
+    std::unordered_set<std::string> namespaces;
     std::unordered_map<std::string, Type> currentVarTypes;
     std::unordered_map<std::string, Type> functionReturnTypes;
     Type currentFuncReturnType;

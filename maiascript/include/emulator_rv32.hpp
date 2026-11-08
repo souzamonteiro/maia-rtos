@@ -66,7 +66,7 @@ public:
             }
         }
         if (hookAddr == 0) {
-            hookAddr = 0x80000000 + (uint32_t)hostHooks.size() * 8;
+            hookAddr = 0x20000 + (uint32_t)hostHooks.size() * 8;
             hostHooks[hookAddr] = symName;
         }
 
@@ -110,7 +110,7 @@ public:
     }
 
     void step() {
-        if (pc >= 0x80000000) {
+        if (pc >= 0x20000) {
             auto it = hostHooks.find(pc);
             if (it != hostHooks.end()) {
                 auto fit = hostFunctions.find(it->second);

@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
+#include <unordered_set>
 
 namespace maiascript {
 
@@ -134,7 +135,10 @@ enum class ASTKind {
     CallExpr,
     MethodCallExpr,
     MemberExpr,
-    IndexExpr
+    IndexExpr,
+    NewExpr,
+    DeleteExpr,
+    SizeofExpr
 };
 
 class ASTNode {
@@ -260,6 +264,34 @@ public:
 
     IndexExpr(std::shared_ptr<Expr> tgt, std::shared_ptr<Expr> idx)
         : Expr(KIND), target(tgt), index(idx) {}
+};
+
+class NewExpr : public Expr {
+public:
+    static constexpr ASTKind KIND = ASTKind::NewExpr;
+    std::string className;
+    std::vector<std::shared_ptr<Expr>> args;
+
+    NewExpr(const std::string& cls, const std::vector<std::shared_ptr<Expr>>& a)
+        : Expr(KIND), className(cls), args(a) {}
+};
+
+class DeleteExpr : public Expr {
+public:
+    static constexpr ASTKind KIND = ASTKind::DeleteExpr;
+    std::shared_ptr<Expr> target;
+
+    DeleteExpr(std::shared_ptr<Expr> tgt)
+        : Expr(KIND), target(tgt) {}
+};
+
+class SizeofExpr : public Expr {
+public:
+    static constexpr ASTKind KIND = ASTKind::SizeofExpr;
+    Type targetType;
+
+    SizeofExpr(const Type& t)
+        : Expr(KIND), targetType(t) {}
 };
 
 class Stmt : public ASTNode {
@@ -422,6 +454,7 @@ class Program : public ASTNode {
 public:
     static constexpr ASTKind KIND = ASTKind::Program;
     std::vector<std::shared_ptr<ASTNode>> decls;
+    std::unordered_set<std::string> namespaces;
 
     Program() : ASTNode(KIND) {}
 
