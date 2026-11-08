@@ -127,6 +127,7 @@ enum class ASTKind {
     ReturnStmt,
     BreakStmt,
     ContinueStmt,
+    DeferStmt,
     LiteralExpr,
     VarExpr,
     BinaryExpr,
@@ -374,6 +375,13 @@ class ContinueStmt : public Stmt {
 public:
     static constexpr ASTKind KIND = ASTKind::ContinueStmt;
     ContinueStmt() : Stmt(KIND) {}
+};
+
+class DeferStmt : public Stmt {
+public:
+    static constexpr ASTKind KIND = ASTKind::DeferStmt;
+    std::shared_ptr<Stmt> stmt;
+    DeferStmt(std::shared_ptr<Stmt> s) : Stmt(KIND), stmt(s) {}
 };
 
 struct ParamDecl {

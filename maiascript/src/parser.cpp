@@ -585,6 +585,16 @@ static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node) {
             auto exprNode = ch->findFirst("Expression");
             return std::make_shared<ReturnStmt>(exprNode ? convertExpr(exprNode) : nullptr);
         }
+        if (ch->name == "DeferStmt") {
+            auto blockNode = ch->findFirst("Block");
+            if (blockNode) {
+                return std::make_shared<DeferStmt>(convertBlock(blockNode));
+            }
+            auto exprNode = ch->findFirst("Expression");
+            if (exprNode) {
+                return std::make_shared<DeferStmt>(std::make_shared<ExprStmt>(convertExpr(exprNode)));
+            }
+        }
         if (ch->name == "ExpressionStmt") {
             auto exprNode = ch->findFirst("Expression");
             return std::make_shared<ExprStmt>(convertExpr(exprNode));

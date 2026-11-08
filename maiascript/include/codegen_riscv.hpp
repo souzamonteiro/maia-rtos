@@ -48,6 +48,7 @@ private:
     std::unordered_map<std::string, Type> currentVarTypes;
     std::unordered_map<std::string, Type> functionReturnTypes;
     Type currentFuncReturnType;
+    std::vector<std::shared_ptr<Stmt>> currentDefers;
 
     std::string getOrCreateString(const std::string& str);
     int getTypeSize(const Type& t);

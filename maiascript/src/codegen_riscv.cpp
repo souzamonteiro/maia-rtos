@@ -157,6 +157,8 @@ void CodegenRISCV::scanLocals(const std::shared_ptr<Stmt>& stmt, std::vector<std
     } else if (auto fr = ast_cast<ForStmt>(stmt)) {
         scanLocals(fr->init, locals);
         scanLocals(fr->body, locals);
+    } else if (auto df = ast_cast<DeferStmt>(stmt)) {
+        scanLocals(df->stmt, locals);
     }
 }
 
@@ -391,6 +393,7 @@ void CodegenRISCV::emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::st
     currentFunc = fn->name;
     currentFuncReturnType = fn->returnType;
     currentVarTypes.clear();
+    currentDefers.clear();
 
     out << ".globl " << fn->name << "\n";
     if (fn->name == "main") {
@@ -451,6 +454,13 @@ void CodegenRISCV::emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::st
         }
     }
 
+    // Execute defers if fell through without explicit return
+    if (!currentDefers.empty()) {
+        for (auto it = currentDefers.rbegin(); it != currentDefers.rend(); ++it) {
+            emitStmt(*it, out, varOffsets);
+        }
+    }
+
     // Default return 0 if reached end of function
     if (currentFuncReturnType.isFloat()) {
         out << "    fmv.w.x fa0, zero\n";
@@ -474,6 +484,7 @@ void CodegenRISCV::emitMethod(const std::shared_ptr<ClassDecl>& c,
     currentClass = c->name;
     currentFuncReturnType = m->returnType;
     currentVarTypes.clear();
+    currentDefers.clear();
 
     out << ".globl " << mangledName << "\n";
     out << mangledName << ":\n";
@@ -532,6 +543,13 @@ void CodegenRISCV::emitMethod(const std::shared_ptr<ClassDecl>& c,
     if (m->body) {
         for (const auto& s : m->body->statements) {
             emitStmt(s, out, varOffsets);
+        }
+    }
+
+    // Execute defers if fell through without explicit return
+    if (!currentDefers.empty()) {
+        for (auto it = currentDefers.rbegin(); it != currentDefers.rend(); ++it) {
+            emitStmt(*it, out, varOffsets);
         }
     }
 
@@ -624,7 +642,8 @@ void CodegenRISCV::emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream
             emitExpr(e->expr, "t0", out, varOffsets);
         }
     } else if (auto r = ast_cast<ReturnStmt>(stmt)) {
-        if (r->expr) {
+        bool hasVal = (r->expr != nullptr);
+        if (hasVal) {
             if (currentFuncReturnType.isFloat()) {
                 if (isFloatExpr(r->expr)) {
                     emitExpr(r->expr, "fa0", out, varOffsets);
@@ -641,7 +660,28 @@ void CodegenRISCV::emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream
                 }
             }
         }
+        if (!currentDefers.empty()) {
+            if (hasVal) {
+                if (currentFuncReturnType.isFloat()) {
+                    out << "    fsw fa0, 0(sp)\n";
+                } else {
+                    out << "    sw a0, 0(sp)\n";
+                }
+            }
+            for (auto it = currentDefers.rbegin(); it != currentDefers.rend(); ++it) {
+                emitStmt(*it, out, varOffsets);
+            }
+            if (hasVal) {
+                if (currentFuncReturnType.isFloat()) {
+                    out << "    flw fa0, 0(sp)\n";
+                } else {
+                    out << "    lw a0, 0(sp)\n";
+                }
+            }
+        }
         out << "    jal zero, .Lret_" << currentFunc << "\n";
+    } else if (auto def = ast_cast<DeferStmt>(stmt)) {
+        currentDefers.push_back(def->stmt);
     } else if (auto b = ast_cast<BlockStmt>(stmt)) {
         for (const auto& s : b->statements) {
             emitStmt(s, out, varOffsets);
