@@ -51,6 +51,7 @@ private:
     std::vector<std::shared_ptr<Stmt>> currentDefers;
 
     std::string getOrCreateString(const std::string& str);
+    std::string resolveClassName(const std::string& name) const;
     int getTypeSize(const Type& t);
     int getElemSize(const Type& t);
     bool isFloatExpr(const std::shared_ptr<Expr>& expr);

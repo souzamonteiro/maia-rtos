@@ -35,7 +35,8 @@ int main() {
         {"18_namespaces", 70},
         {"19_include_modules", 86},
         {"20_defer_stmt", 42},
-        {"21_result_try_operator", 42}
+        {"21_result_try_operator", 42},
+        {"22_gui_app", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -117,6 +118,24 @@ int main() {
         });
         emu.registerHostFunction("free", [](maiascript::EmulatorRV32&) -> int32_t {
             return 0;
+        });
+        emu.registerHostFunction("draw_window", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("draw_text", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("draw_button", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("draw_rect", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("fill_rect", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("display_sync", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("touch_poll", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("touch_x", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("touch_y", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("delay_ms", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        static int32_t s_app_exit_code = 0;
+        emu.registerHostFunction("host_app_quit", [](maiascript::EmulatorRV32& e) -> int32_t {
+            s_app_exit_code = (int32_t)e.regs[10];
+            return 0;
+        });
+        emu.registerHostFunction("host_app_run", [](maiascript::EmulatorRV32&) -> int32_t {
+            return s_app_exit_code;
         });
         emu.registerHostFunction("printf", [](maiascript::EmulatorRV32& e) -> int32_t {
             uint32_t fmt_ptr = e.regs[10];

@@ -113,7 +113,11 @@ struct Type {
         if (s == "string") return Type(TypeKind::String, s, ptr, arr);
         if (s.rfind("Result", 0) == 0) return Type(TypeKind::Result, s, ptr, arr);
         if (s.rfind("Option", 0) == 0) return Type(TypeKind::Option, s, ptr, arr);
-        return Type(TypeKind::Custom, s, ptr, arr);
+        std::string norm = s;
+        for (char& c : norm) {
+            if (c == '.') c = '_';
+        }
+        return Type(TypeKind::Custom, norm, ptr, arr);
     }
 };
 

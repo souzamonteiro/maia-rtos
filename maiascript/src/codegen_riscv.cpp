@@ -15,10 +15,28 @@ std::string CodegenRISCV::newLabel(const std::string& prefix) {
     return ss.str();
 }
 
+std::string CodegenRISCV::resolveClassName(const std::string& name) const {
+    std::string s = name;
+    for (char& c : s) {
+        if (c == '.') c = '_';
+    }
+    if (classes.find(s) != classes.end() || structs.find(s) != structs.end()) {
+        return s;
+    }
+    for (const auto& ns : namespaces) {
+        std::string cand = ns + "_" + s;
+        if (classes.find(cand) != classes.end() || structs.find(cand) != structs.end()) {
+            return cand;
+        }
+    }
+    return s;
+}
+
 int CodegenRISCV::getTypeSize(const Type& t) {
     if (t.isPointer()) return 4;
     if (t.kind == TypeKind::Custom) {
-        auto it = structs.find(t.name);
+        std::string sname = resolveClassName(t.name);
+        auto it = structs.find(sname);
         if (it != structs.end()) {
             int s = it->second.totalSize;
             if (t.isArray()) s *= t.arraySize;
@@ -589,7 +607,8 @@ void CodegenRISCV::emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream
 
     if (auto v = ast_cast<VarDeclStmt>(stmt)) {
         int off = varOffsets[v->name];
-        if (classes.find(v->type.name) != classes.end()) {
+        std::string clsName = resolveClassName(v->type.name);
+        if (classes.find(clsName) != classes.end() && !v->type.isPointer()) {
             auto call = ast_cast<CallExpr>(v->initExpr);
             if (call && call->callee == v->type.name) {
                 // Constructor call with args
@@ -618,11 +637,11 @@ void CodegenRISCV::emitStmt(const std::shared_ptr<Stmt>& stmt, std::stringstream
                         }
                     }
                 }
-                out << "    call " << v->type.name << "_" << v->type.name << "\n";
-            } else if (!v->initExpr && functionReturnTypes.count(v->type.name + "_" + v->type.name)) {
+                out << "    call " << clsName << "_" << clsName << "\n";
+            } else if (!v->initExpr && functionReturnTypes.count(clsName + "_" + clsName)) {
                 // Default constructor call
                 out << "    addi a0, sp, " << off << "\n";
-                out << "    call " << v->type.name << "_" << v->type.name << "\n";
+                out << "    call " << clsName << "_" << clsName << "\n";
             } else if (v->initExpr) {
                 // Other initialization
                 emitExpr(v->initExpr, "t0", out, varOffsets);
@@ -801,6 +820,9 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             } else {
                 out << "    lw " << targetReg << ", " << it->second << "(sp)\n";
             }
+        } else if (functionReturnTypes.count(v->name)) {
+            out << "    la " << targetReg << ", " << v->name << "\n";
+            return;
         } else if (!currentClass.empty()) {
             auto sit = structs.find(currentClass);
             if (sit != structs.end()) {
@@ -841,7 +863,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 } else {
                     auto vtIt = currentVarTypes.find(targetVar->name);
                     if (vtIt != currentVarTypes.end()) {
-                        auto sit = structs.find(vtIt->second.name);
+                        auto sit = structs.find(resolveClassName(vtIt->second.name));
                         if (sit != structs.end()) {
                             auto fit = sit->second.fields.find(mem->member);
                             if (fit != sit->second.fields.end()) {
@@ -881,7 +903,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                     int mOffset = 0;
                     bool isFieldFloat = false;
                     if (vtIt != currentVarTypes.end()) {
-                        auto sit = structs.find(vtIt->second.name);
+                        auto sit = structs.find(resolveClassName(vtIt->second.name));
                         if (sit != structs.end()) {
                             auto fit = sit->second.fields.find(mem->member);
                             if (fit != sit->second.fields.end()) {
@@ -1271,7 +1293,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                     } else {
                         auto vtIt = currentVarTypes.find(targetVar->name);
                         if (vtIt != currentVarTypes.end()) {
-                            auto sit = structs.find(vtIt->second.name);
+                            auto sit = structs.find(resolveClassName(vtIt->second.name));
                             if (sit != structs.end()) {
                                 auto fit = sit->second.fields.find(mem->member);
                                 if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
@@ -1317,7 +1339,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                         auto vtIt = currentVarTypes.find(targetVar->name);
                         int mOffset = 0;
                         if (vtIt != currentVarTypes.end()) {
-                            auto sit = structs.find(vtIt->second.name);
+                            auto sit = structs.find(resolveClassName(vtIt->second.name));
                             if (sit != structs.end()) {
                                 auto fit = sit->second.fields.find(mem->member);
                                 if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
@@ -1475,7 +1497,13 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 }
             }
         }
-        out << "    call " << call->callee << "\n";
+        auto vit = varOffsets.find(call->callee);
+        if (vit != varOffsets.end()) {
+            out << "    lw t2, " << vit->second << "(sp)\n";
+            out << "    jalr ra, 0(t2)\n";
+        } else {
+            out << "    call " << call->callee << "\n";
+        }
 
         bool isFloatRet = false;
         auto fit = functionReturnTypes.find(call->callee);
@@ -1576,6 +1604,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         if (className.empty()) {
             className = currentClass; // fallback
         }
+        className = resolveClassName(className);
 
         // 2. Evaluate object address and store in scratch slot (depth * 4)
         int objSlot = depth * 4;
@@ -1660,7 +1689,8 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
     } else if (auto nexpr = ast_cast<NewExpr>(expr)) {
         // 1. Get class size
         int clsSize = 4;
-        auto sit = structs.find(nexpr->className);
+        std::string clsName = resolveClassName(nexpr->className);
+        auto sit = structs.find(clsName);
         if (sit != structs.end()) {
             clsSize = sit->second.totalSize;
         }
@@ -1706,7 +1736,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         out << "    lw a0, " << ptrSlot << "(sp)\n";
 
         // 7. Call constructor ClassName_ClassName
-        std::string ctorName = nexpr->className + "_" + nexpr->className;
+        std::string ctorName = clsName + "_" + clsName;
         out << "    call " << ctorName << "\n";
 
         // 8. Result is the allocated pointer (saved in ptrSlot)

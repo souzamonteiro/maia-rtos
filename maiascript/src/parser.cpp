@@ -895,6 +895,13 @@ static std::string resolveIncludePath(const std::string& requested,
     if (requested.size() < 3 || requested.substr(requested.size() - 3) != ".ms") {
         nameCandidates.push_back(requested + ".ms");
     }
+    if (requested.rfind("maia/", 0) == 0) {
+        std::string sub = requested.substr(5);
+        nameCandidates.push_back(sub);
+        if (sub.size() < 3 || sub.substr(sub.size() - 3) != ".ms") {
+            nameCandidates.push_back(sub + ".ms");
+        }
+    }
 
     // Se o target for absoluto e existir
     for (const auto& cand : nameCandidates) {
@@ -990,6 +997,11 @@ std::string Parser::expandIncludes(const std::string& source, const std::string&
 
         if (trimmed.rfind("//", 0) == 0) {
             output += line + "\n";
+            continue;
+        }
+
+        if (trimmed.rfind("#pragma", 0) == 0) {
+            output += "// " + line + "\n";
             continue;
         }
 
@@ -1103,7 +1115,9 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
     if (max_toks > 32768) max_toks = 32768;
     std::vector<MaiaCCParserToken> tokens(max_toks);
     if (!maiaCCLexerTokenize(&lexer, tokens.data(), tokens.size())) {
-        outError = "Lexical error";
+        size_t pos = lexer.position;
+        std::string snippet = (pos < finalSource.size()) ? finalSource.substr(pos, 40) : "";
+        outError = "Lexical error at pos " + std::to_string(pos) + " near '" + snippet + "'";
         return nullptr;
     }
 
