@@ -921,9 +921,6 @@ static inline bool pathExists(const fs::path& p) {
 }
 
 static inline std::string safeCanonical(const fs::path& p) {
-    std::error_code ec;
-    fs::path c = fs::canonical(p, ec);
-    if (!ec && !c.empty()) return c.string();
     return p.lexically_normal().string();
 }
 
@@ -944,7 +941,7 @@ static std::string resolveIncludePath(const std::string& requested,
 
     // Se o target for absoluto e existir
     for (const auto& cand : nameCandidates) {
-        fs::path p(cand);
+        fs::path p = fs::path(cand).lexically_normal();
         if (p.is_absolute() && pathExists(p)) {
             return safeCanonical(p);
         }
@@ -963,7 +960,7 @@ static std::string resolveIncludePath(const std::string& requested,
     }
 
     for (const auto& cand : nameCandidates) {
-        fs::path p = baseDir / cand;
+        fs::path p = (baseDir / cand).lexically_normal();
         if (pathExists(p)) {
             return safeCanonical(p);
         }
@@ -972,7 +969,7 @@ static std::string resolveIncludePath(const std::string& requested,
     // Search paths do usuário
     for (const auto& sp : searchPaths) {
         for (const auto& cand : nameCandidates) {
-            fs::path p = fs::path(sp) / cand;
+            fs::path p = (fs::path(sp) / cand).lexically_normal();
             if (pathExists(p)) {
                 return safeCanonical(p);
             }
@@ -985,15 +982,16 @@ static std::string resolveIncludePath(const std::string& requested,
         "maiascript/lib",
         "../maiascript/lib",
         "../../maiascript/lib",
-        "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/lib",
         "/sd/lib",
         "/sd/lib/maia",
+        "/usb/lib",
+        "/usb/lib/maia",
         "/lib"
     };
 
     for (const auto& dd : defaultDirs) {
         for (const auto& cand : nameCandidates) {
-            fs::path p = fs::path(dd) / cand;
+            fs::path p = (fs::path(dd) / cand).lexically_normal();
             if (pathExists(p)) {
                 return safeCanonical(p);
             }

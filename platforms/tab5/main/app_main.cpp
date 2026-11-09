@@ -51,6 +51,7 @@
 #include "t_bench_mobj.h"
 #include "t_class_mobj.h"
 #include "t_mod_mobj.h"
+#include "maia/exec/maiascript_lib_bundle.h"
 
 static const char *TAG = "KBD_TAB5";
 
@@ -757,6 +758,33 @@ static void draw_rect_api(int x, int y, int w, int h, uint16_t color)
     fill_rect(x, y + h - 1, w, 1, color);
     fill_rect(x, y, 1, h, color);
     fill_rect(x + w - 1, y, 1, h, color);
+}
+
+static void draw_line_api(int x1, int y1, int x2, int y2, uint16_t color, int width)
+{
+    if (width <= 0) width = 1;
+    int dx = abs(x2 - x1);
+    int sx = x1 < x2 ? 1 : -1;
+    int dy = -abs(y2 - y1);
+    int sy = y1 < y2 ? 1 : -1;
+    int err = dx + dy;
+
+    while (true) {
+        if (width == 1) {
+            put_pixel_rot3(x1, y1, color);
+        } else {
+            int half = width / 2;
+            for (int wx = -half; wx <= half; ++wx) {
+                for (int wy = -half; wy <= half; ++wy) {
+                    put_pixel_rot3(x1 + wx, y1 + wy, color);
+                }
+            }
+        }
+        if (x1 == x2 && y1 == y2) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x1 += sx; }
+        if (e2 <= dx) { err += dx; y1 += sy; }
+    }
 }
 
 static void draw_window_frame_api(int x, int y, int w, int h, const char *title, uint16_t accent)
@@ -3137,6 +3165,7 @@ extern "C" void app_main(void)
     /* 4c. Register MaiaScript Native Host GUI Symbols */
     mnm_register_symbol("draw_text", (uintptr_t)draw_text_px);
     mnm_register_symbol("draw_rect", (uintptr_t)draw_rect_api);
+    mnm_register_symbol("draw_line", (uintptr_t)draw_line_api);
     mnm_register_symbol("fill_rect", (uintptr_t)fill_rect);
     mnm_register_symbol("draw_window", (uintptr_t)draw_window_frame_api);
     mnm_register_symbol("draw_button", (uintptr_t)draw_button_api);
@@ -3218,6 +3247,57 @@ extern "C" void app_main(void)
     mnm_register_symbol("host_fs_remove", (uintptr_t)+[](const char* path) -> int32_t {
         if (!path) return -1;
         return remove(path);
+    });
+    mnm_register_symbol("host_fs_list_count", (uintptr_t)+[](const char* path) -> int32_t {
+        if (!path) return 0;
+        DIR *d = opendir(path);
+        if (!d) return 0;
+        int32_t cnt = 0;
+        struct dirent *de;
+        while ((de = readdir(d)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+            cnt++;
+        }
+        closedir(d);
+        return cnt;
+    });
+    mnm_register_symbol("host_fs_list_item_name", (uintptr_t)+[](const char* path, int32_t idx) -> const char* {
+        if (!path || idx < 0) return "";
+        DIR *d = opendir(path);
+        if (!d) return "";
+        int32_t cur = 0;
+        struct dirent *de;
+        static char s_last_item_name[128];
+        s_last_item_name[0] = '\0';
+        while ((de = readdir(d)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+            if (cur == idx) {
+                strncpy(s_last_item_name, de->d_name, sizeof(s_last_item_name) - 1);
+                s_last_item_name[sizeof(s_last_item_name) - 1] = '\0';
+                break;
+            }
+            cur++;
+        }
+        closedir(d);
+        return s_last_item_name;
+    });
+    mnm_register_symbol("host_fs_list_item_is_dir", (uintptr_t)+[](const char* path, int32_t idx) -> int32_t {
+        if (!path || idx < 0) return 0;
+        DIR *d = opendir(path);
+        if (!d) return 0;
+        int32_t cur = 0;
+        int32_t is_dir = 0;
+        struct dirent *de;
+        while ((de = readdir(d)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+            if (cur == idx) {
+                is_dir = (de->d_type == DT_DIR) ? 1 : 0;
+                break;
+            }
+            cur++;
+        }
+        closedir(d);
+        return is_dir;
     });
 
     /* 5. Mount SD Card (if present) */
@@ -3370,270 +3450,29 @@ extern "C" void app_main(void)
             ESP_LOGI(TAG, "Synchronized source /sd/t_class.ms");
         }
 
-        /* Write standard library files to /sd/lib/ */
-        FILE *f_libmath = fopen("/sd/lib/math.ms", "w");
-        if (f_libmath) {
-            fputs("namespace math {\n"
-                  "    i32 abs(i32 v) { if (v < 0) { return -v; } return v; }\n"
-                  "    f32 fabs(f32 v) { if (v < 0.0) { return -v; } return v; }\n"
-                  "    i32 min(i32 a, i32 b) { if (a < b) { return a; } return b; }\n"
-                  "    i32 max(i32 a, i32 b) { if (a > b) { return a; } return b; }\n"
-                  "    i32 clamp(i32 v, i32 lo, i32 hi) {\n"
-                  "        if (v < lo) { return lo; }\n"
-                  "        if (v > hi) { return hi; }\n"
-                  "        return v;\n"
-                  "    }\n"
-                  "    f32 fclamp(f32 v, f32 lo, f32 hi) {\n"
-                  "        if (v < lo) { return lo; }\n"
-                  "        if (v > hi) { return hi; }\n"
-                  "        return v;\n"
-                  "    }\n"
-                  "    f32 sqrt(f32 x) {\n"
-                  "        if (x <= 0.0) { return 0.0; }\n"
-                  "        f32 guess = x / 2.0;\n"
-                  "        for (i32 i = 0; i < 10; i++) {\n"
-                  "            guess = (guess + x / guess) / 2.0;\n"
-                  "        }\n"
-                  "        return guess;\n"
-                  "    }\n"
-                  "    i32 pow(i32 base, i32 exp) {\n"
-                  "        i32 res = 1;\n"
-                  "        for (i32 i = 0; i < exp; i++) {\n"
-                  "            res = res * base;\n"
-                  "        }\n"
-                  "        return res;\n"
-                  "    }\n"
-                  "}\n", f_libmath);
-            fclose(f_libmath);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/math.ms");
-        }
-
-        FILE *f_libsys = fopen("/sd/lib/sys.ms", "w");
-        if (f_libsys) {
-            fputs("extern i32 printf(string fmt);\n"
-                  "extern i32 puts(string s);\n"
-                  "extern u32 cycles();\n"
-                  "extern u32 millis();\n"
-                  "extern i32* malloc(i32 size);\n"
-                  "extern void free(i32* ptr);\n\n"
-                  "namespace sys {\n"
-                  "    void print(string s) { printf(\"%s\", s); }\n"
-                  "    void println(string s) { printf(\"%s\\n\", s); }\n"
-                  "    void printInt(i32 n) { printf(\"%d\\n\", n); }\n"
-                  "    void printFloat(f32 val) { printf(\"%f\\n\", val); }\n"
-                  "    u32 getCycles() { return cycles(); }\n"
-                  "    u32 getMillis() { return millis(); }\n"
-                  "}\n", f_libsys);
-            fclose(f_libsys);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/sys.ms");
-        }
-
-        FILE *f_libstr = fopen("/sd/lib/str.ms", "w");
-        if (f_libstr) {
-            fputs("namespace str {\n"
-                  "    i32 len(string s) {\n"
-                  "        if (s == 0) { return 0; }\n"
-                  "        i32 i = 0;\n"
-                  "        while (s[i] != 0) { i = i + 1; }\n"
-                  "        return i;\n"
-                  "    }\n"
-                  "    i32 charAt(string s, i32 idx) {\n"
-                  "        if (s == 0) { return 0; }\n"
-                  "        return s[idx];\n"
-                  "    }\n"
-                  "    i32 cmp(string a, string b) {\n"
-                  "        if (a == 0 && b == 0) { return 0; }\n"
-                  "        if (a == 0) { return -1; }\n"
-                  "        if (b == 0) { return 1; }\n"
-                  "        i32 i = 0;\n"
-                  "        while (a[i] != 0 && b[i] != 0) {\n"
-                  "            if (a[i] < b[i]) { return -1; }\n"
-                  "            if (a[i] > b[i]) { return 1; }\n"
-                  "            i = i + 1;\n"
-                  "        }\n"
-                  "        if (a[i] == 0 && b[i] == 0) { return 0; }\n"
-                  "        if (a[i] == 0) { return -1; }\n"
-                  "        return 1;\n"
-                  "    }\n"
-                  "    i32 eq(string a, string b) {\n"
-                  "        return cmp(a, b) == 0;\n"
-                  "    }\n"
-                  "    i32 indexOf(string s, i32 ch) {\n"
-                  "        if (s == 0) { return -1; }\n"
-                  "        i32 i = 0;\n"
-                  "        while (s[i] != 0) {\n"
-                  "            if (s[i] == ch) { return i; }\n"
-                  "            i = i + 1;\n"
-                  "        }\n"
-                  "        return -1;\n"
-                  "    }\n"
-                  "}\n", f_libstr);
-            fclose(f_libstr);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/str.ms");
-        }
-
+        /* Ensure standard library directories exist */
+        mkdir("/sd/lib", 0777);
         mkdir("/sd/lib/maia", 0777);
+        mkdir("/sd/lib/hardware", 0777);
+        mkdir("/sd/lib/maia/hardware", 0777);
+        mkdir("/sd/lib/net", 0777);
+        mkdir("/sd/lib/maia/net", 0777);
 
-        FILE *f_libapp = fopen("/sd/lib/app.ms", "w");
-        if (f_libapp) {
-            fputs("extern void host_app_quit(i32 code);\n"
-                  "extern i32 host_app_run();\n\n"
-                  "namespace app {\n"
-                  "    void quit(i32 code) { host_app_quit(code); }\n"
-                  "    i32 run() { return host_app_run(); }\n"
-                  "}\n", f_libapp);
-            fclose(f_libapp);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/app.ms");
-        }
+        /* Synchronize all bundled MaiaScript standard library files & applications */
+        for (size_t i = 0; i < g_maiascript_bundle_files_count; ++i) {
+            char target_path[128];
+            if (strncmp(g_maiascript_bundle_files[i].rel_path, "../", 3) == 0) {
+                snprintf(target_path, sizeof(target_path), "/sd/%s", g_maiascript_bundle_files[i].rel_path + 3);
+            } else {
+                snprintf(target_path, sizeof(target_path), "/sd/lib/%s", g_maiascript_bundle_files[i].rel_path);
+            }
 
-        FILE *f_libui = fopen("/sd/lib/ui.ms", "w");
-        if (f_libui) {
-            fputs("extern void draw_window(i32 x, i32 y, i32 w, i32 h, string title, i32 accent);\n"
-                  "extern void draw_text(i32 x, i32 y, string text, i32 fg, i32 bg);\n"
-                  "extern void draw_button(i32 x, i32 y, i32 w, i32 h, string label, i32 bg, i32 fg, i32 pressed);\n"
-                  "extern void draw_rect(i32 x, i32 y, i32 w, i32 h, i32 color);\n"
-                  "extern void fill_rect(i32 x, i32 y, i32 w, i32 h, i32 color);\n"
-                  "extern void display_sync();\n"
-                  "extern i32 touch_poll();\n"
-                  "extern i32 touch_x();\n"
-                  "extern i32 touch_y();\n"
-                  "extern void delay_ms(i32 ms);\n\n"
-                  "namespace ui {\n"
-                  "    class Window {\n"
-                  "        string title;\n"
-                  "        i32 x; i32 y; i32 w; i32 h; i32 visible;\n"
-                  "        void show() {\n"
-                  "            visible = 1;\n"
-                  "            draw_window(x, y, w, h, title, 0x07ff);\n"
-                  "            display_sync();\n"
-                  "        }\n"
-                  "        void close() { visible = 0; }\n"
-                  "        i32 getX() const { return x; }\n"
-                  "        i32 getY() const { return y; }\n"
-                  "        i32 getW() const { return w; }\n"
-                  "        i32 getH() const { return h; }\n"
-                  "    }\n"
-                  "    Window* Window(string title, i32 w, i32 h) {\n"
-                  "        Window* win = new Window();\n"
-                  "        win->title = title;\n"
-                  "        win->w = w; win->h = h;\n"
-                  "        win->x = (1280 - w) / 2;\n"
-                  "        win->y = (720 - h) / 2;\n"
-                  "        win->visible = 0;\n"
-                  "        return win;\n"
-                  "    }\n"
-                  "    class Label {\n"
-                  "        Window* parent; string text; i32 rel_x; i32 rel_y;\n"
-                  "        void setPosition(i32 x, i32 y) {\n"
-                  "            rel_x = x; rel_y = y;\n"
-                  "            if (parent) { draw_text(parent->x + rel_x, parent->y + rel_y, text, 0xffff, 0); display_sync(); }\n"
-                  "        }\n"
-                  "        void setText(string t) {\n"
-                  "            text = t;\n"
-                  "            if (parent) { draw_text(parent->x + rel_x, parent->y + rel_y, text, 0xffff, 0); display_sync(); }\n"
-                  "        }\n"
-                  "    }\n"
-                  "    Label* Label(Window* win, string text) {\n"
-                  "        Label* lbl = new Label();\n"
-                  "        lbl->parent = win; lbl->text = text;\n"
-                  "        lbl->rel_x = 24; lbl->rel_y = 30;\n"
-                  "        return lbl;\n"
-                  "    }\n"
-                  "    class Button {\n"
-                  "        Window* parent; string label; i32 rel_x; i32 rel_y;\n"
-                  "        i32 w; i32 h; i32 callback_ptr;\n"
-                  "        void setPosition(i32 x, i32 y) {\n"
-                  "            rel_x = x; rel_y = y;\n"
-                  "            if (parent) { draw_button(parent->x + rel_x, parent->y + rel_y, w, h, label, 0x2169, 0xffff, 0); display_sync(); }\n"
-                  "        }\n"
-                  "        void setSize(i32 bw, i32 bh) { w = bw; h = bh; }\n"
-                  "        void onClick(i32 cb) { callback_ptr = cb; }\n"
-                  "        void triggerClick() { if (callback_ptr != 0) { i32 cb = callback_ptr; cb(); } }\n"
-                  "        void render(i32 pressed) {\n"
-                  "            if (parent) { draw_button(parent->x + rel_x, parent->y + rel_y, w, h, label, 0x2169, 0xffff, pressed); display_sync(); }\n"
-                  "        }\n"
-                  "    }\n"
-                  "    Button* Button(Window* win, string label) {\n"
-                  "        Button* btn = new Button();\n"
-                  "        btn->parent = win; btn->label = label;\n"
-                  "        btn->rel_x = 24; btn->rel_y = 90;\n"
-                  "        btn->w = 120; btn->h = 40;\n"
-                  "        btn->callback_ptr = 0;\n"
-                  "        return btn;\n"
-                  "    }\n"
-                  "}\n", f_libui);
-            fclose(f_libui);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/ui.ms");
-        }
-
-        FILE *f_maia_ui = fopen("/sd/lib/maia/ui.ms", "w");
-        if (f_maia_ui) { fputs("#include \"../ui.ms\"\n", f_maia_ui); fclose(f_maia_ui); }
-        FILE *f_maia_app = fopen("/sd/lib/maia/app.ms", "w");
-        if (f_maia_app) { fputs("#include \"../app.ms\"\n", f_maia_app); fclose(f_maia_app); }
-
-        FILE *f_libfs = fopen("/sd/lib/fs.ms", "w");
-        if (f_libfs) {
-            fputs("extern i32 host_fs_write_text(string path, string content);\n"
-                  "extern string host_fs_read_text(string path);\n"
-                  "extern i32 host_fs_remove(string path);\n"
-                  "extern i32 host_fs_exists(string path);\n\n"
-                  "namespace fs {\n"
-                  "    Result<i32, i32> writeText(string path, string content) {\n"
-                  "        i32 res = host_fs_write_text(path, content);\n"
-                  "        if (res < 0) return Err(-res);\n"
-                  "        return Ok(res);\n"
-                  "    }\n"
-                  "    Result<string, i32> readText(string path) {\n"
-                  "        if (!host_fs_exists(path)) return Err(1);\n"
-                  "        return Ok(host_fs_read_text(path));\n"
-                  "    }\n"
-                  "    Result<i32, i32> remove(string path) {\n"
-                  "        i32 res = host_fs_remove(path);\n"
-                  "        if (res < 0) return Err(-res);\n"
-                  "        return Ok(0);\n"
-                  "    }\n"
-                  "    i32 exists(string path) { return host_fs_exists(path); }\n"
-                  "}\n", f_libfs);
-            fclose(f_libfs);
-            ESP_LOGI(TAG, "Synchronized standard library /sd/lib/fs.ms");
-        }
-        FILE *f_maia_fs = fopen("/sd/lib/maia/fs.ms", "w");
-        if (f_maia_fs) { fputs("#include \"../fs.ms\"\n", f_maia_fs); fclose(f_maia_fs); }
-
-        FILE *f_notes_ms = fopen("/sd/notes.ms", "w");
-        if (f_notes_ms) {
-            fputs("import maia.app;\n"
-                  "import maia.ui;\n"
-                  "import maia.fs;\n\n"
-                  "ui.TextArea* editor;\n"
-                  "string currentPath = \"/sd/notes.txt\";\n\n"
-                  "void saveFile() {\n"
-                  "    fs.writeText(currentPath, editor->text())?;\n"
-                  "    ui.notify(\"Salvo com sucesso: /sd/notes.txt\");\n"
-                  "}\n\n"
-                  "void clearFile() {\n"
-                  "    editor->setText(\"\");\n"
-                  "    ui.notify(\"Editor limpo\");\n"
-                  "}\n\n"
-                  "i32 main() {\n"
-                  "    ui.Window* win = ui.Window(\"Maia Notes\", 800, 520);\n"
-                  "    ui.Column* layout = ui.Column(win);\n"
-                  "    layout->setPadding(20);\n"
-                  "    layout->setGap(12);\n"
-                  "    ui.Row* toolbar = ui.Row(layout);\n"
-                  "    ui.Button* btnSave = ui.Button(toolbar, \"Save\");\n"
-                  "    btnSave->onClick(saveFile);\n"
-                  "    ui.Button* btnClear = ui.Button(toolbar, \"Clear\");\n"
-                  "    btnClear->onClick(clearFile);\n"
-                  "    editor = ui.TextArea(layout, 1);\n"
-                  "    editor->setExpand(1);\n"
-                  "    string initialText = fs.readText(currentPath).orElse(\"MaiaScript Native v0.1\\nEditor de Texto & MaiaFS no M5Stack Tab5!\\nZero GC - RV32IMAF ILP32F.\");\n"
-                  "    editor->setText(initialText);\n"
-                  "    win->show();\n"
-                  "    return app.run();\n"
-                  "}\n", f_notes_ms);
-            fclose(f_notes_ms);
-            ESP_LOGI(TAG, "Synchronized application /sd/notes.ms");
+            FILE *f_out = fopen(target_path, "wb");
+            if (f_out) {
+                fwrite(g_maiascript_bundle_files[i].data, 1, g_maiascript_bundle_files[i].len, f_out);
+                fclose(f_out);
+                ESP_LOGI(TAG, "Synchronized MaiaScript bundle: %s (%u bytes)", target_path, (unsigned int)g_maiascript_bundle_files[i].len);
+            }
         }
 
         /* Write source code of t_mod.ms to SD for interactive compilation */
