@@ -41,7 +41,8 @@ int main() {
         {"24_text_editor_fs", 42},
         {"25_events_canvas", 42},
         {"26_direct_lvgl", 42},
-        {"27_wifi_net", 42}
+        {"27_wifi_net", 42},
+        {"28_storage_usb", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
