@@ -47,6 +47,7 @@
 #include "maia/exec/editor_mobj.h"
 #include "maia/exec/files_mobj.h"
 #include "maia/exec/term_mobj.h"
+#include "maia/exec/notes_mobj.h"
 #include "t_gui_mobj.h"
 #include "t_bench_mobj.h"
 #include "t_class_mobj.h"
@@ -3454,6 +3455,8 @@ extern "C" void app_main(void)
             { "/sd/t_bench.mobj",      _tmp_t_bench_mobj, _tmp_t_bench_mobj_len },
             { "/sd/t_class.mobj",      _tmp_t_class_mobj, _tmp_t_class_mobj_len },
             { "/sd/t_mod.mobj",        _tmp_t_mod_mobj, _tmp_t_mod_mobj_len },
+            { "/sd/notes.mobj",        notes_mobj, notes_mobj_len },
+            { "/sd/apps/notes.mobj",   notes_mobj, notes_mobj_len },
         };
 
         for (size_t i = 0; i < sizeof(apps_to_sync)/sizeof(apps_to_sync[0]); ++i) {
@@ -3481,7 +3484,7 @@ extern "C" void app_main(void)
             { "/sd/apps/banner.mnm.json",     "{\"name\":\"banner\",\"title\":\"Banner\",\"icon\":\"banner\",\"color\":\"0xf81f\",\"hotkey\":\"b\",\"exec\":\"/sd/apps/banner.mobj\"}" },
             { "/sd/apps/sysinfo.mnm.json",    "{\"name\":\"sysinfo\",\"title\":\"System\",\"icon\":\"sysinfo\",\"color\":\"0x07e0\",\"hotkey\":\"s\",\"exec\":\"/sd/apps/sysinfo.mobj\"}" },
             { "/sd/apps/maiascript.mnm.json", "{\"name\":\"maiascript\",\"title\":\"MaiaScript\",\"icon\":\"maia\",\"color\":\"0x07ff\",\"hotkey\":\"m\",\"exec\":\"/sd/t_gui.mobj\"}" },
-            { "/sd/apps/notes.mnm.json",      "{\"name\":\"notes\",\"title\":\"Notes MS\",\"icon\":\"edit\",\"color\":\"0x07e0\",\"hotkey\":\"n\",\"exec\":\"/sd/notes.ms\"}" },
+            { "/sd/apps/notes.mnm.json",      "{\"name\":\"notes\",\"title\":\"Notes MS\",\"icon\":\"edit\",\"color\":\"0x07e0\",\"hotkey\":\"n\",\"exec\":\"/sd/notes.mobj\"}" },
             { "/sd/apps/profiling.mnm.json",  "{\"name\":\"profiling\",\"title\":\"Profile\",\"icon\":\"calc\",\"color\":\"0xf800\",\"hotkey\":\"p\",\"exec\":\"/sd/t_bench.mobj\"}" },
         };
 

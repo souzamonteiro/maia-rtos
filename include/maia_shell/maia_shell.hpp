@@ -2271,6 +2271,37 @@ private:
         const char *target = argv[1];
         size_t len = strlen(target);
         if (len > 3 && strcmp(target + len - 3, ".ms") == 0) {
+            bool force_build = false;
+            for (int i = 2; i < argc; ++i) {
+                if (strcmp(argv[i], "--build") == 0 || strcmp(argv[i], "-B") == 0) {
+                    force_build = true;
+                    break;
+                }
+            }
+
+            char mobj_target[128] = {0};
+            resolve_path(target, mobj_target, sizeof(mobj_target));
+            char *dot = strrchr(mobj_target, '.');
+            if (dot) strcpy(dot, ".mobj");
+
+            if (!force_build) {
+                FILE *f_check = fopen(mobj_target, "rb");
+                if (f_check) {
+                    fclose(f_check);
+                    char *elf_argv[MSH_MAX_ARGS + 2];
+                    char run_name[] = "runelf";
+                    elf_argv[0] = run_name;
+                    elf_argv[1] = mobj_target;
+                    int elf_argc = 2;
+                    for (int i = 2; i < argc && elf_argc < (int)(sizeof(elf_argv)/sizeof(elf_argv[0])); ++i) {
+                        if (strcmp(argv[i], "--build") != 0 && strcmp(argv[i], "-B") != 0) {
+                            elf_argv[elf_argc++] = argv[i];
+                        }
+                    }
+                    return cmd_runelf(elf_argc, elf_argv);
+                }
+            }
+
             char *sc_argv[MSH_MAX_ARGS + 4];
             char sc_name[] = "maiasc";
             char run_flag[] = "--run";

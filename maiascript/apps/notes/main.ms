@@ -3,7 +3,7 @@ import maia.ui;
 import maia.fs;
 
 ui.TextArea* editor;
-string currentPath = "/sd/notes.txt";
+string currentPath;
 
 void saveFile() {
     fs.writeText(currentPath, editor->text())?;
@@ -16,6 +16,7 @@ void clearFile() {
 }
 
 i32 main() {
+    currentPath = "/sd/notes.txt";
     ui.Window* win = ui.Window("Maia Notes", 800, 520);
     win->show();
 

@@ -371,6 +371,7 @@ static void scan_manifests(void) {
             else if (i == 7) { str_copy(app->name, "camera", 24); str_copy(app->title, "Camera", 24); str_copy(app->icon, "camera", 16); app->color = COLOR_MAGENTA; app->hotkey = 'a'; str_copy(app->exec_path, "/sd/apps/camera.mobj", 80); }
             else if (i == 8) { str_copy(app->name, "wifi", 24); str_copy(app->title, "Wi-Fi", 24); str_copy(app->icon, "wifi", 16); app->color = COLOR_CYAN; app->hotkey = 'w'; str_copy(app->exec_path, "/sd/apps/wifi.mobj", 80); }
             else if (i == 9) { str_copy(app->name, "maiascript", 24); str_copy(app->title, "MaiaScript", 24); str_copy(app->icon, "maia", 16); app->color = COLOR_CYAN; app->hotkey = 'm'; str_copy(app->exec_path, "/sd/t_gui.mobj", 80); }
+            else if (i == 10) { str_copy(app->name, "notes", 24); str_copy(app->title, "Notes MS", 24); str_copy(app->icon, "edit", 16); app->color = COLOR_GREEN; app->hotkey = 'n'; str_copy(app->exec_path, "/sd/notes.mobj", 80); }
         }
 
         if (str_eq(app->name, "term") || str_eq(app->icon, "term")) {
@@ -442,6 +443,12 @@ static void draw_desktop_icon(int x, int y, int idx) {
         gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_BLACK);
         gui_draw_rect(gx + 2, gy + 2, 28, 28, COLOR_CYAN);
         gui_draw_str(gx + 6, gy + 8, ".MS", COLOR_CYAN, COLOR_BLACK, true);
+    } else if (str_eq(app->icon, "edit") || str_eq(app->icon, "notes")) {
+        gui_fill_rect(gx + 4, gy, 24, 30, COLOR_WHITE);
+        gui_draw_rect(gx + 4, gy, 24, 30, COLOR_GREEN);
+        gui_fill_rect(gx + 8, gy + 6, 16, 2, COLOR_BLACK);
+        gui_fill_rect(gx + 8, gy + 12, 16, 2, COLOR_BLACK);
+        gui_fill_rect(gx + 8, gy + 18, 12, 2, COLOR_GREEN);
     } else {
         gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_TASKBAR);
         gui_draw_rect(gx + 2, gy + 2, 28, 28, app->color);
