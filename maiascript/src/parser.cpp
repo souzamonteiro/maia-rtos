@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <filesystem>
+#include <sys/stat.h>
 
 #include "../../lib/maiaregex/maia_regex.h"
 #include "maiascript_parser.inc"
@@ -912,6 +913,20 @@ static std::string trimString(const std::string& s) {
     return s.substr(start, end - start + 1);
 }
 
+static inline bool pathExists(const fs::path& p) {
+    struct stat st;
+    if (stat(p.string().c_str(), &st) == 0) return true;
+    std::error_code ec;
+    return fs::exists(p, ec);
+}
+
+static inline std::string safeCanonical(const fs::path& p) {
+    std::error_code ec;
+    fs::path c = fs::canonical(p, ec);
+    if (!ec && !c.empty()) return c.string();
+    return p.lexically_normal().string();
+}
+
 static std::string resolveIncludePath(const std::string& requested,
                                       const std::string& currentPath,
                                       const std::vector<std::string>& searchPaths) {
@@ -929,10 +944,9 @@ static std::string resolveIncludePath(const std::string& requested,
 
     // Se o target for absoluto e existir
     for (const auto& cand : nameCandidates) {
-        std::error_code ec;
         fs::path p(cand);
-        if (p.is_absolute() && fs::exists(p, ec)) {
-            return fs::canonical(p, ec).string();
+        if (p.is_absolute() && pathExists(p)) {
+            return safeCanonical(p);
         }
     }
 
@@ -949,20 +963,18 @@ static std::string resolveIncludePath(const std::string& requested,
     }
 
     for (const auto& cand : nameCandidates) {
-        std::error_code ec;
         fs::path p = baseDir / cand;
-        if (fs::exists(p, ec)) {
-            return fs::canonical(p, ec).string();
+        if (pathExists(p)) {
+            return safeCanonical(p);
         }
     }
 
     // Search paths do usuário
     for (const auto& sp : searchPaths) {
         for (const auto& cand : nameCandidates) {
-            std::error_code ec;
             fs::path p = fs::path(sp) / cand;
-            if (fs::exists(p, ec)) {
-                return fs::canonical(p, ec).string();
+            if (pathExists(p)) {
+                return safeCanonical(p);
             }
         }
     }
@@ -975,15 +987,15 @@ static std::string resolveIncludePath(const std::string& requested,
         "../../maiascript/lib",
         "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/lib",
         "/sd/lib",
+        "/sd/lib/maia",
         "/lib"
     };
 
     for (const auto& dd : defaultDirs) {
         for (const auto& cand : nameCandidates) {
-            std::error_code ec;
             fs::path p = fs::path(dd) / cand;
-            if (fs::exists(p, ec)) {
-                return fs::canonical(p, ec).string();
+            if (pathExists(p)) {
+                return safeCanonical(p);
             }
         }
     }
@@ -1094,14 +1106,28 @@ std::string Parser::expandIncludes(const std::string& source, const std::string&
                 output += "// [already included: " + target + "]\n";
             } else {
                 includedFiles.insert(resolved);
-                std::ifstream f(resolved.c_str());
-                if (!f.is_open()) {
-                    outError = "Include error: cannot open '" + resolved + "'";
-                    return "";
+                std::string subSource;
+                FILE *fp = fopen(resolved.c_str(), "rb");
+                if (fp) {
+                    fseek(fp, 0, SEEK_END);
+                    long fsz = ftell(fp);
+                    fseek(fp, 0, SEEK_SET);
+                    if (fsz > 0) {
+                        subSource.resize(fsz);
+                        size_t rd = fread(&subSource[0], 1, fsz, fp);
+                        subSource.resize(rd);
+                    }
+                    fclose(fp);
+                } else {
+                    std::ifstream f(resolved.c_str());
+                    if (!f.is_open()) {
+                        outError = "Include error: cannot open '" + resolved + "'";
+                        return "";
+                    }
+                    std::stringstream buf;
+                    buf << f.rdbuf();
+                    subSource = buf.str();
                 }
-                std::stringstream buf;
-                buf << f.rdbuf();
-                std::string subSource = buf.str();
                 std::string expanded = expandIncludes(subSource, resolved, searchPaths, includedFiles, outError);
                 if (!outError.empty()) {
                     return "";
