@@ -26,3 +26,4 @@ i32 main() {
     delete root;
     return g_res; // Retorna 42
 }
+

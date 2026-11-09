@@ -34,3 +34,4 @@ namespace i2c {
         return Ok(b);
     }
 }
+
