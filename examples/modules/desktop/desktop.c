@@ -14,6 +14,7 @@ static char g_term_lines[TERM_MAX_LINES][TERM_LINE_LEN];
 static int g_term_line_count = 0;
 static char g_term_input[64] = "";
 static int g_term_input_len = 0;
+static int g_term_cursor_pos = 0;
 static bool g_term_initialized = false;
 
 /* Terminal Command History */
@@ -91,6 +92,7 @@ static void term_hist_up(void) {
     }
     str_copy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input));
     g_term_input_len = (int)strlen(g_term_input);
+    g_term_cursor_pos = g_term_input_len;
     g_dirty_term_content = true;
 }
 
@@ -100,10 +102,12 @@ static void term_hist_down(void) {
         g_term_hist_browse++;
         str_copy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input));
         g_term_input_len = (int)strlen(g_term_input);
+        g_term_cursor_pos = g_term_input_len;
     } else {
         g_term_hist_browse = -1;
         g_term_input[0] = '\0';
         g_term_input_len = 0;
+        g_term_cursor_pos = 0;
     }
     g_dirty_term_content = true;
 }
@@ -176,6 +180,7 @@ static void term_init(void) {
     term_append_line("");
     g_term_input[0] = '\0';
     g_term_input_len = 0;
+    g_term_cursor_pos = 0;
     g_term_initialized = true;
 }
 
@@ -302,7 +307,13 @@ static void render_term_content(void) {
     gui_draw_str_2x(cx + 12, ty, prompt_line, COLOR_TASK_ACC, COLOR_BLACK, true);
 
     /* Cursor */
-    gui_fill_rect(cx + 12 + j * 16, ty, 14, 24, COLOR_TASK_ACC);
+    int cur_x = cx + 12 + (5 + g_term_cursor_pos) * 16;
+    if (g_term_cursor_pos < g_term_input_len) {
+        char c_cur[2] = { g_term_input[g_term_cursor_pos], '\0' };
+        gui_draw_str_2x(cur_x, ty, c_cur, COLOR_BLACK, COLOR_TASK_ACC, true);
+    } else {
+        gui_fill_rect(cur_x, ty, 14, 24, COLOR_TASK_ACC);
+    }
     gui_reset_clip();
 }
 
@@ -320,6 +331,7 @@ static void scan_manifests(void) {
         "/sd/apps/banner.mnm.json",
         "/sd/apps/camera.mnm.json",
         "/sd/apps/wifi.mnm.json",
+        "/sd/apps/maiascript.mnm.json",
     };
 
     for (size_t i = 0; i < sizeof(manifest_paths)/sizeof(manifest_paths[0]); ++i) {
@@ -358,6 +370,7 @@ static void scan_manifests(void) {
             else if (i == 6) { str_copy(app->name, "banner", 24); str_copy(app->title, "Banner", 24); str_copy(app->icon, "banner", 16); app->color = COLOR_MAGENTA; app->hotkey = 'b'; str_copy(app->exec_path, "/sd/apps/banner.mobj", 80); }
             else if (i == 7) { str_copy(app->name, "camera", 24); str_copy(app->title, "Camera", 24); str_copy(app->icon, "camera", 16); app->color = COLOR_MAGENTA; app->hotkey = 'a'; str_copy(app->exec_path, "/sd/apps/camera.mobj", 80); }
             else if (i == 8) { str_copy(app->name, "wifi", 24); str_copy(app->title, "Wi-Fi", 24); str_copy(app->icon, "wifi", 16); app->color = COLOR_CYAN; app->hotkey = 'w'; str_copy(app->exec_path, "/sd/apps/wifi.mobj", 80); }
+            else if (i == 9) { str_copy(app->name, "maiascript", 24); str_copy(app->title, "MaiaScript", 24); str_copy(app->icon, "maia", 16); app->color = COLOR_CYAN; app->hotkey = 'm'; str_copy(app->exec_path, "/sd/t_gui.mobj", 80); }
         }
 
         if (str_eq(app->name, "term") || str_eq(app->icon, "term")) {
@@ -425,6 +438,10 @@ static void draw_desktop_icon(int x, int y, int idx) {
         gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_BLACK);
         gui_draw_rect(gx + 2, gy + 2, 28, 28, COLOR_CYAN);
         gui_draw_str(gx + 6, gy + 8, "WFI", COLOR_CYAN, COLOR_BLACK, true);
+    } else if (str_eq(app->icon, "maia") || str_eq(app->icon, "maiascript")) {
+        gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_BLACK);
+        gui_draw_rect(gx + 2, gy + 2, 28, 28, COLOR_CYAN);
+        gui_draw_str(gx + 6, gy + 8, ".MS", COLOR_CYAN, COLOR_BLACK, true);
     } else {
         gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_TASKBAR);
         gui_draw_rect(gx + 2, gy + 2, 28, 28, app->color);
@@ -507,6 +524,7 @@ static void launch_app(int idx) {
         g_active_win = WIN_TERM;
         g_term_input[0] = '\0';
         g_term_input_len = 0;
+        g_term_cursor_pos = 0;
         if (g_gui_ctx && g_gui_ctx->host && g_gui_ctx->host->display && g_gui_ctx->host->display->acquire_exclusive) {
             g_gui_ctx->host->display->acquire_exclusive();
         }
@@ -627,28 +645,46 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     term_exec_cmd(g_term_input);
                     g_term_input[0] = '\0';
                     g_term_input_len = 0;
+                    g_term_cursor_pos = 0;
                     g_dirty_term_content = true;
                 } else if (k == 0x80) { /* Up Arrow (History Back) */
                     term_hist_up();
                 } else if (k == 0x81) { /* Down Arrow (History Forward) */
                     term_hist_down();
+                } else if (k == 0x82) { /* Left Arrow (Cursor Left) */
+                    if (g_term_cursor_pos > 0) {
+                        g_term_cursor_pos--;
+                        g_dirty_term_content = true;
+                    }
+                } else if (k == 0x83) { /* Right Arrow (Cursor Right) */
+                    if (g_term_cursor_pos < g_term_input_len) {
+                        g_term_cursor_pos++;
+                        g_dirty_term_content = true;
+                    }
                 } else if (k == '\b' || k == 127) {
-                    if (g_term_input_len > 0) {
+                    if (g_term_cursor_pos > 0) {
+                        for (int i = g_term_cursor_pos - 1; i < g_term_input_len; ++i) {
+                            g_term_input[i] = g_term_input[i + 1];
+                        }
+                        g_term_cursor_pos--;
                         g_term_input_len--;
-                        g_term_input[g_term_input_len] = '\0';
                         g_dirty_term_content = true;
                     }
                 } else if (k >= 32 && k <= 126) {
                     if (g_term_input_len < (int)sizeof(g_term_input) - 2) {
-                        g_term_input[g_term_input_len++] = (char)k;
-                        g_term_input[g_term_input_len] = '\0';
+                        for (int i = g_term_input_len; i >= g_term_cursor_pos; --i) {
+                            g_term_input[i + 1] = g_term_input[i];
+                        }
+                        g_term_input[g_term_cursor_pos] = (char)k;
+                        g_term_cursor_pos++;
+                        g_term_input_len++;
                         g_dirty_term_content = true;
                     }
                 }
             } else if (g_active_win == WIN_NONE) {
                 char lk = (char)k;
                 if (lk >= 'A' && lk <= 'Z') lk += 32;
-                if (lk == 't' || lk == 'm') {
+                if (lk == 't') {
                     for (int i = 0; i < g_app_count; ++i) {
                         if (g_apps[i].is_builtin_term) {
                             launch_app(i);
