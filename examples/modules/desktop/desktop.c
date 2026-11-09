@@ -331,6 +331,7 @@ static void scan_manifests(void) {
         "/sd/apps/camera.mnm.json",
         "/sd/apps/wifi.mnm.json",
         "/sd/apps/maiascript.mnm.json",
+        "/sd/apps/notes.mnm.json",
     };
 
     for (size_t i = 0; i < sizeof(manifest_paths)/sizeof(manifest_paths[0]); ++i) {
@@ -541,8 +542,8 @@ static void launch_app(int idx) {
         render_taskbar_chrome();
         gui_sync();
 
-        char cmd[160] = "runelf ";
-        str_copy(cmd + 7, app->exec_path, sizeof(cmd) - 7);
+        char cmd[160] = "run ";
+        str_copy(cmd + 4, app->exec_path, sizeof(cmd) - 4);
 
         g_gui_ctx->host->shell_exec(cmd, NULL, NULL);
 
