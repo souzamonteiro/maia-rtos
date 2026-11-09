@@ -1,9 +1,11 @@
 #include "gui_kit.h"
 
-#define FM_MAX_ENTRIES 32
+#define FM_MAX_ENTRIES 128
+#define FM_ROWS_PER_PAGE 9
 
 static maia_dir_entry_t g_fm_entries[FM_MAX_ENTRIES];
 static int g_fm_entry_count = 0;
+static int g_fm_scroll_offset = 0;
 static char g_fm_current_path[128] = "/sd";
 static int g_fm_drive = 0; /* 0 = /sd, 1 = /usb */
 static int g_fm_selected_idx = -1;
@@ -71,12 +73,43 @@ static void restore_screen_bg(void) {
     draw_quick_icon(116, 44, "WIFI", COLOR_CYAN);
 }
 
+static int str_case_cmp(const char *a, const char *b) {
+    if (!a || !b) return 0;
+    while (*a && *b) {
+        char ca = (*a >= 'A' && *a <= 'Z') ? (*a + 32) : *a;
+        char cb = (*b >= 'A' && *b <= 'Z') ? (*b + 32) : *b;
+        if (ca != cb) return (int)(unsigned char)ca - (int)(unsigned char)cb;
+        a++; b++;
+    }
+    return (int)(unsigned char)*a - (int)(unsigned char)*b;
+}
+
 static void fm_refresh(void) {
     if (!g_gui_ctx || !g_gui_ctx->host || !g_gui_ctx->host->list_dir) return;
 
     g_fm_entry_count = g_gui_ctx->host->list_dir(g_fm_current_path, g_fm_entries, FM_MAX_ENTRIES);
     if (g_fm_entry_count < 0) g_fm_entry_count = 0;
     g_fm_selected_idx = -1;
+    g_fm_scroll_offset = 0;
+
+    /* Sort entries: folders first, then alphabetical */
+    for (int i = 0; i < g_fm_entry_count - 1; ++i) {
+        for (int j = i + 1; j < g_fm_entry_count; ++j) {
+            bool swap = false;
+            if (g_fm_entries[j].is_dir && !g_fm_entries[i].is_dir) {
+                swap = true;
+            } else if (g_fm_entries[j].is_dir == g_fm_entries[i].is_dir) {
+                if (str_case_cmp(g_fm_entries[i].name, g_fm_entries[j].name) > 0) {
+                    swap = true;
+                }
+            }
+            if (swap) {
+                maia_dir_entry_t tmp = g_fm_entries[i];
+                g_fm_entries[i] = g_fm_entries[j];
+                g_fm_entries[j] = tmp;
+            }
+        }
+    }
 
     g_fm_has_parent = (str_len(g_fm_current_path) > 3);
 }
@@ -104,12 +137,11 @@ static void render_files_chrome(int wx, int wy, int ww, int wh) {
     gui_draw_window_frame(wx, wy, ww, wh, "File & Media Manager", COLOR_GOLD);
 
     int ty_bar = wy + 44;
-    int bw = 88, bh = 30;
-    gui_draw_button(wx + 192, ty_bar, bw, bh, "EJECT", 0x8180, COLOR_WHITE, COLOR_RED, false);
-    gui_draw_button(wx + 284, ty_bar, bw, bh, "COPY", 0x1b24, COLOR_GREEN, COLOR_GREEN, false);
-    gui_draw_button(wx + 376, ty_bar, bw, bh, "DELETE", 0x5000, COLOR_WHITE, COLOR_RED, false);
-    gui_draw_button(wx + 468, ty_bar, 104, bh, "NEW FOLDER", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
-    gui_draw_button(wx + 576, ty_bar, 150, bh, "REFRESH", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+    int bh = 30;
+    gui_draw_button(wx + 192, ty_bar, 64, bh, "EJECT", 0x8180, COLOR_WHITE, COLOR_RED, false);
+    gui_draw_button(wx + 260, ty_bar, 76, bh, "REFRESH", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+    gui_draw_button(wx + 340, ty_bar, 74, bh, "< PREV", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
+    gui_draw_button(wx + 418, ty_bar, 74, bh, "NEXT >", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
 
     /* Path Bar Box */
     int py = ty_bar + 36;
@@ -128,7 +160,7 @@ static void render_files_chrome(int wx, int wy, int ww, int wh) {
     gui_draw_str(wx + 28, table_y + 7, "TYPE", COLOR_TEXT_DIM, 0x2128, true);
     gui_draw_str(wx + 110, table_y + 7, "ITEM NAME", COLOR_TEXT_DIM, 0x2128, true);
     gui_draw_str(wx + 440, table_y + 7, "SIZE", COLOR_TEXT_DIM, 0x2128, true);
-    gui_draw_str(wx + 596, table_y + 7, "AVAILABLE ACTION", COLOR_TEXT_DIM, 0x2128, true);
+    gui_draw_str(wx + 580, table_y + 7, "AVAILABLE ACTION", COLOR_TEXT_DIM, 0x2128, true);
 }
 
 static void render_files_tabs(int wx, int wy) {
@@ -168,64 +200,77 @@ static void render_files_items(int wx, int wy, int ww, int wh) {
 
     int row_y = table_y + 32;
     int display_row = 0;
+    int total_items = g_fm_entry_count + (g_fm_has_parent ? 1 : 0);
 
-    /* Row 0: Parent .. */
-    if (g_fm_has_parent && display_row < 8) {
-        gui_fill_rect(wx + 18, row_y, ww - 36, 32, 0x18e5);
-        gui_draw_str_2x(wx + 24, row_y + 1, "[D]", COLOR_FOLDER, 0x18e5, true);
-        gui_draw_str_2x(wx + 80, row_y + 1, ".. (Parent Dir)", COLOR_YELLOW, 0x18e5, true);
-        gui_draw_button(wx + 596, row_y + 2, 120, 28, "UP", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
-        row_y += 36;
-        display_row++;
-    }
-
-    /* File Rows */
-    for (int i = 0; i < g_fm_entry_count && display_row < 8; ++i) {
-        uint16_t row_bg = (i == g_fm_selected_idx) ? 0x29ec : 0x18e5;
-        gui_fill_rect(wx + 18, row_y, ww - 36, 32, row_bg);
-
-        if (g_fm_entries[i].is_dir) {
-            gui_draw_str_2x(wx + 24, row_y + 1, "[D]", COLOR_FOLDER, row_bg, true);
-            gui_draw_str_2x(wx + 80, row_y + 1, g_fm_entries[i].name, COLOR_WHITE, row_bg, true);
-            gui_draw_str_2x(wx + 440, row_y + 1, "--", COLOR_TEXT_DIM, row_bg, true);
-            gui_draw_button(wx + 596, row_y + 2, 120, 28, "OPEN", 0x1b24, COLOR_GREEN, COLOR_GREEN, false);
+    for (int k = g_fm_scroll_offset; k < total_items && display_row < FM_ROWS_PER_PAGE; ++k) {
+        if (g_fm_has_parent && k == 0) {
+            gui_fill_rect(wx + 18, row_y, ww - 44, 32, 0x18e5);
+            gui_draw_str_2x(wx + 24, row_y + 1, "[D]", COLOR_FOLDER, 0x18e5, true);
+            gui_draw_str_2x(wx + 80, row_y + 1, ".. (Parent Dir)", COLOR_YELLOW, 0x18e5, true);
+            gui_draw_button(wx + 580, row_y + 2, 110, 28, "UP", COLOR_BTN_BG, COLOR_CYAN, COLOR_BTN_BD, false);
         } else {
-            gui_draw_str_2x(wx + 24, row_y + 1, "[F]", COLOR_CYAN, row_bg, true);
-            gui_draw_str_2x(wx + 80, row_y + 1, g_fm_entries[i].name, COLOR_WHITE, row_bg, true);
+            int i = g_fm_has_parent ? (k - 1) : k;
+            uint16_t row_bg = (i == g_fm_selected_idx) ? 0x29ec : 0x18e5;
+            gui_fill_rect(wx + 18, row_y, ww - 44, 32, row_bg);
 
-            /* Format size */
-            char sz_str[16];
-            uint32_t sz = g_fm_entries[i].size;
-            if (sz < 1024) {
-                sz_str[0] = '0' + (sz % 10); sz_str[1] = 'B'; sz_str[2] = '\0';
+            if (g_fm_entries[i].is_dir) {
+                gui_draw_str_2x(wx + 24, row_y + 1, "[D]", COLOR_FOLDER, row_bg, true);
+                gui_draw_str_2x(wx + 80, row_y + 1, g_fm_entries[i].name, COLOR_WHITE, row_bg, true);
+                gui_draw_str_2x(wx + 440, row_y + 1, "--", COLOR_TEXT_DIM, row_bg, true);
+                gui_draw_button(wx + 580, row_y + 2, 110, 28, "OPEN", 0x1b24, COLOR_GREEN, COLOR_GREEN, false);
             } else {
-                uint32_t kb = sz / 1024;
-                char tmp[12]; int tp = 0;
-                while (kb > 0) { tmp[tp++] = '0' + (kb % 10); kb /= 10; }
-                int p = 0; while (tp > 0) sz_str[p++] = tmp[--tp];
-                sz_str[p++] = ' '; sz_str[p++] = 'K'; sz_str[p++] = 'B'; sz_str[p] = '\0';
-            }
-            gui_draw_str_2x(wx + 440, row_y + 1, sz_str, COLOR_TEXT_DIM, row_bg, true);
+                gui_draw_str_2x(wx + 24, row_y + 1, "[F]", COLOR_CYAN, row_bg, true);
+                gui_draw_str_2x(wx + 80, row_y + 1, g_fm_entries[i].name, COLOR_WHITE, row_bg, true);
 
-            int nlen = str_len(g_fm_entries[i].name);
-            if (g_fm_entries[i].is_exec) {
-                gui_draw_button(wx + 596, row_y + 2, 120, 28, "RUN", 0x03a8, COLOR_CYAN, COLOR_CYAN, false);
-            } else if (nlen > 4 && g_fm_entries[i].name[nlen - 4] == '.' &&
-                       (g_fm_entries[i].name[nlen - 3] == 'r' || g_fm_entries[i].name[nlen - 3] == 'b')) {
-                gui_draw_button(wx + 596, row_y + 2, 120, 28, "WALLPAPER", 0x518a, COLOR_GOLD, COLOR_GOLD, false);
-            } else if (nlen > 4 && g_fm_entries[i].name[nlen - 4] == '.' &&
-                       g_fm_entries[i].name[nlen - 3] == 'w' && g_fm_entries[i].name[nlen - 2] == 'a') {
-                gui_draw_button(wx + 596, row_y + 2, 120, 28, "PLAY AUDIO", 0x518a, COLOR_MAGENTA, COLOR_MAGENTA, false);
-            } else if (nlen > 5 && g_fm_entries[i].name[nlen - 5] == '.' &&
-                       g_fm_entries[i].name[nlen - 4] == 'm' && g_fm_entries[i].name[nlen - 3] == 'v') {
-                gui_draw_button(wx + 596, row_y + 2, 120, 28, "PLAY VIDEO", 0x518a, COLOR_YELLOW, COLOR_YELLOW, false);
-            } else {
-                gui_draw_button(wx + 596, row_y + 2, 120, 28, "EDIT", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+                /* Format size */
+                char sz_str[16];
+                uint32_t sz = g_fm_entries[i].size;
+                if (sz < 1024) {
+                    sz_str[0] = '0' + (sz % 10); sz_str[1] = 'B'; sz_str[2] = '\0';
+                } else {
+                    uint32_t kb = sz / 1024;
+                    char tmp[12]; int tp = 0;
+                    while (kb > 0) { tmp[tp++] = '0' + (kb % 10); kb /= 10; }
+                    int p = 0; while (tp > 0) sz_str[p++] = tmp[--tp];
+                    sz_str[p++] = ' '; sz_str[p++] = 'K'; sz_str[p++] = 'B'; sz_str[p] = '\0';
+                }
+                gui_draw_str_2x(wx + 440, row_y + 1, sz_str, COLOR_TEXT_DIM, row_bg, true);
+
+                int nlen = str_len(g_fm_entries[i].name);
+                if (g_fm_entries[i].is_exec) {
+                    gui_draw_button(wx + 580, row_y + 2, 110, 28, "RUN", 0x03a8, COLOR_CYAN, COLOR_CYAN, false);
+                } else if (nlen > 4 && g_fm_entries[i].name[nlen - 4] == '.' &&
+                           (g_fm_entries[i].name[nlen - 3] == 'r' || g_fm_entries[i].name[nlen - 3] == 'b')) {
+                    gui_draw_button(wx + 580, row_y + 2, 110, 28, "WALLPAPER", 0x518a, COLOR_GOLD, COLOR_GOLD, false);
+                } else if (nlen > 4 && g_fm_entries[i].name[nlen - 4] == '.' &&
+                           g_fm_entries[i].name[nlen - 3] == 'w' && g_fm_entries[i].name[nlen - 2] == 'a') {
+                    gui_draw_button(wx + 580, row_y + 2, 110, 28, "PLAY AUDIO", 0x518a, COLOR_MAGENTA, COLOR_MAGENTA, false);
+                } else if (nlen > 5 && g_fm_entries[i].name[nlen - 5] == '.' &&
+                           g_fm_entries[i].name[nlen - 4] == 'm' && g_fm_entries[i].name[nlen - 3] == 'v') {
+                    gui_draw_button(wx + 580, row_y + 2, 110, 28, "PLAY VIDEO", 0x518a, COLOR_YELLOW, COLOR_YELLOW, false);
+                } else {
+                    gui_draw_button(wx + 580, row_y + 2, 110, 28, "EDIT", COLOR_BTN_BG, COLOR_WHITE, COLOR_BTN_BD, false);
+                }
             }
         }
 
         row_y += 36;
         display_row++;
+    }
+
+    /* Scrollbar track and thumb on right edge */
+    int sb_x = wx + ww - 24;
+    int sb_y = table_y + 32;
+    int sb_h = table_h - 36;
+    gui_fill_rect(sb_x, sb_y, 6, sb_h, 0x18e5);
+    if (total_items > FM_ROWS_PER_PAGE) {
+        int thumb_h = sb_h * FM_ROWS_PER_PAGE / total_items;
+        if (thumb_h < 18) thumb_h = 18;
+        int max_scroll = total_items - FM_ROWS_PER_PAGE;
+        int thumb_y = sb_y + (sb_h - thumb_h) * g_fm_scroll_offset / max_scroll;
+        gui_fill_rect(sb_x, thumb_y, 6, thumb_h, COLOR_CYAN);
+    } else {
+        gui_fill_rect(sb_x, sb_y, 6, sb_h, COLOR_CYAN);
     }
 }
 
@@ -256,6 +301,26 @@ int maia_module_main(const maia_module_context_t *ctx) {
                 if (k == 27 || k == 'q' || k == 'Q') {
                     running = false;
                     break;
+                } else if (k == 0x80) { /* Up Arrow */
+                    if (g_fm_scroll_offset > 0) {
+                        g_fm_scroll_offset--;
+                        render_files_items(wx, wy, ww, wh);
+                        gui_sync();
+                    }
+                } else if (k == 0x81) { /* Down Arrow */
+                    int total_items = g_fm_entry_count + (g_fm_has_parent ? 1 : 0);
+                    if (g_fm_scroll_offset + FM_ROWS_PER_PAGE < total_items) {
+                        g_fm_scroll_offset++;
+                        render_files_items(wx, wy, ww, wh);
+                        gui_sync();
+                    }
+                } else if (k == 0x82) { /* Left Arrow */
+                    if (g_fm_has_parent) {
+                        fm_go_parent();
+                        render_files_path(wx, wy, ww);
+                        render_files_items(wx, wy, ww, wh);
+                        gui_sync();
+                    }
                 }
                 k = ctx->host->input->read_key();
             }
@@ -311,43 +376,77 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         gui_sync();
                     }
                     /* REFRESH */
-                    else if (ty >= ty_bar && ty <= ty_bar + 30 && tx >= wx + 576 && tx <= wx + 726) {
+                    else if (ty >= ty_bar && ty <= ty_bar + 30 && tx >= wx + 260 && tx <= wx + 336) {
                         fm_refresh();
                         set_fm_status("File list refreshed.", COLOR_CYAN);
                         render_files_items(wx, wy, ww, wh);
                         render_files_status(wx, wy, ww, wh);
                         gui_sync();
                     }
+                    /* PREV */
+                    else if (ty >= ty_bar && ty <= ty_bar + 30 && tx >= wx + 340 && tx <= wx + 414) {
+                        if (g_fm_scroll_offset > 0) {
+                            g_fm_scroll_offset = (g_fm_scroll_offset >= 3) ? (g_fm_scroll_offset - 3) : 0;
+                            render_files_items(wx, wy, ww, wh);
+                            gui_sync();
+                        }
+                    }
+                    /* NEXT */
+                    else if (ty >= ty_bar && ty <= ty_bar + 30 && tx >= wx + 418 && tx <= wx + 492) {
+                        int total_items = g_fm_entry_count + (g_fm_has_parent ? 1 : 0);
+                        if (g_fm_scroll_offset + FM_ROWS_PER_PAGE < total_items) {
+                            g_fm_scroll_offset += 3;
+                            if (g_fm_scroll_offset + FM_ROWS_PER_PAGE > total_items) {
+                                g_fm_scroll_offset = total_items - FM_ROWS_PER_PAGE;
+                            }
+                            render_files_items(wx, wy, ww, wh);
+                            gui_sync();
+                        }
+                    }
 
                     /* Table Row Touches */
                     int py = ty_bar + 36;
                     int table_y = py + 30;
+                    int table_h = wh - 180;
                     int row_y = table_y + 32;
                     int display_row = 0;
+                    int total_items = g_fm_entry_count + (g_fm_has_parent ? 1 : 0);
 
-                    /* Parent .. */
-                    if (g_fm_has_parent && display_row < 8) {
-                        if (ty >= row_y && ty <= row_y + 34 && tx >= wx + 16 && tx <= wx + ww - 16) {
-                            fm_go_parent();
-                            render_files_path(wx, wy, ww);
+                    /* Scrollbar track touch */
+                    if (tx >= wx + ww - 32 && tx <= wx + ww - 8 && ty >= table_y + 32 && ty <= table_y + table_h - 4) {
+                        if (total_items > FM_ROWS_PER_PAGE) {
+                            int mid_y = table_y + 32 + (table_h - 36) / 2;
+                            if (ty < mid_y) {
+                                g_fm_scroll_offset = (g_fm_scroll_offset >= 3) ? (g_fm_scroll_offset - 3) : 0;
+                            } else {
+                                g_fm_scroll_offset += 3;
+                                if (g_fm_scroll_offset + FM_ROWS_PER_PAGE > total_items) {
+                                    g_fm_scroll_offset = total_items - FM_ROWS_PER_PAGE;
+                                }
+                            }
                             render_files_items(wx, wy, ww, wh);
                             gui_sync();
                         }
-                        row_y += 36;
-                        display_row++;
                     }
 
                     /* Rows */
-                    for (int i = 0; i < g_fm_entry_count && display_row < 8; ++i) {
-                        if (ty >= row_y && ty <= row_y + 34 && tx >= wx + 16 && tx <= wx + ww - 16) {
-                            char full_p[160];
-                            str_copy(full_p, g_fm_current_path, sizeof(full_p));
-                            int l = str_len(full_p);
-                            if (l > 0 && full_p[l - 1] != '/') { full_p[l++] = '/'; full_p[l] = '\0'; }
-                            str_copy(full_p + l, g_fm_entries[i].name, sizeof(full_p) - l);
+                    for (int k = g_fm_scroll_offset; k < total_items && display_row < FM_ROWS_PER_PAGE; ++k) {
+                        if (ty >= row_y && ty <= row_y + 34 && tx >= wx + 16 && tx <= wx + ww - 36) {
+                            if (g_fm_has_parent && k == 0) {
+                                fm_go_parent();
+                                render_files_path(wx, wy, ww);
+                                render_files_items(wx, wy, ww, wh);
+                                gui_sync();
+                            } else {
+                                int i = g_fm_has_parent ? (k - 1) : k;
+                                char full_p[160];
+                                str_copy(full_p, g_fm_current_path, sizeof(full_p));
+                                int l = str_len(full_p);
+                                if (l > 0 && full_p[l - 1] != '/') { full_p[l++] = '/'; full_p[l] = '\0'; }
+                                str_copy(full_p + l, g_fm_entries[i].name, sizeof(full_p) - l);
 
-                            /* Click on action button on the right */
-                            if (tx >= wx + 596 && tx <= wx + 716) {
+                                /* Click on action button on the right */
+                                if (tx >= wx + 580 && tx <= wx + 700) {
                                 if (g_fm_entries[i].is_dir) {
                                     fm_enter_dir(g_fm_entries[i].name);
                                     render_files_path(wx, wy, ww);
@@ -435,6 +534,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
                                 gui_sync();
                             }
                         }
+                    }
                         row_y += 36;
                         display_row++;
                     }

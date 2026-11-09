@@ -8,6 +8,7 @@ static char g_term_lines[TERM_MAX_LINES][TERM_LINE_LEN];
 static int g_term_line_count = 0;
 static char g_term_input[72] = "";
 static int g_term_input_len = 0;
+static int g_term_cursor_pos = 0;
 
 /* Terminal History */
 #define TERM_HIST_MAX 16
@@ -42,6 +43,7 @@ static void term_hist_up(void) {
     strncpy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input) - 1);
     g_term_input[sizeof(g_term_input) - 1] = '\0';
     g_term_input_len = (int)strlen(g_term_input);
+    g_term_cursor_pos = g_term_input_len;
 }
 
 static void term_hist_down(void) {
@@ -51,10 +53,12 @@ static void term_hist_down(void) {
         strncpy(g_term_input, g_term_history[g_term_hist_browse], sizeof(g_term_input) - 1);
         g_term_input[sizeof(g_term_input) - 1] = '\0';
         g_term_input_len = (int)strlen(g_term_input);
+        g_term_cursor_pos = g_term_input_len;
     } else {
         g_term_hist_browse = -1;
         g_term_input[0] = '\0';
         g_term_input_len = 0;
+        g_term_cursor_pos = 0;
     }
 }
 
@@ -140,9 +144,13 @@ static void render_term(int wx, int wy, int ww, int wh) {
     gui_draw_str_2x(cx + 10, iy + 6, "msh> ", COLOR_YELLOW, 0x10a2, true);
     gui_draw_str_2x(cx + 90, iy + 6, g_term_input, COLOR_WHITE, 0x10a2, true);
 
-    /* Blinking cursor */
-    int cur_x = cx + 90 + g_term_input_len * 16;
-    gui_fill_rect(cur_x, iy + 6, 12, 28, COLOR_GREEN);
+    /* Cursor: Underline bar when over a character, full block at line end */
+    int cur_x = cx + 90 + g_term_cursor_pos * 16;
+    if (g_term_cursor_pos < g_term_input_len) {
+        gui_fill_rect(cur_x, iy + 30, 14, 4, COLOR_GREEN);
+    } else {
+        gui_fill_rect(cur_x, iy + 6, 12, 28, COLOR_GREEN);
+    }
 }
 
 int maia_module_main(const maia_module_context_t *ctx) {
@@ -194,6 +202,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
                         }
                         g_term_input[0] = '\0';
                         g_term_input_len = 0;
+                        g_term_cursor_pos = 0;
                     }
                     render_term(wx, wy, ww, wh);
                     gui_sync();
@@ -205,17 +214,36 @@ int maia_module_main(const maia_module_context_t *ctx) {
                     term_hist_down();
                     render_term(wx, wy, ww, wh);
                     gui_sync();
+                } else if (k == 0x82) { /* Left Arrow */
+                    if (g_term_cursor_pos > 0) {
+                        g_term_cursor_pos--;
+                        render_term(wx, wy, ww, wh);
+                        gui_sync();
+                    }
+                } else if (k == 0x83) { /* Right Arrow */
+                    if (g_term_cursor_pos < g_term_input_len) {
+                        g_term_cursor_pos++;
+                        render_term(wx, wy, ww, wh);
+                        gui_sync();
+                    }
                 } else if (k == 8 || k == 127) { /* Backspace */
-                    if (g_term_input_len > 0) {
+                    if (g_term_cursor_pos > 0) {
+                        for (int i = g_term_cursor_pos - 1; i < g_term_input_len; ++i) {
+                            g_term_input[i] = g_term_input[i + 1];
+                        }
+                        g_term_cursor_pos--;
                         g_term_input_len--;
-                        g_term_input[g_term_input_len] = '\0';
                         render_term(wx, wy, ww, wh);
                         gui_sync();
                     }
                 } else if (k >= 32 && k <= 126) {
                     if (g_term_input_len < (int)sizeof(g_term_input) - 2) {
-                        g_term_input[g_term_input_len++] = (char)k;
-                        g_term_input[g_term_input_len] = '\0';
+                        for (int i = g_term_input_len; i >= g_term_cursor_pos; --i) {
+                            g_term_input[i + 1] = g_term_input[i];
+                        }
+                        g_term_input[g_term_cursor_pos] = (char)k;
+                        g_term_cursor_pos++;
+                        g_term_input_len++;
                         render_term(wx, wy, ww, wh);
                         gui_sync();
                     }

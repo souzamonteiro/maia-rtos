@@ -306,11 +306,10 @@ static void render_term_content(void) {
     prompt_line[j] = '\0';
     gui_draw_str_2x(cx + 12, ty, prompt_line, COLOR_TASK_ACC, COLOR_BLACK, true);
 
-    /* Cursor */
+    /* Cursor: Underline bar when over a character, full block at line end */
     int cur_x = cx + 12 + (5 + g_term_cursor_pos) * 16;
     if (g_term_cursor_pos < g_term_input_len) {
-        char c_cur[2] = { g_term_input[g_term_cursor_pos], '\0' };
-        gui_draw_str_2x(cur_x, ty, c_cur, COLOR_BLACK, COLOR_TASK_ACC, true);
+        gui_fill_rect(cur_x, ty + 24, 14, 4, COLOR_TASK_ACC);
     } else {
         gui_fill_rect(cur_x, ty, 14, 24, COLOR_TASK_ACC);
     }
