@@ -12,6 +12,7 @@ extern i32 touch_poll();
 extern i32 touch_x();
 extern i32 touch_y();
 extern void delay_ms(i32 ms);
+extern void host_bind_button(i32 x, i32 y, i32 cb);
 
 namespace ui {
     class KeyEvent {
@@ -120,7 +121,7 @@ namespace ui {
 
         void setPadding(i32 p) {
             padding = p;
-            next_y = y + p;
+            next_y = p;
         }
 
         void setGap(i32 g) {
@@ -147,7 +148,7 @@ namespace ui {
         col->h = win->getH() - 60;
         col->padding = 16;
         col->gap = 12;
-        col->next_y = col->y + 16;
+        col->next_y = 16;
         return col;
     }
 
@@ -162,7 +163,7 @@ namespace ui {
 
         void setPadding(i32 p) {
             padding = p;
-            next_x = x + p;
+            next_x = p;
         }
 
         void setGap(i32 g) {
@@ -184,12 +185,12 @@ namespace ui {
     Row* Row(Column* col) {
         Row* row = new Row();
         row->x = col->x + col->padding;
-        row->y = col->allocHeight(40);
+        row->y = col->y + col->allocHeight(40);
         row->w = col->w - col->padding * 2;
         row->h = 40;
         row->padding = 0;
         row->gap = 16;
-        row->next_x = row->x;
+        row->next_x = 0;
         return row;
     }
 
@@ -257,6 +258,9 @@ namespace ui {
 
         void onClick(i32 cb) {
             callback_ptr = cb;
+            if (parent) {
+                host_bind_button(parent->x + rel_x, parent->y + rel_y, cb);
+            }
         }
 
         void triggerClick() {
@@ -283,6 +287,7 @@ namespace ui {
         btn->w = 120;
         btn->h = 40;
         btn->callback_ptr = 0;
+        btn->render(0);
         return btn;
     }
 
@@ -295,6 +300,7 @@ namespace ui {
         btn->w = 100;
         btn->h = 32;
         btn->callback_ptr = 0;
+        btn->render(0);
         return btn;
     }
 

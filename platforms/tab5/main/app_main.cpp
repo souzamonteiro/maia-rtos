@@ -787,8 +787,19 @@ static void draw_line_api(int x1, int y1, int x2, int y2, uint16_t color, int wi
     }
 }
 
+static int s_last_win_x = 0;
+static int s_last_win_y = 0;
+static int s_last_win_w = 0;
+static int s_last_win_h = 0;
+
 static void draw_window_frame_api(int x, int y, int w, int h, const char *title, uint16_t accent)
 {
+    s_last_win_x = x;
+    s_last_win_y = y;
+    s_last_win_w = w;
+    s_last_win_h = h;
+    s_graphics_exclusive = true;
+
     fill_rect(x + 6, y + 6, w, h, 0x0821);
     fill_rect(x, y, w, h, 0x18E5);
     fill_rect(x, y, w, 2, accent);
@@ -801,16 +812,65 @@ static void draw_window_frame_api(int x, int y, int w, int h, const char *title,
     draw_text_px(x + w - 28, y + 8, "X", 0xFFFF, 0);
 }
 
+struct HostButtonDesc {
+    int x, y, w, h;
+    char label[32];
+    uintptr_t callback;
+};
+
+#define MAX_HOST_BUTTONS 16
+static HostButtonDesc s_host_buttons[MAX_HOST_BUTTONS];
+static int s_host_button_count = 0;
+
+static void host_bind_button_api(int x, int y, uintptr_t cb)
+{
+    for (int i = 0; i < s_host_button_count; ++i) {
+        if (s_host_buttons[i].x == x && s_host_buttons[i].y == y) {
+            s_host_buttons[i].callback = cb;
+            return;
+        }
+    }
+    if (s_host_button_count < MAX_HOST_BUTTONS) {
+        s_host_buttons[s_host_button_count].x = x;
+        s_host_buttons[s_host_button_count].y = y;
+        s_host_buttons[s_host_button_count].w = 100;
+        s_host_buttons[s_host_button_count].h = 32;
+        s_host_buttons[s_host_button_count].callback = cb;
+        s_host_buttons[s_host_button_count].label[0] = '\0';
+        s_host_button_count++;
+    }
+}
+
 static void draw_button_api(int x, int y, int w, int h, const char *label, uint16_t bg, uint16_t fg, int pressed)
 {
     uint16_t fill = pressed ? 0x04BF : bg;
     fill_rect(x, y, w, h, fill);
     draw_rect_api(x, y, w, h, 0x4A4D);
-    if (!label) return;
-    int len = strlen(label);
-    int tx = x + (w - len * 16) / 2;
-    int ty = y + (h - 32) / 2;
-    draw_text_px(tx, ty, label, fg, 0);
+    if (label) {
+        int len = strlen(label);
+        int tx = x + (w - len * 16) / 2;
+        int ty = y + (h - 32) / 2;
+        draw_text_px(tx, ty, label, fg, 0);
+    }
+
+    for (int i = 0; i < s_host_button_count; ++i) {
+        if (s_host_buttons[i].x == x && s_host_buttons[i].y == y) {
+            s_host_buttons[i].w = w;
+            s_host_buttons[i].h = h;
+            if (label) strncpy(s_host_buttons[i].label, label, sizeof(s_host_buttons[i].label) - 1);
+            return;
+        }
+    }
+    if (s_host_button_count < MAX_HOST_BUTTONS) {
+        s_host_buttons[s_host_button_count].x = x;
+        s_host_buttons[s_host_button_count].y = y;
+        s_host_buttons[s_host_button_count].w = w;
+        s_host_buttons[s_host_button_count].h = h;
+        s_host_buttons[s_host_button_count].callback = 0;
+        if (label) strncpy(s_host_buttons[s_host_button_count].label, label, sizeof(s_host_buttons[s_host_button_count].label) - 1);
+        else s_host_buttons[s_host_button_count].label[0] = '\0';
+        s_host_button_count++;
+    }
 }
 
 static int32_t s_last_touch_x = 0;
@@ -3198,6 +3258,7 @@ extern "C" void app_main(void)
     mnm_register_symbol("touch_poll", (uintptr_t)api_touch_poll);
     mnm_register_symbol("touch_x", (uintptr_t)api_touch_x);
     mnm_register_symbol("touch_y", (uintptr_t)api_touch_y);
+    mnm_register_symbol("host_bind_button", (uintptr_t)host_bind_button_api);
 
     static int32_t s_app_exit_code = 0;
     static int32_t s_app_running = 1;
@@ -3207,9 +3268,65 @@ extern "C" void app_main(void)
     });
     mnm_register_symbol("host_app_run", (uintptr_t)+[]() -> int32_t {
         s_app_running = 1;
+        bool was_touched = false;
+
         while (s_app_running) {
-            vTaskDelay(pdMS_TO_TICKS(10));
+            // 1. Keyboard polling
+            int32_t k = host_read_key();
+            while (k >= 0) {
+                if (k == 27 || k == 'q' || k == 'Q') {
+                    s_app_running = 0;
+                    break;
+                }
+                k = host_read_key();
+            }
+            if (!s_app_running) break;
+
+            // 2. Touch polling
+            int32_t tx = 0, ty = 0, pressed = 0;
+            if (host_get_touch(&tx, &ty, &pressed)) {
+                if (pressed && !was_touched) {
+                    was_touched = true;
+
+                    // A. Window Close Button ("X")
+                    if (s_last_win_w > 0) {
+                        int cx = s_last_win_x + s_last_win_w - 36;
+                        int cy = s_last_win_y + 6;
+                        if (tx >= cx - 14 && tx <= cx + 42 && ty >= cy - 10 && ty <= cy + 42) {
+                            host_play_beep(1200, 40);
+                            s_app_running = 0;
+                            break;
+                        }
+                    }
+
+                    // B. Registered Buttons
+                    for (int i = 0; i < s_host_button_count; ++i) {
+                        const auto &b = s_host_buttons[i];
+                        if (tx >= b.x && tx <= b.x + b.w && ty >= b.y && ty <= b.y + b.h) {
+                            host_play_beep(2200, 30);
+                            draw_button_api(b.x, b.y, b.w, b.h, b.label, 0x04BF, 0xFFFF, 1);
+                            fb_sync();
+
+                            if (b.callback) {
+                                void (*fn)(void) = (void(*)(void))b.callback;
+                                fn();
+                            }
+
+                            vTaskDelay(pdMS_TO_TICKS(80));
+                            draw_button_api(b.x, b.y, b.w, b.h, b.label, 0x2169, 0xFFFF, 0);
+                            fb_sync();
+                            break;
+                        }
+                    }
+                } else if (!pressed) {
+                    was_touched = false;
+                }
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
+
+        s_host_button_count = 0;
         return s_app_exit_code;
     });
 

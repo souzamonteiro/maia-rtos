@@ -138,6 +138,7 @@ int main() {
         emu.registerHostFunction("touch_x", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("touch_y", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("delay_ms", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("host_bind_button", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         static int32_t s_app_exit_code = 0;
         emu.registerHostFunction("host_app_quit", [](maiascript::EmulatorRV32& e) -> int32_t {
             s_app_exit_code = (int32_t)e.regs[10];

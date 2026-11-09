@@ -17,6 +17,8 @@ void clearFile() {
 
 i32 main() {
     ui.Window* win = ui.Window("Maia Notes", 800, 520);
+    win->show();
+
     ui.Column* layout = ui.Column(win);
     layout->setPadding(20);
     layout->setGap(12);
@@ -34,7 +36,6 @@ i32 main() {
     string initialText = fs.readText(currentPath).orElse("MaiaScript Native v0.1\nEditor de Texto & MaiaFS no M5Stack Tab5!\nZero GC - RV32IMAF ILP32F.");
     editor->setText(initialText);
 
-    win->show();
     return app.run();
 }
 
