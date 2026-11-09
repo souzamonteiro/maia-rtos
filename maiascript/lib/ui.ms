@@ -1,10 +1,12 @@
 #pragma once
+#include "graphics.ms"
 
 extern void draw_window(i32 x, i32 y, i32 w, i32 h, string title, i32 accent);
 extern void draw_text(i32 x, i32 y, string text, i32 fg, i32 bg);
 extern void draw_button(i32 x, i32 y, i32 w, i32 h, string label, i32 bg, i32 fg, i32 pressed);
 extern void draw_rect(i32 x, i32 y, i32 w, i32 h, i32 color);
 extern void fill_rect(i32 x, i32 y, i32 w, i32 h, i32 color);
+extern void draw_line(i32 x1, i32 y1, i32 x2, i32 y2, i32 color, i32 width);
 extern void display_sync();
 extern i32 touch_poll();
 extern i32 touch_x();
@@ -12,6 +14,32 @@ extern i32 touch_y();
 extern void delay_ms(i32 ms);
 
 namespace ui {
+    class KeyEvent {
+        i32 pressed;
+        i32 key;
+        i32 modifiers;
+    }
+
+    class PointerEvent {
+        i32 type;
+        i32 x;
+        i32 y;
+    }
+
+    namespace Key {
+        const i32 Escape = 27;
+        const i32 Enter = 13;
+        const i32 Backspace = 8;
+        const i32 Tab = 9;
+        const i32 Space = 32;
+    }
+
+    namespace Pointer {
+        const i32 Down = 1;
+        const i32 Up = 2;
+        const i32 Move = 3;
+    }
+
     class Window {
         i32 x;
         i32 y;
@@ -19,6 +47,8 @@ namespace ui {
         i32 h;
         string title;
         i32 visible;
+        i32 key_cb;
+        i32 pointer_cb;
 
         void show() {
             visible = 1;
@@ -28,6 +58,38 @@ namespace ui {
 
         void close() {
             visible = 0;
+        }
+
+        void onKey(i32 cb) {
+            key_cb = cb;
+        }
+
+        void onPointer(i32 cb) {
+            pointer_cb = cb;
+        }
+
+        void triggerKey(i32 pressed, i32 key) {
+            if (key_cb != 0) {
+                KeyEvent* e = new KeyEvent();
+                e->pressed = pressed;
+                e->key = key;
+                e->modifiers = 0;
+                i32 cb = key_cb;
+                cb(e);
+                delete e;
+            }
+        }
+
+        void triggerPointer(i32 type, i32 px, i32 py) {
+            if (pointer_cb != 0) {
+                PointerEvent* p = new PointerEvent();
+                p->type = type;
+                p->x = px;
+                p->y = py;
+                i32 cb = pointer_cb;
+                cb(p);
+                delete p;
+            }
         }
 
         i32 getX() const { return x; }
@@ -519,5 +581,16 @@ namespace ui {
         fill_rect(402, 22, 476, 36, 0x2169);
         draw_text(420, 32, msg, 0xffff, 0x2169);
         display_sync();
+    }
+
+    graphics.Canvas* Canvas(Window* win) {
+        graphics.Canvas* c = new graphics.Canvas();
+        c->parent = win;
+        c->x = win->getX() + 20;
+        c->y = win->getY() + 45;
+        c->w = win->getW() - 40;
+        c->h = win->getH() - 60;
+        c->draw_cb = 0;
+        return c;
     }
 }

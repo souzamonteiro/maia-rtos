@@ -43,3 +43,4 @@ namespace fs {
         return host_fs_exists(path);
     }
 }
+

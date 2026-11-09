@@ -38,7 +38,8 @@ int main() {
         {"21_result_try_operator", 42},
         {"22_gui_app", 42},
         {"23_gui_layout_widgets", 42},
-        {"24_text_editor_fs", 42}
+        {"24_text_editor_fs", 42},
+        {"25_events_canvas", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -126,6 +127,7 @@ int main() {
         emu.registerHostFunction("draw_button", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("draw_rect", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("fill_rect", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        emu.registerHostFunction("draw_line", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("display_sync", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("touch_poll", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         emu.registerHostFunction("touch_x", [](maiascript::EmulatorRV32&) -> int32_t { return 0; });

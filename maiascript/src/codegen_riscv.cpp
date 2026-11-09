@@ -6,6 +6,18 @@
 
 namespace maiascript {
 
+static std::string getQualifiedNameFromMember(const std::shared_ptr<MemberExpr>& mem) {
+    if (!mem) return "";
+    std::string base;
+    if (auto v = ast_cast<VarExpr>(mem->target)) {
+        base = v->name;
+    } else if (auto m = ast_cast<MemberExpr>(mem->target)) {
+        base = getQualifiedNameFromMember(m);
+    }
+    if (base.empty()) return "";
+    return base + "_" + mem->member;
+}
+
 CodegenRISCV::CodegenRISCV(const CodegenOptions& opts)
     : options(opts), labelCounter(0), currentFrameSize(0) {}
 
@@ -892,6 +904,17 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             out << "    addi " << targetReg << ", zero, 0\n";
         }
     } else if (auto mem = ast_cast<MemberExpr>(expr)) {
+        std::string qname = getQualifiedNameFromMember(mem);
+        if (!qname.empty() && globalVars.count(qname)) {
+            bool isFloatVar = globalVars[qname]->type.isFloat();
+            out << "    la t1, " << qname << "\n";
+            if (isFloatVar && targetReg[0] == 'f') {
+                out << "    flw " << targetReg << ", 0(t1)\n";
+            } else {
+                out << "    lw " << targetReg << ", 0(t1)\n";
+            }
+            return;
+        }
         if (mem->isArrow) {
             emitExpr(mem->target, "t0", out, varOffsets, depth);
             int mOffset = 0;
