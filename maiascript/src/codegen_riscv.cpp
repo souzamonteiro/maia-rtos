@@ -872,9 +872,25 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         } else if (functionReturnTypes.count(v->name)) {
             out << "    la " << targetReg << ", " << v->name << "\n";
             return;
-        } else if (globalVars.count(v->name)) {
-            bool isFloatVar = globalVars[v->name]->type.isFloat();
-            out << "    la t1, " << v->name << "\n";
+        } else if ([&]() -> bool {
+            std::string cand = v->name;
+            if (globalVars.count(cand)) return true;
+            if (!currentFunc.empty()) {
+                size_t us = currentFunc.rfind('_');
+                if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + v->name)) return true;
+            }
+            return false;
+        }()) {
+            std::string gName = v->name;
+            if (!globalVars.count(gName) && !currentFunc.empty()) {
+                size_t us = currentFunc.rfind('_');
+                if (us != std::string::npos) {
+                    std::string cand = currentFunc.substr(0, us + 1) + v->name;
+                    if (globalVars.count(cand)) gName = cand;
+                }
+            }
+            bool isFloatVar = globalVars[gName]->type.isFloat();
+            out << "    la t1, " << gName << "\n";
             if (isFloatVar && targetReg[0] == 'f') {
                 out << "    flw " << targetReg << ", 0(t1)\n";
             } else {
@@ -1317,8 +1333,16 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 }
             }
 
-            if (globalVars.count(v->name)) {
-                bool isFloatVar = globalVars[v->name]->type.isFloat();
+            std::string gName = v->name;
+            if (!globalVars.count(gName) && !currentFunc.empty()) {
+                size_t us = currentFunc.rfind('_');
+                if (us != std::string::npos) {
+                    std::string cand = currentFunc.substr(0, us + 1) + v->name;
+                    if (globalVars.count(cand)) gName = cand;
+                }
+            }
+            if (globalVars.count(gName)) {
+                bool isFloatVar = globalVars[gName]->type.isFloat();
                 if (isFloatVar) {
                     if (isFloatExpr(asgn->value)) {
                         emitExpr(asgn->value, "ft0", out, varOffsets, depth);
@@ -1326,7 +1350,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                         emitExpr(asgn->value, "t0", out, varOffsets, depth);
                         out << "    fcvt.s.w ft0, t0\n";
                     }
-                    out << "    la t1, " << v->name << "\n";
+                    out << "    la t1, " << gName << "\n";
                     out << "    fsw ft0, 0(t1)\n";
                     if (targetReg != "ft0" && targetReg[0] == 'f') {
                         out << "    fsgnj.s " << targetReg << ", ft0, ft0\n";
@@ -1334,7 +1358,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                     return;
                 }
                 emitExpr(asgn->value, "t0", out, varOffsets, depth);
-                out << "    la t1, " << v->name << "\n";
+                out << "    la t1, " << gName << "\n";
                 if (asgn->op == "+=") {
                     out << "    lw t2, 0(t1)\n";
                     out << "    add t0, t2, t0\n";
