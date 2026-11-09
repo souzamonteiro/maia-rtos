@@ -454,7 +454,7 @@ int maia_module_main(const maia_module_context_t *ctx) {
                                     gui_sync();
                                 } else if (g_fm_entries[i].is_exec) {
                                     char cmd[180];
-                                    str_copy(cmd, "runelf ", sizeof(cmd));
+                                    str_copy(cmd, "run ", sizeof(cmd));
                                     int cl = str_len(cmd);
                                     str_copy(cmd + cl, full_p, sizeof(cmd) - cl);
                                     if (ctx->host->shell_exec) ctx->host->shell_exec(cmd, NULL, NULL);

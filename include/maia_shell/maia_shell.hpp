@@ -1215,6 +1215,7 @@ public:
         else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
         else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
         else if (strcmp(cmd, "runelf") == 0 || strcmp(cmd, "exec") == 0) ret = cmd_runelf(argc, argv);
+        else if (strcmp(cmd, "run") == 0)     ret = cmd_run(argc, argv);
         else if (strcmp(cmd, "maiasc") == 0) ret = cmd_maiasc(argc, argv);
         else if (strcmp(cmd, "maiaasm") == 0 || strcmp(cmd, "asm") == 0) ret = cmd_maiaasm(argc, argv);
         else if (strcmp(cmd, "disasm") == 0 || strcmp(cmd, "objdump") == 0) ret = cmd_disasm(argc, argv);
@@ -1282,15 +1283,30 @@ public:
                 }
             }
             if (found) {
-                char *elf_argv[MSH_MAX_ARGS + 2];
-                char run_name[] = "runelf";
-                elf_argv[0] = run_name;
-                elf_argv[1] = test_path;
-                for (int i = 1; i < argc && i + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0])); ++i) {
-                    elf_argv[i + 1] = argv[i];
+                size_t clen = strlen(test_path);
+                if (clen > 3 && strcmp(test_path + clen - 3, ".ms") == 0) {
+                    char *sc_argv[MSH_MAX_ARGS + 4];
+                    char sc_name[] = "maiasc";
+                    char run_flag[] = "--run";
+                    sc_argv[0] = sc_name;
+                    sc_argv[1] = test_path;
+                    sc_argv[2] = run_flag;
+                    for (int i = 1; i < argc && i + 2 < (int)(sizeof(sc_argv)/sizeof(sc_argv[0])); ++i) {
+                        sc_argv[i + 2] = argv[i];
+                    }
+                    int sc_argc = (argc + 2 < (int)(sizeof(sc_argv)/sizeof(sc_argv[0]))) ? (argc + 2) : (int)(sizeof(sc_argv)/sizeof(sc_argv[0]));
+                    ret = cmd_maiasc(sc_argc, sc_argv);
+                } else {
+                    char *elf_argv[MSH_MAX_ARGS + 2];
+                    char run_name[] = "runelf";
+                    elf_argv[0] = run_name;
+                    elf_argv[1] = test_path;
+                    for (int i = 1; i < argc && i + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0])); ++i) {
+                        elf_argv[i + 1] = argv[i];
+                    }
+                    int elf_argc = (argc + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0]))) ? (argc + 1) : (int)(sizeof(elf_argv)/sizeof(elf_argv[0]));
+                    ret = cmd_runelf(elf_argc, elf_argv);
                 }
-                int elf_argc = (argc + 1 < (int)(sizeof(elf_argv)/sizeof(elf_argv[0]))) ? (argc + 1) : (int)(sizeof(elf_argv)/sizeof(elf_argv[0]));
-                ret = cmd_runelf(elf_argc, elf_argv);
             } else {
                 print("msh: command not found: ");
                 println(cmd);
@@ -1905,6 +1921,7 @@ private:
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
+        println("  run <file.ms|mobj>   - Execute MaiaScript script or native ELF binary");
         println("  maiasc <f.ms> [-o out.mobj] [--run] - Compile MaiaScript to native RISC-V ELF");
         println("  maiaasm <f.s> [-o out.mobj]         - Assemble RISC-V assembly into ELF module");
         println("  disasm <f.mobj|0xADDR> [N] - Disassemble machine instructions from file or memory");
@@ -2246,6 +2263,36 @@ private:
         return 0;
     }
 
+    int cmd_run(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: run <program.ms | program.mobj> [args...]");
+            return 1;
+        }
+        const char *target = argv[1];
+        size_t len = strlen(target);
+        if (len > 3 && strcmp(target + len - 3, ".ms") == 0) {
+            char *sc_argv[MSH_MAX_ARGS + 4];
+            char sc_name[] = "maiasc";
+            char run_flag[] = "--run";
+            sc_argv[0] = sc_name;
+            sc_argv[1] = (char *)target;
+            sc_argv[2] = run_flag;
+            for (int i = 2; i < argc && i + 1 < (int)(sizeof(sc_argv)/sizeof(sc_argv[0])); ++i) {
+                sc_argv[i + 1] = argv[i];
+            }
+            int sc_argc = (argc + 1 < (int)(sizeof(sc_argv)/sizeof(sc_argv[0]))) ? (argc + 1) : (int)(sizeof(sc_argv)/sizeof(sc_argv[0]));
+            return cmd_maiasc(sc_argc, sc_argv);
+        } else {
+            char *elf_argv[MSH_MAX_ARGS + 2];
+            char run_name[] = "runelf";
+            elf_argv[0] = run_name;
+            for (int i = 1; i < argc && i < (int)(sizeof(elf_argv)/sizeof(elf_argv[0])); ++i) {
+                elf_argv[i] = argv[i];
+            }
+            return cmd_runelf(argc, elf_argv);
+        }
+    }
+
     int cmd_runelf(int argc, char **argv) {
         const void *elf_bytes = nullptr;
         size_t elf_len = 0;
@@ -2525,7 +2572,8 @@ private:
                 }
 
                 int nlen = strlen(e.name);
-                if (!e.is_dir && nlen > 5 && strcmp(e.name + nlen - 5, ".mobj") == 0) {
+                if (!e.is_dir && ((nlen > 5 && strcmp(e.name + nlen - 5, ".mobj") == 0) ||
+                                  (nlen > 3 && strcmp(e.name + nlen - 3, ".ms") == 0))) {
                     e.is_exec = 1;
                 } else {
                     e.is_exec = 0;
