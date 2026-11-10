@@ -1,0 +1,9 @@
+{
+  "name": "scicalc",
+  "title": "SciCalc",
+  "icon": "fx",
+  "color": "0x35ff",
+  "hotkey": "g",
+  "exec": "/sd/apps/scicalc.mobj",
+  "desc": "Scientific Calculator with Trig, Log & Exp functions"
+}

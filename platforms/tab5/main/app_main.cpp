@@ -48,6 +48,8 @@
 #include "maia/exec/files_mobj.h"
 #include "maia/exec/term_mobj.h"
 #include "maia/exec/notes_mobj.h"
+#include "maia/exec/scicalc_mobj.h"
+#include "maia/exec/alarm_mobj.h"
 #include "t_gui_mobj.h"
 #include "t_bench_mobj.h"
 #include "t_class_mobj.h"
@@ -819,7 +821,7 @@ struct HostButtonDesc {
     uintptr_t callback;
 };
 
-#define MAX_HOST_BUTTONS 16
+#define MAX_HOST_BUTTONS 32
 static HostButtonDesc s_host_buttons[MAX_HOST_BUTTONS];
 static int s_host_button_count = 0;
 
@@ -3248,6 +3250,7 @@ extern "C" void app_main(void)
     mnm_register_symbol("print", (uintptr_t)+[](const char* s) {
         if (s) printf("%s", s);
     });
+    mnm_register_symbol("powf", (uintptr_t)powf);
     mnm_register_symbol("millis", (uintptr_t)+[]() -> int32_t {
         return (int32_t)(esp_timer_get_time() / 1000);
     });
@@ -3263,21 +3266,35 @@ extern "C" void app_main(void)
 
     static int32_t s_app_exit_code = 0;
     static int32_t s_app_running = 1;
+    static uintptr_t s_host_key_handler = 0;
+    static uintptr_t s_host_tick_handler = 0;
+    mnm_register_symbol("host_bind_key", (uintptr_t)+[](uintptr_t cb) {
+        s_host_key_handler = cb;
+    });
+    mnm_register_symbol("host_bind_tick", (uintptr_t)+[](uintptr_t cb) {
+        s_host_tick_handler = cb;
+    });
     mnm_register_symbol("host_app_quit", (uintptr_t)+[](int32_t code) {
         s_app_running = 0;
         s_app_exit_code = code;
     });
     mnm_register_symbol("host_app_run", (uintptr_t)+[]() -> int32_t {
         s_app_running = 1;
-        bool was_touched = false;
+        ESP_LOGI(TAG, "MaiaScript app: %d registered controls", s_host_button_count);
+        bool was_touched = true;
+        int64_t last_tick_us = esp_timer_get_time();
 
         while (s_app_running) {
             // 1. Keyboard polling
             int32_t k = host_read_key();
             while (k >= 0) {
-                if (k == 27 || k == 'q' || k == 'Q') {
+                if (k == 27 || (!s_host_key_handler && (k == 'q' || k == 'Q'))) {
                     s_app_running = 0;
                     break;
+                }
+                if (s_host_key_handler) {
+                    ((void (*)(int32_t))s_host_key_handler)(k);
+                    fflush(stdout);
                 }
                 k = host_read_key();
             }
@@ -3285,7 +3302,7 @@ extern "C" void app_main(void)
 
             // 2. Touch polling
             int32_t tx = 0, ty = 0, pressed = 0;
-            if (host_get_touch(&tx, &ty, &pressed)) {
+            if (host_get_touch(&tx, &ty, &pressed) >= 0) {
                 if (pressed && !was_touched) {
                     was_touched = true;
 
@@ -3324,10 +3341,18 @@ extern "C" void app_main(void)
                 }
             }
 
+            int64_t now_us = esp_timer_get_time();
+            if (s_app_running && s_host_tick_handler && now_us - last_tick_us >= 500000) {
+                last_tick_us = now_us;
+                ((void (*)(void))s_host_tick_handler)();
+                fflush(stdout);
+            }
             vTaskDelay(pdMS_TO_TICKS(20));
         }
 
         s_host_button_count = 0;
+        s_host_key_handler = 0;
+        s_host_tick_handler = 0;
         return s_app_exit_code;
     });
 
@@ -3457,6 +3482,10 @@ extern "C" void app_main(void)
             { "/sd/t_mod.mobj",        _tmp_t_mod_mobj, _tmp_t_mod_mobj_len },
             { "/sd/notes.mobj",        notes_mobj, notes_mobj_len },
             { "/sd/apps/notes.mobj",   notes_mobj, notes_mobj_len },
+            { "/sd/scicalc.mobj", scicalc_mobj, scicalc_mobj_len },
+            { "/sd/apps/scicalc.mobj", scicalc_mobj, scicalc_mobj_len },
+            { "/sd/alarm.mobj", alarm_mobj, alarm_mobj_len },
+            { "/sd/apps/alarm.mobj", alarm_mobj, alarm_mobj_len },
         };
 
         for (size_t i = 0; i < sizeof(apps_to_sync)/sizeof(apps_to_sync[0]); ++i) {
@@ -3474,6 +3503,8 @@ extern "C" void app_main(void)
         };
 
         const ManifestSyncItem manifests_to_sync[] = {
+            { "/sd/apps/scicalc.mnm.json", "{\"name\":\"scicalc\",\"title\":\"SciCalc\",\"icon\":\"fx\",\"color\":\"0x35ff\",\"hotkey\":\"g\",\"exec\":\"/sd/apps/scicalc.mobj\",\"desc\":\"Scientific Calculator with Trig, Log & Exp functions\"}" },
+            { "/sd/apps/alarm.mnm.json", "{\"name\":\"alarm\",\"title\":\"Alarm\",\"icon\":\"alarm\",\"color\":\"0xfd20\",\"hotkey\":\"l\",\"exec\":\"/sd/apps/alarm.mobj\",\"desc\":\"Maia Alarm Clock with ES8388 Audio Chimes\"}" },
             { "/sd/apps/files.mnm.json",   "{\"name\":\"files\",\"title\":\"Files\",\"icon\":\"files\",\"color\":\"0xfe00\",\"hotkey\":\"f\",\"exec\":\"/sd/apps/files.mobj\"}" },
             { "/sd/apps/editor.mnm.json",  "{\"name\":\"editor\",\"title\":\"Editor\",\"icon\":\"editor\",\"color\":\"0x07ff\",\"hotkey\":\"e\",\"exec\":\"/sd/apps/editor.mobj\"}" },
             { "/sd/apps/term.mnm.json",    "{\"name\":\"term\",\"title\":\"Terminal\",\"icon\":\"term\",\"color\":\"0x07e0\",\"hotkey\":\"t\",\"exec\":\"/sd/apps/term.mobj\"}" },

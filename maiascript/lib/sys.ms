@@ -6,6 +6,10 @@ extern i32* malloc(i32 size);
 extern void free(i32* ptr);
 
 namespace sys {
+    i32 uptimeSeconds() {
+        return millis() / 1000;
+    }
+
     void print(string s) {
         printf("%s", s);
     }

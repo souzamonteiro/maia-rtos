@@ -35,14 +35,14 @@ src/%.o: src/%.cpp
 ../assembler/src/%.o: ../assembler/src/%.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-bin/maiasc: src/main_maiasc.cpp $(COMMON_OBJS)
+bin/maiasc: src/main_maiasc.cpp include/emulator_rv32.hpp $(COMMON_OBJS)
 	@mkdir -p bin
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(COMMON_OBJS) -o $@
 	@cp $@ maiasc
 
-bin/test_compiler: tests/test_compiler.cpp $(COMMON_OBJS)
+bin/test_compiler: tests/test_compiler.cpp include/emulator_rv32.hpp $(COMMON_OBJS)
 	@mkdir -p bin
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(COMMON_OBJS) -o $@
 
 test: bin/test_compiler
 	@./bin/test_compiler

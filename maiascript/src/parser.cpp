@@ -513,8 +513,25 @@ static std::shared_ptr<Expr> convertExpr(const std::shared_ptr<CSTNode>& node) {
     return nullptr;
 }
 
+static std::shared_ptr<Stmt> convertIfStmt(const std::shared_ptr<CSTNode>& ch) {
+    if (!ch) return nullptr;
+    auto condNode = ch->findFirst("Expression");
+    auto cond = convertExpr(condNode);
+    auto blocks = ch->findAll("Block");
+    auto thenBranch = blocks.size() > 0 ? convertBlock(blocks[0]) : nullptr;
+    std::shared_ptr<Stmt> elseBranch = nullptr;
+    if (blocks.size() > 1) {
+        elseBranch = convertBlock(blocks[1]);
+    } else {
+        auto elseIf = ch->findFirst("IfStmt");
+        if (elseIf) elseBranch = convertIfStmt(elseIf);
+    }
+    return std::make_shared<IfStmt>(cond, thenBranch, elseBranch);
+}
+
 static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node) {
     if (!node) return nullptr;
+    if (node->name == "IfStmt") return convertIfStmt(node);
     // Statement ::= Block | LocalDecl | IfStmt | WhileStmt | ForStmt | ReturnStmt | ExpressionStmt | ...
     for (const auto& ch : node->children) {
         if (ch->name == "Block") {
@@ -535,18 +552,7 @@ static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node) {
             return std::make_shared<VarDeclStmt>(t, varName, init);
         }
         if (ch->name == "IfStmt") {
-            auto condNode = ch->findFirst("Expression");
-            auto cond = convertExpr(condNode);
-            auto blocks = ch->findAll("Block");
-            auto thenBranch = blocks.size() > 0 ? convertBlock(blocks[0]) : nullptr;
-            std::shared_ptr<Stmt> elseBranch = nullptr;
-            if (blocks.size() > 1) {
-                elseBranch = convertBlock(blocks[1]);
-            } else {
-                auto elseIf = ch->findFirst("IfStmt");
-                if (elseIf) elseBranch = convertStmt(elseIf);
-            }
-            return std::make_shared<IfStmt>(cond, thenBranch, elseBranch);
+            return convertIfStmt(ch);
         }
         if (ch->name == "WhileStmt") {
             auto condNode = ch->findFirst("Expression");

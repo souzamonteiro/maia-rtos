@@ -13,6 +13,7 @@ extern i32 touch_x();
 extern i32 touch_y();
 extern void delay_ms(i32 ms);
 extern void host_bind_button(i32 x, i32 y, i32 cb);
+extern void host_bind_key(i32 cb);
 
 namespace ui {
     class KeyEvent {
@@ -160,6 +161,9 @@ namespace ui {
         i32 padding;
         i32 gap;
         i32 next_x;
+        i32 item_w;
+
+        void setItemWidth(i32 width) { item_w = width; }
 
         void setPadding(i32 p) {
             padding = p;
@@ -191,6 +195,7 @@ namespace ui {
         row->padding = 0;
         row->gap = 16;
         row->next_x = 0;
+        row->item_w = 100;
         return row;
     }
 
@@ -295,9 +300,9 @@ namespace ui {
         Button* btn = new Button();
         btn->parent = row;
         btn->label = label;
-        btn->rel_x = row->allocWidth(100);
+        btn->rel_x = row->allocWidth(row->item_w);
         btn->rel_y = 4;
-        btn->w = 100;
+        btn->w = row->item_w;
         btn->h = 32;
         btn->callback_ptr = 0;
         btn->render(0);

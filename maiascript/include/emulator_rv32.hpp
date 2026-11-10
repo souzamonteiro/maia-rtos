@@ -312,6 +312,13 @@ public:
                         f_res = f1 / f2;
                         std::memcpy(&fregs[rd], &f_res, 4);
                         break;
+                    case 0x10: { // fsgnj.s, fsgnjn.s, fsgnjx.s (float register moves/sign)
+                        uint32_t b1 = fregs[rs1], b2 = fregs[rs2];
+                        if (funct3 == 0) fregs[rd] = (b1 & 0x7fffffffU) | (b2 & 0x80000000U);
+                        else if (funct3 == 1) fregs[rd] = (b1 & 0x7fffffffU) | (~b2 & 0x80000000U);
+                        else if (funct3 == 2) fregs[rd] = (b1 & 0x7fffffffU) | ((b1 ^ b2) & 0x80000000U);
+                        break;
+                    }
                     case 0x60: // fcvt.w.s
                         if (rd != 0) regs[rd] = (int32_t)f1;
                         break;

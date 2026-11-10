@@ -19,10 +19,11 @@ def main():
                 rel_path = os.path.relpath(full_path, lib_dir)
                 files_to_bundle.append((rel_path, full_path))
 
-    # Also include apps/notes/main.ms as notes.ms!
-    notes_app = os.path.join(repo_root, "maiascript", "apps", "notes", "main.ms")
-    if os.path.exists(notes_app):
-        files_to_bundle.append(("../notes.ms", notes_app))
+    # Include installable application sources at /sd/<name>.ms.
+    for name in ("notes", "scicalc", "alarm"):
+        app_source = os.path.join(repo_root, "maiascript", "apps", name, "main.ms")
+        if os.path.exists(app_source):
+            files_to_bundle.append(("../" + name + ".ms", app_source))
 
     files_to_bundle.sort(key=lambda x: x[0])
 

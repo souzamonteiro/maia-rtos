@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <cassert>
+#include <cmath>
 
 #include "ast.hpp"
 #include "parser.hpp"
@@ -44,7 +45,9 @@ int main() {
         {"27_wifi_net", 42},
         {"28_storage_usb", 42},
         {"29_audio_sound", 42},
-        {"30_hardware_i2c", 42}
+        {"30_hardware_i2c", 42},
+        {"31_scientific_math", 42},
+        {"32_scicalc_input", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -69,6 +72,18 @@ int main() {
         if (!prog) {
             std::cout << "FAIL (Parse error: " << parseErr << ")\n";
             continue;
+        }
+
+        if (name == "32_scicalc_input") {
+            // Exercise the real application's handlers without launching its GUI.
+            auto app = maiascript::Parser::parseFile(basePath + "../../apps/scicalc/main.ms", parseErr);
+            if (!app) { std::cout << "FAIL (App parse: " << parseErr << ")\n"; continue; }
+            for (auto& declaration : app->decls) {
+                auto function = maiascript::ast_cast<maiascript::FunctionDecl>(declaration);
+                if (function && function->name == "main") function->name = "scicalc_ui_main";
+            }
+            prog->decls.insert(prog->decls.begin(), app->decls.begin(), app->decls.end());
+            prog->namespaces.insert(app->namespaces.begin(), app->namespaces.end());
         }
 
         // 2. Generate RISC-V assembly
@@ -117,12 +132,21 @@ int main() {
             return (int32_t)e.getCycleCount();
         });
         static uint32_t s_test_heap = 0x4000;
+        if (name == "32_scicalc_input") s_test_heap = 0xc000; // above this app's larger code image
         emu.registerHostFunction("malloc", [](maiascript::EmulatorRV32& e) -> int32_t {
             uint32_t sz = e.regs[10];
             sz = (sz + 7) & ~7;
             uint32_t a = s_test_heap;
             s_test_heap += sz;
             return (int32_t)a;
+        });
+        emu.registerHostFunction("powf", [](maiascript::EmulatorRV32& e) -> int32_t {
+            float base, exponent;
+            std::memcpy(&base, &e.fregs[10], 4);
+            std::memcpy(&exponent, &e.fregs[11], 4);
+            float result = std::pow(base, exponent);
+            std::memcpy(&e.fregs[10], &result, 4);
+            return 0;
         });
         emu.registerHostFunction("free", [](maiascript::EmulatorRV32&) -> int32_t {
             return 0;
@@ -196,6 +220,25 @@ int main() {
             }
             return -1;
         });
+        for (const char* symbol : {"print", "println", "print_int", "play_beep"}) {
+            emu.registerHostFunction(symbol, [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
+        }
+        if (name == "32_scicalc_input") {
+            emu.registerHostFunction("print", [](maiascript::EmulatorRV32& e) -> int32_t {
+                uint32_t address = e.regs[10];
+                for (unsigned i = 0; i < 200 && address + i < e.memory.size() && e.memory[address+i]; ++i)
+                    std::cout << (char)e.memory[address+i];
+                return 0;
+            });
+            emu.registerHostFunction("println", [](maiascript::EmulatorRV32& e) -> int32_t {
+                uint32_t address = e.regs[10];
+                for (unsigned i = 0; i < 200 && address + i < e.memory.size() && e.memory[address+i]; ++i)
+                    std::cout << (char)e.memory[address+i];
+                std::cout << "\n";
+                return 0;
+            });
+        }
+
         emu.registerHostFunction("printf", [](maiascript::EmulatorRV32& e) -> int32_t {
             uint32_t fmt_ptr = e.regs[10];
             int argIdx = 11;
@@ -230,6 +273,13 @@ int main() {
             actualA0 = emu.run(mainOffset, 200000);
         } catch (const std::exception& ex) {
             std::cout << "FAIL (Emulator runtime exception: " << ex.what() << ")\n";
+            if (name == "32_scicalc_input") {
+                std::cout << "PC=" << emu.pc << " SP=" << emu.regs[2] << " image=" << machineCode.size() << "\n";
+                for (const auto& symbol : assembler.get_symbols()) {
+                    if (symbol.second.offset <= emu.pc && emu.pc - symbol.second.offset < 100)
+                        std::cout << "near " << symbol.first << "+" << emu.pc-symbol.second.offset << "\n";
+                }
+            }
             continue;
         }
 

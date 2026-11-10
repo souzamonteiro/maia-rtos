@@ -102,18 +102,43 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
                 }
             }
         }
+        std::string gName = v->name;
+        if (!globalVars.count(gName) && !currentFunc.empty()) {
+            size_t us = currentFunc.rfind('_');
+            if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + v->name)) {
+                gName = currentFunc.substr(0, us + 1) + v->name;
+            } else {
+                size_t fs = currentFunc.find('_');
+                if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + v->name)) {
+                    gName = currentFunc.substr(0, fs + 1) + v->name;
+                }
+            }
+        }
+        if (globalVars.count(gName)) {
+            return globalVars[gName]->type.isFloat();
+        }
     }
     if (auto mem = ast_cast<MemberExpr>(expr)) {
+        std::string qname = getQualifiedNameFromMember(mem);
+        if (!qname.empty() && globalVars.count(qname)) {
+            return globalVars[qname]->type.isFloat();
+        }
         if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
             std::string tName;
             if (targetVar->name == "this") {
                 tName = currentClass;
             } else {
                 auto vtIt = currentVarTypes.find(targetVar->name);
-                if (vtIt != currentVarTypes.end()) tName = vtIt->second.name;
+                if (vtIt != currentVarTypes.end()) {
+                    tName = vtIt->second.name;
+                } else if (!currentClass.empty() && structs.count(currentClass) && structs[currentClass].fields.count(targetVar->name)) {
+                    tName = structs[currentClass].fields[targetVar->name].type.name;
+                } else if (globalVars.count(targetVar->name)) {
+                    tName = globalVars[targetVar->name]->type.name;
+                }
             }
             if (!tName.empty()) {
-                auto sit = structs.find(tName);
+                auto sit = structs.find(resolveClassName(tName));
                 if (sit != structs.end()) {
                     auto fit = sit->second.fields.find(mem->member);
                     if (fit != sit->second.fields.end()) {
@@ -124,7 +149,7 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         }
     }
     if (auto bin = ast_cast<BinaryExpr>(expr)) {
-        if (bin->op == "<" || bin->op == ">" || bin->op == "<=" || bin->op == ">=" || bin->op == "==" || bin->op == "!=") {
+        if (bin->op == "<" || bin->op == ">" || bin->op == "<=" || bin->op == ">=" || bin->op == "==" || bin->op == "!=" || bin->op == "&&" || bin->op == "||") {
             return false;
         }
         return isFloatExpr(bin->left) || isFloatExpr(bin->right);
@@ -136,6 +161,20 @@ bool CodegenRISCV::isFloatExpr(const std::shared_ptr<Expr>& expr) {
         auto fit = functionReturnTypes.find(call->callee);
         if (fit != functionReturnTypes.end()) {
             return fit->second.isFloat();
+        }
+        if (!currentFunc.empty()) {
+            size_t us = currentFunc.rfind('_');
+            if (us != std::string::npos) {
+                std::string cand = currentFunc.substr(0, us + 1) + call->callee;
+                auto cit = functionReturnTypes.find(cand);
+                if (cit != functionReturnTypes.end()) return cit->second.isFloat();
+            }
+            size_t fs = currentFunc.find('_');
+            if (fs != std::string::npos) {
+                std::string cand = currentFunc.substr(0, fs + 1) + call->callee;
+                auto cit = functionReturnTypes.find(cand);
+                if (cit != functionReturnTypes.end()) return cit->second.isFloat();
+            }
         }
     }
     if (auto mcall = ast_cast<MethodCallExpr>(expr)) {
@@ -869,8 +908,29 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             } else {
                 out << "    lw " << targetReg << ", " << it->second << "(sp)\n";
             }
-        } else if (functionReturnTypes.count(v->name)) {
-            out << "    la " << targetReg << ", " << v->name << "\n";
+        } else if ([&]() -> bool {
+            if (functionReturnTypes.count(v->name)) return true;
+            if (!currentFunc.empty()) {
+                size_t us = currentFunc.rfind('_');
+                if (us != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, us + 1) + v->name)) return true;
+                size_t fs = currentFunc.find('_');
+                if (fs != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, fs + 1) + v->name)) return true;
+            }
+            return false;
+        }()) {
+            std::string fName = v->name;
+            if (!functionReturnTypes.count(fName) && !currentFunc.empty()) {
+                size_t us = currentFunc.rfind('_');
+                if (us != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, us + 1) + v->name)) {
+                    fName = currentFunc.substr(0, us + 1) + v->name;
+                } else {
+                    size_t fs = currentFunc.find('_');
+                    if (fs != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, fs + 1) + v->name)) {
+                        fName = currentFunc.substr(0, fs + 1) + v->name;
+                    }
+                }
+            }
+            out << "    la " << targetReg << ", " << fName << "\n";
             return;
         } else if ([&]() -> bool {
             std::string cand = v->name;
@@ -878,15 +938,21 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             if (!currentFunc.empty()) {
                 size_t us = currentFunc.rfind('_');
                 if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + v->name)) return true;
+                size_t fs = currentFunc.find('_');
+                if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + v->name)) return true;
             }
             return false;
         }()) {
             std::string gName = v->name;
             if (!globalVars.count(gName) && !currentFunc.empty()) {
                 size_t us = currentFunc.rfind('_');
-                if (us != std::string::npos) {
-                    std::string cand = currentFunc.substr(0, us + 1) + v->name;
-                    if (globalVars.count(cand)) gName = cand;
+                if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + v->name)) {
+                    gName = currentFunc.substr(0, us + 1) + v->name;
+                } else {
+                    size_t fs = currentFunc.find('_');
+                    if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + v->name)) {
+                        gName = currentFunc.substr(0, fs + 1) + v->name;
+                    }
                 }
             }
             bool isFloatVar = globalVars[gName]->type.isFloat();
@@ -946,18 +1012,31 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                         }
                     }
                 } else {
+                    std::string resolvedTargetClass;
                     auto vtIt = currentVarTypes.find(targetVar->name);
                     if (vtIt != currentVarTypes.end()) {
-                        auto sit = structs.find(resolveClassName(vtIt->second.name));
-                        if (sit != structs.end()) {
-                            auto fit = sit->second.fields.find(mem->member);
-                            if (fit != sit->second.fields.end()) {
-                                mOffset = fit->second.offset;
-                                isFieldFloat = fit->second.type.isFloat();
+                        resolvedTargetClass = resolveClassName(vtIt->second.name);
+                    } else if (!currentClass.empty() && structs.count(currentClass) && structs[currentClass].fields.count(targetVar->name)) {
+                        resolvedTargetClass = resolveClassName(structs[currentClass].fields[targetVar->name].type.name);
+                    } else {
+                        std::string gName = targetVar->name;
+                        if (!globalVars.count(gName) && !currentFunc.empty()) {
+                            size_t us = currentFunc.rfind('_');
+                            if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + targetVar->name)) {
+                                gName = currentFunc.substr(0, us + 1) + targetVar->name;
+                            } else {
+                                size_t fs = currentFunc.find('_');
+                                if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + targetVar->name)) {
+                                    gName = currentFunc.substr(0, fs + 1) + targetVar->name;
+                                }
                             }
                         }
-                    } else if (globalVars.count(targetVar->name)) {
-                        auto sit = structs.find(resolveClassName(globalVars[targetVar->name]->type.name));
+                        if (globalVars.count(gName)) {
+                            resolvedTargetClass = resolveClassName(globalVars[gName]->type.name);
+                        }
+                    }
+                    if (!resolvedTargetClass.empty()) {
+                        auto sit = structs.find(resolvedTargetClass);
                         if (sit != structs.end()) {
                             auto fit = sit->second.fields.find(mem->member);
                             if (fit != sit->second.fields.end()) {
@@ -1040,9 +1119,41 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 } else {
                     emitExpr(idx->target, "t0", out, varOffsets, depth);
                 }
+            } else if (!currentClass.empty()) {
+                auto sit = structs.find(currentClass);
+                if (sit != structs.end()) {
+                    auto fit = sit->second.fields.find(targetVar->name);
+                    if (fit != sit->second.fields.end()) {
+                        esize = getElemSize(fit->second.type);
+                    }
+                }
+                emitExpr(idx->target, "t0", out, varOffsets, depth);
+            } else if (globalVars.count(targetVar->name)) {
+                esize = getElemSize(globalVars[targetVar->name]->type);
+                emitExpr(idx->target, "t0", out, varOffsets, depth);
             } else {
                 emitExpr(idx->target, "t0", out, varOffsets, depth);
             }
+        } else if (auto mem = ast_cast<MemberExpr>(idx->target)) {
+            if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
+                std::string cls;
+                if (targetVar->name == "this") {
+                    cls = currentClass;
+                } else {
+                    auto vtIt = currentVarTypes.find(targetVar->name);
+                    if (vtIt != currentVarTypes.end()) cls = resolveClassName(vtIt->second.name);
+                }
+                if (!cls.empty()) {
+                    auto sit = structs.find(cls);
+                    if (sit != structs.end()) {
+                        auto fit = sit->second.fields.find(mem->member);
+                        if (fit != sit->second.fields.end()) {
+                            esize = getElemSize(fit->second.type);
+                        }
+                    }
+                }
+            }
+            emitExpr(idx->target, "t0", out, varOffsets, depth);
         } else {
             emitExpr(idx->target, "t0", out, varOffsets, depth);
         }
@@ -1273,6 +1384,13 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         } else if (op == "!=") {
             out << "    sub t2, t0, t1\n";
             out << "    snez " << targetReg << ", t2\n";
+        } else if (op == "&&") {
+            out << "    snez t0, t0\n";
+            out << "    snez t1, t1\n";
+            out << "    and " << targetReg << ", t0, t1\n";
+        } else if (op == "||") {
+            out << "    or t2, t0, t1\n";
+            out << "    snez " << targetReg << ", t2\n";
         }
     } else if (auto asgn = ast_cast<AssignExpr>(expr)) {
         if (auto v = ast_cast<VarExpr>(asgn->target)) {
@@ -1336,9 +1454,13 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
             std::string gName = v->name;
             if (!globalVars.count(gName) && !currentFunc.empty()) {
                 size_t us = currentFunc.rfind('_');
-                if (us != std::string::npos) {
-                    std::string cand = currentFunc.substr(0, us + 1) + v->name;
-                    if (globalVars.count(cand)) gName = cand;
+                if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + v->name)) {
+                    gName = currentFunc.substr(0, us + 1) + v->name;
+                } else {
+                    size_t fs = currentFunc.find('_');
+                    if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + v->name)) {
+                        gName = currentFunc.substr(0, fs + 1) + v->name;
+                    }
                 }
             }
             if (globalVars.count(gName)) {
@@ -1437,9 +1559,17 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                             if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
                         }
                     } else {
+                        std::string resolvedTargetClass;
                         auto vtIt = currentVarTypes.find(targetVar->name);
                         if (vtIt != currentVarTypes.end()) {
-                            auto sit = structs.find(resolveClassName(vtIt->second.name));
+                            resolvedTargetClass = resolveClassName(vtIt->second.name);
+                        } else if (!currentClass.empty() && structs.count(currentClass) && structs[currentClass].fields.count(targetVar->name)) {
+                            resolvedTargetClass = resolveClassName(structs[currentClass].fields[targetVar->name].type.name);
+                        } else if (globalVars.count(targetVar->name)) {
+                            resolvedTargetClass = resolveClassName(globalVars[targetVar->name]->type.name);
+                        }
+                        if (!resolvedTargetClass.empty()) {
+                            auto sit = structs.find(resolvedTargetClass);
                             if (sit != structs.end()) {
                                 auto fit = sit->second.fields.find(mem->member);
                                 if (fit != sit->second.fields.end()) mOffset = fit->second.offset;
@@ -1528,9 +1658,41 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                     } else {
                         emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
                     }
+                } else if (!currentClass.empty()) {
+                    auto sit = structs.find(currentClass);
+                    if (sit != structs.end()) {
+                        auto fit = sit->second.fields.find(targetVar->name);
+                        if (fit != sit->second.fields.end()) {
+                            esize = getElemSize(fit->second.type);
+                        }
+                    }
+                    emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
+                } else if (globalVars.count(targetVar->name)) {
+                    esize = getElemSize(globalVars[targetVar->name]->type);
+                    emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
                 } else {
                     emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
                 }
+            } else if (auto mem = ast_cast<MemberExpr>(idx->target)) {
+                if (auto targetVar = ast_cast<VarExpr>(mem->target)) {
+                    std::string cls;
+                    if (targetVar->name == "this") {
+                        cls = currentClass;
+                    } else {
+                        auto vtIt = currentVarTypes.find(targetVar->name);
+                        if (vtIt != currentVarTypes.end()) cls = resolveClassName(vtIt->second.name);
+                    }
+                    if (!cls.empty()) {
+                        auto sit = structs.find(cls);
+                        if (sit != structs.end()) {
+                            auto fit = sit->second.fields.find(mem->member);
+                            if (fit != sit->second.fields.end()) {
+                                esize = getElemSize(fit->second.type);
+                            }
+                        }
+                    }
+                }
+                emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
             } else {
                 emitExpr(idx->target, "t1", out, varOffsets, depth + 1);
             }
@@ -1624,6 +1786,16 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         if (!currentClass.empty() && functionReturnTypes.count(currentClass + "_" + call->callee)) {
             targetCallee = currentClass + "_" + call->callee;
             isMethodOnThis = true;
+        } else if (!currentFunc.empty()) {
+            size_t us = currentFunc.rfind('_');
+            if (us != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, us + 1) + call->callee)) {
+                targetCallee = currentFunc.substr(0, us + 1) + call->callee;
+            } else {
+                size_t fs = currentFunc.find('_');
+                if (fs != std::string::npos && functionReturnTypes.count(currentFunc.substr(0, fs + 1) + call->callee)) {
+                    targetCallee = currentFunc.substr(0, fs + 1) + call->callee;
+                }
+            }
         }
 
         int intArgIdx = isMethodOnThis ? 1 : 0;
@@ -1666,11 +1838,17 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
 
         if (isFloatRet) {
-            if (targetReg != "fa0" && targetReg[0] == 'f') {
-                out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+            if (targetReg[0] == 'f') {
+                if (targetReg != "fa0") {
+                    out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+                }
+            } else {
+                out << "    fcvt.w.s " << targetReg << ", fa0\n";
             }
         } else {
-            if (targetReg != "a0") {
+            if (targetReg[0] == 'f') {
+                out << "    fcvt.s.w " << targetReg << ", a0\n";
+            } else if (targetReg != "a0") {
                 out << "    addi " << targetReg << ", a0, 0\n";
             }
         }
@@ -1751,11 +1929,17 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
 
                 if (isFloatRet) {
-                    if (targetReg != "fa0" && targetReg[0] == 'f') {
-                        out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+                    if (targetReg[0] == 'f') {
+                        if (targetReg != "fa0") {
+                            out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+                        }
+                    } else {
+                        out << "    fcvt.w.s " << targetReg << ", fa0\n";
                     }
                 } else {
-                    if (targetReg != "a0") {
+                    if (targetReg[0] == 'f') {
+                        out << "    fcvt.s.w " << targetReg << ", a0\n";
+                    } else if (targetReg != "a0") {
                         out << "    addi " << targetReg << ", a0, 0\n";
                     }
                 }
@@ -1766,6 +1950,7 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         // 1. Determine target class name
         std::string className;
         bool isPointerObj = false;
+        std::string resolvedGlobalObj;
         if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
             if (targetVar->name == "this") {
                 className = currentClass;
@@ -1775,9 +1960,27 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
                 if (vtIt != currentVarTypes.end()) {
                     className = vtIt->second.name;
                     isPointerObj = vtIt->second.isPointer();
-                } else if (globalVars.count(targetVar->name)) {
-                    className = globalVars[targetVar->name]->type.name;
-                    isPointerObj = globalVars[targetVar->name]->type.isPointer();
+                } else if (!currentClass.empty() && structs.count(currentClass) && structs[currentClass].fields.count(targetVar->name)) {
+                    className = structs[currentClass].fields[targetVar->name].type.name;
+                    isPointerObj = structs[currentClass].fields[targetVar->name].type.isPointer();
+                } else {
+                    std::string gName = targetVar->name;
+                    if (!globalVars.count(gName) && !currentFunc.empty()) {
+                        size_t us = currentFunc.rfind('_');
+                        if (us != std::string::npos && globalVars.count(currentFunc.substr(0, us + 1) + targetVar->name)) {
+                            gName = currentFunc.substr(0, us + 1) + targetVar->name;
+                        } else {
+                            size_t fs = currentFunc.find('_');
+                            if (fs != std::string::npos && globalVars.count(currentFunc.substr(0, fs + 1) + targetVar->name)) {
+                                gName = currentFunc.substr(0, fs + 1) + targetVar->name;
+                            }
+                        }
+                    }
+                    if (globalVars.count(gName)) {
+                        resolvedGlobalObj = gName;
+                        className = globalVars[gName]->type.name;
+                        isPointerObj = globalVars[gName]->type.isPointer();
+                    }
                 }
             }
         }
@@ -1791,9 +1994,13 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         if (auto targetVar = ast_cast<VarExpr>(mcall->object)) {
             if (targetVar->name == "this") {
                 out << "    lw t0, " << varOffsets["this"] << "(sp)\n";
-            } else if (globalVars.count(targetVar->name)) {
-                out << "    la t1, " << targetVar->name << "\n";
+            } else if (!resolvedGlobalObj.empty()) {
+                out << "    la t1, " << resolvedGlobalObj << "\n";
                 out << "    lw t0, 0(t1)\n";
+            } else if (!currentClass.empty() && !varOffsets.count(targetVar->name) && structs.count(currentClass) && structs[currentClass].fields.count(targetVar->name)) {
+                int fOff = structs[currentClass].fields[targetVar->name].offset;
+                out << "    lw t1, " << varOffsets["this"] << "(sp)\n";
+                out << "    lw t0, " << fOff << "(t1)\n";
             } else if (isPointerObj) {
                 out << "    lw t0, " << varOffsets[targetVar->name] << "(sp)\n";
             } else {
@@ -1846,11 +2053,17 @@ void CodegenRISCV::emitExpr(const std::shared_ptr<Expr>& expr, const std::string
         if (fit != functionReturnTypes.end() && fit->second.isFloat()) isFloatRet = true;
 
         if (isFloatRet) {
-            if (targetReg != "fa0" && targetReg[0] == 'f') {
-                out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+            if (targetReg[0] == 'f') {
+                if (targetReg != "fa0") {
+                    out << "    fsgnj.s " << targetReg << ", fa0, fa0\n";
+                }
+            } else {
+                out << "    fcvt.w.s " << targetReg << ", fa0\n";
             }
         } else {
-            if (targetReg != "a0") {
+            if (targetReg[0] == 'f') {
+                out << "    fcvt.s.w " << targetReg << ", a0\n";
+            } else if (targetReg != "a0") {
                 out << "    addi " << targetReg << ", a0, 0\n";
             }
         }

@@ -1,0 +1,9 @@
+{
+  "name": "alarm",
+  "title": "Alarm",
+  "icon": "alarm",
+  "color": "0xfd20",
+  "hotkey": "l",
+  "exec": "/sd/apps/alarm.mobj",
+  "desc": "Maia Alarm Clock with ES8388 Audio Chimes"
+}

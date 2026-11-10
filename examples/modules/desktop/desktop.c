@@ -332,6 +332,8 @@ static void scan_manifests(void) {
         "/sd/apps/wifi.mnm.json",
         "/sd/apps/maiascript.mnm.json",
         "/sd/apps/notes.mnm.json",
+        "/sd/apps/scicalc.mnm.json",
+        "/sd/apps/alarm.mnm.json",
     };
 
     for (size_t i = 0; i < sizeof(manifest_paths)/sizeof(manifest_paths[0]); ++i) {
@@ -449,6 +451,14 @@ static void draw_desktop_icon(int x, int y, int idx) {
         gui_fill_rect(gx + 8, gy + 6, 16, 2, COLOR_BLACK);
         gui_fill_rect(gx + 8, gy + 12, 16, 2, COLOR_BLACK);
         gui_fill_rect(gx + 8, gy + 18, 12, 2, COLOR_GREEN);
+    } else if (str_eq(app->icon, "fx") || str_eq(app->icon, "scicalc")) {
+        gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_BLACK);
+        gui_draw_rect(gx + 2, gy + 2, 28, 28, 0x35ff);
+        gui_draw_str(gx + 4, gy + 8, "f(x)", 0x35ff, COLOR_BLACK, true);
+    } else if (str_eq(app->icon, "alarm")) {
+        gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_BLACK);
+        gui_draw_rect(gx + 2, gy + 2, 28, 28, COLOR_ORANGE);
+        gui_draw_str(gx + 4, gy + 8, "ALM", COLOR_ORANGE, COLOR_BLACK, true);
     } else {
         gui_fill_rect(gx + 2, gy + 2, 28, 28, COLOR_TASKBAR);
         gui_draw_rect(gx + 2, gy + 2, 28, 28, app->color);
