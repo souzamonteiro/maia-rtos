@@ -31,6 +31,36 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set_target_properties(maia_m0.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured MaiaRTOS bare-metal target (maia_m0.elf) for ESP32-P4 / M5Stack Tab5")
 
+  # Independent scheduler diagnostic; does not link the shell/vendor platform.
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_executable(maia_sched_probe.elf EXCLUDE_FROM_ALL
+    arch/riscv/start.S
+    arch/riscv/trap_context.S
+    soc/espressif/esp32p4/soc_early_init.c
+    soc/espressif/esp32p4/soc_console.c
+    soc/espressif/esp32p4/soc_timer.c
+    kernel/ksched.c
+    boards/m5stack/tab5/app_desc.c
+    tests/hardware/native_scheduler_probe.c
+  )
+  target_include_directories(maia_sched_probe.elf PRIVATE include)
+  target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
+  target_link_options(maia_sched_probe.elf PRIVATE
+    "-T${MAIA_LINKER_SCRIPT}" "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_sched_probe.map")
+  target_link_libraries(maia_sched_probe.elf PRIVATE gcc)
+  set_target_properties(maia_sched_probe.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
+  add_custom_command(TARGET maia_sched_probe.elf POST_BUILD
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_native_probe.py
+      --elf $<TARGET_FILE:maia_sched_probe.elf>
+      --map ${CMAKE_CURRENT_BINARY_DIR}/maia_sched_probe.map --nm ${CMAKE_NM}
+    VERBATIM)
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/maia_sched_probe_ram.elf
+    COMMAND ${CMAKE_OBJCOPY} --remove-section=.flash.rodata --remove-section=.flash.text
+      $<TARGET_FILE:maia_sched_probe.elf> ${CMAKE_CURRENT_BINARY_DIR}/maia_sched_probe_ram.elf
+    DEPENDS maia_sched_probe.elf VERBATIM)
+  add_custom_target(maia_sched_probe_ram
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/maia_sched_probe_ram.elf)
+
   add_executable(echo_test.elf
     arch/riscv/start.S
     soc/espressif/esp32p4/soc_early_init.c
@@ -52,30 +82,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set_target_properties(echo_test.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured Tab5 Echo Test (echo_test.elf)")
 
-  add_executable(rgb_test.elf
-    arch/riscv/start.S
-    soc/espressif/esp32p4/soc_early_init.c
-    soc/espressif/esp32p4/soc_console.c
-    soc/espressif/esp32p4/soc_timer.c
-    soc/espressif/esp32p4/soc_board_io.c
-    soc/espressif/esp32p4/soc_display.c
-    boards/m5stack/tab5/app_desc.c
-    /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test/maia_rgb_test.c
-    /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test/maia_tab5_display_port.c
-  )
-  target_include_directories(rgb_test.elf PRIVATE include /Volumes/External_SSD/Documentos/Projects/maia-tab5-rgb-test)
-  target_compile_options(rgb_test.elf PRIVATE -Wall -Wextra -O2)
-  target_link_options(rgb_test.elf PRIVATE
-    "-T${MAIA_LINKER_SCRIPT}"
-    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/rgb_test.map"
-  )
-  target_link_libraries(rgb_test.elf PRIVATE gcc)
-  set_target_properties(rgb_test.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
-  message(STATUS "Configured Tab5 RGB Diagnostic Test (rgb_test.elf)")
+  set(MAIA_EXTERNAL_RGB_TEST_DIR "" CACHE PATH "Optional external Tab5 RGB diagnostic source directory")
+  if(MAIA_EXTERNAL_RGB_TEST_DIR)
+    add_executable(rgb_test.elf
+      arch/riscv/start.S
+      soc/espressif/esp32p4/soc_early_init.c
+      soc/espressif/esp32p4/soc_console.c
+      soc/espressif/esp32p4/soc_timer.c
+      soc/espressif/esp32p4/soc_board_io.c
+      soc/espressif/esp32p4/soc_display.c
+      boards/m5stack/tab5/app_desc.c
+      ${MAIA_EXTERNAL_RGB_TEST_DIR}/maia_rgb_test.c
+      ${MAIA_EXTERNAL_RGB_TEST_DIR}/maia_tab5_display_port.c
+    )
+    target_include_directories(rgb_test.elf PRIVATE include ${MAIA_EXTERNAL_RGB_TEST_DIR})
+    target_compile_options(rgb_test.elf PRIVATE -Wall -Wextra -O2)
+    target_link_options(rgb_test.elf PRIVATE
+      "-T${MAIA_LINKER_SCRIPT}"
+      "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/rgb_test.map"
+    )
+    target_link_libraries(rgb_test.elf PRIVATE gcc)
+    set_target_properties(rgb_test.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
+    message(STATUS "Configured Tab5 RGB Diagnostic Test (rgb_test.elf)")
+  endif()
+
 else()
   option(MAIA_BUILD_HOST_TESTS "Build host-side contract tests" ON)
   if(MAIA_BUILD_HOST_TESTS)
     enable_testing()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME native_probe_gate
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_gate_test.py)
 
     add_executable(maia_contract_test tests/host/contract_test.c)
     target_include_directories(maia_contract_test PRIVATE include)

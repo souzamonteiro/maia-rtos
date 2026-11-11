@@ -1,5 +1,39 @@
 # Hardware evidence register
 
+## Native SYSTIMER base address verification
+
+Primary reference: Espressif ESP-IDF v5.4.2, commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`,
+[ESP32-P4 peripheral base map](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/reg_base.h),
+PERIPHERAL1 section, `DR_REG_HPPERIPH1_BASE = 0x500c0000` and
+`DR_REG_SYSTIMER_BASE = DR_REG_HPPERIPH1_BASE + 0x22000` (line 115).
+Thus SYSTIMER is at **0x500e2000**. The former native address `0x500c6000`
+is I2S0, not SYSTIMER. Before correcting the base, the on-device RAM probe
+read `conf=0 raw=0 ena=0 st=0`, despite initialization, while the interrupt
+matrix route read back 16. Capture: `/tmp/maia-native-probe-diagnostics.log`.
+The register contract test previously repeated the wrong address; it is being
+corrected against the independent vendor map. No vendor runtime is linked.
+
+## Native SYSTIMER routing verification
+
+Primary reference: Espressif ESP-IDF v5.4.2, commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`,
+[interrupt source enum](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/interrupts.h)
+(`ETS_SYSTIMER_TARGET0_INTR_SOURCE`) and
+[core-0 interrupt matrix register](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/interrupt_core0_reg.h)
+(`INTERRUPT_CORE0_SYSTIMER_TARGET0_INT_MAP_REG`, offset `0xd4`). Both reference
+files in the local SDK are unchanged from that commit. Compiling the source enum
+with the host C compiler prints **53**. It is used only as specification evidence,
+not included or linked into the native firmware.
+
+The existing native constants used source 54 and offset `0xd8`. The new isolated
+RAM diagnostic, before correcting them, observed `irq=0 ticks=0 ecall=0 sync=0
+switches=1 workA=11962368 workB=0` and `MAIA_NATIVE_PREEMPT_FAIL`. It ran two
+busy tasks without cooperative yields or synthetic ticks and reset back to the
+preserved flash application. No flash write was performed. Raw evidence:
+`/tmp/maia-native-probe-before-route.log`. Post-correction evidence is recorded
+separately; these negative results are not a preemption claim.
+
 ## CST ownership fix — 2026-11-10 (limited device test)
 
 On the one-core experimental firmware, the same small source that previously

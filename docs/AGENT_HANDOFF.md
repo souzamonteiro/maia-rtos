@@ -144,3 +144,15 @@ which the integrated desktop terminal does not emit.
 Before any future device update, preserve the known working artifacts, verify
 the proposed image's scope and retain a recovery path. Do not erase flash or SD
 as a routine build/test step. Update this checkpoint with actual results.
+
+## Latest native probe checkpoint
+
+Read [native scheduler probe](audits/native-scheduler-probe.md) and captured logs.
+Explicit target `maia_sched_probe_ram` now builds independently of the incomplete
+full native shell. Host tests pass 6/6. Verified SYSTIMER base is **0x500E2000**,
+not historical 0x500C6000 (I2S0); target-0 source is **53**, map offset **0xd4**.
+After correcting both, real hardware delivers **one** IRQ and switches tasks,
+then stalls with an enabled pending alarm. Zero ecalls/synchronous exceptions.
+Do not claim working preemption. Next: measure CLIC CSR state across first
+IRQ/context return and fix repeated delivery separately. Diagnostic ran in RAM
+only and reset to preserved flash; no native image was flashed. No grammar edits.

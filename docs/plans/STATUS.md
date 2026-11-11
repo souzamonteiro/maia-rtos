@@ -116,3 +116,13 @@ HARDWARE-TESTED over serial. Physical display appearance still requires
 visual confirmation. See [test results and scope](../audits/maiascript-panel-text.md).
 This update concerns the user's restored working firmware baseline and
 does not revalidate the historical kernel/milestone claims above.
+
+## Native scheduler diagnostic — partial hardware result
+
+- Added isolated RAM acceptance probe and native dependency gate; host 6/6 PASS.
+- Corrected verified SYSTIMER base (old address was I2S0) and off-by-one IRQ route.
+- Hardware progresses from zero to one real timer interrupt/task switch, but
+  repeated delivery fails with an enabled pending alarm. **M1/M2 NOT ACCEPTED.**
+- No flash writes; no parser or desktop changes. Native FP/SMP remain unverified.
+- Evidence/logs/reproduction and next CLIC diagnosis:
+  [native probe report](../audits/native-scheduler-probe.md).
