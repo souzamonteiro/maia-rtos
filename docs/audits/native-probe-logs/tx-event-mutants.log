@@ -1,0 +1,5 @@
+nosignal: rejected FAIL line 102
+signalbeforepublish: rejected FAIL line 102
+pendingignored: rejected FAIL line 119
+neverwait: rejected FAIL line 130
+periodicempty: rejected FAIL line 132

@@ -27,7 +27,12 @@ maia_status_t maia_serial_output_write(const void *data, size_t length) {
         record.bytes[i]=i<length ? ((const uint8_t *)data)[i] : 0U;
     uintptr_t irq=maia_arch_irq_save();
     maia_status_t status=initialized ? maia_queue_send(&output,&record) : MAIA_ERR_INVALID;
-    if (status == MAIA_OK) { ++stats.accepted_records;stats.accepted_bytes+=(uint32_t)length; }
+    if (status == MAIA_OK) {
+        ++stats.accepted_records;stats.accepted_bytes+=(uint32_t)length;
+        /* Publish first, signal second; owner lifetime is an init contract.
+         * Keeping both under local exclusion also covers ISR producers. */
+        (void)maia_task_notify(stats.owner);
+    }
     maia_arch_irq_restore(irq);return status;
 }
 maia_status_t maia_serial_output_poll(void) {
@@ -63,6 +68,19 @@ maia_status_t maia_serial_output_poll(void) {
     }
     if (maia_serial_tx_flush(&output,stats.sink) != 0) return MAIA_ERR_PERM;
     return result;
+}
+maia_status_t maia_serial_output_wait(void) {
+    uintptr_t irq=maia_arch_irq_save();
+    if (!initialized || !irq || maia_task_current_id() != stats.owner) {
+        maia_status_t result=initialized ? MAIA_ERR_PERM : MAIA_ERR_INVALID;
+        maia_arch_irq_restore(irq);return result;
+    }
+    int work=stats.pending_bytes != 0U || maia_queue_count(&output) != 0U;
+    maia_arch_irq_restore(irq);
+    if (work) return MAIA_OK;
+    /* If a producer runs here, its sticky notification survives until the trap.
+     * Waking is a hint: poll/recheck the predicate, including coalesced events. */
+    return maia_task_wait_notification(MAIA_TASK_WAIT_FOREVER);
 }
 maia_status_t maia_serial_output_get_stats(maia_serial_output_stats_t *out) {
     if (!out) return MAIA_ERR_INVALID;

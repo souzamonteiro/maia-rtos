@@ -1,0 +1,101 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 10368 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+TXR:A:00:jklmnopqrstuvwxyzabcdefghijklmnopqrstu
+TXR:A:01:klmnopqrstuvwxyzabcdefghijklmnopqrstuv
+TXR:A:02:lmnopqrstuvwxyzabcdefghijklmnopqrstuvw
+TXR:A:03:mnopqrstuvwxyzabcdefghijklmnopqrstuvwx
+TXR:A:04:nopqrstuvwxyzabcdefghijklmnopqrstuvwxy
+TXR:A:05:opqrstuvwxyzabcdefghijklmnopqrstuvwxyz
+TXR:A:06:pqrstuvwxyzabcdefghijklmnopqrstuvwxyza
+TXR:A:07:qrstuvwxyzabcdefghijklmnopqrstuvwxyzab
+TXR:A:08:rstuvwxyzabcdefghijklmnopqrstuvwxyzabc
+TXR:A:09:stuvwxyzabcdefghijklmnopqrstuvwxyzabcd
+TXR:A:10:tuvwxyzabcdefghijklmnopqrstuvwxyzabcde
+TXR:A:11:uvwxyzabcdefghijklmnopqrstuvwxyzabcdef
+TXR:A:12:vwxyzabcdefghijklmnopqrstuvwxyzabcdefg
+TXR:A:13:wxyzabcdefghijklmnopqrstuvwxyzabcdefgh
+TXR:A:14:xyzabcdefghijklmnopqrstuvwxyzabcdefghi
+TXR:A:15:yzabcdefghijklmnopqrstuvwxyzabcdefghij
+TXR:A:16:zabcdefghijklmnopqrstuvwxyzabcdefghijk
+TXR:A:17:abcdefghijklmnopqrstuvwxyzabcdefghijkl
+TXR:A:18:bcdefghijklmnopqrstuvwxyzabcdefghijklm
+TXR:A:19:cdefghijklmnopqrstuvwxyzabcdefghijklmn
+TXR:A:20:defghijklmnopqrstuvwxyzabcdefghijklmno
+TXR:A:21:efghijklmnopqrstuvwxyzabcdefghijklmnop
+TXR:A:22:fghijklmnopqrstuvwxyzabcdefghijklmnopq
+TXR:A:23:ghijklmnopqrstuvwxyzabcdefghijklmnopqr
+TXR:A:24:hijklmnopqrstuvwxyzabcdefghijklmnopqrs
+TXR:A:25:ijklmnopqrstuvwxyzabcdefghijklmnopqrst
+TXR:A:26:jklmnopqrstuvwxyzabcdefghijklmnopqrstu
+TXR:A:27:klmnopqrstuvwxyzabcdefghijklmnopqrstuv
+TXR:A:28:lmnopqrstuvwxyzabcdefghijklmnopqrstuvw
+TXR:A:29:mnopqrstuvwxyzabcdefghijklmnopqrstuvwx
+TXR:A:30:nopqrstuvwxyzabcdefghijklmnopqrstuvwxy
+TXR:A:31:opqrstuvwxyzabcdefghijklmnopqrstuvwxyz
+TXR:A:32:pqrstuvwxyzabcdefghijklmnopqrstuvwxyza
+TXR:A:33:qrstuvwxyzabcdefghijklmnopqrstuvwxyzab
+TXR:A:34:rstuvwxyzabcdefghijklmnopqrstuvwxyzabc
+TXR:A:35:stuvwxyzabcdefghijklmnopqrstuvwxyzabcd
+TXR:A:36:tuvwxyzabcdefghijklmnopqrstuvwxyzabcde
+TXR:A:37:uvwxyzabcdefghijklmnopqrstuvwxyzabcdef
+TXR:A:38:vwxyzabcdefghijklmnopqrstuvwxyzabcdefg
+TXR:A:39:wxyzabcdefghijklmnopqrstuvwxyzabcdefgh
+TXR:B:00:qrstuvwxyzabcdefghijklmnopqrstuvwxyzab
+TXR:B:01:rstuvwxyzabcdefghijklmnopqrstuvwxyzabc
+TXR:B:02:stuvwxyzabcdefghijklmnopqrstuvwxyzabcd
+TXR:B:03:tuvwxyzabcdefghijklmnopqrstuvwxyzabcde
+TXR:B:04:uvwxyzabcdefghijklmnopqrstuvwxyzabcdef
+TXR:B:05:vwxyzabcdefghijklmnopqrstuvwxyzabcdefg
+TXR:B:06:wxyzabcdefghijklmnopqrstuvwxyzabcdefgh
+TXR:B:07:xyzabcdefghijklmnopqrstuvwxyzabcdefghi
+TXR:B:08:yzabcdefghijklmnopqrstuvwxyzabcdefghij
+TXR:B:09:zabcdefghijklmnopqrstuvwxyzabcdefghijk
+TXR:B:10:abcdefghijklmnopqrstuvwxyzabcdefghijkl
+TXR:B:11:bcdefghijklmnopqrstuvwxyzabcdefghijklm
+TXR:B:12:cdefghijklmnopqrstuvwxyzabcdefghijklmn
+TXR:B:13:defghijklmnopqrstuvwxyzabcdefghijklmno
+TXR:B:14:efghijklmnopqrstuvwxyzabcdefghijklmnop
+TXR:B:15:fghijklmnopqrstuvwxyzabcdefghijklmnopq
+TXR:B:16:ghijklmnopqrstuvwxyzabcdefghijklmnopqr
+TXR:B:17:hijklmnopqrstuvwxyzabcdefghijklmnopqrs
+TXR:B:18:ijklmnopqrstuvwxyzabcdefghijklmnopqrst
+TXR:B:19:jklmnopqrstuvwxyzabcdefghijklmnopqrstu
+TXR:B:20:klmnopqrstuvwxyzabcdefghijklmnopqrstuv
+TXR:B:21:lmnopqrstuvwxyzabcdefghijklmnopqrstuvw
+TXR:B:22:mnopqrstuvwxyzabcdefghijklmnopqrstuvwx
+TXR:B:23:nopqrstuvwxyzabcdefghijklmnopqrstuvwxy
+TXR:B:24:opqrstuvwxyzabcdefghijklmnopqrstuvwxyz
+TXR:B:25:pqrstuvwxyzabcdefghijklmnopqrstuvwxyza
+TXR:B:26:qrstuvwxyzabcdefghijklmnopqrstuvwxyzab
+TXR:B:27:rstuvwxyzabcdefghijklmnopqrstuvwxyzabc
+TXR:B:28:stuvwxyzabcdefghijklmnopqrstuvwxyzabcd
+TXR:B:29:tuvwxyzabcdefghijklmnopqrstuvwxyzabcde
+TXR:B:30:uvwxyzabcdefghijklmnopqrstuvwxyzabcdef
+TXR:B:31:vwxyzabcdefghijklmnopqrstuvwxyzabcdefg
+TXR:B:32:wxyzabcdefghijklmnopqrstuvwxyzabcdefgh
+TXR:B:33:xyzabcdefghijklmnopqrstuvwxyzabcdefghi
+TXR:B:34:yzabcdefghijklmnopqrstuvwxyzabcdefghij
+TXR:B:35:zabcdefghijklmnopqrstuvwxyzabcdefghijk
+TXR:B:36:abcdefghijklmnopqrstuvwxyzabcdefghijkl
+TXR:B:37:bcdefghijklmnopqrstuvwxyzabcdefghijklm
+TXR:B:38:cdefghijklmnopqrstuvwxyzabcdefghijklmn
+TXR:B:39:defghijklmnopqrstuvwxyzabcdefghijklmno
+TX_SUM records=80 bytes=3840 errors=0
+TX_HW irq=260 full=344 busy=239
+MAIA_NATIVE_PREEMPT_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Native preemption: PASS

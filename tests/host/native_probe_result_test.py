@@ -87,3 +87,15 @@ assert not runner.evaluate_serial_output(tx.replace('bytes=3840', 'bytes=1'))
 assert not runner.evaluate_serial_output(tx + 'LEGACY_MUST_NOT_APPEAR')
 assert not runner.evaluate_serial_output(tx.replace('\n', '\r\n'))
 print('PASS: TX capture requires all 80 intact ordered raw records, real IRQs, saturation and no legacy leak')
+
+
+event_tx = tx + 'TX_EVENT_TRIGGER\nTX_EVENT head=20 tail=50 idle=69\nTX_WAIT empty=4 retry=200 timeout=150 irq_write=1\n'
+assert runner.evaluate_serial_output_event(event_tx)
+assert not runner.evaluate_serial_output_event(tx)
+assert not runner.evaluate_serial_output_event(event_tx.replace('head=20', 'head=0'))
+assert not runner.evaluate_serial_output_event(event_tx.replace('tail=50', 'tail=0'))
+assert not runner.evaluate_serial_output_event(event_tx.replace('idle=69', 'idle=0'))
+assert not runner.evaluate_serial_output_event(event_tx.replace('timeout=150', 'timeout=0'))
+assert not runner.evaluate_serial_output_event(event_tx.replace('irq_write=1', 'irq_write=0'))
+assert not runner.evaluate_serial_output_event(event_tx + 'TX_EVENT_TRIGGER\n')
+print('PASS: TX event capture requires quiet head/tail, finite retry and exactly one IRQ-triggered record')

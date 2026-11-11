@@ -356,3 +356,23 @@ Next: make TX worker wait on empty and notify after enqueue, preserving predicat
 ordering; FIFO BUSY still needs finite retry or a real IRQ wake source. Display
 configuration remains untouched and requires its own hardware audit. POSIX stays
 DESIGN; full desktop firmware is still FreeRTOS-dependent. No grammar changes.
+
+## Notification-driven TX worker — 2026-11-11
+
+Read [TX worker contract/evidence](audits/native-tx-worker-notifications.md).
+write now notifies the dedicated owner after successful whole-record publication,
+under local exclusion; FULL/INVALID do not signal. New serial_output_wait is
+owner-thread/IRQs-on only; queued OR active pending bytes prevent blocking.
+Empty -> FOREVER notification wait, with sticky event covering pre-ECALL gap.
+Always recheck predicate (stale/coalesced hints). Owner reserves/coordinates
+its mailbox; lifetime until reset remains required. BUSY requires finite retry
+until a real peripheral wake source exists, never indefinite wait with pending TX.
+Native event profile is opt-in, no hidden task creation or default firmware switch.
+Host 18/18, sanitizer 3/3, header and five mutants pass. Target 80 payload records,
+302 IRQs, stable polls/run_ticks over head20/tail21, and actual IRQ enqueue wakes
+owner; 240 finite retry timeouts, errors=0. Old polling TX regression passes.
+Desktop/shell/SciCalc restored. Artifacts/checksums:
+`../maia-rtos-recovery/native-tx-worker-notifications-20261111/`.
+Next: audit and preserve display initialization/power/panel/DMA/cache facts before
+porting that driver. Config remains untouched; USB results are not display proof.
+No parser changes; POSIX remains DESIGN and full desktop is still FreeRTOS-based.

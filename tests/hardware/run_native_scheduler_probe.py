@@ -60,6 +60,16 @@ def evaluate_serial_output(output):
             int(hardware[0][0]) >= 250 and int(hardware[0][1]) > 0 and int(hardware[0][2]) > 0)
 
 
+def evaluate_serial_output_event(output):
+    if not evaluate_serial_output(output):
+        return False
+    events = re.findall(r'^TX_EVENT head=(\d+) tail=(\d+) idle=(\d+)$', output, re.M)
+    waits = re.findall(r'^TX_WAIT empty=(\d+) retry=(\d+) timeout=(\d+) irq_write=(\d+)$', output, re.M)
+    return (output.split('\n').count('TX_EVENT_TRIGGER') == 1 and len(events) == len(waits) == 1 and
+            int(events[0][0]) >= 20 and int(events[0][1]) >= 20 and int(events[0][2]) >= 39 and
+            int(waits[0][0]) >= 2 and int(waits[0][1]) > 0 and int(waits[0][2]) > 0 and int(waits[0][3]) == 1)
+
+
 class SerialInputStimulus:
     """Two paced binary batches, armed only by the RAM serial probe markers."""
     def __init__(self, port, pause=time.sleep):
@@ -90,6 +100,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--serial-output-event', action='store_true', help='verify TX empty waits and IRQ enqueue wakeup')
     parser.add_argument('--serial-output', action='store_true', help='verify 80 complete TX records from two producers')
     parser.add_argument('--serial-input', action='store_true', help='send binary RX fixture after RAM probe markers')
     args = parser.parse_args()
@@ -106,6 +117,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.serial_output_event:
+        args.serial_output = True
     if args.serial_output and (args.serial_input or args.expect_fatal_cause is not None):
         parser.error('serial output workload cannot be combined with input/fatal profiles')
     if args.serial_input and args.expect_fatal_cause is not None:
@@ -175,6 +188,8 @@ def main():
             passed = passed and stimulus.phase == 2
         if args.serial_output:
             passed = passed and evaluate_serial_output(output)
+        if args.serial_output_event:
+            passed = passed and evaluate_serial_output_event(output)
         print('[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 

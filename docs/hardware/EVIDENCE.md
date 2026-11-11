@@ -1,5 +1,16 @@
 # Hardware evidence register
 
+## Notification-driven native TX worker — 2026-11-11
+
+Reuses the verified queue, notification/ECALL, SYSTIMER/CLIC and USB TX paths;
+no new MMIO, pinout or display initialization fact. Rev-v1.3 RAM evidence:
+80 intact payload records/3840 bytes, 302 real IRQs, stable TX polls/run_ticks
+through 20 initial and 21 final quiet IRQ observations, then one actual record
+published in IRQ context wakes the owner and is captured by the host. BUSY
+uses finite retries (240 timeouts); empty queue uses an indefinite kernel wait.
+This does not establish a USB TX-ready IRQ, SMP, power/WCET bounds, reconnect
+or panel/DMA correctness. [Exact logs and limits](../audits/native-tx-worker-notifications.md).
+
 ## Native task notification waits — 2026-11-11
 
 Uses the already verified MIE exclusion, M-mode ECALL/context restore and

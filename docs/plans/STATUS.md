@@ -300,3 +300,19 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
   edits. This does not fix blocking semaphores/mutexes, SMP or the complete runtime.
 - Next: notification-driven TX worker on empty queue; display/PSRAM/cache/DMA
   remain separate prerequisites and risks. POSIX remains DESIGN only.
+
+## Notification-driven serial TX worker — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** accepted TX records notify owner after publication;
+  owner-only wait blocks indefinitely only with no queued/active bytes. Stale
+  hints are consumed then predicate rechecked; FIFO BUSY retains a finite retry.
+- Host 18/18, sanitizer TX + integer/FP notifications 3/3, C++98 header and five
+  mutants PASS. Native: 80 intact records/3840 bytes, 302 IRQs, quiet head20/tail21
+  with polls/run_ticks stable, and real IRQ write wakes TX; errors=0.
+- Old polling TX profile remains compatible (80 records/260 IRQs PASS).
+  [Exact evidence](../audits/native-tx-worker-notifications.md). Flash desktop,
+  shell/SciCalc restored. No kernel/trap/parser/display configuration/flash edit.
+- Limits: single-core static owner, shared mailbox must be coordinated, no
+  TX-ready IRQ/reconnect/producer-space wait. Complete desktop still uses FreeRTOS.
+- Next: audit/preserve the working display initialization before native driver
+  changes; PSRAM/cache/DMA/power/panel variants remain separate hardware risks.

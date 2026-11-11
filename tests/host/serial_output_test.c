@@ -8,6 +8,28 @@ static uintptr_t irq_state;
 static maia_task_id_t current=-1;
 static unsigned saves,restores,violations,usb_ready=1U,uart_count,reads,writes,commits,display;
 static uint8_t usb[4096],uart[4096];static unsigned usb_n,uart_n;
+static unsigned notifications,notification_pending,wait_calls,would_block,gap_write,pending_only_checks;
+static uint32_t last_wait;
+maia_status_t maia_task_notify(maia_task_id_t id) {
+    maia_serial_output_stats_t snapshot;
+    ++notifications;notification_pending=1U;
+    if (id != 0 || irq_state || maia_serial_output_get_stats(&snapshot) != MAIA_OK ||
+        snapshot.accepted_records != notifications) ++violations;
+    return MAIA_OK;
+}
+/* Models entry to the kernel wait, not suspension; native test proves blocking. */
+maia_status_t maia_task_wait_notification(uint32_t timeout) {
+    ++wait_calls;last_wait=timeout;
+    if (!irq_state || current != 0) ++violations;
+    if (gap_write) {
+        gap_write=0U;current=1;
+        if (maia_serial_output_write("gap",3U) != MAIA_OK) ++violations;
+        current=0;
+    }
+    if (!notification_pending) ++would_block;
+    notification_pending=0U;
+    return MAIA_OK;
+}
 uintptr_t maia_arch_irq_save(void) { uintptr_t old=irq_state;irq_state=0U;++saves;return old; }
 void maia_arch_irq_restore(uintptr_t old) { irq_state=old&8U;++restores; }
 maia_task_id_t maia_task_current_id(void) { return current; }
@@ -35,6 +57,7 @@ void maia_serial_tx_test_write(uintptr_t address, uint32_t value) {
 int main(void) {
     maia_serial_output_stats_t stats;
     CHECK(maia_serial_output_poll() == MAIA_ERR_INVALID);
+    CHECK(maia_serial_output_wait() == MAIA_ERR_INVALID && !wait_calls);
     CHECK(maia_serial_output_write("x",1U) == MAIA_ERR_INVALID);
     CHECK(maia_serial_output_get_stats(&stats) == MAIA_ERR_INVALID);
     maia_console_init();irq_state=8U;
@@ -70,30 +93,49 @@ int main(void) {
     CHECK(maia_serial_output_write(data,65U) == MAIA_ERR_INVALID);
     CHECK(maia_serial_output_get_stats(NULL) == MAIA_ERR_INVALID);
     current=0;CHECK(maia_serial_output_poll() == MAIA_ERR_PERM);
+    CHECK(maia_serial_output_wait() == MAIA_ERR_PERM && !wait_calls);
     current=1;irq_state=8U;CHECK(maia_serial_output_poll() == MAIA_ERR_PERM && reads == r);
+    CHECK(maia_serial_output_wait() == MAIA_ERR_PERM && !wait_calls);
     CHECK(maia_serial_output_write(data,64U) == MAIA_OK);
     memset(data,0xcc,64U); /* Accepted data must already be privately copied. */
     for (unsigned i=0U;i<7U;++i) CHECK(maia_serial_output_write("z",1U) == MAIA_OK);
-    CHECK(maia_serial_output_write("full",4U) == MAIA_ERR_FULL);
+    CHECK(maia_serial_output_write("full",4U) == MAIA_ERR_FULL && notifications == 8U);
     current=0;usb_ready=0U;
+    CHECK(maia_serial_output_wait() == MAIA_OK && !wait_calls);
     CHECK(maia_serial_output_poll() == MAIA_ERR_BUSY && usb_n == 4U);
     CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK && stats.pending_bytes == 64U && stats.queued_records == 7U && stats.accepted_records == 8U);
     usb_ready=1U;unsigned begin=usb_n;
     CHECK(maia_serial_output_poll() == MAIA_OK && usb_n == begin+16U && irq_state == 8U);
     CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK && stats.pending_bytes == 48U && stats.written_bytes == 16U);
     CHECK(maia_serial_output_poll() == MAIA_ERR_BUSY && usb_n == begin+16U);
+    CHECK(maia_serial_output_wait() == MAIA_OK && !wait_calls);
     for (unsigned n=0U;n<20U;++n) {
         usb_ready=1U;
         maia_status_t result=maia_serial_output_poll();
         CHECK(result == MAIA_OK || result == MAIA_ERR_BUSY || result == MAIA_ERR_EMPTY);
+        CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK);
+        if (stats.pending_bytes && !stats.queued_records) {
+            ++pending_only_checks;
+            CHECK(maia_serial_output_wait() == MAIA_OK && !wait_calls);
+        }
     }
-    CHECK(usb_n == begin+71U);
+    CHECK(usb_n == begin+71U && pending_only_checks>0U);
     for (unsigned i=0U;i<64U;++i) CHECK(usb[begin+i] == i);
     for (unsigned i=64U;i<71U;++i) CHECK(usb[begin+i] == 'z');
     CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK && stats.accepted_records == 8U && stats.completed_records == 8U && stats.accepted_bytes == 71U && stats.written_bytes == 71U && !stats.pending_bytes && !stats.queued_records && stats.busy_events>=2U);
     irq_state=0U;CHECK(maia_serial_output_write("irq",3U) == MAIA_OK && irq_state == 0U);
     CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK && irq_state == 0U);
     irq_state=8U;usb_ready=1U;CHECK(maia_serial_output_poll() == MAIA_OK && memcmp(usb+begin+71U,"irq",3U) == 0);
+    /* Drained queue, one stale signal: exactly one immediate hint then block. */
+    CHECK(maia_serial_output_wait() == MAIA_OK && wait_calls == 1U && !would_block);
+    CHECK(maia_serial_output_wait() == MAIA_OK && wait_calls == 2U && would_block == 1U);
+    CHECK(last_wait == MAIA_TASK_WAIT_FOREVER);
+    gap_write=1U;
+    CHECK(maia_serial_output_wait() == MAIA_OK && wait_calls == 3U && would_block == 1U && !gap_write);
+    CHECK(maia_serial_output_get_stats(&stats) == MAIA_OK && stats.queued_records == 1U && notifications == 10U);
+    usb_ready=1U;
+    CHECK(maia_serial_output_poll() == MAIA_OK && memcmp(usb+begin+74U,"gap",3U) == 0);
+    CHECK(maia_serial_output_wait() == MAIA_OK && would_block == 2U);
     CHECK(!violations && saves == restores && irq_state == 8U);
     puts("PASS: legacy CRLF/claim, sole TX owner, whole-record enqueue, FULL, partial BUSY/resume, FIFO order, batch budget and nested masks");
     return 0;

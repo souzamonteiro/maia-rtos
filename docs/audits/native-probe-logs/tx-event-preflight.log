@@ -1,0 +1,2 @@
+PASS: event TX and RX capture modes rejected before serial access
+PASS: combined event and polling TX workloads rejected during CMake configuration

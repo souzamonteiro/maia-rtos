@@ -12,17 +12,26 @@ extern "C" {
  * init: boot-only/IRQs off, owner is a created READY task; INVALID owner/sink,
  * PERM outside boot context, BUSY on second init/claimed port, otherwise OK.
  * Owner/token binding lasts until reset; owner cannot exit or reuse its slot.
+ * Owner dedicates its task notification mailbox to TX (or coordinates other uses).
  * write: nonblocking boot/thread/ISR enqueue after init, 1..64 raw bytes copied
- * atomically as one record, no CR/LF conversion. OK accepted, FULL no mutation;
+ * atomically as one record, then owner is notified. No CR/LF conversion.
+ * OK accepted, FULL no mutation and no notification;
  * INVALID null/zero/oversized/before init. Caller keeps source stable for call.
  * Multiple writers use this API, never driver FIFO. Source must not alias state.
  * poll: owner thread only, IRQs enabled; up to 16 try_put attempts. Pending
  * record/offset survives BUSY. OK bytes accepted, EMPTY no work, BUSY peripheral
  * stalled (possibly after partial progress), PERM wrong context, INVALID before
  * init. Flushed per record/end of poll; FIFO acceptance is not host delivery.
+ * wait: owner thread/IRQs on, INVALID before init, PERM wrong context. Returns
+ * OK without waiting if queued/pending work exists; otherwise waits indefinitely
+ * for a sticky task notification. OK is a hint (may be stale/coalesced); poll
+ * and recheck, not a delivery ACK. Never use this to wait for FIFO readiness:
+ * while BUSY/backlog exists it returns immediately, and no TX IRQ wake is wired.
+ * Use a finite retry for BUSY. The empty-check/wait gap cannot lose a write's
+ * notification. No implicit task or scheduling policy is installed by init.
  * stats: thread/ISR-safe local snapshot, INVALID null/before init. Queue has
  * 8 records plus one possible active record; counters wrap uint32. No heap,
- * blocking wait, producer wakeup, timeout/drop policy, teardown or SMP support.
+ * producer wait/wakeup on FULL, timeout/drop policy, teardown or SMP support.
  * TX is exclusive after claim: legacy console writes (including display) are
  * suppressed. Fatal trap emergency sink remains independent and may interrupt
  * the stream on fatal failure; it is not routed through this service.
@@ -37,6 +46,7 @@ typedef struct maia_serial_output_stats {
 maia_status_t maia_serial_output_init(maia_task_id_t owner, maia_serial_tx_sink_t sink);
 maia_status_t maia_serial_output_write(const void *data, size_t length);
 maia_status_t maia_serial_output_poll(void);
+maia_status_t maia_serial_output_wait(void);
 maia_status_t maia_serial_output_get_stats(maia_serial_output_stats_t *out);
 #ifdef __cplusplus
 }

@@ -1,0 +1,41 @@
+Test project /tmp/maia-host-contracts-20261110
+      Start  1: native_probe_gate
+ 1/18 Test  #1: native_probe_gate ................   Passed    0.19 sec
+      Start  2: maia_contract_test
+ 2/18 Test  #2: maia_contract_test ...............   Passed    0.00 sec
+      Start  3: shell_host_contract
+ 3/18 Test  #3: shell_host_contract ..............   Passed    0.00 sec
+      Start  4: esp32p4_regs_test
+ 4/18 Test  #4: esp32p4_regs_test ................   Passed    0.00 sec
+      Start  5: kernel_mvp_test
+ 5/18 Test  #5: kernel_mvp_test ..................   Passed    0.00 sec
+      Start  6: kernel_fp_frame_test
+ 6/18 Test  #6: kernel_fp_frame_test .............   Passed    0.00 sec
+      Start  7: riscv_trap_policy_test
+ 7/18 Test  #7: riscv_trap_policy_test ...........   Passed    0.00 sec
+      Start  8: serial_output_test
+ 8/18 Test  #8: serial_output_test ...............   Passed    0.37 sec
+      Start  9: serial_input_test
+ 9/18 Test  #9: serial_input_test ................   Passed    0.01 sec
+      Start 10: queue_atomic_test
+10/18 Test #10: queue_atomic_test ................   Passed    0.02 sec
+      Start 11: notification_integer_test
+11/18 Test #11: notification_integer_test ........   Passed    0.00 sec
+      Start 12: notification_fp32_test
+12/18 Test #12: notification_fp32_test ...........   Passed    0.00 sec
+      Start 13: scheduler_atomic_test
+13/18 Test #13: scheduler_atomic_test ............   Passed    0.01 sec
+      Start 14: scheduler_idle_test
+14/18 Test #14: scheduler_idle_test ..............   Passed    0.01 sec
+      Start 15: scheduler_stack_integer_test
+15/18 Test #15: scheduler_stack_integer_test .....   Passed    0.01 sec
+      Start 16: scheduler_stack_fp32_test
+16/18 Test #16: scheduler_stack_fp32_test ........   Passed    0.00 sec
+      Start 17: native_probe_result_test
+17/18 Test #17: native_probe_result_test .........   Passed    0.03 sec
+      Start 18: shell_expr_control_test
+18/18 Test #18: shell_expr_control_test ..........   Passed    0.00 sec
+
+100% tests passed out of 18
+
+Total Test time (real) =   0.66 sec
