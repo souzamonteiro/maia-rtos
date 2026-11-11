@@ -1,5 +1,15 @@
 # Hardware evidence register
 
+## Native queue task/IRQ exclusion — 2026-11-11
+
+Uses the existing single-core CSR MIE exclusion and validated SYSTIMER/CLIC path;
+no new MMIO, pin, clock or boot claim. References remain the local-exclusion and
+timer/context sections below. The RAM-only diagnostic checks real C IRQ-stack
+SP and MIE preservation while a timer-IRQ producer shares a copying queue with
+task producers/consumer. Final result: 253 real IRQs, 688 intact ordered packets,
+zero errors. This is not an SMP, blocking-wait, driver-equivalence or latency
+bound claim. [Exact workload, initial failure, logs and recovery](../audits/native-driver-queues.md).
+
 ## Native stack entry protection — 2026-11-11
 
 Primary references: [ESP32-P4 rev-v1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),

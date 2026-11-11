@@ -105,6 +105,23 @@ maia_status_t maia_sem_trywait(maia_sem_t *sem);
 maia_status_t maia_sem_post(maia_sem_t *sem);
 uint32_t      maia_sem_getvalue(const maia_sem_t *sem);
 
+/* Nonblocking copying FIFO, single-core boot/thread/ISR use; send/recv/count
+ * preserve local IRQ state and serialize the complete copy + index transaction.
+ * This is not an SMP lock, blocking wait, ownership transfer or DMA barrier.
+ * At most 256 payload bytes are copied per critical section; no latency bound
+ * is claimed. Use descriptors for larger payloads and manage their lifetime.
+ * Init/reinit requires a quiescent object, not concurrent users. Caller supplies
+ * capacity*item_size accessible bytes (non-overlapping with q), and keeps both
+ * alive; fields/storage must only be accessed through the API while in use.
+ * Source/destination is accessible for item_size bytes, does not alias q/storage,
+ * and must remain stable/exclusive for the call. No heap allocation occurs.
+ * Init INVALID: null, zero dimensions, oversized item or size/address overflow;
+ * failure leaves q untouched. send/recv: INVALID for null arguments/buffer,
+ * FULL/EMPTY without modifying queue/payload respectively; otherwise OK.
+ * count(NULL) returns zero. Mutex/semaphore contracts are separate and are not
+ * made concurrency-safe by these queue guarantees.
+ */
+#define MAIA_QUEUE_MAX_ITEM_BYTES 256U
 maia_status_t maia_queue_init(maia_queue_t *q, void *storage, size_t item_size, size_t capacity);
 maia_status_t maia_queue_send(maia_queue_t *q, const void *item);
 maia_status_t maia_queue_recv(maia_queue_t *q, void *out_item);

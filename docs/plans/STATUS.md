@@ -235,3 +235,19 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
 - PSE51 is scope guidance, not a compliance claim. No runtime/header/build/parser
   changes, hardware access or execution tests; document links/diff checked.
 - Current native-driver migration remains the next implementation task.
+
+## Native driver communication queues — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** native queue send/recv/count now serialize full
+  payload/index transactions with nested local IRQ exclusion; no SMP guarantee.
+- Item size is capped at 256 bytes to bound copy work; initialization rejects
+  size/address overflow. Struct layout and function signatures remain unchanged.
+- Host 14/14 and ASan/UBSan queue/integer/FP fixtures 3/3 PASS; negative local
+  mutants rejected. Tab5 RAM workload: 253 real IRQs, 688 intact ordered packets
+  from two task producers and one IRQ producer, zero errors. Initial workload
+  failed an unjustified per-producer progress floor; adjusted workload/logs are
+  documented in the [driver queue report](../audits/native-driver-queues.md).
+- Preserved flash shell/SciCalc/desktop verified after reset. No foreign source,
+  parser, module ABI, flash or legacy runtime removal in this unit.
+- Next: serial I/O ownership/frontier and queue-backed service integration.
+  Blocking waits, mutex/semaphore concurrency and full driver ports remain open.

@@ -281,3 +281,21 @@ Re-audit then; use optional adapters over public native APIs, preserve ABI and
 existing apps, isolate necessary native primitives in small tested commits.
 DESIGN only, no POSIX implementation or PSE51 conformance claim. This request
 records future scope and does not replace the next native-driver migration task.
+
+## Driver communication prerequisite: native queues — 2026-11-11
+
+Read [native driver queue audit/evidence](audits/native-driver-queues.md).
+Queue send/recv/count now mask local IRQs around the complete copy/index update,
+preserving nesting; init requires quiescence and rejects overflow/items >256B.
+Existing struct layout/signatures unchanged. No SMP, blocking wait or wakeup.
+Mutex/semaphore implementations are NOT covered by this queue fix. Do not
+transplant the temporary checkout's delay-loop waits as atomic blocking waits.
+Host 14/14, sanitizer queue/kernel fixtures 3/3 and C++98 header checks pass.
+Actual Tab5 RAM burst workload: 253 IRQs, 688 packets, zero errors; raw logs also
+retain an initial test-floor failure, not a corruption reproduction. Diagnostic
+ISR producer replaces only its test display callback, not a production driver.
+Desktop/shell/SciCalc 14 restored after reset; final artifacts/checksums in
+`../maia-rtos-recovery/native-driver-queues-20261111/`. Legacy flash still uses
+FreeRTOS. Next: separate native serial I/O ownership from keyboard/display and
+integrate queue-backed input service; keep hardware drivers and blocking waits
+as separate verified increments. Future POSIX remains DESIGN only.
