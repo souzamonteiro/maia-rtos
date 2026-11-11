@@ -94,6 +94,14 @@ between task-side state mutation and context save. Raw yield ECALLs remain valid
 Local MIE guards preserve nesting for metadata/tick/stat snapshots; they are
 not SMP locks. Deadlines use unsigned half-range comparison for uint32 waits.
 
+Notification wait has a separate labeled ECALL. Check/consume/block commits
+only after context save; timeout/post completion is retained in the private TCB.
+After validating the selected saved frame, the selector writes the result to a0
+(slot6) once. No change to frame size/offsets, FP ABI or unrelated saved registers.
+Notify marks READY but does not force a thread-side trap. FOREVER is explicitly
+untimed; finite deadlines use modular uint64 ticks. See
+[notification contract/evidence](../audits/native-task-notifications.md).
+
 No-ready selects a separate internal idle context with a 2048-byte static stack
 and FS Off; no application slot is consumed and current_id is -1. Idle retains
 its own saved sp through timer traps and waits with interrupts enabled/WFI.

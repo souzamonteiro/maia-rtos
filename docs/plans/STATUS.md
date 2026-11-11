@@ -284,3 +284,19 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
 - Limits: single-core polling, permanent owner until reset, FIFO acceptance is
   not host ACK, UART physical/reconnect pending. Next: native atomic worker
   waits/wakeups and synchronization audit; POSIX remains DESIGN only.
+
+## Native task notification waits — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** sticky per-task notify + blocking wait via labeled
+  ECALL; check/block atomic after context save, first timeout/post completion wins.
+  Late/second post retained; result installed once after frame validation.
+- Single-core, no payload/count/heap, timeout0 EMPTY, finite TIMEOUT, explicit
+  FOREVER. IRQ wait returns PERM; notify is ISR-safe without implicit yield.
+- Host 18/18, sanitizer integer/FP notification + atomic/idle 4/4, C++98 headers
+  and five mutants PASS. Actual Tab5: 40 rounds, 282 waits, 80 timeouts, 750 real
+  IRQs, 520 blocked checks, errors=0; FP/lifecycle/fatal regressions also PASS.
+- [Exact evidence and limits](../audits/native-task-notifications.md). Original
+  flash shell/SciCalc/desktop restored; no parser, display configuration or flash
+  edits. This does not fix blocking semaphores/mutexes, SMP or the complete runtime.
+- Next: notification-driven TX worker on empty queue; display/PSRAM/cache/DMA
+  remain separate prerequisites and risks. POSIX remains DESIGN only.

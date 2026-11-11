@@ -196,6 +196,25 @@ maia_status_t  maia_task_create(const char *name,
  */
 void           maia_task_yield(void);
 void           maia_task_delay_ticks(uint32_t ticks);
+/* Single-core sticky, coalescing notification per task; no payload/count/heap.
+ * notify: boot/thread/ISR-safe, preserves IRQ state. OK for a live task, INVALID
+ * for negative/out-of-range/UNUSED/EXITED id. ID slots are reusable: caller must
+ * retain a live task identity; no generation handle or cancellation is provided.
+ * A notification wakes a notification-BLOCKED task to READY; it does not abort
+ * sleep/other waits. Otherwise one pending notification is retained (coalesced).
+ * A second notify after wake is pending for the next wait. No implicit yield;
+ * reschedule occurs at the next trap/IRQ scheduling point. No SMP guarantee.
+ * wait: thread-only, IRQs enabled, PERM otherwise. Returns OK after consuming a
+ * notification, EMPTY for timeout=0 with none pending, TIMEOUT on finite expiry.
+ * FOREVER never expires. Check/consume/block commit after context save via ECALL;
+ * timeout/notify serialize, first completion wins. A late notification remains
+ * pending for the next wait. No polling/repeated delay is used inside wait.
+ * Notification does not replace a data queue: producer publishes data before
+ * notify; consumer drains/rechecks its predicate after waking (events coalesce).
+ */
+#define MAIA_TASK_WAIT_FOREVER UINT32_MAX
+maia_status_t maia_task_notify(maia_task_id_t id);
+maia_status_t maia_task_wait_notification(uint32_t timeout_ticks);
 maia_task_id_t maia_task_current_id(void);
 /* Occupied slots including EXITED; reusing an EXITED slot does not grow count. */
 uint32_t       maia_task_count(void);

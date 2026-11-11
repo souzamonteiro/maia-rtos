@@ -336,3 +336,23 @@ final adds real BUSY observation. Legacy complete firmware still uses FreeRTOS.
 Next: atomic native worker waits/wakeups, auditing semaphore/mutex contracts
 separately and avoiding temporary-tree delay-loop waits. No grammar changes;
 future POSIX remains DESIGN only.
+
+## Native notification waits — 2026-11-11
+
+Read [task notification contract/evidence](audits/native-task-notifications.md).
+Public notify(id) is single-core ISR-safe/coalescing; wait(timeout) is thread-only
+with IRQs enabled. Check/consume/block occurs in labeled ECALL after context save.
+First timeout/post wins; late notification is pending for next wait. Completion
+is stored in TCB and installed in a0 once only after saved-frame validation.
+FOREVER=UINT32_MAX is untimed; timeout0 returns EMPTY. Notify marks READY, no
+implicit yield; slots reusable, caller must keep valid task identity. No SMP,
+counted semaphore, mutex/PI, cancellation or general driver IRQ routing.
+Host 18/18, sanitizer 4/4, C++98 headers and five mutants pass. Native 40 rounds/
+282 waits/80 timeouts/750 real IRQs/errors=0; blocked run_ticks stay stable, idle
+runs, invalid IRQ waits generate no ECALL. FP/lifecycle and fatal-PC regressions
+pass. Preserved flash shell/SciCalc/desktop verified after reset. Exact artifacts:
+`../maia-rtos-recovery/native-task-notifications-20261111/`.
+Next: make TX worker wait on empty and notify after enqueue, preserving predicate
+ordering; FIFO BUSY still needs finite retry or a real IRQ wake source. Display
+configuration remains untouched and requires its own hardware audit. POSIX stays
+DESIGN; full desktop firmware is still FreeRTOS-dependent. No grammar changes.

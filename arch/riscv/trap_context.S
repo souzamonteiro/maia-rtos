@@ -226,6 +226,15 @@ maia_arch_delay_ecall:
     ret
     .size maia_arch_delay_trap, .-maia_arch_delay_trap
 
+    .global maia_arch_wait_notification_trap
+    .global maia_arch_wait_notification_ecall
+    .type maia_arch_wait_notification_trap, @function
+maia_arch_wait_notification_trap:
+maia_arch_wait_notification_ecall:
+    ecall /* a0 timeout on entry; completed wait result in a0 on resume. */
+    ret
+    .size maia_arch_wait_notification_trap, .-maia_arch_wait_notification_trap
+
     .global maia_arch_exit_trap
     .global maia_arch_exit_ecall
     .type maia_arch_exit_trap, @function

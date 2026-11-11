@@ -17,6 +17,8 @@ typedef struct maia_tcb {
     uint32_t           run_ticks;
     uint32_t           switches;
     uint64_t           wake_tick;
+    unsigned           notify_pending, notify_waiting, notify_timed, notify_return;
+    maia_status_t      notify_result;
 } maia_tcb_t;
 
 static maia_tcb_t        g_tasks[MAIA_MAX_TASKS];
@@ -48,6 +50,10 @@ __attribute__((weak)) void maia_arch_delay_trap(uint32_t ticks) {
 __attribute__((weak, noreturn)) void maia_arch_exit_trap(void) {
     (void)maia_sched_exit_current_isr();
     __builtin_trap(); /* Hosted model cannot execute a native context return. */
+}
+__attribute__((weak)) maia_status_t maia_arch_wait_notification_trap(uint32_t timeout) {
+    (void)timeout;
+    return MAIA_ERR_PERM; /* Host models cannot suspend/resume native C frames. */
 }
 #endif
 
@@ -178,6 +184,9 @@ static maia_status_t sched_init_locked(void) {
         g_tasks[i].run_ticks  = 0U;
         g_tasks[i].switches   = 0U;
         g_tasks[i].wake_tick  = 0ULL;
+        g_tasks[i].notify_pending = g_tasks[i].notify_waiting = 0U;
+        g_tasks[i].notify_timed = g_tasks[i].notify_return = 0U;
+        g_tasks[i].notify_result = MAIA_ERR_EMPTY;
     }
     g_current_idx = -1;
     g_idle_running = 0;
@@ -242,6 +251,9 @@ static maia_status_t task_create_locked(const char *name,
             g_tasks[i].run_ticks  = 0U;
             g_tasks[i].switches   = 0U;
             g_tasks[i].wake_tick  = 0ULL;
+            g_tasks[i].notify_pending = g_tasks[i].notify_waiting = 0U;
+            g_tasks[i].notify_timed = g_tasks[i].notify_return = 0U;
+            g_tasks[i].notify_result = MAIA_ERR_EMPTY;
             if (fresh_slot) g_task_count += 1U;
             /* Publish readiness only after every context/TCB field is valid. */
             g_tasks[i].state = MAIA_TASK_READY;
@@ -281,6 +293,13 @@ static int tick_locked(void) {
     }
 
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
+        if (g_tasks[i].state == MAIA_TASK_BLOCKED && g_tasks[i].notify_waiting &&
+            g_tasks[i].notify_timed && (uint64_t)(g_tick_count-g_tasks[i].wake_tick) < (UINT64_C(1)<<63U)) {
+            g_tasks[i].notify_waiting = g_tasks[i].notify_timed = 0U;
+            g_tasks[i].notify_result = MAIA_ERR_TIMEOUT;
+            g_tasks[i].wake_tick = 0U;
+            g_tasks[i].state = MAIA_TASK_READY;
+        }
         if (g_tasks[i].state == MAIA_TASK_SLEEPING && (uint64_t)(g_tick_count - g_tasks[i].wake_tick) < (UINT64_C(1) << 63U)) {
             g_tasks[i].state     = MAIA_TASK_READY;
             g_tasks[i].wake_tick = 0ULL;
@@ -344,6 +363,12 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
     }
 
     if (!maia_stack_frame_valid(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size,g_tasks[best_idx].sp)) return 0U;
+    if (g_tasks[best_idx].notify_return) {
+        /* Frame range/guard was checked above. a0 is this labeled wait's result,
+         * not a sentinel; do not alter registers of unrelated saved contexts. */
+        ((uint32_t *)g_tasks[best_idx].sp)[6] = (uint32_t)g_tasks[best_idx].notify_result;
+        g_tasks[best_idx].notify_return = 0U;
+    }
     maia_arch_stack_publish(maia_stack_low(g_tasks[best_idx].stack_base),maia_stack_top(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size));
     if (best_idx != g_current_idx) {
         g_switch_cnt += 1U;
@@ -387,11 +412,63 @@ maia_status_t maia_sched_delay_current_isr(uint32_t ticks) {
     return status;
 }
 
+maia_status_t maia_task_notify(maia_task_id_t id) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = MAIA_ERR_INVALID;
+    if (id >= 0 && (uint32_t)id < MAIA_MAX_TASKS &&
+        g_tasks[id].state != MAIA_TASK_UNUSED && g_tasks[id].state != MAIA_TASK_EXITED) {
+        maia_tcb_t *task = &g_tasks[id];
+        if (task->state == MAIA_TASK_BLOCKED && task->notify_waiting) {
+            task->notify_waiting = task->notify_timed = 0U;
+            task->notify_result = MAIA_OK;
+            task->wake_tick = 0U;
+            task->state = MAIA_TASK_READY;
+        } else task->notify_pending = 1U; /* Coalesce while no notification wait. */
+        result = MAIA_OK;
+    }
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+maia_status_t maia_task_wait_notification(uint32_t timeout_ticks) {
+    uintptr_t irq = maia_arch_irq_save();
+    int valid = irq != 0U && g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
+                g_tasks[g_current_idx].state == MAIA_TASK_RUNNING;
+    maia_arch_irq_restore(irq);
+    if (!valid) return MAIA_ERR_PERM;
+    /* A notification here becomes pending. Check/consume/block only after the
+     * native frame is saved, in the same trap transaction as delay/exit. */
+    return maia_arch_wait_notification_trap(timeout_ticks);
+}
+
+maia_status_t maia_sched_wait_notification_isr(uint32_t timeout_ticks) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = MAIA_ERR_INVALID;
+    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
+        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
+        maia_tcb_t *task = &g_tasks[g_current_idx];
+        task->notify_return = 1U;
+        task->notify_result = MAIA_ERR_EMPTY;
+        if (task->notify_pending) { task->notify_pending = 0U;task->notify_result = MAIA_OK; }
+        else if (timeout_ticks != 0U) {
+            task->notify_waiting = 1U;
+            task->notify_timed = timeout_ticks != MAIA_TASK_WAIT_FOREVER;
+            task->wake_tick = task->notify_timed ? g_tick_count+(uint64_t)timeout_ticks : 0U;
+            task->state = MAIA_TASK_BLOCKED;
+        }
+        result = MAIA_OK;
+    }
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
 maia_status_t maia_sched_exit_current_isr(void) {
     uintptr_t irq = maia_arch_irq_save();
     maia_status_t status = MAIA_ERR_INVALID;
     if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
         g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
+        g_tasks[g_current_idx].notify_pending = g_tasks[g_current_idx].notify_waiting = 0U;
+        g_tasks[g_current_idx].notify_timed = g_tasks[g_current_idx].notify_return = 0U;
         g_tasks[g_current_idx].state = MAIA_TASK_EXITED;
         status = MAIA_OK;
     }

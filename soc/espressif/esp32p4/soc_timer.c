@@ -103,6 +103,8 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
         maia_status_t status = MAIA_OK;
         if (mepc == (uint32_t)(uintptr_t)maia_arch_delay_ecall) {
             status = maia_sched_delay_current_isr(frame[6]);
+        } else if (mepc == (uint32_t)(uintptr_t)maia_arch_wait_notification_ecall) {
+            status = maia_sched_wait_notification_isr(frame[6]);
         } else if (mepc == (uint32_t)(uintptr_t)maia_arch_exit_ecall) {
             status = maia_sched_exit_current_isr();
         }

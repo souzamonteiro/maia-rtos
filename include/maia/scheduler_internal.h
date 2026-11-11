@@ -9,12 +9,15 @@ extern "C" {
  */
 maia_status_t maia_sched_delay_current_isr(uint32_t ticks);
 maia_status_t maia_sched_exit_current_isr(void);
+maia_status_t maia_sched_wait_notification_isr(uint32_t timeout_ticks);
+maia_status_t maia_arch_wait_notification_trap(uint32_t timeout_ticks);
 /* Idle port hook: called with interrupts enabled; may return spuriously. */
 void maia_arch_idle_wait(void);
 void maia_arch_delay_trap(uint32_t ticks);
 __attribute__((noreturn)) void maia_arch_exit_trap(void);
 #if defined(__riscv)
 extern const unsigned char maia_arch_delay_ecall[];
+extern const unsigned char maia_arch_wait_notification_ecall[];
 extern const unsigned char maia_arch_exit_ecall[];
 #endif
 #ifdef MAIA_SCHED_TEST

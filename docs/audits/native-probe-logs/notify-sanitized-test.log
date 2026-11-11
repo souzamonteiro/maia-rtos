@@ -1,0 +1,13 @@
+Test project /tmp/maia-host-contracts-sanitized-20261110
+    Start 11: notification_integer_test
+1/4 Test #11: notification_integer_test ........   Passed    0.25 sec
+    Start 12: notification_fp32_test
+2/4 Test #12: notification_fp32_test ...........   Passed    0.22 sec
+    Start 13: scheduler_atomic_test
+3/4 Test #13: scheduler_atomic_test ............   Passed    0.02 sec
+    Start 14: scheduler_idle_test
+4/4 Test #14: scheduler_idle_test ..............   Passed    0.01 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   0.50 sec

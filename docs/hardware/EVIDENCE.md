@@ -1,5 +1,16 @@
 # Hardware evidence register
 
+## Native task notification waits — 2026-11-11
+
+Uses the already verified MIE exclusion, M-mode ECALL/context restore and
+SYSTIMER/CLIC IRQ. No new MMIO, route, pinout, clock or display configuration.
+Kernel stores completion in TCB and writes a0 only after validating the saved
+frame. Rev-v1.3 RAM workload passes 40 rounds/282 waits/80 timeouts, 750 real IRQs,
+520 blocked-state observations and 750 rejected IRQ-context waits; idle runs.
+FP/mixed lifecycle and exact-PC illegal16 regressions pass. This does not prove
+SMP, arbitrary driver IRQ routing, power/WCET bounds or panel/DMA correctness.
+[Raw logs, API, race ordering and limits](../audits/native-task-notifications.md).
+
 ## Native serial output ownership — 2026-11-11
 
 Reuses EP1/EP1_CONF WR_DONE[0] and SERIAL_IN_EP_DATA_FREE[1], plus UART0
