@@ -34,7 +34,10 @@ static void print_number(uint32_t value) {
 }
 
 static void finish(void) {
-    uint32_t mstatus;
+    uint32_t mstatus, mcause, mintstatus;
+    __asm__ volatile("csrr %0, mcause" : "=r"(mcause));
+    /* ESP32-P4 CLIC CSR per hardware/EVIDENCE.md; not standard CLIC 0xfb1. */
+    __asm__ volatile("csrr %0, 0x346" : "=r"(mintstatus));
     __asm__ volatile("csrr %0, mstatus" : "=r"(mstatus));
     /* Freeze the single-core result before inspecting scheduler/IRQ counters. */
     __asm__ volatile("csrci mstatus, 8" ::: "memory");
@@ -43,7 +46,8 @@ static void finish(void) {
     uint32_t switches = maia_sched_switch_count();
     int pass = stats.timer_irqs >= PROBE_TICKS && maia_tick_get() >= PROBE_TICKS &&
                stats.sync_exceptions == 0U && stats.ecall_count == 0U &&
-               switches >= 2U && s_work[0] != 0U && s_work[1] != 0U;
+               switches >= PROBE_TICKS && s_work[0] != 0U && s_work[1] != 0U &&
+               (mstatus & 8U) != 0U && (mintstatus >> 24U) == 0U;
     maia_console_puts("PROBE irq="); print_number(stats.timer_irqs);
     maia_console_puts(" ticks="); print_number((uint32_t)maia_tick_get());
     maia_console_puts(" ecall="); print_number(stats.ecall_count);
@@ -53,6 +57,9 @@ static void finish(void) {
     maia_console_puts(" workB="); print_number(s_work[1]);
     maia_console_puts("\n");
     maia_console_puts("HW mstatus="); print_number(mstatus);
+    maia_console_puts(" mcause="); print_number(mcause);
+    maia_console_puts(" mintstatus="); print_number(mintstatus);
+    maia_console_puts(" last_mcause="); print_number(stats.last_mcause);
     maia_console_puts(" conf="); print_number(MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_CONF_REG));
     maia_console_puts(" raw="); print_number(MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_INT_RAW_REG));
     maia_console_puts(" ena="); print_number(MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_INT_ENA_REG));

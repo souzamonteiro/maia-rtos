@@ -126,3 +126,14 @@ does not revalidate the historical kernel/milestone claims above.
 - No flash writes; no parser or desktop changes. Native FP/SMP remain unverified.
 - Evidence/logs/reproduction and next CLIC diagnosis:
   [native probe report](../audits/native-scheduler-probe.md).
+
+## CLIC fresh-context return — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** corrected fresh task INT bit; four RAM runs
+  each deliver 250 real timer IRQs/ticks and 251 task switches, both busy tasks
+  progressing, zero ecalls/exceptions, active MIL restored to zero.
+- Supersedes prior one-IRQ stall for the corrected frame. Host 6/6 PASS, kernel
+  ASan/UBSan PASS; old frame rejected by negative host/hardware regressions.
+- No foreign source/runtime imported; no flash writes or parser changes.
+- Full M2 context ABI/FP and SMP remain unverified; native desktop not ported.
+- [Research, exact changes, captures and next test](../audits/native-clic-return.md).

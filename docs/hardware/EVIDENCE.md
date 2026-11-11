@@ -1,5 +1,43 @@
 # Hardware evidence register
 
+## ESP32-P4 fresh-context return investigation — 2026-11-11
+
+Primary source: [ESP32-P4 Chip Revision v1.3 TRM, Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+register 1.13 (`mcause`, p.73), register 1.17 (`mintstatus`, p.75), section
+1.9.2.5 (p.113), register 1.84 (p.116). INT bit 31 selects interrupt versus
+exception; MPIL is bits 23:16. Interrupt delivery requires a level greater than
+both the active MIL and configured threshold. The revision-specific manual,
+not the newer generic ESP32-P4 document, matches CSR mintstatus at 0x346.
+
+Measured failing return: `mcause=0x08000000`, `mintstatus=0x3f000000`,
+`last_mcause=0xb8000010`, `mstatus=0x88`, enabled pending source. The incoming
+fresh task frame uses `mcause=0x38000000` (INT=0); active MIL stays at the
+just-serviced level. Controlled experiment: initialize the fresh frame for an
+interrupt return (INT=1), keeping MPIL=0 and all other state unchanged. Four corrected runs passed: each delivered 250 real IRQs/ticks and 251 switches,
+with both busy tasks progressing and no ecalls/synchronous exceptions. Active
+MIL is zero after return (`mintstatus=0`). The final probe also requires enabled
+MIE, MIL zero and at least 250 switches. Returning to the former frame reproduces
+the one-IRQ failure; the host frame regression rejects it with exit 52.
+This silicon-specific behavior is measured, not inferred as a universal CLIC
+rule. MIL is read-only and never written. No timer events are fabricated.
+Raw captures and exact limits: [CLIC return report](../audits/native-clic-return.md).
+Downloaded revision-specific PDF SHA-256:
+`ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830`.
+
+## ESP32-P4 CLIC status diagnostic — 2026-11-11
+
+Primary reference: ESP-IDF v5.4.2, commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`,
+[interrupt_clic.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/riscv/include/esp_private/interrupt_clic.h),
+ESP32P4 conditional and MINTSTATUS definitions (lines 49–86): this chip uses
+CSR **0x346** for mintstatus, with MIL at bits 31:24; interrupt threshold is
+memory-mapped. Read-only diagnostic accesses use that documented CSR, not
+the different standard-CLIC CSR address.
+[Vectors return](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/riscv/vectors.S)
+lines 398–405 explain preserving mcause to restore the prior interrupt level
+on mret. These sources are consulted, never included/copied/linked.
+
+
 ## Native SYSTIMER base address verification
 
 Primary reference: Espressif ESP-IDF v5.4.2, commit

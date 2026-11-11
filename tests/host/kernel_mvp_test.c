@@ -96,8 +96,16 @@ int main(void) {
     if (maia_task_create("workB", dummy_task, NULL, MAIA_PRIO_NORMAL, s2, sizeof(s2), &t2) != MAIA_OK) return 35;
 
     /* Round-robin between equal higher-priority tasks t1 and t2 */
-    (void)maia_sched_select_next_sp(0U);
+    uintptr_t first_sp = maia_sched_select_next_sp(0U);
     if (maia_task_current_id() != t1) return 36;
+    /* Fresh context can be selected by an ISR, before the task ever runs.
+     * INT must select interrupt-return semantics; MPIL=0 must release ISR level.
+     * MIE stays clear during restore and MPIE enables it only at mret. */
+    const uint32_t *first_frame = (const uint32_t *)first_sp;
+    if ((first_sp & 15U) != 0U || first_frame[6] != (uint32_t)t1) return 51;
+    if ((first_frame[30] & 0x80000000UL) == 0U) return 52;
+    if ((first_frame[30] & 0x00FF0000UL) != 0U) return 53;
+    if ((first_frame[29] & 0x88U) != 0x80U) return 54;
     (void)maia_sched_select_next_sp(0U);
     if (maia_task_current_id() != t2) return 37;
     (void)maia_sched_select_next_sp(0U);

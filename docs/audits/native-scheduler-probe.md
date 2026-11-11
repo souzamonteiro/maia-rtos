@@ -1,5 +1,10 @@
 # Native scheduler RAM probe — partial hardware result
 
+**Subsequent checkpoint (2026-11-11):** the one-IRQ stall was corrected by fixing
+the fresh task return frame. Four 250-IRQ/251-switch RAM tests pass; see
+[CLIC return correction](native-clic-return.md). Results below describe the
+original diagnostic checkpoint, retained as negative evidence.
+
 This change establishes an isolated acceptance diagnostic and fixes two verified
 native SYSTIMER constants. It does **not** complete preemption or replace the
 working desktop. No parser/lexer/EBNF changes; no vendor runtime imports.

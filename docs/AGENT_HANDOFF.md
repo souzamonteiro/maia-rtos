@@ -156,3 +156,19 @@ then stalls with an enabled pending alarm. Zero ecalls/synchronous exceptions.
 Do not claim working preemption. Next: measure CLIC CSR state across first
 IRQ/context return and fix repeated delivery separately. Diagnostic ran in RAM
 only and reset to preserved flash; no native image was flashed. No grammar edits.
+
+## CLIC return correction — 2026-11-11 (supersedes one-IRQ stall above)
+
+See [CLIC return report](audits/native-clic-return.md). Read-only study of the
+owner's full FreeRTOS tree and silicon references led to an independently
+authored one-bit fix: fresh task mcause must have INT=1 (`0xb8000000`) so mret
+releases the active interrupt level when first selected inside an ISR. Previous
+INT=0 frame left MIL=0x3f. Four corrected RAM runs: 250 IRQs/ticks, 251 switches,
+both tasks progressing, zero ecalls/exceptions, MIL=0. No synthetic events.
+Host 6/6 PASS and ASan/UBSan kernel PASS; negative old-frame test exits 52.
+This is limited single-core integer-workload evidence, not full ABI/FP/SMP or
+native desktop completion. Next: live integer-register and FP context tests.
+No FreeRTOS code copied or linked into native target; no grammar changes.
+After the final RAM reset, the preserved flash desktop was verified through
+maia.py: shell echo, SciCalc 2+3*4=14, zero module exit and desktop left active.
+Native test artifacts/manifest: `../maia-rtos-recovery/native-clic-return-20261111/`.

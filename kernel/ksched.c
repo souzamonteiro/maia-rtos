@@ -76,7 +76,11 @@ static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t ta
     frame[6]  = task_idx;                                    /* a0 (x10) = task_idx */
     frame[28] = (uint32_t)(uintptr_t)&maia_task_trampoline;  /* mepc */
     frame[29] = 0x00001880UL;                                /* mstatus: MPP=3 (M-mode), MPIE=1 */
-    frame[30] = 0x38000000UL;                                /* mcause: CLIC MPP=3, MPIE=1, MPIL=0 */
+    /* A fresh task can first be selected inside a timer ISR. On ESP32-P4,
+     * exception-return state (INT=0) leaves the active interrupt level in place.
+     * Interrupt-return state restores MPIL=0 when mret starts this task.
+     * See docs/hardware/EVIDENCE.md and the RAM-only preemption regression. */
+    frame[30] = 0xB8000000UL;                                /* INT=1, MPP=3, MPIE=1, MPIL=0 */
     return (uintptr_t)frame;
 }
 
