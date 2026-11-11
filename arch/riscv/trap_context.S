@@ -4,6 +4,8 @@
  * Zero FreeRTOS / Zero ESP-IDF runtime dependencies.
  */
 
+#include <maia/arch/riscv_context.h>
+
     .section .text.trap, "ax"
     .option push
     .option norvc
@@ -13,7 +15,7 @@
     /* CLIC MTVEC mode 3 masks bits [5:0], so trap entry MUST be 64-byte aligned */
     .balign 64
 _maia_trap_entry:
-    addi    sp, sp, -128
+    addi    sp, sp, -MAIA_RISCV_CONTEXT_BYTES
     sw      ra,   0(sp)
     sw      t0,   4(sp)
     sw      t1,   8(sp)
@@ -42,7 +44,7 @@ _maia_trap_entry:
     sw      t4, 100(sp)
     sw      t5, 104(sp)
     sw      t6, 108(sp)
-    sw      tp, 124(sp) /* Per-task thread pointer; last word was reserved. */
+    sw      tp, MAIA_RISCV_TP_OFFSET(sp) /* Per-task thread pointer; last word was reserved. */
 
     csrr    t0, mepc
     csrr    t1, mstatus
@@ -62,6 +64,19 @@ _maia_trap_entry:
     or      t2, t2, t3
     sw      t2, 120(sp)
 
+#if MAIA_RISCV_FP32_CONTEXT
+    /* FS=Off has no usable FP state. All enabled states are saved eagerly. */
+    li      t3, MAIA_RISCV_FS_MASK
+    and     t3, t1, t3
+    beqz    t3, .Lfp_saved
+    .irp number,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    fsw f\number, (MAIA_RISCV_FP_OFFSET + 4 * \number)(sp)
+    .endr
+    csrr    t3, fcsr
+    sw      t3, MAIA_RISCV_FCSR_OFFSET(sp)
+.Lfp_saved:
+#endif
+
     call    maia_riscv_trap_handler
 
     mv      sp, a0
@@ -73,6 +88,19 @@ _maia_trap_restore:
     csrw    mepc, t0
     csrw    mcause, t2
     csrw    mstatus, t1
+
+#if MAIA_RISCV_FP32_CONTEXT
+    /* mstatus above restores FS before any FP instruction/CSR is accessed. */
+    li      t3, MAIA_RISCV_FS_MASK
+    and     t3, t1, t3
+    beqz    t3, .Lfp_restored
+    .irp number,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    flw f\number, (MAIA_RISCV_FP_OFFSET + 4 * \number)(sp)
+    .endr
+    lw      t3, MAIA_RISCV_FCSR_OFFSET(sp)
+    csrw    fcsr, t3
+.Lfp_restored:
+#endif
 
     lw      ra,   0(sp)
     lw      t0,   4(sp)
@@ -102,8 +130,8 @@ _maia_trap_restore:
     lw      t4, 100(sp)
     lw      t5, 104(sp)
     lw      t6, 108(sp)
-    lw      tp, 124(sp)
-    addi    sp, sp, 128
+    lw      tp, MAIA_RISCV_TP_OFFSET(sp)
+    addi    sp, sp, MAIA_RISCV_CONTEXT_BYTES
     mret
 
     .size _maia_trap_entry, .-_maia_trap_entry

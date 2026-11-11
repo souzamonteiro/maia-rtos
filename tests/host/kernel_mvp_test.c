@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/arch/riscv_context.h>
 #include <maia_shell/shell_mvp.h>
 #include <stdio.h>
 #include <string.h>
@@ -83,6 +84,11 @@ int main(void) {
 
     /* 3. M1/M2 Trap stats & Scheduler priority/round-robin/delay tests */
     if (maia_sched_init() != MAIA_OK) return 31;
+    uint8_t small_stack[MAIA_RISCV_MIN_STACK_BYTES - 1];
+    if (maia_task_create("small", dummy_task, NULL, MAIA_PRIO_NORMAL,
+                         small_stack, sizeof(small_stack), NULL) != MAIA_ERR_INVALID) return 56;
+    if (maia_task_create("overflow", dummy_task, NULL, MAIA_PRIO_NORMAL,
+                         (void *)(UINTPTR_MAX - 31U), 512U, NULL) != MAIA_ERR_INVALID) return 57;
     maia_trap_record_event(3UL, 0x4FF00100UL, 0UL);
     maia_trap_record_event(0x80000010UL, 0x4FF00200UL, 0UL);
     maia_trap_stats_t ts;
@@ -106,6 +112,10 @@ int main(void) {
     if ((first_frame[30] & 0x80000000UL) == 0U) return 52;
     if ((first_frame[30] & 0x00FF0000UL) != 0U) return 53;
     if ((first_frame[29] & 0x88U) != 0x80U) return 54;
+    if (first_frame[29] != MAIA_RISCV_INITIAL_MSTATUS) return 58;
+    for (uint32_t i = 31U; i < MAIA_RISCV_CONTEXT_WORDS; ++i) {
+        if (first_frame[i] != 0U) return 59; /* tp, FP registers/FCSR, padding */
+    }
     if (first_frame[31] != 0U) return 55; /* tp is deterministic before TLS setup */
     (void)maia_sched_select_next_sp(0U);
     if (maia_task_current_id() != t2) return 37;

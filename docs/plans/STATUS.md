@@ -147,3 +147,16 @@ does not revalidate the historical kernel/milestone claims above.
   ecalls/exceptions. Host 6/6 and sanitized kernel PASS.
 - No new runtime dependency, frame-size/public ABI or parser changes. FP pending.
 - [Exact workload, failure and scope](../audits/native-integer-context.md).
+
+## RV32F context — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** independently authored 272-byte RV32F frame
+  preserves f0–f31/FCSR and zero-initializes fresh state. Final two FP runs and
+  integer regression pass 250 real IRQs/251 switches, reg_errors0, no ecalls/faults.
+- Negative old-context test fails on f0; isolated FCSR-zero mutant fails on
+  rounding/flags. Real ILP32F C calls return 5.0 correctly. Host 7/7 and sanitized
+  integer/FP frame fixtures 2/2 PASS; native runtime guard PASS.
+- C and ASM ISA/ABI flags aligned; fresh builds required to clear old caches.
+- No flash/parser/vendor-runtime changes; mixed FS-Off/on, priority/yield/delay,
+  fault policy and full native desktop integration remain pending.
+- [Exact evidence, layout, risks and commands](../audits/native-fp-context.md).

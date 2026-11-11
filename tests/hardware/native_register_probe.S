@@ -27,7 +27,24 @@
     li t0, (\seed + 0x55)
     sw t0, 20(sp)
     sw gp, 24(sp)
+#if defined(__riscv_flen) && __riscv_flen == 32
+    /* Production frame initialization must enable FS and clear all FP state. */
+    .irp number,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    fmv.x.w t1, f\number
+    CHECK_REG t1, (768 + \number), -(768 + \number), \task
+    .endr
+    csrr t1, fcsr
+    CHECK_REG t1, 800, -800, \task
+#endif
 .Lagain\@:
+#if defined(__riscv_flen) && __riscv_flen == 32
+    .irp number,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    li t0, (0x3f000100 + (\task * 0x01000000) + \number)
+    fmv.w.x f\number, t0
+    .endr
+    li t0, (0x21 + (\task * 0x31))
+    csrw fcsr, t0
+#endif
     .irp number,1,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
     li x\number, (\seed + \number)
     .endr
@@ -62,6 +79,14 @@
 3:
     lw t1, 20(sp)
     CHECK_REG t1, 0x55, \seed, \task
+#if defined(__riscv_flen) && __riscv_flen == 32
+    .irp number,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    fmv.x.w t1, f\number
+    CHECK_REG t1, (256 + \number), (0x3f000000 + (\task * 0x01000000)), \task
+    .endr
+    csrr t1, fcsr
+    CHECK_REG t1, 512, (0x21 + (\task * 0x31) - 512), \task
+#endif
     li a0, \task
     call maia_probe_register_checkpoint
     j .Lagain\@

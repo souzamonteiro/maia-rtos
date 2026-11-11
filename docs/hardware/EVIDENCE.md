@@ -1,5 +1,25 @@
 # Hardware evidence register
 
+## RV32F context experiment — 2026-11-11
+
+Primary source: [ESP32-P4 Chip Revision v1.3 TRM, Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+section 1.6.3, p.95: 32 single-precision FP registers and manual enablement via
+mstatus.FS; FP instructions/CSRs fault with FS off. Register 1.38, p.82: fcsr
+contains rounding mode and exception flags. mstatus FS descriptions are on p.68.
+The opt-in RAM probe compiles RV32IMAFC/ILP32F (single-precision hardware ABI),
+seeds all FP registers with task-distinct bit patterns and fcsr with distinct
+legal rounding modes/flags, and checks them before calling C. A separate C
+translation unit exercises actual float arguments/result (`2.0f+3.0f`).
+Before adding FP context, the hardware test failed after three IRQs with f0
+cross-task contamination (`reg=256 expected=1073742080 actual=1056964864`).
+The independently authored 272-byte frame preserves all 32 registers plus fcsr.
+Two final RV32F runs and an integer-profile regression each pass 250 real IRQs
+and 251 switches without register errors. A RAM-only mutant that restores fcsr
+as zero fails at `reg=512 expected=82 actual=0`; zero-initialized FP state and
+ILP32F argument/result calls are checked too. No double-precision claim.
+See [FP context report](../audits/native-fp-context.md) for exact scope and logs.
+
+
 ## Integer context register probe — 2026-11-11
 
 Primary ABI reference: [RISC-V psABI](https://riscv-non-isa.github.io/riscv-elf-psabi-doc/),

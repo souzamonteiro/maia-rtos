@@ -1,4 +1,4 @@
-/* Single-core, integer-context diagnostic. No yield or synthetic tick calls.
+/* Single-core integer/optional RV32F context diagnostic. No yield or synthetic tick calls.
  * This is RAM-only test firmware, not a replacement for the working desktop.
  */
 #include <maia/console.h>
@@ -13,6 +13,10 @@ static uint8_t s_stacks[2][4096] __attribute__((aligned(16)));
 static volatile uint32_t s_work[2];
 static uint32_t s_start_cycle;
 static volatile uint32_t s_register_errors;
+#if defined(__riscv_flen) && __riscv_flen == 32
+extern float maia_probe_fp_add(float left, float right);
+static volatile uint32_t s_fp_abi_checks[2];
+#endif
 
 /* Explicitly console-only: no display initialization or DMA service here. */
 void maia_display_putc(char c) { (void)c; }
@@ -59,6 +63,12 @@ static void finish(void) {
     maia_console_puts(" workB="); print_number(s_work[1]);
     maia_console_puts(" reg_errors="); print_number(s_register_errors);
     maia_console_puts("\n");
+#if defined(__riscv_flen) && __riscv_flen == 32
+    maia_console_puts("FP abi_checks="); print_number(s_fp_abi_checks[0] + s_fp_abi_checks[1]);
+    maia_console_puts(" taskA="); print_number(s_fp_abi_checks[0]);
+    maia_console_puts(" taskB="); print_number(s_fp_abi_checks[1]);
+    maia_console_puts("\n");
+#endif
     maia_console_puts("HW mstatus="); print_number(mstatus);
     maia_console_puts(" mcause="); print_number(mcause);
     maia_console_puts(" mintstatus="); print_number(mintstatus);
@@ -93,6 +103,14 @@ void maia_probe_register_error(uint32_t reg, uint32_t actual,
 
 void maia_probe_register_checkpoint(uint32_t index);
 void maia_probe_register_checkpoint(uint32_t index) {
+#if defined(__riscv_flen) && __riscv_flen == 32
+    union { float value; uint32_t bits; } sum;
+    sum.value = maia_probe_fp_add(2.0f, 3.0f);
+    if (sum.bits != 0x40A00000U) {
+        maia_probe_register_error(513U, sum.bits, 0x40A00000U, index);
+    }
+    ++s_fp_abi_checks[index];
+#endif
     ++s_work[index];
     if (maia_tick_get() >= PROBE_TICKS ||
         (uint32_t)(cycle_now() - s_start_cycle) >= PROBE_CYCLE_BUDGET) {

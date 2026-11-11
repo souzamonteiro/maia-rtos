@@ -44,6 +44,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     tests/hardware/native_scheduler_probe.c
     tests/hardware/native_register_probe.S
   )
+  option(MAIA_NATIVE_PROBE_FP32 "Exercise native RV32F/ILP32F context (RAM diagnostic only)" OFF)
+  if(MAIA_NATIVE_PROBE_FP32)
+    target_compile_options(maia_sched_probe.elf PRIVATE -march=rv32imafc_zicsr_zifencei -mabi=ilp32f)
+    target_link_options(maia_sched_probe.elf PRIVATE -march=rv32imafc_zicsr_zifencei -mabi=ilp32f)
+    target_sources(maia_sched_probe.elf PRIVATE tests/hardware/native_fp_abi.c)
+  endif()
   target_include_directories(maia_sched_probe.elf PRIVATE include)
   target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
   target_link_options(maia_sched_probe.elf PRIVATE
@@ -148,6 +154,17 @@ else()
       target_compile_options(kernel_mvp_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME kernel_mvp_test COMMAND kernel_mvp_test)
+    # Exercise the larger RV32F frame initialization/bounds on the host too.
+    add_executable(kernel_fp_frame_test
+      tests/host/kernel_mvp_test.c kernel/kmem.c kernel/ksync.c kernel/ksched.c
+      shell/maia_shell_mvp.c)
+    target_include_directories(kernel_fp_frame_test PRIVATE include)
+    target_compile_definitions(kernel_fp_frame_test PRIVATE __riscv_flen=32)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(kernel_fp_frame_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME kernel_fp_frame_test COMMAND kernel_fp_frame_test)
+
 
     # The current shell dispatches assembler/compiler/module commands too.
     # Link their real host implementations rather than substituting stubs.

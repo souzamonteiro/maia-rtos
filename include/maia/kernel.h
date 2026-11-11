@@ -144,6 +144,11 @@ typedef struct maia_task_info {
 } maia_task_info_t;
 
 maia_status_t  maia_sched_init(void);
+/* Thread/boot context only; not ISR-safe. Caller owns stack_mem for task lifetime.
+ * Returns INVALID for null entry/stack, a stack smaller than the architecture
+ * minimum (256 integer, 400 RV32F), or pointer+length overflow; NOMEM when full.
+ * Minimum size is not a workload stack bound; allow for actual C/interrupt depth.
+ */
 maia_status_t  maia_task_create(const char *name,
                                 maia_task_entry_fn entry,
                                 void *arg,

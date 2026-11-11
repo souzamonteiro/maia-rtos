@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/arch/riscv_context.h>
 
 typedef struct maia_tcb {
     maia_task_id_t     id;
@@ -69,14 +70,15 @@ void maia_task_trampoline(uint32_t task_idx) {
 
 static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t task_idx) {
     uintptr_t top = ((uintptr_t)stack_mem + stack_size) & ~(uintptr_t)0xFU;
-    uint32_t *frame = (uint32_t *)(top - 128U);
-    for (uint32_t i = 0U; i < 32U; ++i) {
+    uint32_t *frame = (uint32_t *)(top - MAIA_RISCV_CONTEXT_BYTES);
+    for (uint32_t i = 0U; i < MAIA_RISCV_CONTEXT_WORDS; ++i) {
         frame[i] = 0U;
     }
     /* frame[31] (tp) remains zero until a task/runtime establishes its TLS. */
     frame[6]  = task_idx;                                    /* a0 (x10) = task_idx */
     frame[28] = (uint32_t)(uintptr_t)&maia_task_trampoline;  /* mepc */
-    frame[29] = 0x00001880UL;                                /* mstatus: MPP=3 (M-mode), MPIE=1 */
+    /* MPP=M, MPIE=1; FS=Initial for RV32F. */
+    frame[29] = MAIA_RISCV_INITIAL_MSTATUS;
     /* A fresh task can first be selected inside a timer ISR. On ESP32-P4,
      * exception-return state (INT=0) leaves the active interrupt level in place.
      * Interrupt-return state restores MPIL=0 when mret starts this task.
@@ -156,7 +158,8 @@ maia_status_t maia_task_create(const char *name,
                                void *stack_mem,
                                size_t stack_size,
                                maia_task_id_t *out_id) {
-    if (entry == NULL || stack_mem == NULL || stack_size < 256U) {
+    if (entry == NULL || stack_mem == NULL || stack_size < MAIA_RISCV_MIN_STACK_BYTES ||
+        stack_size > UINTPTR_MAX - (uintptr_t)stack_mem) {
         return MAIA_ERR_INVALID;
     }
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {

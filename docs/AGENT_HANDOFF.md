@@ -183,3 +183,21 @@ Corrected workload reaches 250 real IRQs/251 switches, reg_errors=0, both tasks
 progress, no ecalls/exceptions. Host 6/6/sanitized kernel pass. No TLS allocation,
 FP/SMP or native desktop claim. See `audits/native-integer-context.md`.
 Next small task: RV32F/FCSR context and consistent initialization/ABI tests.
+
+## RV32F context — 2026-11-11 (supersedes FP-pending notes above)
+
+See `audits/native-fp-context.md` and `architecture/RISCV_CONTEXT.md`. The private
+shared frame layout selects 128-byte integer or 272-byte RV32F context. Independent
+assembly saves all 32 FP registers and FCSR for enabled FS; fresh FP state is zero.
+Two final FP RAM runs and integer regression each pass 250 IRQs/251 switches with
+all sentinels intact, no ecalls/exceptions. Missing FP context and a temporary
+FCSR-zero mutant both fail the hardware test. Host 7/7 and sanitized frame tests
+2/2 pass. Diagnostic FP option `MAIA_NATIVE_PROBE_FP32=ON` uses RV32IMAFC/ILP32F.
+Toolchain ASM flags now match C; use fresh build directories, old caches can
+retain absent ASM flags and are rejected by layout FLEN guard.
+No foreign code/runtime, parser edits or flash writes. No native desktop/SMP
+completion. Next: mixed FS-Off/on and priority/yield/delay tests, plus fatal-trap
+policy before driver integration. Preserve original flash/working desktop.
+Final reset recovery was verified via maia.py: shell, SciCalc 2+3*4=14, module
+exit0 and desktop active. Artifacts/checksums and FCSR mutant are preserved in
+`../maia-rtos-recovery/native-fp-context-20261111/`.
