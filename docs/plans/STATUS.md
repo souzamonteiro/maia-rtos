@@ -160,3 +160,13 @@ does not revalidate the historical kernel/milestone claims above.
 - No flash/parser/vendor-runtime changes; mixed FS-Off/on, priority/yield/delay,
   fault policy and full native desktop integration remain pending.
 - [Exact evidence, layout, risks and commands](../audits/native-fp-context.md).
+
+## Mixed scheduling — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED:** FS-Off high-priority task yields ready and
+  sleeps two ticks while two FP tasks retain live sentinels across ecalls/IRQs.
+- Reproduced saved-ecall INT=0 priority leak; normalize task return flags while
+  passing raw cause separately. Corrected workload passes250 realIRQs plus
+  explicit ecalls,124 sleeps,125 priority checks and374 FS-Off checks.
+- Host7/7 and sanitized frame2/2 PASS. No flash/vendor/parser changes.
+- [Evidence and limits](../audits/native-mixed-scheduling.md). Next: fatal traps.

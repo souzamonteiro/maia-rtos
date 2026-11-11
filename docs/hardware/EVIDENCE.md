@@ -1,5 +1,23 @@
 # Hardware evidence register
 
+## Mixed FS-state and scheduler diagnostic — 2026-11-11
+
+Uses the previously cited rev-v1.3 mstatus.FS/CLIC references and verified
+32-bit M-mode ecall path. No new MMIO or peripheral protocol. Test-only profile
+`MAIA_NATIVE_PROBE_MIXED` combines two FP sentinel tasks with a higher-priority
+integer task that clears FS, yields while ready, then sleeps two real ticks.
+Expected invariants: no lower-priority work while high task yields ready; no
+early wake; both lower tasks progress while it sleeps; FS remains off across
+switch/ISR paths. Live FP/integer sentinels also span explicit ecalls. Real
+IRQ/tick counters are still required; ecalls are reported separately.
+Before correction, the probe reached250IRQs but failed with active MIL=0x3f
+while a normal task was executing (`mcause=0x0800000b`). The previously cited
+fresh-frame INT behavior also applies to saved ecall frames restored from a
+timer ISR. The saved return frame now sets INT=1 while preserving saved MPIL;
+the raw cause is passed separately to dispatch/statistics before normalization.
+No synthetic IRQ/tick is recorded. Final hardware results are required below.
+
+
 ## RV32F context experiment — 2026-11-11
 
 Primary source: [ESP32-P4 Chip Revision v1.3 TRM, Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),

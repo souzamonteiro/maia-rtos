@@ -60,7 +60,10 @@ _maia_trap_entry:
     li      t3, 0x00001880
     or      t1, t1, t3
     sw      t1, 116(sp)
-    li      t3, 0x38000000
+    /* a1 retains the raw trap cause for dispatch/statistics. A suspended ecall
+     * frame can later be selected from a timer ISR: INT=1 is required on this
+     * silicon to restore its saved MPIL. This changes return state, not events. */
+    li      t3, MAIA_RISCV_TASK_RETURN_FLAGS
     or      t2, t2, t3
     sw      t2, 120(sp)
 

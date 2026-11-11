@@ -30,8 +30,11 @@ return/assembly validation is documented in the native context audit reports.
 RV32F traps eagerly save all FP state whenever FS is enabled (Initial, Clean or
 Dirty). FS=Off skips FP instructions/CSRs on save and restore. Restoring enabled
 FP state may conservatively mark FS Dirty; no lazy-switching optimization or
-exact Initial/Clean-state fidelity is claimed. The mixed FS-Off/on trap path is
-not yet hardware-tested. All state is saved before calling the C handler.
+exact Initial/Clean-state fidelity is claimed. The mixed FS-Off/on trap path is hardware-tested in the dedicated mixed
+profile; see `../audits/native-mixed-scheduling.md`. All state is saved before calling the C handler. Saved task return state also
+sets INT=1 so a suspended ecall frame can be restored from an ISR without
+leaving active MIL elevated. The original raw cause remains the handler argument,
+so ecall/IRQ statistics are not altered by return normalization.
 No heap allocation or blocking is added to the ISR path.
 
 `maia_task_create` rejects less than frame size +128 bytes (256 integer, 400

@@ -83,7 +83,7 @@ static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t ta
      * exception-return state (INT=0) leaves the active interrupt level in place.
      * Interrupt-return state restores MPIL=0 when mret starts this task.
      * See docs/hardware/EVIDENCE.md and the RAM-only preemption regression. */
-    frame[30] = 0xB8000000UL;                                /* INT=1, MPP=3, MPIE=1, MPIL=0 */
+    frame[30] = MAIA_RISCV_TASK_RETURN_FLAGS;                                /* INT=1, MPP=3, MPIE=1, MPIL=0 */
     return (uintptr_t)frame;
 }
 

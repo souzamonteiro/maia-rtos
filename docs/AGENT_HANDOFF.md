@@ -201,3 +201,13 @@ policy before driver integration. Preserve original flash/working desktop.
 Final reset recovery was verified via maia.py: shell, SciCalc 2+3*4=14, module
 exit0 and desktop active. Artifacts/checksums and FCSR mutant are preserved in
 `../maia-rtos-recovery/native-fp-context-20261111/`.
+
+## Mixed scheduling — 2026-11-11
+
+See `audits/native-mixed-scheduling.md`. Mixed profile exposed INT=0 saved-ecall
+frames restored from a timer ISR leaving MIL=0x3f. Saved task return frames now
+normalize INT=1 while raw cause is passed separately for dispatch/statistics.
+The mixed workload passes250 realIRQs,74947 ecalls,124 two-tick sleeps,125
+high-priority yield checks and374 FS-Off checks, with register integrity/MIL0.
+Host7/7, sanitized frame2/2 pass. Single-core SRAM scope; no flash/parser/imports.
+Next authorized step is bounded fatal diagnostics/halt instead of unknown PC+4.
