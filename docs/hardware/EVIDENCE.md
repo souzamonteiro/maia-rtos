@@ -1,5 +1,16 @@
 # Hardware evidence register
 
+## Internal idle and WFI diagnostic — 2026-11-11
+
+Uses the already verified timer/CLIC and M-mode context-return paths. Standard
+instruction reference: [RISC-V privileged ISA,20240411, Machine ISA: Wait for Interrupt](https://docs.riscv.org/reference/isa/v20240411/_attachments/riscv-privileged.pdf).
+The private idle context keeps MIE enabled, FS off, and uses WFI rather than
+reviving blocked/exited applications. The architecture wait hook is instrumented
+only in the RAM diagnostic to inspect coherent idle/task/IRQ snapshots before
+the same WFI instruction. No interrupt, tick or application wake is synthesized.
+No power-saving/latency claim is inferred: WFI may return spuriously.
+
+
 ## Scheduler local exclusion and transactional task traps — 2026-11-11
 
 Primary ISA reference: [Zicsr v2.0, CSR Instructions](https://docs.riscv.org/reference/isa/unpriv/zicsr.html)

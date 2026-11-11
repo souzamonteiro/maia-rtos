@@ -190,8 +190,18 @@ does not revalidate the historical kernel/milestone claims above.
 - Local IRQ nesting and coherent task/tick/stat snapshots added. READY published
   after construction; delay/exit commit within saved-context traps. EXITED slot
   reuse keeps registered count stable; wraparound deadlines use modular arithmetic.
-- **HARDWARE-TESTED, LIMITED:** lifecycle/mixed profile250 IRQs,125 creates/returns,
- 125 nesting checks,4 slots, live integer/FP sentinels intact.
+- **HARDWARE-TESTED, LIMITED:** lifecycle/mixed profile250 IRQs, 125 creates/returns,
+ 125 nesting checks, 4 slots, live integer/FP sentinels intact.
 - Host10/10, sanitized atomic/integer/FP fixtures3/3 PASS; negative mutants rejected.
 - No flash/parser/vendor runtime changes. Next: no-ready idle fallback.
 - [Scope, tests and limits](../audits/native-scheduler-atomicity.md).
+
+## Internal idle — 2026-11-11
+
+- Replaced task revival on no-ready with a private static idle context/WFI;
+ 16 public slots unchanged, idle current ID=-1, coherent diagnostics added.
+- **HARDWARE-TESTED, LIMITED:** all-sleeping/all-exited workload and empty boot
+  each pass 150 real IRQs, idle MIE on/FS off and correct terminal task states.
+- Host 11/11, sanitized fixtures 4/4 PASS; revival mutant rejected.
+- No flash/vendor/parser changes. Next ordered step: stack bounds/guards.
+- [Exact results and instrumentation limits](../audits/native-idle.md).

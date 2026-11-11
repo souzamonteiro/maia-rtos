@@ -239,3 +239,17 @@ start BUSY; masked create after start PERM. No SMP claim. Host10/10, sanitized
 fixtures3/3 and lifecycle hardware250 IRQs/125 transients pass.
 Next in authorized order: fix no-ready behavior/internal idle, then stack bounds.
 No native diagnostic flashed; functional desktop remains preserved on flash.
+
+## Internal idle — 2026-11-11
+
+See `audits/native-idle.md`. No-ready no longer revives blocked/exited apps.
+Private idle owns 2048-byte stack, no public slot, MIE on/FS off/WFI; saved sp
+is retained. current_id=-1 while idle; stats getter is coherent single-core.
+Host 11/11 and ASan/UBSan fixtures 4/4 pass, revival mutant rejected. Hardware
+all-sleeping/all-exited and empty boot each pass 150 real IRQs with no early wakes
+or revived apps. Instrumented architecture idle wait hook observes state before
+real WFI; no scheduling/tick substitution or power/timing claim.
+Next in authorized order: stack protection/bounds before driver integration/SMP.
+Final lifecycle regression after idle PASS (250 IRQs/125 transient tasks).
+After reset, original flash shell/SciCalc 2+3*4=14/desktop verified. Exact recovery
+artifacts/checksums: `../maia-rtos-recovery/native-idle-20261111/`.

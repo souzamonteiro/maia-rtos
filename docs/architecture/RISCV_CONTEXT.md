@@ -48,7 +48,8 @@ this diagnostic does not migrate existing MaiaScript modules or prove their ABI
 equivalence. The working legacy desktop remains a separate flash application.
 Mixed FS-state, yield/delay/priority and controlled fatal traps have dedicated
 hardware tests. General service integration still needs operation atomicity,
-idle/no-ready handling, stack protection and memory/cache/DMA contracts. SMP is separate.
+stack protection and memory/cache/DMA contracts. Idle/no-ready and local
+scheduler exclusion are now covered by dedicated hardware profiles. SMP is separate.
 
 ## Fatal-trap policy
 
@@ -66,3 +67,20 @@ No normal console/display callback, heap, lock or scheduler is used. RAM state
 is not persistent across reset. This is fail-stop diagnostics, not per-task
 recovery, stack-overflow or nested/double-fault recovery. A usable trap stack
 and functioning internal SRAM are prerequisites; output can be lost/disconnected.
+
+## Scheduler transactions and idle
+
+Delay and normal task return use private, labeled ECALL stubs. Dispatch changes
+the sleeping/exited state only after saving the outgoing context, while IRQs
+are disabled; PC+4 applies only to the validated ECALL. This removes the gap
+between task-side state mutation and context save. Raw yield ECALLs remain valid.
+Local MIE guards preserve nesting for metadata/tick/stat snapshots; they are
+not SMP locks. Deadlines use unsigned half-range comparison for uint32 waits.
+
+No-ready selects a separate internal idle context with a 2048-byte static stack
+and FS Off; no application slot is consumed and current_id is -1. Idle retains
+its own saved sp through timer traps and waits with interrupts enabled/WFI.
+Blocked/exited apps keep their states; an application at any priority outranks
+idle when READY. Idle diagnostics count actual timer ticks spent in that context.
+The instrumentation hook used by the RAM idle profile is described in
+`../audits/native-idle.md`; it does not inject ticks or task wakes.

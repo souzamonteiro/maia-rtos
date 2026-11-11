@@ -25,6 +25,10 @@ static uint32_t          g_switch_cnt;
 static volatile uint64_t g_tick_count;
 static maia_trap_stats_t g_trap_stats;
 static int g_started;
+static uint8_t g_idle_stack[2048] __attribute__((aligned(16)));
+static uintptr_t g_idle_sp;
+static int g_idle_running;
+static maia_idle_stats_t g_idle_stats;
 void maia_arch_yield_trap(void);
 
 #if !defined(__riscv)
@@ -62,6 +66,18 @@ __attribute__((weak)) void maia_arch_yield_trap(void) {
 
 __attribute__((weak)) void maia_arch_start_first_task(uintptr_t first_sp) {
     (void)first_sp;
+}
+
+__attribute__((weak)) void maia_arch_idle_wait(void) {
+#if defined(__riscv)
+    __asm__ volatile("wfi" ::: "memory");
+#else
+    __builtin_trap(); /* Host model does not execute native task contexts. */
+#endif
+}
+
+static void idle_entry(void) {
+    for (;;) maia_arch_idle_wait();
 }
 
 static void copy_name(char dst[MAIA_TASK_NAME_MAX], const char *src) {
@@ -160,6 +176,13 @@ static maia_status_t sched_init_locked(void) {
         g_tasks[i].wake_tick  = 0ULL;
     }
     g_current_idx = -1;
+    g_idle_running = 0;
+    g_idle_stats.ticks = 0U;
+    g_idle_stats.entries = 0U;
+    g_idle_sp = init_task_stack(g_idle_stack, sizeof g_idle_stack, 0U);
+    uint32_t *idle_frame = (uint32_t *)g_idle_sp;
+    idle_frame[28] = (uint32_t)(uintptr_t)idle_entry;
+    idle_frame[29] &= ~MAIA_RISCV_FS_MASK; /* Internal idle never uses FP. */
     g_task_count  = 0U;
     g_switch_cnt  = 0U;
     g_tick_count  = 0ULL;
@@ -233,6 +256,8 @@ static int tick_locked(void) {
 
     if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
         g_tasks[g_current_idx].run_ticks += 1U;
+    } else if (g_idle_running) {
+        g_idle_stats.ticks += 1U;
     }
 
     uint8_t cur_prio = 0U;
@@ -263,7 +288,9 @@ int maia_sched_tick_isr(void) {
 }
 
 static uintptr_t select_next_locked(uintptr_t current_sp) {
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
+    if (g_idle_running) {
+        if (current_sp != 0U) g_idle_sp = current_sp;
+    } else if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
         if (current_sp != 0U) {
             g_tasks[g_current_idx].sp = current_sp;
         }
@@ -288,17 +315,20 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
     }
 
     if (best_idx < 0) {
-        /* If no task is READY, keep current if valid */
-        if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
-            g_tasks[g_current_idx].state = MAIA_TASK_RUNNING;
-            return g_tasks[g_current_idx].sp;
+        /* No app is runnable. Never revive a sleeping/blocked/exited task. */
+        if (!g_idle_running) {
+            g_switch_cnt += 1U;
+            g_idle_stats.entries += 1U;
         }
-        return current_sp;
+        g_current_idx = -1;
+        g_idle_running = 1;
+        return g_idle_sp;
     }
 
     if (best_idx != g_current_idx) {
         g_switch_cnt += 1U;
     }
+    g_idle_running = 0;
     g_current_idx = best_idx;
     g_tasks[g_current_idx].state     = MAIA_TASK_RUNNING;
     g_tasks[g_current_idx].switches += 1U;
@@ -393,6 +423,14 @@ maia_status_t maia_task_get_info(uint32_t index, maia_task_info_t *out_info) {
     maia_status_t status = task_get_info_locked(index, out_info);
     maia_arch_irq_restore(irq);
     return status;
+}
+
+maia_status_t maia_sched_get_idle_stats(maia_idle_stats_t *out_stats) {
+    if (out_stats == NULL) return MAIA_ERR_INVALID;
+    uintptr_t irq = maia_arch_irq_save();
+    *out_stats = g_idle_stats;
+    maia_arch_irq_restore(irq);
+    return MAIA_OK;
 }
 
 #ifdef MAIA_SCHED_TEST

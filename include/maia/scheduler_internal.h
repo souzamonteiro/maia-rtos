@@ -9,6 +9,8 @@ extern "C" {
  */
 maia_status_t maia_sched_delay_current_isr(uint32_t ticks);
 maia_status_t maia_sched_exit_current_isr(void);
+/* Idle port hook: called with interrupts enabled; may return spuriously. */
+void maia_arch_idle_wait(void);
 void maia_arch_delay_trap(uint32_t ticks);
 __attribute__((noreturn)) void maia_arch_exit_trap(void);
 #if defined(__riscv)

@@ -147,6 +147,15 @@ typedef struct maia_task_info {
 
 /* Boot-only reset; returns BUSY once scheduling has started. */
 maia_status_t  maia_sched_init(void);
+/* Internal idle has its own static stack, consumes no public task slot and is
+ * selected only when no application task is READY. current_id is -1 in idle.
+ * Stats snapshot is single-core ISR-safe; null output returns INVALID.
+ */
+typedef struct maia_idle_stats {
+    uint64_t ticks;
+    uint32_t entries;
+} maia_idle_stats_t;
+maia_status_t maia_sched_get_idle_stats(maia_idle_stats_t *out_stats);
 /* Thread/boot context only; not ISR-safe. Caller owns stack_mem for task lifetime.
  * Returns INVALID for null entry/stack, a stack smaller than the architecture
  * minimum (256 integer, 400 RV32F), or pointer+length overflow; NOMEM when full.
