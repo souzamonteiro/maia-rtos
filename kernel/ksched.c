@@ -1,4 +1,6 @@
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
+#include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_context.h>
 
 typedef struct maia_tcb {
@@ -22,10 +24,29 @@ static uint32_t          g_task_count;
 static uint32_t          g_switch_cnt;
 static volatile uint64_t g_tick_count;
 static maia_trap_stats_t g_trap_stats;
+static int g_started;
+void maia_arch_yield_trap(void);
+
+#if !defined(__riscv)
+static uintptr_t g_host_irq = 8U;
+__attribute__((weak)) uintptr_t maia_arch_irq_save(void) {
+    uintptr_t previous = g_host_irq;
+    g_host_irq = 0U;
+    return previous;
+}
+__attribute__((weak)) void maia_arch_irq_restore(uintptr_t previous) { g_host_irq = previous & 8U; }
+__attribute__((weak)) void maia_arch_delay_trap(uint32_t ticks) {
+    (void)maia_sched_delay_current_isr(ticks);
+}
+__attribute__((weak, noreturn)) void maia_arch_exit_trap(void) {
+    (void)maia_sched_exit_current_isr();
+    __builtin_trap(); /* Hosted model cannot execute a native context return. */
+}
+#endif
 
 /* Weak platform hooks overridden by arch/soc on target hardware */
 __attribute__((weak)) uint64_t maia_soc_time_us(void) {
-    return g_tick_count * 1000ULL;
+    return maia_tick_get() * 1000ULL;
 }
 
 __attribute__((weak)) void maia_arch_yield_trap(void) {
@@ -60,12 +81,7 @@ void maia_task_trampoline(uint32_t task_idx) {
     if (task_idx < MAIA_MAX_TASKS && g_tasks[task_idx].entry != NULL) {
         g_tasks[task_idx].entry(g_tasks[task_idx].arg);
     }
-    if (task_idx < MAIA_MAX_TASKS) {
-        g_tasks[task_idx].state = MAIA_TASK_EXITED;
-    }
-    for (;;) {
-        maia_task_yield();
-    }
+    maia_arch_exit_trap();
 }
 
 static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t task_idx) {
@@ -88,7 +104,10 @@ static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t ta
 }
 
 uint64_t maia_tick_get(void) {
-    return g_tick_count;
+    uintptr_t irq = maia_arch_irq_save();
+    uint64_t result = g_tick_count;
+    maia_arch_irq_restore(irq);
+    return result;
 }
 
 uint64_t maia_time_us(void) {
@@ -97,11 +116,14 @@ uint64_t maia_time_us(void) {
 
 void maia_trap_get_stats(maia_trap_stats_t *out_stats) {
     if (out_stats != NULL) {
+        uintptr_t irq = maia_arch_irq_save();
         *out_stats = g_trap_stats;
+        maia_arch_irq_restore(irq);
     }
 }
 
 void maia_trap_record_event(uint32_t mcause, uint32_t mepc, uint32_t mtval) {
+    uintptr_t irq = maia_arch_irq_save();
     g_trap_stats.total_traps += 1U;
     g_trap_stats.last_mcause  = mcause;
     g_trap_stats.last_mepc    = mepc;
@@ -115,13 +137,14 @@ void maia_trap_record_event(uint32_t mcause, uint32_t mepc, uint32_t mtval) {
         }
     } else {
         g_trap_stats.sync_exceptions += 1U;
-        if ((mcause & 0xFFUL) == 11UL) {
+        if ((mcause & 0xFFFUL) == 11UL) {
             g_trap_stats.ecall_count += 1U;
         }
     }
+    maia_arch_irq_restore(irq);
 }
 
-maia_status_t maia_sched_init(void) {
+static maia_status_t sched_init_locked(void) {
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
         g_tasks[i].id         = (maia_task_id_t)i;
         g_tasks[i].name[0]    = '\0';
@@ -151,7 +174,14 @@ maia_status_t maia_sched_init(void) {
     return MAIA_OK;
 }
 
-maia_status_t maia_task_create(const char *name,
+maia_status_t maia_sched_init(void) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = g_started ? MAIA_ERR_BUSY : sched_init_locked();
+    maia_arch_irq_restore(irq);
+    return status;
+}
+
+static maia_status_t task_create_locked(const char *name,
                                maia_task_entry_fn entry,
                                void *arg,
                                uint8_t priority,
@@ -164,18 +194,20 @@ maia_status_t maia_task_create(const char *name,
     }
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
         if (g_tasks[i].state == MAIA_TASK_UNUSED || g_tasks[i].state == MAIA_TASK_EXITED) {
+            int fresh_slot = g_tasks[i].state == MAIA_TASK_UNUSED;
             copy_name(g_tasks[i].name, name);
             g_tasks[i].entry      = entry;
             g_tasks[i].arg        = arg;
             g_tasks[i].priority   = priority;
-            g_tasks[i].state      = MAIA_TASK_READY;
             g_tasks[i].stack_base = (uintptr_t)stack_mem;
             g_tasks[i].stack_size = stack_size;
             g_tasks[i].sp         = init_task_stack(stack_mem, stack_size, i);
             g_tasks[i].run_ticks  = 0U;
             g_tasks[i].switches   = 0U;
             g_tasks[i].wake_tick  = 0ULL;
-            g_task_count         += 1U;
+            if (fresh_slot) g_task_count += 1U;
+            /* Publish readiness only after every context/TCB field is valid. */
+            g_tasks[i].state = MAIA_TASK_READY;
             if (out_id != NULL) {
                 *out_id = (maia_task_id_t)i;
             }
@@ -185,7 +217,17 @@ maia_status_t maia_task_create(const char *name,
     return MAIA_ERR_NOMEM;
 }
 
-int maia_sched_tick_isr(void) {
+maia_status_t maia_task_create(const char *name, maia_task_entry_fn entry,
+                               void *arg, uint8_t priority, void *stack_mem,
+                               size_t stack_size, maia_task_id_t *out_id) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = g_started && irq == 0U ? MAIA_ERR_PERM :
+        task_create_locked(name, entry, arg, priority, stack_mem, stack_size, out_id);
+    maia_arch_irq_restore(irq);
+    return status;
+}
+
+static int tick_locked(void) {
     int woke_higher = 0;
     g_tick_count += 1ULL;
 
@@ -200,7 +242,7 @@ int maia_sched_tick_isr(void) {
     }
 
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
-        if (g_tasks[i].state == MAIA_TASK_SLEEPING && g_tick_count >= g_tasks[i].wake_tick) {
+        if (g_tasks[i].state == MAIA_TASK_SLEEPING && (uint64_t)(g_tick_count - g_tasks[i].wake_tick) < (UINT64_C(1) << 63U)) {
             g_tasks[i].state     = MAIA_TASK_READY;
             g_tasks[i].wake_tick = 0ULL;
             if (g_tasks[i].priority >= cur_prio) {
@@ -213,7 +255,14 @@ int maia_sched_tick_isr(void) {
     return woke_higher;
 }
 
-uintptr_t maia_sched_select_next_sp(uintptr_t current_sp) {
+int maia_sched_tick_isr(void) {
+    uintptr_t irq = maia_arch_irq_save();
+    int result = tick_locked();
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+static uintptr_t select_next_locked(uintptr_t current_sp) {
     if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
         if (current_sp != 0U) {
             g_tasks[g_current_idx].sp = current_sp;
@@ -256,35 +305,72 @@ uintptr_t maia_sched_select_next_sp(uintptr_t current_sp) {
     return g_tasks[g_current_idx].sp;
 }
 
+uintptr_t maia_sched_select_next_sp(uintptr_t current_sp) {
+    uintptr_t irq = maia_arch_irq_save();
+    uintptr_t result = select_next_locked(current_sp);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
 void maia_task_yield(void) {
     maia_arch_yield_trap();
 }
 
 void maia_task_delay_ticks(uint32_t ticks) {
-    if (ticks == 0U) {
-        maia_task_yield();
-        return;
+    if (ticks == 0U) maia_task_yield();
+    else maia_arch_delay_trap(ticks);
+}
+
+maia_status_t maia_sched_delay_current_isr(uint32_t ticks) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = MAIA_ERR_INVALID;
+    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
+        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
+        if (ticks != 0U) {
+            /* Unsigned modular deadline; uint32 delays are less than half-range. */
+            g_tasks[g_current_idx].wake_tick = g_tick_count + (uint64_t)ticks;
+            g_tasks[g_current_idx].state = MAIA_TASK_SLEEPING;
+        }
+        status = MAIA_OK;
     }
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
-        g_tasks[g_current_idx].wake_tick = g_tick_count + (uint64_t)ticks;
-        g_tasks[g_current_idx].state     = MAIA_TASK_SLEEPING;
+    maia_arch_irq_restore(irq);
+    return status;
+}
+
+maia_status_t maia_sched_exit_current_isr(void) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = MAIA_ERR_INVALID;
+    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
+        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
+        g_tasks[g_current_idx].state = MAIA_TASK_EXITED;
+        status = MAIA_OK;
     }
-    maia_arch_yield_trap();
+    maia_arch_irq_restore(irq);
+    return status;
 }
 
 maia_task_id_t maia_task_current_id(void) {
-    return g_current_idx;
+    uintptr_t irq = maia_arch_irq_save();
+    maia_task_id_t result = g_current_idx;
+    maia_arch_irq_restore(irq);
+    return result;
 }
 
 uint32_t maia_task_count(void) {
-    return g_task_count;
+    uintptr_t irq = maia_arch_irq_save();
+    uint32_t result = g_task_count;
+    maia_arch_irq_restore(irq);
+    return result;
 }
 
 uint32_t maia_sched_switch_count(void) {
-    return g_switch_cnt;
+    uintptr_t irq = maia_arch_irq_save();
+    uint32_t result = g_switch_cnt;
+    maia_arch_irq_restore(irq);
+    return result;
 }
 
-maia_status_t maia_task_get_info(uint32_t index, maia_task_info_t *out_info) {
+static maia_status_t task_get_info_locked(uint32_t index, maia_task_info_t *out_info) {
     if (index >= MAIA_MAX_TASKS || out_info == NULL) {
         return MAIA_ERR_INVALID;
     }
@@ -302,9 +388,28 @@ maia_status_t maia_task_get_info(uint32_t index, maia_task_info_t *out_info) {
     return MAIA_OK;
 }
 
+maia_status_t maia_task_get_info(uint32_t index, maia_task_info_t *out_info) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = task_get_info_locked(index, out_info);
+    maia_arch_irq_restore(irq);
+    return status;
+}
+
+#ifdef MAIA_SCHED_TEST
+void maia_sched_test_set_tick(uint64_t tick) {
+    uintptr_t irq = maia_arch_irq_save();
+    g_tick_count = tick;
+    maia_arch_irq_restore(irq);
+}
+#endif
+
 void maia_sched_start(void) {
-    uintptr_t first_sp = maia_sched_select_next_sp(0U);
+    uintptr_t irq = maia_arch_irq_save();
+    if (g_started) { maia_arch_irq_restore(irq); return; }
+    uintptr_t first_sp = select_next_locked(0U);
+    if (first_sp != 0U) g_started = 1;
     if (first_sp != 0U) {
         maia_arch_start_first_task(first_sp);
     }
+    maia_arch_irq_restore(irq); /* Host-only return / empty boot; native mret does not return. */
 }

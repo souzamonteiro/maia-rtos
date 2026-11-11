@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_trap_policy.h>
 #include <maia/soc/esp32p4_panic.h>
 #include <maia/soc/esp32p4_regs.h>
@@ -95,6 +96,13 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
     uint32_t resume_pc;
     if (maia_riscv_yield_resume_pc(mcause, mepc, &resume_pc) &&
         maia_task_count() != 0U && maia_task_current_id() >= 0) {
+        maia_status_t status = MAIA_OK;
+        if (mepc == (uint32_t)(uintptr_t)maia_arch_delay_ecall) {
+            status = maia_sched_delay_current_isr(frame[6]);
+        } else if (mepc == (uint32_t)(uintptr_t)maia_arch_exit_ecall) {
+            status = maia_sched_exit_current_isr();
+        }
+        if (status != MAIA_OK) maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
         frame[28] = resume_pc;
         return maia_sched_select_next_sp(sp);
     }

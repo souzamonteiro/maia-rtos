@@ -146,4 +146,24 @@ maia_arch_start_first_task:
     j       _maia_trap_restore
     .size   maia_arch_start_first_task, .-maia_arch_start_first_task
 
+    /* Dedicated ecall labels identify operations without consuming task-register
+     * sentinels or changing the existing raw-yield ecall convention. */
+    .global maia_arch_delay_trap
+    .global maia_arch_delay_ecall
+    .type maia_arch_delay_trap, @function
+maia_arch_delay_trap:
+maia_arch_delay_ecall:
+    ecall /* a0 holds the uint32 delay; commit happens with IRQs disabled. */
+    ret
+    .size maia_arch_delay_trap, .-maia_arch_delay_trap
+
+    .global maia_arch_exit_trap
+    .global maia_arch_exit_ecall
+    .type maia_arch_exit_trap, @function
+maia_arch_exit_trap:
+maia_arch_exit_ecall:
+    ecall
+    .4byte 0 /* An exited task must never resume here. */
+    .size maia_arch_exit_trap, .-maia_arch_exit_trap
+
     .option pop

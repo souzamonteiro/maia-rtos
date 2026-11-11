@@ -1,5 +1,18 @@
 # Hardware evidence register
 
+## Scheduler local exclusion and transactional task traps — 2026-11-11
+
+Primary ISA reference: [Zicsr v2.0, CSR Instructions](https://docs.riscv.org/reference/isa/unpriv/zicsr.html)
+(20260120 ISA library), atomic CSRRC[I] read/clear and CSRRS[I] set semantics;
+rev-v1.3 TRM mstatus p.68–69 defines MIE bit3. Local critical sections retain
+only the old MIE bit and restore it, including nested already-disabled callers.
+Compiler memory clobbers bracket accesses. This is single-core exclusion,
+not an SMP/DMA/cache synchronization claim. No new MMIO register is introduced.
+Dedicated project-owned delay/exit ECALL labels let dispatch commit the state
+transition after the trap frame is saved, while IRQs are disabled. The raw
+cause/return validation and real timer accounting remain unchanged.
+
+
 ## Controlled fatal traps — 2026-11-11
 
 Primary references: [RISC-V unprivileged ISA, 20240411, C v2.0 sections26.5.4/26.5.6](https://docs.riscv.org/reference/isa/v20240411/_attachments/riscv-unprivileged.pdf)

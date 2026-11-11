@@ -228,3 +228,14 @@ Final hardware: illegal16/illegal32/C.EBREAK fatal checks PASS at exact ELF PC;
 mixed scheduler regression PASS (250 realIRQs,18142 ecalls,124 sleeps, MIL0).
 After reset, shell/SciCalc 2+3*4=14/desktop verified. Artifacts+symbol metadata:
 `../maia-rtos-recovery/native-fatal-traps-20261111/`. No flash/SD writes.
+
+## Scheduler atomicity — 2026-11-11
+
+See `audits/native-scheduler-atomicity.md`. Private local IRQ guards preserve
+nesting; task/tick/stats snapshots coherent single-core. READY last; delay/exit
+commit after frame save via dedicated ECALL labels. Raw yields remain supported.
+Count is occupied slots including EXITED; reuse does not increase it. Init after
+start BUSY; masked create after start PERM. No SMP claim. Host10/10, sanitized
+fixtures3/3 and lifecycle hardware250 IRQs/125 transients pass.
+Next in authorized order: fix no-ready behavior/internal idle, then stack bounds.
+No native diagnostic flashed; functional desktop remains preserved on flash.

@@ -184,3 +184,14 @@ does not revalidate the historical kernel/milestone claims above.
 - Hardware final: all3 controlled fatal injections PASS; post-policy mixed
   regression PASS (250 IRQs,18142 ecalls,124 sleeps). Desktop/shell/SciCalc
   restored and verified after RAM reset. No flash/SD writes.
+
+## Scheduler atomicity — 2026-11-11
+
+- Local IRQ nesting and coherent task/tick/stat snapshots added. READY published
+  after construction; delay/exit commit within saved-context traps. EXITED slot
+  reuse keeps registered count stable; wraparound deadlines use modular arithmetic.
+- **HARDWARE-TESTED, LIMITED:** lifecycle/mixed profile250 IRQs,125 creates/returns,
+ 125 nesting checks,4 slots, live integer/FP sentinels intact.
+- Host10/10, sanitized atomic/integer/FP fixtures3/3 PASS; negative mutants rejected.
+- No flash/parser/vendor runtime changes. Next: no-ready idle fallback.
+- [Scope, tests and limits](../audits/native-scheduler-atomicity.md).

@@ -3,6 +3,7 @@
  */
 #include <maia/console.h>
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
 #include <maia/soc/esp32p4_regs.h>
 #include <maia/soc/esp32p4_display.h>
 
@@ -19,6 +20,10 @@ static uint8_t s_stacks[PROBE_TASKS][4096] __attribute__((aligned(16)));
 static volatile uint32_t s_work[2];
 static uint32_t s_start_cycle;
 static volatile uint32_t s_register_errors;
+#ifdef MAIA_NATIVE_PROBE_LIFECYCLE
+static uint8_t s_transient_stack[4096] __attribute__((aligned(16)));
+static volatile uint32_t s_creates, s_returns, s_critical_checks;
+#endif
 #if defined(__riscv_flen) && __riscv_flen == 32
 extern float maia_probe_fp_add(float left, float right);
 static volatile uint32_t s_fp_abi_checks[2];
@@ -70,6 +75,15 @@ static void finish(void) {
     maia_console_puts("MIXED off_checks="); print_number(s_off_checks);
     maia_console_puts(" delays="); print_number(s_delays);
     maia_console_puts(" priority_checks="); print_number(s_priority_checks);
+    maia_console_puts("\n");
+#endif
+#ifdef MAIA_NATIVE_PROBE_LIFECYCLE
+    pass = pass && s_creates >= 10U && s_returns >= 10U && s_critical_checks >= 10U &&
+           maia_task_count() == 4U;
+    maia_console_puts("ATOMIC creates="); print_number(s_creates);
+    maia_console_puts(" returns="); print_number(s_returns);
+    maia_console_puts(" nested_checks="); print_number(s_critical_checks);
+    maia_console_puts(" slots="); print_number(maia_task_count());
     maia_console_puts("\n");
 #endif
     maia_console_puts("PROBE irq="); print_number(stats.timer_irqs);
@@ -147,11 +161,48 @@ static void check_fp_off(void) {
     ++s_off_checks;
 }
 
+#ifdef MAIA_NATIVE_PROBE_LIFECYCLE
+static void transient_worker(void *arg) { (void)arg; ++s_returns; }
+static void lifecycle_check(void) {
+    maia_task_id_t id;
+    if (maia_task_create("transient", transient_worker, NULL, MAIA_PRIO_HIGH + 1U,
+                         s_transient_stack, sizeof s_transient_stack, &id) != MAIA_OK) {
+        maia_probe_register_error(910U, 0U, 1U, 2U);
+    }
+    ++s_creates;
+    maia_task_yield();
+    maia_task_info_t info;
+    if (maia_task_get_info((uint32_t)id, &info) != MAIA_OK || info.state != MAIA_TASK_EXITED ||
+        s_returns != s_creates || maia_task_count() != 4U) {
+        maia_probe_register_error(911U, s_returns, s_creates, 2U);
+    }
+    uintptr_t outer = maia_arch_irq_save(), inner = maia_arch_irq_save();
+    maia_trap_stats_t stats;
+    (void)maia_tick_get(); maia_trap_get_stats(&stats);
+    (void)maia_task_get_info((uint32_t)id, &info);
+    maia_status_t masked = maia_task_create("invalid", transient_worker, NULL, 1U,
+                                           s_transient_stack, sizeof s_transient_stack, NULL);
+    maia_arch_irq_restore(inner);
+    uint32_t status;
+    __asm__ volatile("csrr %0, mstatus" : "=r"(status));
+    if ((outer & 8U) == 0U || inner != 0U || (status & 8U) != 0U || masked != MAIA_ERR_PERM) {
+        maia_probe_register_error(912U, status & 8U, 0U, 2U);
+    }
+    maia_arch_irq_restore(outer);
+    __asm__ volatile("csrr %0, mstatus" : "=r"(status));
+    if ((status & 8U) == 0U) maia_probe_register_error(913U, 0U, 8U, 2U);
+    ++s_critical_checks;
+}
+#endif
+
 static void off_priority_worker(void *arg) {
     (void)arg;
     __asm__ volatile("csrc mstatus, %0" :: "r"(0x6000U) : "memory");
     for (;;) {
         check_fp_off();
+#ifdef MAIA_NATIVE_PROBE_LIFECYCLE
+        lifecycle_check();
+#endif
         uint32_t before_a = s_work[0], before_b = s_work[1];
         maia_task_yield();
         check_fp_off();

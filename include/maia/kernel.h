@@ -46,6 +46,8 @@ typedef struct maia_trap_stats {
     uint32_t last_mtval;
 } maia_trap_stats_t;
 
+/* Coherent single-core snapshots; IRQ state is preserved, including ISR callers.
+ * No SMP synchronization or driver-time read serialization is implied. */
 uint64_t maia_tick_get(void);
 uint64_t maia_time_us(void);
 void     maia_trap_get_stats(maia_trap_stats_t *out_stats);
@@ -143,10 +145,13 @@ typedef struct maia_task_info {
     uint64_t          wake_tick;
 } maia_task_info_t;
 
+/* Boot-only reset; returns BUSY once scheduling has started. */
 maia_status_t  maia_sched_init(void);
 /* Thread/boot context only; not ISR-safe. Caller owns stack_mem for task lifetime.
  * Returns INVALID for null entry/stack, a stack smaller than the architecture
  * minimum (256 integer, 400 RV32F), or pointer+length overflow; NOMEM when full.
+ * Once started, callers must have IRQs enabled; otherwise returns PERM.
+ * Readiness is published only after frame/TCB construction, under local exclusion.
  * Minimum size is not a workload stack bound; allow for actual C/interrupt depth.
  */
 maia_status_t  maia_task_create(const char *name,
@@ -158,10 +163,13 @@ maia_status_t  maia_task_create(const char *name,
                                 maia_task_id_t *out_id);
 /* Thread context only, interrupts enabled. Invalid-context yields are fatal.
  * delay_ticks uses scheduler ticks; zero is a yield, nonzero blocks this task.
+ * Native delay/exit state transitions commit in the trap after saving context.
+ * Deadlines use unsigned modular ticks; uint32 durations are below half-range.
  */
 void           maia_task_yield(void);
 void           maia_task_delay_ticks(uint32_t ticks);
 maia_task_id_t maia_task_current_id(void);
+/* Occupied slots including EXITED; reusing an EXITED slot does not grow count. */
 uint32_t       maia_task_count(void);
 uint32_t       maia_sched_switch_count(void);
 maia_status_t  maia_task_get_info(uint32_t index, maia_task_info_t *out_info);
