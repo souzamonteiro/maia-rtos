@@ -24,3 +24,12 @@ Date: 2026-11-04
 | MaiaWASMVM integration | OUT OF SCOPE for core | Optional user-space workload per `README.md` |
 
 Do not change statuses without attached evidence.
+
+## Scoped update — 2026-11-10
+
+MaiaScript SciCalc/Alarm panel newlines: HOST-TESTED pixel positions and
+panel bounds; updated firmware built/flashed and app operation
+HARDWARE-TESTED over serial. Physical display appearance still requires
+visual confirmation. See [test results and scope](../audits/maiascript-panel-text.md).
+This update concerns the user's restored working firmware baseline and
+does not revalidate the historical kernel/milestone claims above.

@@ -733,6 +733,12 @@ static void draw_text_px(int x, int y, const char *str, uint16_t fg, uint16_t bg
     int cur_x = x;
     while (*str) {
         char c = *str++;
+        // MaiaScript panels use explicit line breaks with the 2x font.
+        if (c == '\n') {
+            cur_x = x;
+            y += CHAR_H;
+            continue;
+        }
         if (c < 32 || c > 126) c = ' ';
         const uint8_t *glyph = &g_font_8x16[((int)c - 32) * 16];
         for (int r = 0; r < 16; ++r) {
