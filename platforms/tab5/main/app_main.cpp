@@ -57,6 +57,7 @@
 #include "maia/exec/maiascript_lib_bundle.h"
 
 static const char *TAG = "KBD_TAB5";
+static constexpr BaseType_t APP_WORKER_CORE = (portNUM_PROCESSORS > 1) ? 1 : 0;
 
 extern "C" esp_err_t bsp_display_new_with_handles_to_st7123(const bsp_display_config_t *config, bsp_lcd_handles_t *ret_handles);
 extern "C" void bsp_set_ext_5v_en(bool en);
@@ -3883,12 +3884,14 @@ extern "C" void app_main(void)
     host_play_chime();
 
     /* 7. Launch Background Keyboard & Serial Polling Task */
-    BaseType_t kb_res = xTaskCreatePinnedToCore(kb_poll_task, "kb_task", 8192, NULL, 5, NULL, 1);
+    BaseType_t kb_res = xTaskCreatePinnedToCore(kb_poll_task, "kb_task", 8192, NULL, 5, NULL, APP_WORKER_CORE);
     if (kb_res != pdPASS) {
         ESP_LOGW(TAG, "kb_task with 8192 bytes stack failed (%d), trying 4096...", (int)kb_res);
-        kb_res = xTaskCreatePinnedToCore(kb_poll_task, "kb_task", 4096, NULL, 5, NULL, 1);
+        kb_res = xTaskCreatePinnedToCore(kb_poll_task, "kb_task", 4096, NULL, 5, NULL, APP_WORKER_CORE);
     }
-    ESP_LOGI(TAG, "kb_task launched: status=%s (code %d)", (kb_res == pdPASS) ? "SUCCESS" : "FAILED", (int)kb_res);
+    ESP_LOGI(TAG, "kb_task launched: status=%s (code %d), worker core=%d, runtime cores=%d",
+             (kb_res == pdPASS) ? "SUCCESS" : "FAILED", (int)kb_res,
+             (int)APP_WORKER_CORE, (int)portNUM_PROCESSORS);
     vTaskDelay(pdMS_TO_TICKS(150));
 
     /* 8. Auto-execute startup script (/sd/.shrc or /sd/init.sh) if present */

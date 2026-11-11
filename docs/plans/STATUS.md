@@ -1,6 +1,75 @@
 # Project status
 
-Date: 2026-11-04
+Date: 2026-11-10
+
+## Restored baseline and initial audit
+
+- Functional baseline: `bf044d3`, restored Tab5 desktop, full shell and MaiaScript
+  apps. Owner confirmed the SciCalc/Alarm visual fix. Firmware binary SHA-256
+  remains `21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd`.
+- **AUDITED / NONCOMPLIANT WITH R-002:** the working image contains FreeRTOS
+  startup/scheduler and uses ESP-IDF drivers/runtime. Project native kernel
+  sources are absent from this image. LVGL/vendor panels are compiled but their
+  code is discarded from the final image. No competing native scheduler was found.
+- **HOST-TESTED:** MaiaScript 32/32 and the panel raster test pass. Fresh full host
+  build fails on shell contract mismatch; current native target fails on missing
+  `riscv_asm.hpp`. These are baseline gaps, not fixed in this audit.
+- Temporary checkout: fresh host tests 8/8 and native console build pass. Its
+  prior hardware evidence is limited to cooperative console operation; timer
+  interrupts, display and SMP remain unresolved. It is not the active firmware.
+- No firmware/source/configuration changes, serial access or flash in this audit.
+  Working artifacts were copied to the sibling recovery directory.
+
+Evidence, source inventory, exact limitations and staged migration plan:
+[runtime dependency audit](../audits/freertos-dependencies-2026-11-10.md).
+Next small implementation: reconcile shell contract tests without changing the
+current ABI, and establish dependency checks per build target.
+
+## First incremental experiment — 2026-11-10
+
+- Added opt-in `MAIA_TAB5_SINGLECORE_DRIVERS`, isolated config/build and guards
+  protecting the default configuration. Both profiles build; host isolation and
+  panel tests pass. The default configuration remains two-core and unchanged.
+- **HARDWARE-TESTED, PARTIAL:** the one-core experiment passes desktop app,
+  scientific calculation, timer/cancellation and background-job tests. ELF no
+  longer defines secondary-core startup, cross-core tick or IPC-call symbols.
+  It still contains the FreeRTOS scheduler and is not compliant with R-002.
+- **FAILED / NOT PROMOTED:** initial heavy compiler work starved idle and
+  triggered its watchdog. With experimental compiler priority lowered, a small
+  program exposed a C++/pthread mutex fault. The same source also asserts in
+  `xQueueSemaphoreTake` on the original preserved firmware. Root cause remains
+  open; no claim that removing SMP caused or fixed the compiler fault.
+- Restored the preserved `bf044d3` application, cleaned test files and verified
+  SciCalc `2+3*4=14` and return to desktop. Bootloader/partitions were untouched.
+- Next small task: isolate that compiler/ownership fault, then continue native
+  scheduling/driver-service migration behind independent acceptance checks.
+
+Exact source changes, version comparison, results, hashes and logs:
+[first migration experiment](../audits/tab5-singlecore-stage-1-2026-11-10.md).
+
+## Compiler CST ownership fix — 2026-11-10
+
+- Removed shared control blocks/mutexes from private temporary CST nodes; one
+  storage owner releases them after AST conversion. Public AST/Parser ABI,
+  grammar/generated parser, codegen and module ABI remain unchanged.
+- **HOST-TESTED:** 32/32 compiler regressions plus AST lifetime, large/repeated
+  parse and negative syntax/recovery tests PASS. ASan/UBSan PASS. Both firmware
+  profiles build; already-versioned host compiler binaries rebuilt.
+- **HARDWARE-TESTED, LIMITED:** the formerly failing 32-addition source now
+  compiles on the one-core Tab5 profile, validates and returns 32. Background
+  jobs and SciCalc/Alarm regressions PASS. Seven CST shared-control-block ELF
+  symbols before the fix, zero afterwards. Runtime/AST locks still remain.
+- Original application restored after tests. This does not promote the
+  one-core profile or certify large compilation, allocation failures, native
+  preemption or SMP. Continue with a verified native scheduling target.
+
+Evidence: [CST fix and exact scope](../audits/maiascript-cst-ownership-2026-11-10.md).
+
+## Historical milestone claims
+
+The table below is retained as history. It does not certify the current working
+image as independent, preemptive under the native kernel, or SMP-capable under
+the native kernel. Current evidence above takes precedence.
 
 | Area | Status | Evidence |
 |---|---|---|

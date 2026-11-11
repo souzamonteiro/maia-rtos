@@ -1,0 +1,136 @@
+# Working firmware checkpoint — 2026-11-10
+
+Read this file on agent/model/context change. Follow root `AGENTS.md`, the
+architecture and R-002. This checkpoint records evidence; it does not authorize
+replacing the complete working system with a smaller demonstration.
+
+Owner clarification (2026-11-10): changes to the MaiaScript/shell parser or
+lexer must start from the owning EBNF and regenerate with the official
+`tools/maiacc` compiler compiler. No handwritten syntax patches or direct edits
+to generated output. Grammar locations and the mandatory rule are in AGENTS.md.
+Inspection found a pre-existing `patch_parser_try.py` step in the MaiaScript
+`make parser` recipe. Before the next regeneration, move that behavior into
+the authoritative grammar/generator, preserving try/ternary behavior with tests.
+This clarification changed no parser, grammar or generated artifact.
+
+## Owner's objective and current trees
+
+Continue MaiaRTOS toward an independent runtime without FreeRTOS underneath,
+preserving the complete desktop, shell, MaiaScript compiler/apps and device
+control interface. The owner requested a careful inventory before changes.
+
+- Working tree: `/Volumes/External_SSD/Documentos/Projects/maia-rtos`.
+- Experimental/reference tree: `../maia-rtos-temp`. Preserve its local changes.
+- Known working source commit: `bf044d37e43c3b8db2011d6cbf81c9df2d2e1649`.
+- Audit documents and an opt-in one-core driver experiment are tracked through
+  checkpoints; inspect Git status afresh. The active device was restored to the
+  preserved `bf044d3` application after the experiment.
+- Recovery artifacts: `../maia-rtos-recovery/bf044d3-20261110/manifest.json`.
+  These are copied build artifacts, not a full device flash/SD backup.
+
+The working firmware uses ESP-IDF/FreeRTOS and is not yet compliant with R-002.
+Its project-native kernel is a separate build, not a second running scheduler.
+Do not claim that the current functional desktop is already an independent RTOS.
+
+## Read next
+
+1. [Current status](plans/STATUS.md).
+2. [Detailed runtime audit and staged plan](audits/freertos-dependencies-2026-11-10.md).
+3. [File/line inventory](audits/freertos-source-inventory-2026-11-10.tsv).
+4. [Previous panel correction and hardware test](audits/maiascript-panel-text.md).
+5. [First migration experiment, failures and restoration](audits/tab5-singlecore-stage-1-2026-11-10.md).
+6. [CST ownership fix and successful device reproducer](audits/maiascript-cst-ownership-2026-11-10.md).
+7. Temporary checkout's `docs/AGENT_HANDOFF.md`, recovery audits and raw logs
+   only as historical evidence of the experimental native console.
+
+The temporary handoff describes the old failing flash image and the native
+RAM-console experiment. The active device was subsequently restored and works.
+Do not repeat that old image diagnosis as a description of the current device.
+Do not copy the temporary CMake files that disable the working Tab5 build.
+Do not transplant its platform API substitutions: that application was excluded
+from its native build and is not a validated desktop port.
+
+## What works and what was tested
+
+The owner tested SciCalc/Alarm and confirmed the corrected panel appearance.
+The preceding firmware test verified desktop shortcuts, `2+3*4=14`, powers,
+domain error and timer firing/cancellation over serial. The shared rasterizer
+now respects explicit newlines; no automatic-width wrapping API was added.
+
+This audit reran MaiaScript tests (32/32), raster tests (PASS), and fresh builds
+of current/temporary native and host targets. Current full host build FAILS on
+shell test/header mismatch; current native build FAILS on `riscv_asm.hpp` include.
+Temporary host tests pass 8/8 and its native console builds, but that is not
+equivalence with the complete working system. Its prior `timer_irq=0`, display
+stall and parked secondary core remain unresolved. No hardware was accessed in
+this audit. Raw logs and the evidence collector are in the recovery `audit/` dir.
+
+The subsequent one-core experiment compiled and passed SciCalc/Alarm and shell
+background-job tests. It is NOT accepted as the default: on-device compilation
+hits a mutex fault, and the same source also asserts in the preserved original
+image. Initial compiler priority 5 also starved idle in the one-core profile;
+the experimental priority was lowered, with watchdog retained. Do not equate
+passing host compiler tests with successful compilation on the device.
+The device was restored, test-created files removed, and SciCalc `2+3*4=14` plus
+return to desktop verified over serial. Bootloader/partitions were not changed.
+Experiment artifacts/logs live in the recovery `experiments/singlecore-20261110/`
+directory. `MAIA_TAB5_SINGLECORE_DRIVERS` remains OFF by default.
+
+Subsequent CST fix: target libstdc++ uses mutex-bearing shared control blocks.
+Private temporary CST nodes now have one owner (`unique_ptr` storage) and borrowed
+edges, removing per-CST-node mutexes. Public AST/Parser ABI, grammar/generated
+parser and codegen remain unchanged. Normal host tests now include AST lifetime
+after CST release, large/repeated parses and syntax-error recovery; ASan/UBSan
+also pass. The same on-device 32-addition reproducer now compiles to a valid
+680-byte module and returns 32. SciCalc/Alarm device regressions pass on the
+one-core fixed image. Both profiles build; two-core execution and large on-device
+compilation have not been retested. AST shared_ptr/runtime locks still remain.
+The device was again restored to the original preserved image after this test;
+the CST fix is in source/experimental artifacts, not the currently installed app.
+Evidence: recovery `experiments/cst-ownership-20261110/` and the report above.
+
+## Next small implementation and constraints
+
+The recorded minimal compiler reproducer is fixed; do not repeat it as an
+outstanding failure of the patched source. Full allocation-failure behavior and
+large AST lock pressure still require separate validation. Continue toward a
+separately verified native scheduling target: restore its build/test contracts,
+then validate timer-driven preemption (not synthetic ticks/cooperative yields)
+and FP context before integrating driver services. Reconcile shell tests with
+the existing ABI and dependency reporting as supporting work. Preserve grammar, semantic
+behavior, module ABI and the working desktop build. Do not change a public
+contract merely to satisfy old test names. Keep experimental native targets
+separate while hardware/driver equivalence is missing. The owner authorized
+incremental implementation and device testing; report concrete results and risks.
+The owner now requires commit + push after each completed unit, with descriptive
+changes/tests/limitations and separate rollback points. No force-push or history
+rewriting is authorized. Use Git history to identify the latest checkpoint.
+
+Native migration must establish real timer preemption, floating-point context
+and ABI support, memory/cache/DMA and synchronization before it can host the
+same apps safely. Treat SMP separately. Never substitute a console-only result
+for the requested desktop. A smaller source set passing a dependency guard is
+not proof that omitted features have been ported.
+
+## Existing device tools
+
+Build/flash toolchain is `/Users/roberto/esp-idf`; device interaction is
+`tools/maia-cli/maia.py`, port `/dev/cu.usbmodem1301`. The owner authorized build,
+flash and interactive testing earlier. The CLI is for control/transfer; firmware
+flashing uses ESP-IDF/esptool. This audit deliberately did not flash anything.
+
+The device normally boots the desktop. Its shell is an integrated window:
+Escape twice closes an app/window, `t` opens terminal, shell `exit` returns to
+desktop, `g` opens SciCalc and `l` opens Alarm. Sending shell commands directly
+to the desktop can trigger shortcuts. Prefer the existing
+`tests/hardware/test_maia_apps.py` sequence; it sounds an alarm and verifies
+serial results, not physical pixels/audio. Avoid simultaneous serial clients.
+Use `PYTHONDONTWRITEBYTECODE=1` when importing the CLI: a pycache is tracked.
+The desktop terminal accepts only 62 useful characters per input line. Pace
+serial bursts to avoid its 63-character pending-key ring. The worker diagnostic
+checks both constraints; the usual CLI push method expects an `msh>` prompt,
+which the integrated desktop terminal does not emit.
+
+Before any future device update, preserve the known working artifacts, verify
+the proposed image's scope and retain a recovery path. Do not erase flash or SD
+as a routine build/test step. Update this checkpoint with actual results.

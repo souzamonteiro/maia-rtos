@@ -1,0 +1,3 @@
+# Transitional driver profile only: this still contains the FreeRTOS runtime.
+# The application and driver workers run on CPU0. This is not native MaiaRTOS SMP.
+CONFIG_FREERTOS_UNICORE=y

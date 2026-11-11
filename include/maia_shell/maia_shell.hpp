@@ -1651,7 +1651,7 @@ public:
                 get_job_table()[c->slot].exit_code = rc;
                 free(c);
                 vTaskDelete(NULL);
-            }, "msh_bg", 32768, ctx, 5, NULL, 1);
+            }, "msh_bg", 32768, ctx, 5, NULL, (portNUM_PROCESSORS > 1) ? 1 : 0);
         }
         return 0;
 #else
@@ -2863,9 +2863,12 @@ private:
         }
 
         TaskHandle_t hTask = NULL;
-        BaseType_t ret = xTaskCreateWithCaps(maiasc_worker_task, "maiasc_psram", 131072, &arg, 5, &hTask, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        // A CPU-bound compiler must share CPU0 with idle in the one-core
+        // migration profile; keeping priority 5 there starves its watchdog.
+        const UBaseType_t worker_priority = (portNUM_PROCESSORS > 1) ? 5 : tskIDLE_PRIORITY;
+        BaseType_t ret = xTaskCreateWithCaps(maiasc_worker_task, "maiasc_psram", 131072, &arg, worker_priority, &hTask, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (ret != pdPASS) {
-            ret = xTaskCreate(maiasc_worker_task, "maiasc_iram", 32768, &arg, 5, &hTask);
+            ret = xTaskCreate(maiasc_worker_task, "maiasc_iram", 32768, &arg, worker_priority, &hTask);
         }
 
         if (ret == pdPASS) {

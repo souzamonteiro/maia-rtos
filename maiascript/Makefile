@@ -44,8 +44,13 @@ bin/test_compiler: tests/test_compiler.cpp include/emulator_rv32.hpp $(COMMON_OB
 	@mkdir -p bin
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(COMMON_OBJS) -o $@
 
-test: bin/test_compiler
+bin/test_parser_lifetime: tests/test_parser_lifetime.cpp src/parser.o ../lib/maiaregex/maia_regex.o include/parser.hpp include/ast.hpp
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< src/parser.o ../lib/maiaregex/maia_regex.o -o $@
+
+test: bin/test_compiler bin/test_parser_lifetime
 	@./bin/test_compiler
+	@./bin/test_parser_lifetime
 
 clean:
 	rm -f src/*.o bin/* maiasc

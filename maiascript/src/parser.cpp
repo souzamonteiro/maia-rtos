@@ -67,21 +67,21 @@ struct CSTNode {
     std::string name;
     std::string tokenVal;
     unsigned int tokenType;
-    std::vector<std::shared_ptr<CSTNode>> children;
+    std::vector<CSTNode*> children;
 
     CSTNode(const std::string& n = "") : name(n), tokenType(0) {}
 
     bool isToken() const { return name == "@token"; }
 
-    std::shared_ptr<CSTNode> findFirst(const std::string& childName) const {
+    const CSTNode* findFirst(const std::string& childName) const {
         for (const auto& ch : children) {
             if (ch->name == childName) return ch;
         }
         return nullptr;
     }
 
-    std::vector<std::shared_ptr<CSTNode>> findAll(const std::string& childName) const {
-        std::vector<std::shared_ptr<CSTNode>> res;
+    std::vector<const CSTNode*> findAll(const std::string& childName) const {
+        std::vector<const CSTNode*> res;
         for (const auto& ch : children) {
             if (ch->name == childName) res.push_back(ch);
         }
@@ -89,18 +89,30 @@ struct CSTNode {
     }
 };
 
-static std::shared_ptr<CSTNode> buildCST(const std::vector<ParseEvent>& log) {
-    std::vector<std::shared_ptr<CSTNode>> stack;
-    auto root = std::make_shared<CSTNode>("ROOT");
+// One parse owns the entire temporary CST. Edges and converter views borrow
+// nodes; no shared ownership or per-node pthread mutex is needed. AST nodes
+// copy their data and retain their existing public shared_ptr representation.
+struct CSTStorage {
+    std::vector<std::unique_ptr<CSTNode>> nodes;
+
+    CSTNode* create(const std::string& name) {
+        nodes.push_back(std::make_unique<CSTNode>(name));
+        return nodes.back().get();
+    }
+};
+
+static CSTNode* buildCST(const std::vector<ParseEvent>& log, CSTStorage& storage) {
+    std::vector<CSTNode*> stack;
+    auto root = storage.create("ROOT");
     stack.push_back(root);
 
     for (const auto& ev : log) {
         if (ev.kind == EV_START) {
-            auto n = std::make_shared<CSTNode>(ev.name);
+            auto n = storage.create(ev.name);
             stack.back()->children.push_back(n);
             stack.push_back(n);
         } else if (ev.kind == EV_TERMINAL) {
-            auto n = std::make_shared<CSTNode>("@token");
+            auto n = storage.create("@token");
             n->tokenVal = ev.name;
             n->tokenType = ev.tokenType;
             stack.back()->children.push_back(n);
@@ -114,13 +126,13 @@ static std::shared_ptr<CSTNode> buildCST(const std::vector<ParseEvent>& log) {
 }
 
 // Forward declarations of AST builders
-static Type convertType(const std::shared_ptr<CSTNode>& node);
-static std::shared_ptr<Expr> convertExpr(const std::shared_ptr<CSTNode>& node);
-static std::shared_ptr<Expr> convertUnary(const std::shared_ptr<CSTNode>& node);
-static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node);
-static std::shared_ptr<BlockStmt> convertBlock(const std::shared_ptr<CSTNode>& node);
+static Type convertType(const CSTNode* node);
+static std::shared_ptr<Expr> convertExpr(const CSTNode* node);
+static std::shared_ptr<Expr> convertUnary(const CSTNode* node);
+static std::shared_ptr<Stmt> convertStmt(const CSTNode* node);
+static std::shared_ptr<BlockStmt> convertBlock(const CSTNode* node);
 
-static std::string collectAllTokens(const std::shared_ptr<CSTNode>& node) {
+static std::string collectAllTokens(const CSTNode* node) {
     if (node->isToken()) return node->tokenVal;
     std::string s;
     for (const auto& ch : node->children) {
@@ -129,13 +141,13 @@ static std::string collectAllTokens(const std::shared_ptr<CSTNode>& node) {
     return s;
 }
 
-static Type convertType(const std::shared_ptr<CSTNode>& node) {
+static Type convertType(const CSTNode* node) {
     if (!node) return Type(TypeKind::I32);
     std::string raw = collectAllTokens(node);
     return Type::fromString(raw);
 }
 
-static std::vector<std::shared_ptr<Expr>> extractArguments(const std::shared_ptr<CSTNode>& argList) {
+static std::vector<std::shared_ptr<Expr>> extractArguments(const CSTNode* argList) {
     std::vector<std::shared_ptr<Expr>> args;
     if (!argList) return args;
     for (const auto& ch : argList->children) {
@@ -149,7 +161,7 @@ static std::vector<std::shared_ptr<Expr>> extractArguments(const std::shared_ptr
     return args;
 }
 
-static std::shared_ptr<Expr> convertPrimary(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertPrimary(const CSTNode* node) {
     if (!node) return nullptr;
 
     bool hasNew = false;
@@ -228,7 +240,7 @@ static std::shared_ptr<Expr> convertPrimary(const std::shared_ptr<CSTNode>& node
     return nullptr;
 }
 
-static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertPostfix(const CSTNode* node) {
     if (!node) return nullptr;
     auto prim = node->findFirst("Primary");
     auto expr = convertPrimary(prim);
@@ -297,7 +309,7 @@ static std::shared_ptr<Expr> convertPostfix(const std::shared_ptr<CSTNode>& node
     return expr;
 }
 
-static std::shared_ptr<Expr> convertUnary(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertUnary(const CSTNode* node) {
     if (!node) return nullptr;
     // Unary ::= ('!' | '~' | '+' | '-' | '*' | '&' | '++' | '--') Unary | Postfix
     auto post = node->findFirst("Postfix");
@@ -317,10 +329,10 @@ static std::shared_ptr<Expr> convertUnary(const std::shared_ptr<CSTNode>& node) 
     return nullptr;
 }
 
-static std::shared_ptr<Expr> convertBinaryLevel(const std::shared_ptr<CSTNode>& node,
+static std::shared_ptr<Expr> convertBinaryLevel(const CSTNode* node,
                                                 const std::string& childRule) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subNodes;
+    std::vector<const CSTNode*> subNodes;
     std::vector<std::string> ops;
 
     for (const auto& ch : node->children) {
@@ -341,13 +353,13 @@ static std::shared_ptr<Expr> convertBinaryLevel(const std::shared_ptr<CSTNode>& 
     return expr;
 }
 
-static std::shared_ptr<Expr> convertMultiplicative(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertMultiplicative(const CSTNode* node) {
     return convertBinaryLevel(node, "Unary");
 }
 
-static std::shared_ptr<Expr> convertAdditive(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertAdditive(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("Multiplicative");
+    std::vector<const CSTNode*> subs = node->findAll("Multiplicative");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && (ch->tokenVal == "+" || ch->tokenVal == "-")) {
@@ -363,9 +375,9 @@ static std::shared_ptr<Expr> convertAdditive(const std::shared_ptr<CSTNode>& nod
     return expr;
 }
 
-static std::shared_ptr<Expr> convertShift(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertShift(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("Additive");
+    std::vector<const CSTNode*> subs = node->findAll("Additive");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && (ch->tokenVal == "<<" || ch->tokenVal == ">>")) ops.push_back(ch->tokenVal);
@@ -378,9 +390,9 @@ static std::shared_ptr<Expr> convertShift(const std::shared_ptr<CSTNode>& node) 
     return expr;
 }
 
-static std::shared_ptr<Expr> convertRelational(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertRelational(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("Shift");
+    std::vector<const CSTNode*> subs = node->findAll("Shift");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && (ch->tokenVal == "<" || ch->tokenVal == ">" || ch->tokenVal == "<=" || ch->tokenVal == ">=")) {
@@ -395,9 +407,9 @@ static std::shared_ptr<Expr> convertRelational(const std::shared_ptr<CSTNode>& n
     return expr;
 }
 
-static std::shared_ptr<Expr> convertEquality(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertEquality(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("Relational");
+    std::vector<const CSTNode*> subs = node->findAll("Relational");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && (ch->tokenVal == "==" || ch->tokenVal == "!=")) ops.push_back(ch->tokenVal);
@@ -410,9 +422,9 @@ static std::shared_ptr<Expr> convertEquality(const std::shared_ptr<CSTNode>& nod
     return expr;
 }
 
-static std::shared_ptr<Expr> convertBitwiseAnd(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertBitwiseAnd(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("Equality");
+    std::vector<const CSTNode*> subs = node->findAll("Equality");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && ch->tokenVal == "&") ops.push_back(ch->tokenVal);
@@ -425,9 +437,9 @@ static std::shared_ptr<Expr> convertBitwiseAnd(const std::shared_ptr<CSTNode>& n
     return expr;
 }
 
-static std::shared_ptr<Expr> convertBitwiseXor(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertBitwiseXor(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("BitwiseAnd");
+    std::vector<const CSTNode*> subs = node->findAll("BitwiseAnd");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && ch->tokenVal == "^") ops.push_back(ch->tokenVal);
@@ -440,9 +452,9 @@ static std::shared_ptr<Expr> convertBitwiseXor(const std::shared_ptr<CSTNode>& n
     return expr;
 }
 
-static std::shared_ptr<Expr> convertBitwiseOr(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertBitwiseOr(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("BitwiseXor");
+    std::vector<const CSTNode*> subs = node->findAll("BitwiseXor");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && ch->tokenVal == "|") ops.push_back(ch->tokenVal);
@@ -455,9 +467,9 @@ static std::shared_ptr<Expr> convertBitwiseOr(const std::shared_ptr<CSTNode>& no
     return expr;
 }
 
-static std::shared_ptr<Expr> convertLogicalAnd(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertLogicalAnd(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("BitwiseOr");
+    std::vector<const CSTNode*> subs = node->findAll("BitwiseOr");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && ch->tokenVal == "&&") ops.push_back(ch->tokenVal);
@@ -470,9 +482,9 @@ static std::shared_ptr<Expr> convertLogicalAnd(const std::shared_ptr<CSTNode>& n
     return expr;
 }
 
-static std::shared_ptr<Expr> convertLogicalOr(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertLogicalOr(const CSTNode* node) {
     if (!node) return nullptr;
-    std::vector<std::shared_ptr<CSTNode>> subs = node->findAll("LogicalAnd");
+    std::vector<const CSTNode*> subs = node->findAll("LogicalAnd");
     std::vector<std::string> ops;
     for (const auto& ch : node->children) {
         if (ch->isToken() && ch->tokenVal == "||") ops.push_back(ch->tokenVal);
@@ -485,13 +497,13 @@ static std::shared_ptr<Expr> convertLogicalOr(const std::shared_ptr<CSTNode>& no
     return expr;
 }
 
-static std::shared_ptr<Expr> convertConditional(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertConditional(const CSTNode* node) {
     if (!node) return nullptr;
     auto logOr = node->findFirst("LogicalOr");
     return convertLogicalOr(logOr);
 }
 
-static std::shared_ptr<Expr> convertAssignment(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertAssignment(const CSTNode* node) {
     if (!node) return nullptr;
     auto cond = node->findFirst("Conditional");
     auto target = convertConditional(cond);
@@ -506,14 +518,14 @@ static std::shared_ptr<Expr> convertAssignment(const std::shared_ptr<CSTNode>& n
     return target;
 }
 
-static std::shared_ptr<Expr> convertExpr(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Expr> convertExpr(const CSTNode* node) {
     if (!node) return nullptr;
     auto assign = node->findFirst("Assignment");
     if (assign) return convertAssignment(assign);
     return nullptr;
 }
 
-static std::shared_ptr<Stmt> convertIfStmt(const std::shared_ptr<CSTNode>& ch) {
+static std::shared_ptr<Stmt> convertIfStmt(const CSTNode* ch) {
     if (!ch) return nullptr;
     auto condNode = ch->findFirst("Expression");
     auto cond = convertExpr(condNode);
@@ -529,7 +541,7 @@ static std::shared_ptr<Stmt> convertIfStmt(const std::shared_ptr<CSTNode>& ch) {
     return std::make_shared<IfStmt>(cond, thenBranch, elseBranch);
 }
 
-static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<Stmt> convertStmt(const CSTNode* node) {
     if (!node) return nullptr;
     if (node->name == "IfStmt") return convertIfStmt(node);
     // Statement ::= Block | LocalDecl | IfStmt | WhileStmt | ForStmt | ReturnStmt | ExpressionStmt | ...
@@ -616,7 +628,7 @@ static std::shared_ptr<Stmt> convertStmt(const std::shared_ptr<CSTNode>& node) {
     return nullptr;
 }
 
-static std::shared_ptr<BlockStmt> convertBlock(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<BlockStmt> convertBlock(const CSTNode* node) {
     if (!node) return nullptr;
     auto block = std::make_shared<BlockStmt>();
     for (const auto& ch : node->children) {
@@ -628,7 +640,7 @@ static std::shared_ptr<BlockStmt> convertBlock(const std::shared_ptr<CSTNode>& n
     return block;
 }
 
-static std::shared_ptr<StructDecl> convertStructDecl(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<StructDecl> convertStructDecl(const CSTNode* node) {
     if (!node) return nullptr;
     std::string name;
     for (const auto& ch : node->children) {
@@ -659,7 +671,7 @@ static std::shared_ptr<StructDecl> convertStructDecl(const std::shared_ptr<CSTNo
     return std::make_shared<StructDecl>(name, fields);
 }
 
-static std::shared_ptr<ClassDecl> convertClassDecl(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<ClassDecl> convertClassDecl(const CSTNode* node) {
     if (!node) return nullptr;
     std::string name;
     for (const auto& ch : node->children) {
@@ -774,7 +786,7 @@ static std::shared_ptr<ClassDecl> convertClassDecl(const std::shared_ptr<CSTNode
     return std::make_shared<ClassDecl>(name, fields, fieldVisibilities, methods);
 }
 
-static std::shared_ptr<FunctionDecl> convertFunctionDecl(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<FunctionDecl> convertFunctionDecl(const CSTNode* node) {
     if (!node) return nullptr;
     auto typeNode = node->findFirst("Type");
     Type retType = typeNode ? convertType(typeNode) : Type(TypeKind::Void);
@@ -809,7 +821,7 @@ static std::shared_ptr<FunctionDecl> convertFunctionDecl(const std::shared_ptr<C
     return std::make_shared<FunctionDecl>(retType, name, params, body);
 }
 
-static std::shared_ptr<FunctionDecl> convertExternDecl(const std::shared_ptr<CSTNode>& node) {
+static std::shared_ptr<FunctionDecl> convertExternDecl(const CSTNode* node) {
     if (!node) return nullptr;
     auto typeNode = node->findFirst("Type");
     Type retType = typeNode ? convertType(typeNode) : Type(TypeKind::Void);
@@ -842,7 +854,7 @@ static std::shared_ptr<FunctionDecl> convertExternDecl(const std::shared_ptr<CST
     return std::make_shared<FunctionDecl>(retType, name, params, nullptr, /*isExtern=*/true);
 }
 
-static void processTopLevel(const std::shared_ptr<CSTNode>& top,
+static void processTopLevel(const CSTNode* top,
                             const std::shared_ptr<Program>& program,
                             const std::string& currentNamespace) {
     auto ns = top->findFirst("NamespaceDecl");
@@ -1199,7 +1211,8 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
         return nullptr;
     }
 
-    auto cst = buildCST(ec.log);
+    CSTStorage cstStorage;
+    auto cst = buildCST(ec.log, cstStorage);
     auto programNode = cst->findFirst("Program");
     if (!programNode) {
         outError = "Failed to locate Program root in CST";

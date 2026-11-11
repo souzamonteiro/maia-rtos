@@ -5,6 +5,7 @@ build_*/
 *.bin
 *.map
 *.o
+/maiascript/bin/test_parser_lifetime
 *.a
 *.log
 .DS_Store

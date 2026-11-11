@@ -2,6 +2,10 @@
 
 Read README.md, docs/architecture/OVERVIEW.md, docs/requirements/REQUIREMENTS.md, docs/plans/ROADMAP.md, and docs/hardware/ESP32P4_TAB5.md BEFORE changes.
 
+On agent/model/context handoff, also read docs/AGENT_HANDOFF.md and its current
+audit references. The neighboring maia-rtos-temp checkout is experimental
+reference material, not the working firmware baseline.
+
 ## Hard prohibitions
 
 1. Do not introduce FreeRTOS, Arduino, or ESP-IDF runtime code, headers, link dependencies, compatibility shims, or copied implementations. Using standalone vendor compiler/binutils/flashing tools is permitted.
@@ -11,6 +15,23 @@ Read README.md, docs/architecture/OVERVIEW.md, docs/requirements/REQUIREMENTS.md
 5. Do not mark a feature implemented based on compilation alone, mocks, or host tests.
 6. Do not perform broad refactors or implement multiple milestones in one change.
 7. Do not assert hard real-time guarantees without measured worst-case bounds and stated conditions.
+
+## Parser/lexer ownership — explicit owner instruction (2026-11-10)
+
+- MaiaCC at `/Volumes/External_SSD/Documentos/Projects/maia-rtos/tools/maiacc`
+  is the official compiler compiler for the Maia project.
+- For changes to the MaiaScript or shell parser/lexer, change the owning EBNF
+  and regenerate the parser/lexer with that MaiaCC toolchain. Do not maintain
+  syntax in handwritten replacement parsers or manually edit generated output.
+- MaiaScript grammar: `maiascript/docs/MaiaScript_Native_v0_1_MaiaCC.ebnf`.
+  Shell grammars: `shell/grammar/maia-shell*.ebnf`.
+- Preserve reproducible generation and run positive/negative grammar and
+  semantic regressions. Fix generator defects at their owning source and
+  regenerate consumers; do not insert behavior through output-patching scripts.
+- Existing `maiascript/tests/tools/patch_parser_try.py`, invoked by the parser
+  Makefile recipe, is legacy generation debt, not an approved exception. Its
+  behavior must move into the authoritative EBNF/MaiaCC generation path before
+  the next parser regeneration. Do not silently remove it and change semantics.
 
 ## Agent work protocol
 
@@ -22,6 +43,10 @@ Read README.md, docs/architecture/OVERVIEW.md, docs/requirements/REQUIREMENTS.md
 - For hardware-only tests, mark NOT RUN and provide exact procedure. Never fake UART logs.
 - End each task with: implemented; not implemented; files changed; test results; hardware evidence; known risks; next small task.
 - Keep docs/plans/STATUS.md synchronized with evidence.
+- Owner instruction (2026-11-10): after each completed, verified unit, create a
+  descriptive commit and push it. State the change, validation and material
+  limitations so rollback points are easy to identify. Keep later work in
+  separate commits; do not force-push or rewrite published history.
 
 ## C/C++ policy
 

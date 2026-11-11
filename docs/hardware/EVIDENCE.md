@@ -1,5 +1,33 @@
 # Hardware evidence register
 
+## CST ownership fix — 2026-11-10 (limited device test)
+
+On the one-core experimental firmware, the same small source that previously
+faulted in the on-device compiler now compiles, validates and executes with
+exit code 32. SciCalc/Alarm and background-job tests also pass over serial.
+The change removes temporary CST shared control blocks; it does not change
+hardware registers, claim native scheduling/SMP or remove the full foreign
+runtime. Original application restored after testing. Exact artifacts, primary
+runtime implementation references and limits:
+[CST ownership report](../audits/maiascript-cst-ownership-2026-11-10.md).
+
+## Runtime migration experiment — 2026-11-10 (limited scope)
+
+The opt-in one-core legacy-driver profile was built and temporarily installed
+on the connected Tab5 by app-only flashing. Serial tests passed scientific
+calculations, timer fire/cancel, desktop return and shell background jobs. The
+generated configuration selects `CONFIG_FREERTOS_UNICORE=y`; the ELF omits the
+secondary-core startup and cross-core tick/IPC functions. It still uses FreeRTOS.
+Primary software reference: [ESP-IDF v5.4.2, Single-Core Mode](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-reference/system/freertos_idf.html#single-core-mode).
+
+The on-device compiler test failed, including a mutex assertion reproduced on
+the original preserved firmware. The experiment was not promoted. The original
+application was restored and verified (`2+3*4=14`, return to desktop); no
+bootloader/partition-table replacement or new MMIO/pinout implementation occurred.
+Exact image hashes, scope and raw-log locations:
+[stage-one report](../audits/tab5-singlecore-stage-1-2026-11-10.md).
+Historical hardware claims below do not certify this migration complete.
+
 Record each validated hardware claim as:
 
 | ID | Claim | Primary source URL | Revision / section / page | Confirmed on board? | Date |

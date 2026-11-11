@@ -1,3 +1,7 @@
+if(MAIA_TAB5_SINGLECORE_DRIVERS AND NOT CONFIG_FREERTOS_UNICORE)
+    message(FATAL_ERROR "The single-core migration profile requires CONFIG_FREERTOS_UNICORE=y")
+endif()
+
 file(GLOB_RECURSE APP_LAYER_SRCS
     ${CMAKE_CURRENT_LIST_DIR}/../vendor_app/*.c
     ${CMAKE_CURRENT_LIST_DIR}/../vendor_app/*.cc

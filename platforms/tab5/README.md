@@ -1,5 +1,19 @@
 # M5Stack Tab5 Platform Support for MaiaRTOS
 
+## Perfil experimental de migração (2026-11-10)
+
+`MAIA_TAB5_SINGLECORE_DRIVERS` desativa o SMP do runtime legado em um build
+separado. **Ainda usa FreeRTOS e não está aprovado como firmware padrão:** os
+apps/jobs passaram, mas a compilação no dispositivo encontrou uma falha de mutex
+também reproduzida na imagem original. O dispositivo foi restaurado à imagem
+preservada. Veja [resultados, limites e comandos](../../docs/audits/tab5-singlecore-stage-1-2026-11-10.md).
+O perfil padrão continua sendo selecionado sem essa opção.
+
+Atualização: o caso mínimo da falha do compilador foi corrigido removendo mutexes
+por nó da CST temporária. Compilação/execução desse caso e regressões dos apps
+passaram no perfil experimental; os demais limites continuam em aberto.
+Veja [a correção e os testes](../../docs/audits/maiascript-cst-ownership-2026-11-10.md).
+
 Esta pasta contém o suporte ao dispositivo **M5Stack Tab5** (`ESP32-P4NRW32` dual-core RISC-V @ 360 MHz, 32 MB PSRAM @ 200 MHz, ST7121 MIPI-DSI 1280x720, ST7123 Touch, Teclado STM32 I2C 0x6D, Áudio ES8388, Câmera MIPI CSI e VFS SD/USB).
 
 ## Atribuição e Licenciamento

@@ -4,7 +4,7 @@
 
 **Independent, bare-metal, SMP-capable real-time operating system** for embedded C and C++ applications. First target: **Espressif ESP32-P4 / M5Stack Tab5**. Future ports are intended.
 
-> **Status: architectural bootstrap, NOT a working RTOS.** No scheduler, board bring-up, bootloader, driver, or hardware support is claimed as implemented.
+> **Current checkpoint (2026-11-10):** the restored Tab5 desktop and MaiaScript apps work, but their firmware runs on ESP-IDF/FreeRTOS and does not yet meet R-002. The separate native kernel build is not an equivalent replacement. See the [runtime audit](docs/audits/freertos-dependencies-2026-11-10.md) and [agent handoff](docs/AGENT_HANDOFF.md). The principles below remain the target architecture.
 
 ## Non-negotiable principles
 
