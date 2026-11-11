@@ -1,5 +1,21 @@
 # Hardware evidence register
 
+## Integer context register probe — 2026-11-11
+
+Primary ABI reference: [RISC-V psABI](https://riscv-non-isa.github.io/riscv-elf-psabi-doc/),
+version 2.0-rc0, November 04, 2026, sections 1.1 and 2.1: integer register
+roles, gp/tp reserved for global/thread pointers, and 16-byte stack alignment.
+The diagnostic is an explicitly authored assembly workload that seeds x1,
+x4 and x5–x31 with distinct task/register patterns, holds them through a busy
+window, then checks them before calling C. x2/sp and x3/gp retain their normal
+values and are checked against stack snapshots. On the unchanged trap code the hardware probe failed after three IRQs:
+`task=1 reg=4 expected=2986344452 actual=2701131784` (tp). This confirms
+cross-task register contamination; interruptions can also occur between the two
+instructions that materialize a sentinel constant. Fix under test: use the
+existing reserved frame word at byte 124 for tp, zero for a fresh context.
+It does not allocate TLS or claim a C/C++ TLS runtime. No new peripheral/MMIO facts are introduced.
+
+
 ## ESP32-P4 fresh-context return investigation — 2026-11-11
 
 Primary source: [ESP32-P4 Chip Revision v1.3 TRM, Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),

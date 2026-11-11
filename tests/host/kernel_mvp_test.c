@@ -106,6 +106,7 @@ int main(void) {
     if ((first_frame[30] & 0x80000000UL) == 0U) return 52;
     if ((first_frame[30] & 0x00FF0000UL) != 0U) return 53;
     if ((first_frame[29] & 0x88U) != 0x80U) return 54;
+    if (first_frame[31] != 0U) return 55; /* tp is deterministic before TLS setup */
     (void)maia_sched_select_next_sp(0U);
     if (maia_task_current_id() != t2) return 37;
     (void)maia_sched_select_next_sp(0U);

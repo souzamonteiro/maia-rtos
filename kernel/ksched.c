@@ -73,6 +73,7 @@ static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t ta
     for (uint32_t i = 0U; i < 32U; ++i) {
         frame[i] = 0U;
     }
+    /* frame[31] (tp) remains zero until a task/runtime establishes its TLS. */
     frame[6]  = task_idx;                                    /* a0 (x10) = task_idx */
     frame[28] = (uint32_t)(uintptr_t)&maia_task_trampoline;  /* mepc */
     frame[29] = 0x00001880UL;                                /* mstatus: MPP=3 (M-mode), MPIE=1 */

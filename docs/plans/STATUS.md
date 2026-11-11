@@ -137,3 +137,13 @@ does not revalidate the historical kernel/milestone claims above.
 - No foreign source/runtime imported; no flash writes or parser changes.
 - Full M2 context ABI/FP and SMP remain unverified; native desktop not ported.
 - [Research, exact changes, captures and next test](../audits/native-clic-return.md).
+
+## Live integer context — 2026-11-11
+
+- Assembly register sentinel test reproduced missing tp preservation after three
+  real IRQs. Save/restore tp in existing frame word 124 fixes that failure.
+- **HARDWARE-TESTED, LIMITED:** corrected test reaches 250 IRQs/251 switches
+  with all checked integer registers intact, both tasks progressing and no
+  ecalls/exceptions. Host 6/6 and sanitized kernel PASS.
+- No new runtime dependency, frame-size/public ABI or parser changes. FP pending.
+- [Exact workload, failure and scope](../audits/native-integer-context.md).

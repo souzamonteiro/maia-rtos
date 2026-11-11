@@ -172,3 +172,14 @@ No FreeRTOS code copied or linked into native target; no grammar changes.
 After the final RAM reset, the preserved flash desktop was verified through
 maia.py: shell echo, SciCalc 2+3*4=14, zero module exit and desktop left active.
 Native test artifacts/manifest: `../maia-rtos-recovery/native-clic-return-20261111/`.
+
+## Live integer context — 2026-11-11
+
+The RAM probe now seeds x1/x4/x5–x31 with distinct task/register values and checks
+them after interruptible busy windows, plus sp/gp snapshots and stack canary.
+It reproduced **tp/x4 corruption after three IRQs** on `3f3bd80`. Saving/restoring
+tp at byte124 (existing reserved final frame word) fixes it; frame remains 128 bytes.
+Corrected workload reaches 250 real IRQs/251 switches, reg_errors=0, both tasks
+progress, no ecalls/exceptions. Host 6/6/sanitized kernel pass. No TLS allocation,
+FP/SMP or native desktop claim. See `audits/native-integer-context.md`.
+Next small task: RV32F/FCSR context and consistent initialization/ABI tests.

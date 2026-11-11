@@ -42,6 +42,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     kernel/ksched.c
     boards/m5stack/tab5/app_desc.c
     tests/hardware/native_scheduler_probe.c
+    tests/hardware/native_register_probe.S
   )
   target_include_directories(maia_sched_probe.elf PRIVATE include)
   target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)

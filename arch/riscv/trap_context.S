@@ -42,6 +42,7 @@ _maia_trap_entry:
     sw      t4, 100(sp)
     sw      t5, 104(sp)
     sw      t6, 108(sp)
+    sw      tp, 124(sp) /* Per-task thread pointer; last word was reserved. */
 
     csrr    t0, mepc
     csrr    t1, mstatus
@@ -101,6 +102,7 @@ _maia_trap_restore:
     lw      t4, 100(sp)
     lw      t5, 104(sp)
     lw      t6, 108(sp)
+    lw      tp, 124(sp)
     addi    sp, sp, 128
     mret
 
