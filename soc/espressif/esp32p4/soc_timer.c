@@ -1,4 +1,6 @@
 #include <maia/kernel.h>
+#include <maia/arch/riscv_trap_policy.h>
+#include <maia/soc/esp32p4_panic.h>
 #include <maia/soc/esp32p4_regs.h>
 
 extern void _maia_trap_entry(void);
@@ -87,21 +89,17 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
             (void)maia_sched_tick_isr();
             return maia_sched_select_next_sp(sp);
         }
-        return sp;
+        maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
     }
 
-    /* Synchronous exception (e.g. ecall = 11, ebreak = 3) */
-    uint32_t exc_code = mcause & 0xFFUL;
-    if (exc_code == 11UL) {
-        frame[28] = mepc + 4U;
+    uint32_t resume_pc;
+    if (maia_riscv_yield_resume_pc(mcause, mepc, &resume_pc) &&
+        maia_task_count() != 0U && maia_task_current_id() >= 0) {
+        frame[28] = resume_pc;
         return maia_sched_select_next_sp(sp);
     }
-    if (exc_code == 3UL) {
-        frame[28] = mepc + 4U;
-        return sp;
-    }
 
-    /* Advance PC on unhandled fault to avoid infinite fault loop during bring-up */
-    frame[28] = mepc + 4U;
-    return sp;
+    /* Unknown exceptions/breakpoints preserve the original PC and halt.
+     * Guessing PC+4 is unsafe with compressed instructions and corrupted state. */
+    maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
 }

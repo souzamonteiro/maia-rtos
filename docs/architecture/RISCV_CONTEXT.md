@@ -46,5 +46,23 @@ or memory isolation claim. Caller buffer alignment may consume up to15 bytes.
 All objects/modules crossing a C call boundary need matching float calling ABI;
 this diagnostic does not migrate existing MaiaScript modules or prove their ABI
 equivalence. The working legacy desktop remains a separate flash application.
-Future general service integration still needs mixed FS-state tests, safe fatal
-traps, priority/delay/yield stress and memory/cache/DMA contracts. SMP is separate.
+Mixed FS-state, yield/delay/priority and controlled fatal traps have dedicated
+hardware tests. General service integration still needs operation atomicity,
+idle/no-ready handling, stack protection and memory/cache/DMA contracts. SMP is separate.
+
+## Fatal-trap policy
+
+Only an interrupt-enabled M-mode ecall from an active scheduler task may advance
+PC by 4 and select another task. Pure policy validates cause/MINHV/MPP/MPIE and
+PC alignment/overflow; dispatch also checks task lifecycle. Yields with IRQs
+disabled are invalid. Unknown synchronous exceptions, breakpoints (including
+16-bit C.EBREAK) and unmapped IRQs enter the native SoC fatal path. It retains
+raw cause/original PC/mtval/saved-frame sp; it never guesses instruction length.
+
+Fatal handling disables MIE, publishes a debugger-readable volatile RAM record
+(valid marker last after a memory fence), emits a fixed 73-byte hexadecimal
+message through bounded best-effort USB polling, then halts in WFI until reset.
+No normal console/display callback, heap, lock or scheduler is used. RAM state
+is not persistent across reset. This is fail-stop diagnostics, not per-task
+recovery, stack-overflow or nested/double-fault recovery. A usable trap stack
+and functioning internal SRAM are prerequisites; output can be lost/disconnected.

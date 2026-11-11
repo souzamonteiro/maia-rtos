@@ -170,3 +170,17 @@ does not revalidate the historical kernel/milestone claims above.
   explicit ecalls,124 sleeps,125 priority checks and374 FS-Off checks.
 - Host7/7 and sanitized frame2/2 PASS. No flash/vendor/parser changes.
 - [Evidence and limits](../audits/native-mixed-scheduling.md). Next: fatal traps.
+
+## Native fatal-trap policy — 2026-11-11
+
+- Reproduced illegal16 being skipped with FAULT_RESUMED on previous handler.
+- Unknown exceptions/breakpoints/IRQs now retain raw diagnostics and halt; only
+  valid enabled M-mode task ecalls advance PC. No guessed instruction width.
+- Fatal output uses bounded USB polling and bypasses display/normal console,
+  heap and scheduler. RAM record is reset-volatile; no persistent writes.
+- Host 9/9, sanitizer C fixtures 3/3, C++98 headers pass. Controlled illegal16/32
+  and compressed-breakpoint tests compare cause/PC against ELF metadata.
+- [Full actual evidence and limits](../audits/native-fatal-traps.md).
+- Hardware final: all3 controlled fatal injections PASS; post-policy mixed
+  regression PASS (250 IRQs,18142 ecalls,124 sleeps). Desktop/shell/SciCalc
+  restored and verified after RAM reset. No flash/SD writes.

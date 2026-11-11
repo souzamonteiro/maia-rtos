@@ -12,6 +12,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
     soc/espressif/esp32p4/soc_display.c
     kernel/kmem.c
@@ -33,16 +34,25 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  if(MAIA_NATIVE_PROBE_FAULT)
+    if(NOT MAIA_NATIVE_PROBE_FAULT MATCHES "^(illegal16|illegal32|breakpoint16)$")
+      message(FATAL_ERROR "Unknown MAIA_NATIVE_PROBE_FAULT")
+    endif()
+    set(MAIA_PROBE_APP tests/hardware/native_fault_probe.c tests/hardware/native_fault_instructions.S)
+  else()
+    set(MAIA_PROBE_APP tests/hardware/native_scheduler_probe.c tests/hardware/native_register_probe.S)
+  endif()
   add_executable(maia_sched_probe.elf EXCLUDE_FROM_ALL
     arch/riscv/start.S
     arch/riscv/trap_context.S
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_panic.c
     kernel/ksched.c
     boards/m5stack/tab5/app_desc.c
-    tests/hardware/native_scheduler_probe.c
-    tests/hardware/native_register_probe.S
+    ${MAIA_PROBE_APP}
   )
   option(MAIA_NATIVE_PROBE_FP32 "Exercise native RV32F/ILP32F context (RAM diagnostic only)" OFF)
   option(MAIA_NATIVE_PROBE_MIXED "Exercise mixed FS states, yield, delay and priorities" OFF)
@@ -56,6 +66,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     target_compile_options(maia_sched_probe.elf PRIVATE -march=rv32imafc_zicsr_zifencei -mabi=ilp32f)
     target_link_options(maia_sched_probe.elf PRIVATE -march=rv32imafc_zicsr_zifencei -mabi=ilp32f)
     target_sources(maia_sched_probe.elf PRIVATE tests/hardware/native_fp_abi.c)
+  endif()
+  if(MAIA_NATIVE_PROBE_FAULT)
+    if(MAIA_NATIVE_PROBE_FP32 OR MAIA_NATIVE_PROBE_MIXED)
+      message(FATAL_ERROR "Fault probe uses its own integer-only workload")
+    endif()
+    if(MAIA_NATIVE_PROBE_FAULT STREQUAL "illegal16")
+      set(MAIA_FAULT_KIND 1)
+    elseif(MAIA_NATIVE_PROBE_FAULT STREQUAL "illegal32")
+      set(MAIA_FAULT_KIND 2)
+    else()
+      set(MAIA_FAULT_KIND 3)
+    endif()
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_PROBE_FAULT_KIND=${MAIA_FAULT_KIND})
   endif()
   target_include_directories(maia_sched_probe.elf PRIVATE include)
   target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
@@ -80,6 +103,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
     soc/espressif/esp32p4/soc_display.c
     boards/m5stack/tab5/app_desc.c
@@ -103,6 +127,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_early_init.c
       soc/espressif/esp32p4/soc_console.c
       soc/espressif/esp32p4/soc_timer.c
+      soc/espressif/esp32p4/soc_panic.c
       soc/espressif/esp32p4/soc_board_io.c
       soc/espressif/esp32p4/soc_display.c
       boards/m5stack/tab5/app_desc.c
@@ -171,7 +196,14 @@ else()
       target_compile_options(kernel_fp_frame_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME kernel_fp_frame_test COMMAND kernel_fp_frame_test)
-
+    add_executable(riscv_trap_policy_test tests/host/riscv_trap_policy_test.c)
+    target_include_directories(riscv_trap_policy_test PRIVATE include)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(riscv_trap_policy_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME riscv_trap_policy_test COMMAND riscv_trap_policy_test)
+    add_test(NAME native_probe_result_test
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_result_test.py)
 
     # The current shell dispatches assembler/compiler/module commands too.
     # Link their real host implementations rather than substituting stubs.

@@ -1,5 +1,21 @@
 # Hardware evidence register
 
+## Controlled fatal traps — 2026-11-11
+
+Primary references: [RISC-V unprivileged ISA, 20240411, C v2.0 sections26.5.4/26.5.6](https://docs.riscv.org/reference/isa/v20240411/_attachments/riscv-unprivileged.pdf)
+define all-zero16-bit illegal and C.EBREAK; the already cited rev-v1.3 TRM
+register1.13 p.73 defines illegal instruction cause2 and breakpoint cause3,
+with mepc/mtval retaining trap details. The controlled32-bit fault writes the
+read-only cycle CSR (`CSRRW x0,cycle,x0`), addressed in the ISA CSR-access rules
+and the rev-v1.3 CSR summary (p.65: cycle 0xC00 is read-only). Fault-PC labels are deliberately halfword aligned.
+The USB fatal sink uses only previously verified USB-Serial/JTAG registers,
+with bounded polling/byte count and no display callbacks, heap or scheduler.
+Old behavior on hardware prints FAULT_RESUMED after illegal16; the fixed path
+reports raw cause/original halfword PC/value/sp and halts, verified by exact
+PC comparison to the matching ELF symbol. See [fatal-trap report](../audits/native-fatal-traps.md)
+for actual captures, expected failures, hardware scope and reset recovery.
+
+
 ## Mixed FS-state and scheduler diagnostic — 2026-11-11
 
 Uses the previously cited rev-v1.3 mstatus.FS/CLIC references and verified

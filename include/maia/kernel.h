@@ -156,6 +156,9 @@ maia_status_t  maia_task_create(const char *name,
                                 void *stack_mem,
                                 size_t stack_size,
                                 maia_task_id_t *out_id);
+/* Thread context only, interrupts enabled. Invalid-context yields are fatal.
+ * delay_ticks uses scheduler ticks; zero is a yield, nonzero blocks this task.
+ */
 void           maia_task_yield(void);
 void           maia_task_delay_ticks(uint32_t ticks);
 maia_task_id_t maia_task_current_id(void);

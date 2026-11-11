@@ -211,3 +211,20 @@ The mixed workload passes250 realIRQs,74947 ecalls,124 two-tick sleeps,125
 high-priority yield checks and374 FS-Off checks, with register integrity/MIL0.
 Host7/7, sanitized frame2/2 pass. Single-core SRAM scope; no flash/parser/imports.
 Next authorized step is bounded fatal diagnostics/halt instead of unknown PC+4.
+
+## Native fatal traps — 2026-11-11
+
+Unknown PC+4 skipping is removed. Only enabled M-mode task ECALL resumes, with
+alignment/overflow/lifecycle checks. Other exceptions/breakpoints/unknown IRQs
+enter bounded USB fatal diagnostics + RAM record + WFI halt. No display/heap/lock
+or scheduler in fatal sink. No alternate fault stack/double-fault recovery.
+See `audits/native-fatal-traps.md`; do not infer native desktop/SMP completion.
+Host 9/9, ASan/UBSan C fixtures 3/3 and C++98 headers pass. Hardware injected
+illegal16/32 and C.EBREAK compare fatal PC against actual ELF symbol. Runner
+requires both --expect-fatal-cause and --expect-fatal-pc; early armed serial
+banner is optional, but if present must match. No diagnostic is flashed.
+Next small task: scheduler operation atomicity/IRQ-state contract and idle path.
+Final hardware: illegal16/illegal32/C.EBREAK fatal checks PASS at exact ELF PC;
+mixed scheduler regression PASS (250 realIRQs,18142 ecalls,124 sleeps, MIL0).
+After reset, shell/SciCalc 2+3*4=14/desktop verified. Artifacts+symbol metadata:
+`../maia-rtos-recovery/native-fatal-traps-20261111/`. No flash/SD writes.

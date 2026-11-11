@@ -9,6 +9,24 @@ import contextlib
 from pathlib import Path
 import sys
 import time
+import re
+
+
+def evaluate_capture(output, expected_fatal=None, expected_pc=None):
+    if expected_fatal is None:
+        return ('MAIA_NATIVE_PREEMPT_PASS' in output and
+                'MAIA_NATIVE_PREEMPT_FAIL' not in output and 'MAIA_NATIVE_FATAL' not in output)
+    armed = re.findall(r'FAULT_ARMED pc=([0-9a-f]{8})', output)
+    fatal = re.findall(r'MAIA_NATIVE_FATAL cause=([0-9a-f]{8}) pc=([0-9a-f]{8})', output)
+    if expected_pc is None:
+        if len(armed) != 1:
+            return False
+        expected_pc = int(armed[0], 16)
+    return (len(armed) <= 1 and len(fatal) == 1 and
+            (int(fatal[0][0], 16) & 0x80000fff) == expected_fatal and
+            int(fatal[0][1], 16) == expected_pc and
+            (not armed or int(armed[0], 16) == expected_pc) and 'FAULT_RESUMED' not in output and
+            'MAIA_NATIVE_PREEMPT_PASS' not in output and 'MAIA_NATIVE_PREEMPT_FAIL' not in output)
 
 
 def main():
@@ -17,10 +35,15 @@ def main():
     parser.add_argument('--image', type=Path, required=True)
     parser.add_argument('--log', type=Path, required=True)
     parser.add_argument('--capture-seconds', type=float, default=8)
+    parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
+    parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3))
     parser.add_argument('--validate-only', action='store_true')
     args = parser.parse_args()
     if not 1 <= args.capture_seconds <= 30:
         parser.error('capture-seconds must be between 1 and 30')
+
+    if (args.expect_fatal_cause is None) != (args.expect_fatal_pc is None):
+        parser.error('fatal tests require both expected cause and PC from the test ELF symbol')
 
     import esptool
     from esptool.bin_image import LoadFirmwareImage
@@ -32,6 +55,11 @@ def main():
     ) or not any(segment.addr <= image.entrypoint < segment.addr + len(segment.data)
                  for segment in image.segments):
         parser.error('image is outside the existing L2MEM_LOW RAM-load window')
+    if args.expect_fatal_pc is not None and (args.expect_fatal_pc & 1 or not any(
+        segment.addr <= args.expect_fatal_pc < segment.addr + len(segment.data)
+        for segment in image.segments
+    )):
+        parser.error('expected fault PC must be halfword-aligned inside the loaded image')
     if args.validate_only:
         print('PASS: image and entry point confined to L2MEM_LOW; no device accessed')
         return 0
@@ -72,8 +100,8 @@ def main():
                 esp.hard_reset()
             finally:
                 esp._port.close()
-        passed = 'MAIA_NATIVE_PREEMPT_PASS' in output and 'MAIA_NATIVE_PREEMPT_FAIL' not in output
-        print('[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        passed = evaluate_capture(output, args.expect_fatal_cause, args.expect_fatal_pc)
+        print('[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 
