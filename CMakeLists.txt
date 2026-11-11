@@ -111,9 +111,28 @@ else()
     endif()
     add_test(NAME kernel_mvp_test COMMAND kernel_mvp_test)
 
+    # The current shell dispatches assembler/compiler/module commands too.
+    # Link their real host implementations rather than substituting stubs.
+    # This library belongs only to the hosted branch, never the native kernel.
+    add_library(maia_shell_host_tools STATIC
+      components/exec/elf_validator.c
+      components/exec/elf_loader.c
+      assembler/src/riscv_isa.cpp
+      assembler/src/riscv_asm.cpp
+      assembler/src/riscv_disasm.cpp
+      maiascript/src/parser.cpp
+      maiascript/src/codegen_riscv.cpp
+      lib/maiaregex/maia_regex.c
+      lib/maiaglob/maia_glob.c
+      lib/maiaglob/maia_glob_compile.cpp
+    )
+    target_include_directories(maia_shell_host_tools PUBLIC
+      include assembler/include maiascript/include lib/maiaregex lib/maiaglob)
+    set_target_properties(maia_shell_host_tools PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+
     add_executable(shell_expr_control_test tests/host/shell_expr_control_test.cpp)
-    target_include_directories(shell_expr_control_test PRIVATE include)
-    set_target_properties(shell_expr_control_test PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    target_link_libraries(shell_expr_control_test PRIVATE maia_shell_host_tools)
+    set_target_properties(shell_expr_control_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
     add_test(NAME shell_expr_control_test COMMAND shell_expr_control_test)
   endif()
   message(STATUS "Host contract tests configured")

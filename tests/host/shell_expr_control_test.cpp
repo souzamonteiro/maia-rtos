@@ -3,28 +3,6 @@
 #include <string.h>
 #include <assert.h>
 
-// Mock ESP and M5 for host testing
-struct MockESP {
-    uint32_t getPsramSize() { return 32 * 1024 * 1024; }
-    uint32_t getFreePsram() { return 30 * 1024 * 1024; }
-    uint32_t getFreeHeap() { return 250 * 1024; }
-    uint32_t getMinFreeHeap() { return 200 * 1024; }
-    uint32_t getCycleCount() { return 12345678; }
-    void restart() {}
-} ESP;
-
-struct MockDisplay {
-    void setBrightness(int) {}
-};
-
-struct MockM5 {
-    MockDisplay Display;
-} M5;
-
-static unsigned long s_mock_millis = 1000;
-unsigned long millis() { return s_mock_millis; }
-void delay(int ms) { s_mock_millis += ms; }
-
 #include "../../include/maia_shell/maia_shell.hpp"
 
 static char s_last_out[512];
@@ -38,13 +16,14 @@ int main() {
 
     // Test 1: Multi-token expr
     s_last_out[0] = '\0';
-    int st = shell.execute("expr 2 + 3 * 4");
+    int st = shell.execute("expr 2 + 3 '*' 4");
     assert(st == 0);
     assert(strstr(s_last_out, "14\n") != nullptr);
 
     // Test 2: Parentheses precedence
     s_last_out[0] = '\0';
-    st = shell.execute("expr ( 2 + 3 ) * 4");
+    st = shell.execute("expr '(' 2 + 3 ')' '*' 4");
+    if (st != 0) fprintf(stderr, "parenthesized expr status=%d output=%s\n", st, s_last_out);
     assert(st == 0);
     assert(strstr(s_last_out, "20\n") != nullptr);
 

@@ -80,6 +80,7 @@ static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf
 #include <stdbool.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "../maia/exec/elf_validator.h"
 #include "../maia/exec/elf_loader.h"

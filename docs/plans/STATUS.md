@@ -65,6 +65,20 @@ Exact source changes, version comparison, results, hashes and logs:
 
 Evidence: [CST fix and exact scope](../audits/maiascript-cst-ownership-2026-11-10.md).
 
+## Host contract build restored
+
+- **HOST-TESTED:** root CMake build and all 5/5 CTest entries pass. ABI/kernel
+  adapter tests also pass 2/2 with ASan/UBSan; C/C++98 validation-header check
+  passes. The default Tab5 profile builds; no device flash in this step.
+- Existing native v1 struct/values unchanged. Console adapter and fixtures use
+  current names; a separate helper validates prefix/version/callbacks. The
+  full C++ shell test links real host tools and retains all ten assertions.
+- Parser/lexer/EBNF and command implementations unchanged. These tests do not
+  certify real VFS/async I/O, native preemption or SMP. The full freestanding
+  shell remains incomplete. Next: isolated native timer/scheduler diagnostic.
+
+Details and exact commands: [host contract repair](../audits/shell-host-contracts.md).
+
 ## Historical milestone claims
 
 The table below is retained as history. It does not certify the current working

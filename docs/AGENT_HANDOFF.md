@@ -40,7 +40,8 @@ Do not claim that the current functional desktop is already an independent RTOS.
 4. [Previous panel correction and hardware test](audits/maiascript-panel-text.md).
 5. [First migration experiment, failures and restoration](audits/tab5-singlecore-stage-1-2026-11-10.md).
 6. [CST ownership fix and successful device reproducer](audits/maiascript-cst-ownership-2026-11-10.md).
-7. Temporary checkout's `docs/AGENT_HANDOFF.md`, recovery audits and raw logs
+7. [Host contract build repair](audits/shell-host-contracts.md).
+8. Temporary checkout's `docs/AGENT_HANDOFF.md`, recovery audits and raw logs
    only as historical evidence of the experimental native console.
 
 The temporary handoff describes the old failing flash image and the native
@@ -88,6 +89,15 @@ compilation have not been retested. AST shared_ptr/runtime locks still remain.
 The device was again restored to the original preserved image after this test;
 the CST fix is in source/experimental artifacts, not the currently installed app.
 Evidence: recovery `experiments/cst-ownership-20261110/` and the report above.
+
+Latest host-contract step supersedes the old host-build failure: root build
+and 5/5 CTest now pass, with real tool dependencies linked for full-shell
+regressions. The diagnostic console adapter/fixtures were aligned to the
+unchanged native v1 struct/values, with a separate validation helper; 2/2
+ASan/UBSan and C++98 header checks pass. Default Tab5 build passes, no flash.
+No lexer/parser/EBNF or shell command implementation changes. Full freestanding
+shell/native-driver integration is still incomplete; do not equate host success
+with a bootable native desktop.
 
 ## Next small implementation and constraints
 

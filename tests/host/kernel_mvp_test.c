@@ -17,7 +17,7 @@ static int32_t mock_read(void *ctx, msh_fd_t fd, void *buf, uint32_t len) {
     (void)fd;
     (void)buf;
     (void)len;
-    return MSH_ERR_AGAIN;
+    return MSH_ERR_NOTSUP; /* This fixture does not implement input reads. */
 }
 
 static int32_t mock_write(void *ctx, msh_fd_t fd, const void *buf, uint32_t len) {
@@ -123,6 +123,11 @@ int main(void) {
     msh_host_v1 host;
     msh_mvp_bind_console_host(&host, &mc, mock_read, mock_write);
     msh_ctx_t sh;
+    if (msh_mvp_init(NULL, &host) != MSH_ERR_INVALID) return 48;
+    if (msh_mvp_init(&sh, NULL) != MSH_ERR_INVALID) return 49;
+    msh_host_v1 invalid_host = host;
+    invalid_host.version = 2U << 16U;
+    if (msh_mvp_init(&sh, &invalid_host) != MSH_ERR_INVALID) return 50;
     if (msh_mvp_init(&sh, &host) != MSH_OK) return 43;
     if (msh_mvp_eval_line(&sh, "set GREET=Hello_Tab5; echo $GREET; uname; ps; mem; qtest") != 0) return 44;
     if (strstr(mc.out, "Hello_Tab5") == NULL) return 45;

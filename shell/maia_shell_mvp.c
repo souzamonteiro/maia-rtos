@@ -1,6 +1,7 @@
 #include <maia/kernel.h>
 #include <maia/version.h>
 #include <maia_shell/shell_mvp.h>
+#include <maia_shell/host_v1_validation.h>
 
 static size_t msh_strlen(const char *s) {
     size_t n = 0U;
@@ -46,7 +47,7 @@ static int32_t stub_open(void *user, const char *path, uint32_t flags, msh_fd_t 
     (void)path;
     (void)flags;
     (void)out;
-    return MSH_ERR_NOSYS;
+    return MSH_ERR_NOTSUP;
 }
 
 static int32_t stub_close(void *user, msh_fd_t fd) {
@@ -59,7 +60,7 @@ static int32_t stub_pipe_create(void *user, msh_fd_t *r, msh_fd_t *w) {
     (void)user;
     (void)r;
     (void)w;
-    return MSH_ERR_NOSYS;
+    return MSH_ERR_NOTSUP;
 }
 
 static int32_t stub_fd_dup(void *user, msh_fd_t src, msh_fd_t *dst) {
@@ -80,14 +81,14 @@ static int32_t stub_spawn(void *user, const char *path, const char *const *argv,
     (void)out;
     (void)err;
     (void)job;
-    return MSH_ERR_NOSYS;
+    return MSH_ERR_NOTSUP;
 }
 
 static int32_t stub_wait(void *user, msh_job_t job, int32_t *status) {
     (void)user;
     (void)job;
     (void)status;
-    return MSH_ERR_NOSYS;
+    return MSH_ERR_NOTSUP;
 }
 
 static int32_t stub_cwd_get(void *user, char *dst, uint32_t cap) {
@@ -123,7 +124,7 @@ void msh_mvp_bind_console_host(msh_host_v1 *out_host,
         return;
     }
     out_host->struct_size = (uint32_t)sizeof(msh_host_v1);
-    out_host->version     = MSH_HOST_V1_VERSION;
+    out_host->version     = MSH_HOST_VERSION_1;
     out_host->user        = user;
     out_host->read        = read_fn;
     out_host->write       = write_fn;
@@ -140,13 +141,13 @@ void msh_mvp_bind_console_host(msh_host_v1 *out_host,
 
 static void msh_puts(msh_ctx_t *ctx, const char *s) {
     if (ctx != NULL && ctx->host != NULL && ctx->host->write != NULL && s != NULL) {
-        (void)ctx->host->write(ctx->host->user, MSH_FD_STDOUT, s, (uint32_t)msh_strlen(s));
+        (void)ctx->host->write(ctx->host->user, MSH_STDOUT_FD, s, (uint32_t)msh_strlen(s));
     }
 }
 
 static void msh_putc(msh_ctx_t *ctx, char c) {
     if (ctx != NULL && ctx->host != NULL && ctx->host->write != NULL) {
-        (void)ctx->host->write(ctx->host->user, MSH_FD_STDOUT, &c, 1U);
+        (void)ctx->host->write(ctx->host->user, MSH_STDOUT_FD, &c, 1U);
     }
 }
 
