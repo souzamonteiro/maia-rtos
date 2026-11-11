@@ -1,0 +1,2 @@
+PASS: TX capture mode rejects RX/fatal combinations before serial access
+PASS: CMake rejects combined TX/RX workloads

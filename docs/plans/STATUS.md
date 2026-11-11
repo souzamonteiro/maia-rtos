@@ -268,3 +268,19 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
   pending, paced traffic only; desktop firmware still depends on FreeRTOS.
 - Next: serial TX ownership/separation, keeping blocking waits and other driver
   migrations in separate increments. POSIX remains DESIGN only.
+
+## Native serial output service — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED (USB):** raw USB/UART TX separated from display;
+  optional sole-owner service serializes whole records from multiple producers.
+- 1..64-byte records, queue 8 plus one active record, 16 byte attempts/poll.
+  FULL rejects whole enqueue; BUSY retains active offset. No heap or spin waits.
+  Legacy TX/display mirroring is suppressed after claim; fatal sink stays separate.
+- Host 16/16, sanitizer TX/RX/queue 3/3, C++98 headers and five mutants PASS.
+  Final Tab5 capture: 80 records/3840 bytes, 260 IRQs, FULL=344, BUSY=239, errors=0.
+  RX regression passes all 256 bytes/305 IRQs. [Evidence](../audits/native-serial-output.md).
+- Flash shell/SciCalc/desktop preserved and verified. No foreign runtime, parser,
+  module ABI or flash/SD change. Complete desktop still depends on FreeRTOS.
+- Limits: single-core polling, permanent owner until reset, FIFO acceptance is
+  not host ACK, UART physical/reconnect pending. Next: native atomic worker
+  waits/wakeups and synchronization audit; POSIX remains DESIGN only.

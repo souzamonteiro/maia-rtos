@@ -12,6 +12,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_serial_rx.c
+    soc/espressif/esp32p4/soc_serial_tx.c
     soc/espressif/esp32p4/soc_timer.c
     arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
@@ -37,6 +38,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  option(MAIA_NATIVE_PROBE_SERIAL_TX "Exercise queued TX from multiple tasks" OFF)
   option(MAIA_NATIVE_PROBE_SERIAL "Exercise managed serial RX with real host input" OFF)
   option(MAIA_NATIVE_PROBE_QUEUE "Exercise native queue task/IRQ concurrency" OFF)
   set(MAIA_NATIVE_PROBE_STACK "" CACHE STRING "RAM stack fault: underflow, guard, incoming, irqguard, misaligned or zero")
@@ -48,7 +50,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_EMPTY AND NOT MAIA_NATIVE_PROBE_IDLE)
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
-  if(MAIA_NATIVE_PROBE_SERIAL)
+  if(MAIA_NATIVE_PROBE_SERIAL_TX)
+    set(MAIA_PROBE_APP tests/hardware/native_serial_tx_probe.c services/serial_output.c kernel/ksync.c)
+  elseif(MAIA_NATIVE_PROBE_SERIAL)
     set(MAIA_PROBE_APP tests/hardware/native_serial_probe.c services/serial_input.c kernel/ksync.c)
   elseif(MAIA_NATIVE_PROBE_QUEUE)
     set(MAIA_PROBE_APP tests/hardware/native_queue_probe.c kernel/ksync.c)
@@ -70,6 +74,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_serial_rx.c
+    soc/espressif/esp32p4/soc_serial_tx.c
     soc/espressif/esp32p4/soc_timer.c
     arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
@@ -91,6 +96,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       message(FATAL_ERROR "MAIA_NATIVE_PROBE_MIXED requires MAIA_NATIVE_PROBE_FP32")
     endif()
     target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_MIXED=1)
+  endif()
+  if(MAIA_NATIVE_PROBE_SERIAL_TX AND (MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR
+      MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_STACK OR MAIA_NATIVE_PROBE_IDLE OR
+      MAIA_NATIVE_PROBE_MIXED OR MAIA_NATIVE_PROBE_LIFECYCLE OR MAIA_NATIVE_PROBE_FP32))
+    message(FATAL_ERROR "Serial TX probe uses a separate integer workload")
   endif()
   if(MAIA_NATIVE_PROBE_SERIAL AND (MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_FAULT OR
       MAIA_NATIVE_PROBE_STACK OR MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_MIXED OR
@@ -159,6 +169,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_serial_rx.c
+    soc/espressif/esp32p4/soc_serial_tx.c
     soc/espressif/esp32p4/soc_timer.c
     arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
@@ -185,6 +196,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_early_init.c
       soc/espressif/esp32p4/soc_console.c
       soc/espressif/esp32p4/soc_serial_rx.c
+      soc/espressif/esp32p4/soc_serial_tx.c
       soc/espressif/esp32p4/soc_timer.c
       arch/riscv/stack.c
       soc/espressif/esp32p4/soc_panic.c
@@ -262,8 +274,17 @@ else()
       target_compile_options(riscv_trap_policy_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME riscv_trap_policy_test COMMAND riscv_trap_policy_test)
+    add_executable(serial_output_test tests/host/serial_output_test.c services/serial_output.c
+      soc/espressif/esp32p4/soc_serial_tx.c soc/espressif/esp32p4/soc_serial_rx.c
+      soc/espressif/esp32p4/soc_console.c kernel/ksync.c)
+    target_include_directories(serial_output_test PRIVATE include)
+    target_compile_definitions(serial_output_test PRIVATE MAIA_SERIAL_TX_TEST=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(serial_output_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME serial_output_test COMMAND serial_output_test)
     add_executable(serial_input_test tests/host/serial_input_test.c services/serial_input.c
-      soc/espressif/esp32p4/soc_serial_rx.c soc/espressif/esp32p4/soc_console.c kernel/ksync.c)
+      soc/espressif/esp32p4/soc_serial_rx.c soc/espressif/esp32p4/soc_serial_tx.c soc/espressif/esp32p4/soc_console.c kernel/ksync.c)
     target_include_directories(serial_input_test PRIVATE include)
     target_compile_definitions(serial_input_test PRIVATE MAIA_SERIAL_RX_TEST=1)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

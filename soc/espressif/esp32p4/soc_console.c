@@ -1,58 +1,27 @@
 #include <maia/console.h>
 #include <maia/drivers/serial_rx.h>
+#include <maia/drivers/serial_tx.h>
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
-#include <maia/soc/esp32p4_regs.h>
 
-/* Bounded spin count (~5ms at 400 MHz) so console never hangs indefinitely if disconnected. */
+/* Legacy best-effort output only; bounded attempts, no time guarantee. */
 #define MAIA_CONSOLE_SPIN_LIMIT 2000000U
-
-static uint8_t s_ep1_fifo_cnt = 0U;
-
-void maia_console_init(void) {
-    /* ROM already configures USB-Serial/JTAG (40 MHz XTAL) and UART0 on reset. */
-    s_ep1_fifo_cnt = 0U;
-}
-
-static void usb_jtag_putc(uint8_t byte) {
-    for (uint32_t spin = 0; spin < MAIA_CONSOLE_SPIN_LIMIT; ++spin) {
-        if ((MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) & MAIA_ESP32P4_USB_SERIAL_IN_EP_DATA_FREE) != 0UL) {
-            MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_REG) = (uint32_t)byte;
-            s_ep1_fifo_cnt++;
-            if (s_ep1_fifo_cnt >= 63U) {
-                MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
-                s_ep1_fifo_cnt = 0U;
-            }
-            return;
-        }
+void maia_console_init(void) { maia_serial_tx_legacy_init(); }
+static void legacy_putc(maia_serial_tx_sink_t sink, uint8_t byte) {
+    for (uint32_t spin=0U;spin<MAIA_CONSOLE_SPIN_LIMIT;++spin) {
+        if (maia_serial_tx_try_put(NULL,sink,byte) != -1) return;
     }
 }
-
-static void uart0_putc(uint8_t byte) {
-    for (uint32_t spin = 0; spin < MAIA_CONSOLE_SPIN_LIMIT; ++spin) {
-        uint32_t status = MAIA_MMIO32(MAIA_ESP32P4_UART0_STATUS_REG);
-        uint32_t txfifo_cnt = (status >> MAIA_ESP32P4_UART_TXFIFO_CNT_SHIFT) & MAIA_ESP32P4_UART_TXFIFO_CNT_MASK;
-        if (txfifo_cnt < 120U) {
-            MAIA_MMIO32(MAIA_ESP32P4_UART0_FIFO_REG) = (uint32_t)byte;
-            return;
-        }
-    }
-}
-
-void maia_console_flush(void) {
-    if (s_ep1_fifo_cnt > 0U) {
-        MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
-        s_ep1_fifo_cnt = 0U;
-    }
-}
+void maia_console_flush(void) { (void)maia_serial_tx_flush(NULL,MAIA_SERIAL_TX_USB); }
 
 void maia_console_putc(char c) {
+    if (!maia_serial_tx_may_write(NULL)) return;
     if (c == '\n') {
-        usb_jtag_putc((uint8_t)'\r');
-        uart0_putc((uint8_t)'\r');
+        legacy_putc(MAIA_SERIAL_TX_USB,(uint8_t)'\r');
+        legacy_putc(MAIA_SERIAL_TX_UART0,(uint8_t)'\r');
     }
-    usb_jtag_putc((uint8_t)c);
-    uart0_putc((uint8_t)c);
+    legacy_putc(MAIA_SERIAL_TX_USB,(uint8_t)c);
+    legacy_putc(MAIA_SERIAL_TX_UART0,(uint8_t)c);
     maia_display_putc(c);
     if (c == '\n') {
         maia_console_flush();

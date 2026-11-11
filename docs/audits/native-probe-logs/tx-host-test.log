@@ -1,0 +1,37 @@
+Test project /tmp/maia-host-contracts-20261110
+      Start  1: native_probe_gate
+ 1/16 Test  #1: native_probe_gate ................   Passed    0.16 sec
+      Start  2: maia_contract_test
+ 2/16 Test  #2: maia_contract_test ...............   Passed    0.00 sec
+      Start  3: shell_host_contract
+ 3/16 Test  #3: shell_host_contract ..............   Passed    0.00 sec
+      Start  4: esp32p4_regs_test
+ 4/16 Test  #4: esp32p4_regs_test ................   Passed    0.00 sec
+      Start  5: kernel_mvp_test
+ 5/16 Test  #5: kernel_mvp_test ..................   Passed    0.00 sec
+      Start  6: kernel_fp_frame_test
+ 6/16 Test  #6: kernel_fp_frame_test .............   Passed    0.00 sec
+      Start  7: riscv_trap_policy_test
+ 7/16 Test  #7: riscv_trap_policy_test ...........   Passed    0.00 sec
+      Start  8: serial_output_test
+ 8/16 Test  #8: serial_output_test ...............   Passed    0.00 sec
+      Start  9: serial_input_test
+ 9/16 Test  #9: serial_input_test ................   Passed    0.00 sec
+      Start 10: queue_atomic_test
+10/16 Test #10: queue_atomic_test ................   Passed    0.00 sec
+      Start 11: scheduler_atomic_test
+11/16 Test #11: scheduler_atomic_test ............   Passed    0.00 sec
+      Start 12: scheduler_idle_test
+12/16 Test #12: scheduler_idle_test ..............   Passed    0.00 sec
+      Start 13: scheduler_stack_integer_test
+13/16 Test #13: scheduler_stack_integer_test .....   Passed    0.00 sec
+      Start 14: scheduler_stack_fp32_test
+14/16 Test #14: scheduler_stack_fp32_test ........   Passed    0.00 sec
+      Start 15: native_probe_result_test
+15/16 Test #15: native_probe_result_test .........   Passed    0.02 sec
+      Start 16: shell_expr_control_test
+16/16 Test #16: shell_expr_control_test ..........   Passed    0.00 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =   0.22 sec

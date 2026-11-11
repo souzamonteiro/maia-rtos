@@ -71,3 +71,19 @@ except RuntimeError:
 else:
     raise AssertionError('short writes must fail the stimulus')
 print('PASS: binary fixture waits for complete markers, sends each phase once and rejects short writes')
+
+
+tx_records = [runner.serial_output_record(source, seq) for seq in range(40) for source in (0, 1)]
+tx = ''.join(tx_records) + 'TX_SUM records=80 bytes=3840 errors=0\nTX_HW irq=270 full=100 busy=50\nMAIA_NATIVE_PREEMPT_PASS\n'
+assert runner.evaluate_serial_output(tx)
+assert not runner.evaluate_serial_output(tx.replace(tx_records[0], '', 1))
+assert not runner.evaluate_serial_output(tx + tx_records[0])
+assert not runner.evaluate_serial_output(tx.replace(tx_records[0], tx_records[0][:-2]+'!\n', 1))
+assert not runner.evaluate_serial_output(tx.replace(tx_records[0], tx_records[2], 1))
+assert not runner.evaluate_serial_output(tx.replace('full=100', 'full=0'))
+assert not runner.evaluate_serial_output(tx.replace('busy=50', 'busy=0'))
+assert not runner.evaluate_serial_output(tx.replace('irq=270', 'irq=0'))
+assert not runner.evaluate_serial_output(tx.replace('bytes=3840', 'bytes=1'))
+assert not runner.evaluate_serial_output(tx + 'LEGACY_MUST_NOT_APPEAR')
+assert not runner.evaluate_serial_output(tx.replace('\n', '\r\n'))
+print('PASS: TX capture requires all 80 intact ordered raw records, real IRQs, saturation and no legacy leak')

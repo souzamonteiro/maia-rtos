@@ -317,3 +317,22 @@ Recovery artifacts: `../maia-rtos-recovery/native-serial-input-20261111/`.
 Preserved flash shell/SciCalc/desktop verified after reset; complete firmware
 still uses FreeRTOS. Next: separate/serialize serial TX before multiple worker
 writers; other drivers/blocking primitives remain separate. No parser changes.
+
+## Managed native serial output — 2026-11-11
+
+Read [serial output audit/evidence](audits/native-serial-output.md). Optional TX
+service binds a boot-created owner until reset, queues up to 8 records (1..64B)
+plus one active record, and makes at most 16 byte attempts/poll. Multiple writers
+use whole-record write; FULL does not accept a prefix, BUSY preserves offset.
+TX is raw to one selected USB/UART sink, no display. Legacy console writes are
+suppressed after claim; convert callers to the status-returning service API.
+Fatal diagnostics bypass this queue deliberately. TX/RX reservations independent.
+No task/heap creation, teardown, blocking wait, SMP or host-delivery ACK.
+Host 16/16, sanitizer 3/3, C++98 headers and five mutants pass; actual USB 80 records/
+3840 bytes, 260 IRQs, FULL=344, BUSY=239, errors=0. RX regression passes 256 bytes/305 IRQs.
+Desktop/shell/SciCalc restored after RAM reset. Exact artifacts/checksums:
+`../maia-rtos-recovery/native-serial-output-20261111/`. First TX pass also retained;
+final adds real BUSY observation. Legacy complete firmware still uses FreeRTOS.
+Next: atomic native worker waits/wakeups, auditing semaphore/mutex contracts
+separately and avoiding temporary-tree delay-loop waits. No grammar changes;
+future POSIX remains DESIGN only.

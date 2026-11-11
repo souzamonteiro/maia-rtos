@@ -36,6 +36,30 @@ def evaluate_capture(output, expected_fatal=None, expected_pc=None, expected_sta
             'MAIA_NATIVE_PREEMPT_PASS' not in output and 'MAIA_NATIVE_PREEMPT_FAIL' not in output)
 
 
+def serial_output_record(source, sequence):
+    prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
+    return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
+                            for i in range(9, 47)) + '\n'
+
+
+def evaluate_serial_output(output):
+    if not evaluate_capture(output) or 'LEGACY_MUST_NOT_APPEAR' in output:
+        return False
+    records = [line for line in output.split('\n') if 'TXR:' in line]
+    if len(records) != 80:
+        return False
+    counts = [0, 0]
+    for line in records:
+        source = 0 if line.startswith('TXR:A:') else 1 if line.startswith('TXR:B:') else -1
+        if source < 0 or counts[source] >= 40 or line+'\n' != serial_output_record(source, counts[source]):
+            return False
+        counts[source] += 1
+    totals = re.findall(r'^TX_SUM records=80 bytes=3840 errors=0$', output, re.M)
+    hardware = re.findall(r'^TX_HW irq=(\d+) full=(\d+) busy=(\d+)$', output, re.M)
+    return (counts == [40, 40] and len(totals) == 1 and len(hardware) == 1 and
+            int(hardware[0][0]) >= 250 and int(hardware[0][1]) > 0 and int(hardware[0][2]) > 0)
+
+
 class SerialInputStimulus:
     """Two paced binary batches, armed only by the RAM serial probe markers."""
     def __init__(self, port, pause=time.sleep):
@@ -66,6 +90,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--serial-output', action='store_true', help='verify 80 complete TX records from two producers')
     parser.add_argument('--serial-input', action='store_true', help='send binary RX fixture after RAM probe markers')
     args = parser.parse_args()
     if not 1 <= args.capture_seconds <= 30:
@@ -81,6 +106,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.serial_output and (args.serial_input or args.expect_fatal_cause is not None):
+        parser.error('serial output workload cannot be combined with input/fatal profiles')
     if args.serial_input and args.expect_fatal_cause is not None:
         parser.error('serial input workload cannot be combined with a fatal profile')
 
@@ -146,6 +173,8 @@ def main():
                                   args.expect_stack_reason, args.expect_stack_guard, args.expect_stack_sp)
         if args.serial_input:
             passed = passed and stimulus.phase == 2
+        if args.serial_output:
+            passed = passed and evaluate_serial_output(output)
         print('[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 

@@ -1,5 +1,19 @@
 # Hardware evidence register
 
+## Native serial output ownership — 2026-11-11
+
+Reuses EP1/EP1_CONF WR_DONE[0] and SERIAL_IN_EP_DATA_FREE[1], plus UART0
+STATUS TXFIFO_CNT[23:16]. Primary SDK register definitions, commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0` (v5.4.2 checkout), sections
+[USB_SERIAL_JTAG_EP1_CONF_REG / WR_DONE / SERIAL_IN_EP_DATA_FREE](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/usb_serial_jtag_reg.h)
+and [UART_STATUS_REG / TXFIFO_CNT](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/uart_reg.h).
+These definitions were read locally, not compiled/imported. No new MMIO or pins.
+32-byte USB watermark is software policy; UART threshold 120 is inherited
+conservative policy. Actual rev-v1.3 RAM USB capture: 80 intact ordered records,
+3840 bytes, 260 real IRQs, 344 FULL and 239 BUSY events with correct resume.
+This does not establish physical reconnect/UART, SMP or a time bound.
+[Exact captures, reproduction and limitations](../audits/native-serial-output.md).
+
 ## Native serial input ownership — 2026-11-11
 
 RX reuses existing USB-Serial/JTAG EP1 availability bit2 and data register,

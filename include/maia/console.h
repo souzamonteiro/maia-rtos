@@ -23,7 +23,9 @@ void maia_soc_early_init(void);
 /** Initialize the diagnostic console. */
 void maia_console_init(void);
 
-/** Write a single byte to the console (bounded wait). */
+/** Legacy TX only: bounded attempts, not a time bound. After managed TX claim,
+ * putc/write/puts/flush are suppressed; use serial_output to report errors/FULL.
+ * Managed TX suppresses display mirroring as well. */
 void maia_console_putc(char c);
 
 /** Write `len` bytes from `buf` to the console and flush. */
