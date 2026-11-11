@@ -1,0 +1,2 @@
+PASS: serial stimulus plus fatal expectation rejected before port access
+PASS: serial plus queue workload rejected during CMake configure

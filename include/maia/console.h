@@ -5,7 +5,8 @@
  * MaiaRTOS Bare-Metal Diagnostic Console Interface
  *
  * Concurrency & Context Contract:
- * - Usable in early boot, thread context, and panic/trap handlers.
+ * - Legacy boot/thread console: serialize callers, including TX and display.
+ * - Fatal traps use a separate bounded sink; this API is not ISR/panic-safe.
  * - All polling loops are strictly bounded to prevent infinite hardware hangs.
  */
 
@@ -37,6 +38,8 @@ void maia_console_flush(void);
 /**
  * Non-blocking character read from the console.
  * Returns >= 0 byte value (0..255) if available, or -1 if no byte is ready.
+ * After the optional serial input service claims RX, returns -1 without
+ * consuming serial/keyboard data or calling display; use the service read API.
  */
 int maia_console_getc_nonblocking(void);
 

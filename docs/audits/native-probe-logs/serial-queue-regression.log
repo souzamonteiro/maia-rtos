@@ -1,0 +1,24 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 8368 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+MAIA_QUEUE_PROBE: two task producers, timer IRQ producer, 256-byte packets
+QUEUE irq=253 switches=276 errors=0 done=2
+SOURCE id=0 sent=250 received=250 full=0
+SOURCE id=1 sent=249 received=249 full=0
+SOURCE id=2 sent=189 received=189 full=0
+MAIA_NATIVE_PREEMPT_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Native preemption: PASS

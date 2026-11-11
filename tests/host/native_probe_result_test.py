@@ -38,3 +38,36 @@ assert not evaluate(stack, 11, 0x4ff00836, 1, 1, 0)
 assert not evaluate(stack + stack, 11, 0x4ff00836, 1)
 assert not evaluate('MAIA_NATIVE_PREEMPT_PASS MAIA_STACK_FAULT')
 assert not evaluate(good.replace(' sp=4ff02000',''), 2)
+
+
+class FakePort:
+    def __init__(self):
+        self.data = bytearray()
+    def write(self, data):
+        self.data.extend(data)
+        return len(data)
+
+port = FakePort()
+stimulus = runner.SerialInputStimulus(port, lambda seconds: None)
+stimulus.feed('unrelated output')
+assert not port.data
+stimulus.feed('MAIA_SERIAL_RX_READY fi')
+assert not port.data
+stimulus.feed('MAIA_SERIAL_RX_READY fill\r\n')
+assert port.data == bytes(range(64)) and stimulus.phase == 1
+stimulus.feed('MAIA_SERIAL_RX_READY fill\r\n')
+assert len(port.data) == 64
+stimulus.feed('MAIA_SERIAL_RX_READY drain\n')
+assert port.data == bytes(range(256)) and stimulus.phase == 2
+stimulus.feed('MAIA_SERIAL_RX_READY drain\n')
+assert len(port.data) == 256
+class ShortPort:
+    def write(self, data):
+        return len(data) - 1
+try:
+    runner.SerialInputStimulus(ShortPort(), lambda seconds: None).feed('MAIA_SERIAL_RX_READY fill\n')
+except RuntimeError:
+    pass
+else:
+    raise AssertionError('short writes must fail the stimulus')
+print('PASS: binary fixture waits for complete markers, sends each phase once and rejects short writes')

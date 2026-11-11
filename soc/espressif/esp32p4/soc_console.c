@@ -1,4 +1,5 @@
 #include <maia/console.h>
+#include <maia/drivers/serial_rx.h>
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/soc/esp32p4_regs.h>
@@ -85,13 +86,10 @@ void maia_console_puts(const char *str) {
 }
 
 int maia_console_getc_nonblocking(void) {
+    int byte=maia_serial_rx_read(NULL);
+    /* Managed input has a sole reader. Do not steal bytes or poll board/display. */
+    if (byte == -2) return -1;
     maia_display_refresh_dma_if_needed();
-    if ((MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) & MAIA_ESP32P4_USB_SERIAL_OUT_EP_AVAIL) != 0UL) {
-        return (int)(MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_REG) & 0xFFUL);
-    }
-    if ((MAIA_MMIO32(MAIA_ESP32P4_UART0_STATUS_REG) & MAIA_ESP32P4_UART_RXFIFO_CNT_MASK) != 0UL) {
-        return (int)(MAIA_MMIO32(MAIA_ESP32P4_UART0_FIFO_REG) & 0xFFUL);
-    }
+    if (byte >= 0) return byte;
     return maia_tab5_keyboard_getc_nonblocking();
 }
-

@@ -251,3 +251,20 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
   parser, module ABI, flash or legacy runtime removal in this unit.
 - Next: serial I/O ownership/frontier and queue-backed service integration.
   Blocking waits, mutex/semaphore concurrency and full driver ports remain open.
+
+## Native serial input service — 2026-11-11
+
+- **HARDWARE-TESTED, LIMITED (USB):** raw USB/UART RX separated from board/display;
+  permanent boot claim prevents legacy reader from stealing service input.
+- Optional service: fixed owner, 64-byte queue, bounded 16-byte poll; FULL avoids
+  another FIFO read. No implicit task/heap, blocking wait or RX IRQ wakeup.
+- Host 15/15, sanitizer service/queue 2/2, C++98 headers and four negative mutants
+  PASS. Final real USB sequence 0..255 passes with FULL=1, 317 real IRQs,
+  errors=0 and auxiliary progress. Initial test failed auxiliary-progress criterion;
+  consumer now sleeps while empty. [Exact evidence](../audits/native-serial-input.md).
+- Service-off queue regression passes 253 IRQs/688 packets. Preserved flash
+  shell/SciCalc/desktop restored; no SDK runtime, parser, module ABI or flash edit.
+- Limits: owner must remain alive until reset, single-core, UART physical test
+  pending, paced traffic only; desktop firmware still depends on FreeRTOS.
+- Next: serial TX ownership/separation, keeping blocking waits and other driver
+  migrations in separate increments. POSIX remains DESIGN only.

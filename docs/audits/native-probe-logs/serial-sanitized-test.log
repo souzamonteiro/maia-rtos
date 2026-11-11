@@ -1,0 +1,9 @@
+Test project /tmp/maia-host-contracts-sanitized-20261110
+    Start 8: serial_input_test
+1/2 Test #8: serial_input_test ................   Passed    0.29 sec
+    Start 9: queue_atomic_test
+2/2 Test #9: queue_atomic_test ................   Passed    0.02 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =   0.31 sec

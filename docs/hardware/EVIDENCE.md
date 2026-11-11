@@ -1,5 +1,19 @@
 # Hardware evidence register
 
+## Native serial input ownership — 2026-11-11
+
+RX reuses existing USB-Serial/JTAG EP1 availability bit2 and data register,
+then UART0 STATUS RXFIFO_CNT[7:0] and FIFO. Primary register definitions at SDK
+commit `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0` (v5.4.2 checkout), sections
+[USB_SERIAL_JTAG_EP1_CONF_REG / SERIAL_OUT_EP_DATA_AVAIL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/usb_serial_jtag_reg.h)
+and [UART_STATUS_REG / RXFIFO_CNT](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/uart_reg.h).
+Local reference headers match this commit (no diff); read only, no SDK header
+or runtime linked. Software ownership/batching does not introduce new MMIO.
+Actual rev-v1.3 USB RAM test: all 256 byte values in order, full queue observed,
+317 real IRQs and zero errors. UART physical wiring/traffic is not revalidated;
+its fallback is host-model evidence only. [Capture, initial test failure and
+limits](../audits/native-serial-input.md).
+
 ## Native queue task/IRQ exclusion — 2026-11-11
 
 Uses the existing single-core CSR MIE exclusion and validated SYSTIMER/CLIC path;

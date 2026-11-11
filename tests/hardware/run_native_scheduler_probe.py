@@ -36,6 +36,24 @@ def evaluate_capture(output, expected_fatal=None, expected_pc=None, expected_sta
             'MAIA_NATIVE_PREEMPT_PASS' not in output and 'MAIA_NATIVE_PREEMPT_FAIL' not in output)
 
 
+class SerialInputStimulus:
+    """Two paced binary batches, armed only by the RAM serial probe markers."""
+    def __init__(self, port, pause=time.sleep):
+        self.port, self.pause, self.phase = port, pause, 0
+
+    def feed(self, output):
+        clean = output.replace('\r', '')
+        for phase, marker, first, last in ((0, 'fill', 0, 64), (1, 'drain', 64, 256)):
+            if self.phase == phase and 'MAIA_SERIAL_RX_READY ' + marker + '\n' in clean:
+                for offset in range(first, last, 16):
+                    data = bytes(range(offset, min(offset + 16, last)))
+                    if self.port.write(data) != len(data):
+                        raise RuntimeError('short serial fixture write')
+                    self.pause(0.005)
+                self.phase += 1
+                print('[HOST] Serial RX ' + marker + ' sent=' + str(last-first))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='/dev/cu.usbmodem1301')
@@ -48,6 +66,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--serial-input', action='store_true', help='send binary RX fixture after RAM probe markers')
     args = parser.parse_args()
     if not 1 <= args.capture_seconds <= 30:
         parser.error('capture-seconds must be between 1 and 30')
@@ -61,6 +80,9 @@ def main():
         parser.error('guard/SP expectations require a stack reason')
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
+
+    if args.serial_input and args.expect_fatal_cause is not None:
+        parser.error('serial input workload cannot be combined with a fatal profile')
 
     import esptool
     from esptool.bin_image import LoadFirmwareImage
@@ -104,6 +126,7 @@ def main():
             esptool.main(['--chip', 'esp32p4', '--no-stub', 'load_ram', str(args.image)], esp=esp)
             port = esp._port
             port.timeout = 0.1
+            stimulus = SerialInputStimulus(port) if args.serial_input else None
             deadline = time.monotonic() + args.capture_seconds
             while time.monotonic() < deadline:
                 data = port.read(8192)
@@ -111,6 +134,8 @@ def main():
                     chunk = data.decode('utf-8', 'replace')
                     output += chunk
                     print(chunk, end='')
+                    if stimulus is not None:
+                        stimulus.feed(output)
         finally:
             print('\n[HOST] Resetting to the preserved flash application')
             try:
@@ -119,6 +144,8 @@ def main():
                 esp._port.close()
         passed = evaluate_capture(output, args.expect_fatal_cause, args.expect_fatal_pc,
                                   args.expect_stack_reason, args.expect_stack_guard, args.expect_stack_sp)
+        if args.serial_input:
+            passed = passed and stimulus.phase == 2
         print('[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 

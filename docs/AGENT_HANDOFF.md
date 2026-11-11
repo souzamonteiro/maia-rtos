@@ -299,3 +299,21 @@ Desktop/shell/SciCalc 14 restored after reset; final artifacts/checksums in
 FreeRTOS. Next: separate native serial I/O ownership from keyboard/display and
 integrate queue-backed input service; keep hardware drivers and blocking waits
 as separate verified increments. Future POSIX remains DESIGN only.
+
+## Managed native serial input — 2026-11-11
+
+Read [serial input audit/evidence](audits/native-serial-input.md). Raw USB/UART
+RX is now in soc_serial_rx.c, independent of keyboard/display. Optional service
+binds one READY task in boot (IRQs off), reserves port until reset, and moves
+at most 16 bytes/poll into a static 64-byte native queue. Owner cannot exit or
+reuse its slot; teardown is not implemented. Wrong-task/masked poll is rejected;
+legacy console returns -1 without I/O after claim. Service callers use read API;
+this does not automatically migrate shell or provide blocking waits/RX IRQ wakeup.
+Host 15/15, sanitizer service/queue 2/2, headers and four mutants pass. Real USB
+0..255 test PASS with full queue, 317 IRQs, auxiliary progress and no errors;
+initial auxiliary-progress FAIL is preserved separately. Service-off queue
+regression passes. USB tested, physical UART fallback not revalidated, no SMP.
+Recovery artifacts: `../maia-rtos-recovery/native-serial-input-20261111/`.
+Preserved flash shell/SciCalc/desktop verified after reset; complete firmware
+still uses FreeRTOS. Next: separate/serialize serial TX before multiple worker
+writers; other drivers/blocking primitives remain separate. No parser changes.
