@@ -14,6 +14,14 @@
 | M7 | Diagnostics, latency, robustness and release | Reproducible build, measured results, regression suite |
 | M8 | Optional external MaiaWASMVM integration | WASM app on MaiaRTOS without kernel changes |
 
+## Future optional POSIX subset — DESIGN
+
+After the equivalent functional system runs without FreeRTOS, evaluate an
+[optional minimal POSIX layer](POSIX_MINIMAL.md). Re-audit the APIs available at
+that time; prefer adapters over existing public native services, with only small,
+separately justified native extensions. This does not change the current driver
+migration order or make full POSIX a v0.1 goal. No POSIX implementation is claimed.
+
 ## Milestone execution template
 1. Research and record evidence.
 2. Specify interface and invariants.

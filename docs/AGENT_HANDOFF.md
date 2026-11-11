@@ -272,3 +272,12 @@ profiles 150 each; actual C IRQ-stack checks all pass. Three ordinary fatal
 profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
 `2+3*4=14` and desktop verified after reset. Logs and exact recovery artifacts:
 `../maia-rtos-recovery/native-stack-protection-20261111/` (SHA256SUMS).
+
+## Future POSIX intent — 2026-11-11
+
+Owner requested [a documented future minimal POSIX layer](plans/POSIX_MINIMAL.md),
+with minimal changes to the native system available when that stage starts.
+Re-audit then; use optional adapters over public native APIs, preserve ABI and
+existing apps, isolate necessary native primitives in small tested commits.
+DESIGN only, no POSIX implementation or PSE51 conformance claim. This request
+records future scope and does not replace the next native-driver migration task.

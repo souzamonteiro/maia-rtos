@@ -224,3 +224,14 @@ profiles 150 each; actual C IRQ-stack checks all pass. Three ordinary fatal
 profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
 `2+3*4=14` and desktop verified after reset. Logs and exact recovery artifacts:
 `../maia-rtos-recovery/native-stack-protection-20261111/` (SHA256SUMS).
+
+## Future minimal POSIX layer — 2026-11-11
+
+- **DESIGN ONLY:** owner requested a future optional POSIX subset with minimal
+  changes to whatever native system is complete when implementation begins.
+- [Plan and acceptance criteria](POSIX_MINIMAL.md): fresh API/libc gap audit,
+  public-API adapters, small separate native extensions, explicit feature matrix,
+  single-process/multithread model and regression with POSIX enabled/disabled.
+- PSE51 is scope guidance, not a compliance claim. No runtime/header/build/parser
+  changes, hardware access or execution tests; document links/diff checked.
+- Current native-driver migration remains the next implementation task.
