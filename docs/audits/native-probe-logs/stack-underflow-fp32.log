@@ -1,0 +1,22 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 6528 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+STACK_PREFLIGHT reserved/overlap rejected
+FAULT_ARMED pc=4ff0184a
+MAIA_STACK_FAULT reason=1 emergency=1 guard=1
+MAIA_NATIVE_FATAL cause=3800000b pc=4ff0184a value=00000000 sp=4ff04f50
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Expected fatal trap: PASS

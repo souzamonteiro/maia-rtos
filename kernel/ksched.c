@@ -2,6 +2,7 @@
 #include <maia/arch/irq.h>
 #include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_context.h>
+#include <maia/arch/riscv_stack.h>
 
 typedef struct maia_tcb {
     maia_task_id_t     id;
@@ -32,6 +33,8 @@ static maia_idle_stats_t g_idle_stats;
 void maia_arch_yield_trap(void);
 
 #if !defined(__riscv)
+__attribute__((weak)) void maia_arch_stack_publish(uintptr_t low, uintptr_t high) { (void)low; (void)high; }
+__attribute__((weak)) int maia_arch_stack_reserved(uintptr_t base, size_t size) { (void)base; (void)size; return 0; }
 static uintptr_t g_host_irq = 8U;
 __attribute__((weak)) uintptr_t maia_arch_irq_save(void) {
     uintptr_t previous = g_host_irq;
@@ -101,6 +104,7 @@ void maia_task_trampoline(uint32_t task_idx) {
 }
 
 static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t task_idx) {
+    maia_stack_guard_init((uintptr_t)stack_mem);
     uintptr_t top = ((uintptr_t)stack_mem + stack_size) & ~(uintptr_t)0xFU;
     uint32_t *frame = (uint32_t *)(top - MAIA_RISCV_CONTEXT_BYTES);
     for (uint32_t i = 0U; i < MAIA_RISCV_CONTEXT_WORDS; ++i) {
@@ -217,6 +221,16 @@ static maia_status_t task_create_locked(const char *name,
     }
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
         if (g_tasks[i].state == MAIA_TASK_UNUSED || g_tasks[i].state == MAIA_TASK_EXITED) {
+            if (maia_arch_stack_reserved((uintptr_t)stack_mem, stack_size) ||
+                maia_stack_overlap((uintptr_t)stack_mem,stack_size,(uintptr_t)g_idle_stack,sizeof g_idle_stack)) {
+                return MAIA_ERR_INVALID;
+            }
+            for (uint32_t j=0U; j<MAIA_MAX_TASKS; ++j) {
+                if (g_tasks[j].state != MAIA_TASK_UNUSED && g_tasks[j].state != MAIA_TASK_EXITED &&
+                    maia_stack_overlap((uintptr_t)stack_mem,stack_size,g_tasks[j].stack_base,g_tasks[j].stack_size)) {
+                    return MAIA_ERR_INVALID;
+                }
+            }
             int fresh_slot = g_tasks[i].state == MAIA_TASK_UNUSED;
             copy_name(g_tasks[i].name, name);
             g_tasks[i].entry      = entry;
@@ -289,11 +303,13 @@ int maia_sched_tick_isr(void) {
 
 static uintptr_t select_next_locked(uintptr_t current_sp) {
     if (g_idle_running) {
-        if (current_sp != 0U) g_idle_sp = current_sp;
+        uintptr_t candidate = current_sp != 0U ? current_sp : g_idle_sp;
+        if (!maia_stack_frame_valid((uintptr_t)g_idle_stack,sizeof g_idle_stack,candidate)) return 0U;
+        g_idle_sp = candidate;
     } else if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
-        if (current_sp != 0U) {
-            g_tasks[g_current_idx].sp = current_sp;
-        }
+        uintptr_t candidate = current_sp != 0U ? current_sp : g_tasks[g_current_idx].sp;
+        if (!maia_stack_frame_valid(g_tasks[g_current_idx].stack_base,g_tasks[g_current_idx].stack_size,candidate)) return 0U;
+        g_tasks[g_current_idx].sp = candidate;
         if (g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
             g_tasks[g_current_idx].state = MAIA_TASK_READY;
         }
@@ -315,6 +331,8 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
     }
 
     if (best_idx < 0) {
+        if (!maia_stack_frame_valid((uintptr_t)g_idle_stack,sizeof g_idle_stack,g_idle_sp)) return 0U;
+        maia_arch_stack_publish(maia_stack_low((uintptr_t)g_idle_stack),maia_stack_top((uintptr_t)g_idle_stack,sizeof g_idle_stack));
         /* No app is runnable. Never revive a sleeping/blocked/exited task. */
         if (!g_idle_running) {
             g_switch_cnt += 1U;
@@ -325,6 +343,8 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
         return g_idle_sp;
     }
 
+    if (!maia_stack_frame_valid(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size,g_tasks[best_idx].sp)) return 0U;
+    maia_arch_stack_publish(maia_stack_low(g_tasks[best_idx].stack_base),maia_stack_top(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size));
     if (best_idx != g_current_idx) {
         g_switch_cnt += 1U;
     }

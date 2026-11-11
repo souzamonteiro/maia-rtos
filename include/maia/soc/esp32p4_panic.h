@@ -15,6 +15,8 @@ typedef struct maia_fatal_record {
     uint32_t pc;
     uint32_t value;
     uintptr_t sp;
+    uint32_t stack_reason; /* Zero for ordinary fatal traps. */
+    uintptr_t handler_sp;  /* Debug evidence of the diagnostic stack actually used. */
 } maia_fatal_record_t;
 extern volatile maia_fatal_record_t maia_last_fatal_trap;
 

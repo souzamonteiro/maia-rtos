@@ -1,5 +1,22 @@
 # Hardware evidence register
 
+## Native stack entry protection — 2026-11-11
+
+Primary references: [ESP32-P4 rev-v1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+register 1.11 p.72 (`mscratch`, CSR 0x340 R/W), and
+[RISC-V Privileged ISA 20240411, Machine Scratch Register](https://docs.riscv.org/reference/isa/v20240411/_attachments/riscv-privileged.pdf),
+section 3.1.13. Scratch CSR swapping provides initial working registers without
+writing through the interrupted SP. All metadata layouts, guard patterns and
+IRQ/emergency buffers here are project software, not invented MMIO addresses.
+Boot bounds come from the existing linker __stack_bottom/__stack_top symbols.
+Single-core/non-nested only; this does not establish SMP or memory isolation.
+Actual rev-v1.3 RAM evidence: seven bad-stack injections stop on the emergency
+stack with exact ELF cause/PC and expected guard/SP; normal lifecycle/integer
+and idle handlers independently observe their C SP within the IRQ buffer.
+See [stack protection report and raw logs](../audits/native-stack-protection.md)
+for final counts, negative tests, recovery and limitations.
+
+
 ## Internal idle and WFI diagnostic — 2026-11-11
 
 Uses the already verified timer/CLIC and M-mode context-return paths. Standard

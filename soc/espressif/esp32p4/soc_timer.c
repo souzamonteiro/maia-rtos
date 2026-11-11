@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/arch/riscv_stack.h>
 #include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_trap_policy.h>
 #include <maia/soc/esp32p4_panic.h>
@@ -29,6 +30,7 @@ uint64_t maia_soc_time_us(void) {
 
 void maia_soc_trap_init(void);
 void maia_soc_trap_init(void) {
+    maia_arch_trap_stack_init();
     uintptr_t vec = ((uintptr_t)&_maia_trap_entry) | 3UL;
     __asm__ volatile("csrw mtvec, %0" :: "r"(vec) : "memory");
 }
@@ -88,7 +90,9 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
             MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_INT_CLR_REG) = MAIA_ESP32P4_SYSTIMER_TARGET0_INT_BIT;
             maia_display_refresh_dma_if_needed();
             (void)maia_sched_tick_isr();
-            return maia_sched_select_next_sp(sp);
+            uintptr_t next = maia_sched_select_next_sp(sp);
+            if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
+            return next;
         }
         maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
     }
@@ -104,7 +108,9 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
         }
         if (status != MAIA_OK) maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
         frame[28] = resume_pc;
-        return maia_sched_select_next_sp(sp);
+        uintptr_t next = maia_sched_select_next_sp(sp);
+        if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
+        return next;
     }
 
     /* Unknown exceptions/breakpoints preserve the original PC and halt.

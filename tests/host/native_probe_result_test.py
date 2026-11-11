@@ -27,3 +27,14 @@ assert not evaluate(good.replace('pc=4ff00836', 'pc=4ff00838', 1), 2, 0x4ff00836
 
 assert not evaluate(good + 'MAIA_NATIVE_PREEMPT_FAIL', 2)
 assert not evaluate(good.replace('cause=30000002', 'cause=b0000002'), 2)
+
+stack = 'MAIA_STACK_FAULT reason=1 emergency=1 guard=1\n' + good.replace('cause=30000002', 'cause=3800000b')
+assert evaluate(stack, 11, 0x4ff00836, 1, 1, 0x4ff02000)
+assert not evaluate(stack, 11, 0x4ff00836)
+assert not evaluate(stack, 11, 0x4ff00836, 2, 1)
+assert not evaluate(stack.replace('emergency=1', 'emergency=0'), 11, 0x4ff00836, 1, 1)
+assert not evaluate(stack, 11, 0x4ff00836, 1, 0)
+assert not evaluate(stack, 11, 0x4ff00836, 1, 1, 0)
+assert not evaluate(stack + stack, 11, 0x4ff00836, 1)
+assert not evaluate('MAIA_NATIVE_PREEMPT_PASS MAIA_STACK_FAULT')
+assert not evaluate(good.replace(' sp=4ff02000',''), 2)

@@ -25,5 +25,8 @@
 #endif
 
 #define MAIA_RISCV_CONTEXT_WORDS (MAIA_RISCV_CONTEXT_BYTES / 4)
-#define MAIA_RISCV_MIN_STACK_BYTES (MAIA_RISCV_CONTEXT_BYTES + 128)
+#define MAIA_RISCV_STACK_GUARD_BYTES 16
+#define MAIA_RISCV_STACK_GUARD_WORD 0x79B
+/* Guard + worst alignment loss +128 bytes of initial task working room. */
+#define MAIA_RISCV_MIN_STACK_BYTES (MAIA_RISCV_CONTEXT_BYTES + 176)
 #endif

@@ -253,3 +253,22 @@ Next in authorized order: stack protection/bounds before driver integration/SMP.
 Final lifecycle regression after idle PASS (250 IRQs/125 transient tasks).
 After reset, original flash shell/SciCalc 2+3*4=14/desktop verified. Exact recovery
 artifacts/checksums: `../maia-rtos-recovery/native-idle-20261111/`.
+
+## Stack protection — 2026-11-11
+
+Read `audits/native-stack-protection.md` and updated context contract. Task/idle
+guards, pre-save SP checks via mscratch, dedicated 4 KiB IRQ + 2 KiB emergency
+stacks, and incoming-frame validation are implemented independently. Native
+minimums now 304 integer/ 448 RV32F; guards/alignment consume caller-buffer space.
+Seven RAM fault injections pass exact cause/PC/SP/reason and emergency-stack
+checks, including SP=0 and in-range-too-small SP. Host 13/13, sanitizer 6/6 and
+C++98 headers pass. No general memory isolation, SMP or double-fault guarantee.
+Boot trap init must precede protected startup; mscratch is reserved to this port.
+No parser/foreign runtime or flash writes. Next authorized order: native driver
+services incrementally, keeping complete working desktop on preserved flash.
+
+Final regressions PASS: lifecycle/FP and integer 250 real IRQs each; both idle
+profiles 150 each; actual C IRQ-stack checks all pass. Three ordinary fatal
+profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
+`2+3*4=14` and desktop verified after reset. Logs and exact recovery artifacts:
+`../maia-rtos-recovery/native-stack-protection-20261111/` (SHA256SUMS).

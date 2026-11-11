@@ -5,16 +5,62 @@
  */
 
 #include <maia/arch/riscv_context.h>
+#include <maia/arch/riscv_stack.h>
 
     .section .text.trap, "ax"
     .option push
     .option norvc
+
+    .macro STACK_GUARD address, temporary, failure
+    .irp offset,0,4,8,12
+    lw \temporary, \offset(\address)
+    xori \temporary, \temporary, MAIA_RISCV_STACK_GUARD_WORD
+    bnez \temporary, \failure
+    .endr
+    .endm
 
     .global _maia_trap_entry
     .type   _maia_trap_entry, @function
     /* CLIC MTVEC mode 3 masks bits [5:0], so trap entry MUST be 64-byte aligned */
     .balign 64
 _maia_trap_entry:
+    /* No interrupted-stack store until bounds and guard are checked.
+     * mscratch and these three scratch slots belong to this single-core port. */
+    csrrw   t0, mscratch, t0
+    sw      t1, MAIA_STACK_T1(t0)
+    csrr    t1, mscratch
+    sw      t1, MAIA_STACK_T0(t0)
+    csrw    mscratch, t0
+    sw      t2, MAIA_STACK_T2(t0)
+    sw      sp, MAIA_STACK_SOURCE_SP(t0)
+    csrr    t1, mcause
+    sw      t1, MAIA_STACK_CAUSE(t0)
+    csrr    t1, mepc
+    sw      t1, MAIA_STACK_PC(t0)
+    csrr    t1, mtval
+    sw      t1, MAIA_STACK_VALUE(t0)
+    lw      t1, MAIA_STACK_ACTIVE(t0)
+    bnez    t1, .Lstack_nested
+    li      t1, 1
+    sw      t1, MAIA_STACK_ACTIVE(t0)
+    andi    t1, sp, 15
+    bnez    t1, .Lstack_sp
+    addi    t1, sp, -MAIA_RISCV_CONTEXT_BYTES
+    bltu    sp, t1, .Lstack_sp /* Detect unsigned subtraction underflow. */
+    lw      t2, MAIA_STACK_LOW(t0)
+    bltu    t1, t2, .Lstack_sp
+    lw      t2, MAIA_STACK_HIGH(t0)
+    bltu    t2, sp, .Lstack_sp
+    lw      t1, MAIA_STACK_LOW(t0)
+    addi    t1, t1, -MAIA_RISCV_STACK_GUARD_BYTES
+    STACK_GUARD t1, t2, .Lstack_guard
+    lw      t1, MAIA_STACK_IRQ_TOP(t0)
+    li      t2, MAIA_IRQ_STACK_BYTES
+    sub     t1, t1, t2
+    STACK_GUARD t1, t2, .Lstack_irq_guard
+    lw      t2, MAIA_STACK_T2(t0)
+    lw      t1, MAIA_STACK_T1(t0)
+    lw      t0, MAIA_STACK_T0(t0)
     addi    sp, sp, -MAIA_RISCV_CONTEXT_BYTES
     sw      ra,   0(sp)
     sw      t0,   4(sp)
@@ -80,16 +126,37 @@ _maia_trap_entry:
 .Lfp_saved:
 #endif
 
+    /* C handlers never borrow the application's remaining stack room. */
+    csrr    t0, mscratch
+    lw      sp, MAIA_STACK_IRQ_TOP(t0)
     call    maia_riscv_trap_handler
-
+    csrr    t0, mscratch
+    lw      t1, MAIA_STACK_IRQ_TOP(t0)
+    li      t2, MAIA_IRQ_STACK_BYTES
+    sub     t1, t1, t2
+    STACK_GUARD t1, t2, .Lstack_irq_guard
     mv      sp, a0
 
 _maia_trap_restore:
+    /* Validate the selected frame again before even its first load. */
+    csrr    t0, mscratch
+    andi    t1, sp, 15
+    bnez    t1, .Lstack_incoming
+    lw      t1, MAIA_STACK_LOW(t0)
+    bltu    sp, t1, .Lstack_incoming
+    addi    t1, sp, MAIA_RISCV_CONTEXT_BYTES
+    bltu    t1, sp, .Lstack_incoming
+    lw      t2, MAIA_STACK_HIGH(t0)
+    bltu    t2, t1, .Lstack_incoming
+    lw      t1, MAIA_STACK_LOW(t0)
+    addi    t1, t1, -MAIA_RISCV_STACK_GUARD_BYTES
+    STACK_GUARD t1, t2, .Lstack_incoming
     lw      t0, 112(sp)
     lw      t1, 116(sp)
     lw      t2, 120(sp)
     csrw    mepc, t0
     csrw    mcause, t2
+    andi    t1, t1, -9 /* Keep MIE off until mret, even for a damaged frame. */
     csrw    mstatus, t1
 
 #if MAIA_RISCV_FP32_CONTEXT
@@ -106,7 +173,6 @@ _maia_trap_restore:
 #endif
 
     lw      ra,   0(sp)
-    lw      t0,   4(sp)
     lw      t1,   8(sp)
     lw      t2,  12(sp)
     lw      s0,  16(sp)
@@ -134,6 +200,9 @@ _maia_trap_restore:
     lw      t5, 104(sp)
     lw      t6, 108(sp)
     lw      tp, MAIA_RISCV_TP_OFFSET(sp)
+    csrr    t0, mscratch
+    sw      zero, MAIA_STACK_ACTIVE(t0)
+    lw      t0,   4(sp)
     addi    sp, sp, MAIA_RISCV_CONTEXT_BYTES
     mret
 
@@ -165,5 +234,39 @@ maia_arch_exit_ecall:
     ecall
     .4byte 0 /* An exited task must never resume here. */
     .size maia_arch_exit_trap, .-maia_arch_exit_trap
+
+    /* Generic port transfer for C-detected bad selected contexts. a0..a4
+     * already carry raw cause/PC/value/source-SP/reason. No return is possible. */
+    .global maia_arch_stack_panic
+    .type maia_arch_stack_panic, @function
+maia_arch_stack_panic:
+    csrci   mstatus, 8
+    csrr    t0, mscratch
+    lw      sp, MAIA_STACK_EMERGENCY_TOP(t0)
+    tail    maia_arch_stack_fault
+    .size maia_arch_stack_panic, .-maia_arch_stack_panic
+
+.Lstack_sp:
+    li      a4, MAIA_STACK_BAD_SP
+    j       .Lstack_emergency
+.Lstack_guard:
+    li      a4, MAIA_STACK_BAD_GUARD
+    j       .Lstack_emergency
+.Lstack_incoming:
+    li      a4, MAIA_STACK_BAD_CONTEXT
+    j       .Lstack_emergency
+.Lstack_nested:
+    li      a4, MAIA_STACK_NESTED
+    j       .Lstack_emergency
+.Lstack_irq_guard:
+    li      a4, MAIA_STACK_BAD_IRQ_GUARD
+.Lstack_emergency:
+    csrr    t0, mscratch
+    lw      a0, MAIA_STACK_CAUSE(t0)
+    lw      a1, MAIA_STACK_PC(t0)
+    lw      a2, MAIA_STACK_VALUE(t0)
+    lw      a3, MAIA_STACK_SOURCE_SP(t0)
+    lw      sp, MAIA_STACK_EMERGENCY_TOP(t0)
+    tail    maia_arch_stack_fault
 
     .option pop

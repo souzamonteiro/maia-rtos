@@ -205,3 +205,22 @@ does not revalidate the historical kernel/milestone claims above.
 - Host 11/11, sanitized fixtures 4/4 PASS; revival mutant rejected.
 - No flash/vendor/parser changes. Next ordered step: stack bounds/guards.
 - [Exact results and instrumentation limits](../audits/native-idle.md).
+
+## Stack protection — 2026-11-11
+
+- Pre-save SP/frame/guard checks use mscratch metadata; complete saved contexts
+  are checked before selection/restore. Reserved/overlapping stacks rejected.
+- Dedicated 4096-byte IRQ and 2048-byte emergency buffers; task minimum304/ 448
+  bytes for integer/RV32F. Raw diagnostics append stack reason/measured handler SP.
+- **HARDWARE-TESTED, LIMITED:** seven deliberate fault profiles stop at exact
+  ELF PC with emergency=1; bad-SP cases keep source guard intact, including SP=0.
+- Host 13/13, ASan/UBSan stack/kernel/atomic/idle fixtures 6/6 PASS; header mutants
+  rejected after strengthening in-range misalignment regression.
+- [Exact evidence and limits](../audits/native-stack-protection.md). No isolation,
+  NMI/double-fault, native desktop or SMP completion claim.
+
+Final regressions PASS: lifecycle/FP and integer 250 real IRQs each; both idle
+profiles 150 each; actual C IRQ-stack checks all pass. Three ordinary fatal
+profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
+`2+3*4=14` and desktop verified after reset. Logs and exact recovery artifacts:
+`../maia-rtos-recovery/native-stack-protection-20261111/` (SHA256SUMS).

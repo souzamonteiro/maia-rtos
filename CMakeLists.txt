@@ -12,6 +12,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
     soc/espressif/esp32p4/soc_display.c
@@ -35,12 +36,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  set(MAIA_NATIVE_PROBE_STACK "" CACHE STRING "RAM stack fault: underflow, guard, incoming, irqguard, misaligned or zero")
+  if(MAIA_NATIVE_PROBE_STACK AND NOT MAIA_NATIVE_PROBE_STACK MATCHES "^(underflow|guard|incoming|irqguard|misaligned|zero)$")
+    message(FATAL_ERROR "Unknown stack fault profile")
+  endif()
   option(MAIA_NATIVE_PROBE_IDLE "Exercise empty/all-sleeping/all-exited private idle" OFF)
   option(MAIA_NATIVE_PROBE_EMPTY "Start idle diagnostic with no application tasks" OFF)
   if(MAIA_NATIVE_PROBE_EMPTY AND NOT MAIA_NATIVE_PROBE_IDLE)
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
-  if(MAIA_NATIVE_PROBE_IDLE)
+  if(MAIA_NATIVE_PROBE_STACK)
+    set(MAIA_PROBE_APP tests/hardware/native_stack_probe.c tests/hardware/native_stack_instructions.S)
+  elseif(MAIA_NATIVE_PROBE_IDLE)
     set(MAIA_PROBE_APP tests/hardware/native_idle_probe.c)
   elseif(MAIA_NATIVE_PROBE_FAULT)
     if(NOT MAIA_NATIVE_PROBE_FAULT MATCHES "^(illegal16|illegal32|breakpoint16)$")
@@ -56,6 +63,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
     kernel/ksched.c
     boards/m5stack/tab5/app_desc.c
@@ -102,6 +110,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_EMPTY=1)
     endif()
   endif()
+  if(MAIA_NATIVE_PROBE_STACK)
+    if(MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_MIXED OR MAIA_NATIVE_PROBE_LIFECYCLE)
+      message(FATAL_ERROR "Stack probe uses a separate workload")
+    endif()
+    set(MAIA_STACK_KINDS underflow guard incoming irqguard misaligned zero)
+    list(FIND MAIA_STACK_KINDS ${MAIA_NATIVE_PROBE_STACK} MAIA_STACK_KIND)
+    math(EXPR MAIA_STACK_KIND "${MAIA_STACK_KIND} + 1")
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_PROBE_STACK_KIND=${MAIA_STACK_KIND})
+  endif()
   target_include_directories(maia_sched_probe.elf PRIVATE include)
   target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
   target_link_options(maia_sched_probe.elf PRIVATE
@@ -125,6 +142,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_timer.c
+    arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
     soc/espressif/esp32p4/soc_display.c
@@ -149,6 +167,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_early_init.c
       soc/espressif/esp32p4/soc_console.c
       soc/espressif/esp32p4/soc_timer.c
+      arch/riscv/stack.c
       soc/espressif/esp32p4/soc_panic.c
       soc/espressif/esp32p4/soc_board_io.c
       soc/espressif/esp32p4/soc_display.c
@@ -237,6 +256,18 @@ else()
       target_compile_options(scheduler_idle_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME scheduler_idle_test COMMAND scheduler_idle_test)
+    foreach(profile integer fp32)
+      add_executable(scheduler_stack_${profile}_test tests/host/scheduler_stack_test.c kernel/ksched.c)
+      target_include_directories(scheduler_stack_${profile}_test PRIVATE include)
+      if(profile STREQUAL "fp32")
+        target_compile_definitions(scheduler_stack_${profile}_test PRIVATE __riscv_flen=32)
+      endif()
+      if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(scheduler_stack_${profile}_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+      endif()
+      add_test(NAME scheduler_stack_${profile}_test COMMAND scheduler_stack_${profile}_test)
+    endforeach()
+
 
 
     add_test(NAME native_probe_result_test

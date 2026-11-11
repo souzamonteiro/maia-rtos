@@ -37,18 +37,34 @@ leaving active MIL elevated. The original raw cause remains the handler argument
 so ecall/IRQ statistics are not altered by return normalization.
 No heap allocation or blocking is added to the ISR path.
 
-`maia_task_create` rejects less than frame size +128 bytes (256 integer, 400
-RV32F) and pointer+length overflow before touching stack memory. This minimum
-only bounds initial-frame construction; callers must size stacks for their
-workload, interrupt depth and C call depth. There is no stack-overflow protection
-or memory isolation claim. Caller buffer alignment may consume up to15 bytes.
+`maia_task_create` now reserves an aligned 16-byte guard prefix inside the caller's
+buffer and rejects less than frame size + 176 bytes (**304 integer, 448 RV32F**),
+pointer+length overflow, live-task overlap or private port/idle stack reservations.
+The minimum preserves guard/alignment space and initial working room, not a bound
+on arbitrary task call depth. Unaligned input buffers remain supported by rounding
+the guard start up and top down. Complete frame range/alignment and guard are
+checked before selection/publication and again in assembly before restoration.
+
+Trap entry uses mscratch-owned metadata to retain t0/t1/t2 and original SP in
+fixed kernel storage, then validates interrupted SP/frame room and guard **before
+any interrupted-stack store**. Once integer/optional FP state is saved, all C
+trap work runs on a separate 4096-byte IRQ stack. Its guard is checked before and
+after C dispatch. Bad SP/guard/destination uses a separate 2048-byte emergency
+stack for the bounded fatal diagnostic. Idle has its own guard and bounds too.
+All of these buffers remain in internal SRAM; no heap or external driver runtime.
+
+This is single-core/non-nested protection after trap initialization. It is not
+memory isolation: ordinary task writes may damage memory before the next check.
+It does not guarantee recovery from corrupted mscratch/metadata, NMI, hardware
+double fault or an emergency-stack failure. Fixed IRQ/emergency stack sizes are
+not proven worst-case bounds for future handlers; no latency guarantee is made.
 
 All objects/modules crossing a C call boundary need matching float calling ABI;
 this diagnostic does not migrate existing MaiaScript modules or prove their ABI
 equivalence. The working legacy desktop remains a separate flash application.
 Mixed FS-state, yield/delay/priority and controlled fatal traps have dedicated
 hardware tests. General service integration still needs operation atomicity,
-stack protection and memory/cache/DMA contracts. Idle/no-ready and local
+memory/cache/DMA contracts and validation of native driver services. Idle/no-ready and local
 scheduler exclusion are now covered by dedicated hardware profiles. SMP is separate.
 
 ## Fatal-trap policy
@@ -64,9 +80,10 @@ Fatal handling disables MIE, publishes a debugger-readable volatile RAM record
 (valid marker last after a memory fence), emits a fixed 73-byte hexadecimal
 message through bounded best-effort USB polling, then halts in WFI until reset.
 No normal console/display callback, heap, lock or scheduler is used. RAM state
-is not persistent across reset. This is fail-stop diagnostics, not per-task
-recovery, stack-overflow or nested/double-fault recovery. A usable trap stack
-and functioning internal SRAM are prerequisites; output can be lost/disconnected.
+is not persistent across reset. Stack faults switch to the dedicated emergency
+buffer and add reason/emergency/source-guard information. This is fail-stop
+diagnostics, not per-task recovery or a general nested/double-fault guarantee.
+Trap metadata and internal SRAM must remain usable; USB output is best-effort.
 
 ## Scheduler transactions and idle
 
@@ -84,3 +101,7 @@ Blocked/exited apps keep their states; an application at any priority outranks
 idle when READY. Idle diagnostics count actual timer ticks spent in that context.
 The instrumentation hook used by the RAM idle profile is described in
 `../audits/native-idle.md`; it does not inject ticks or task wakes.
+
+Stack protection source, host negatives and exact injected-SP/emergency results:
+`../audits/native-stack-protection.md`. No native desktop or SMP equivalence
+is inferred from these limited context/stack tests.

@@ -4,6 +4,7 @@
 #include <maia/console.h>
 #include <maia/kernel.h>
 #include <maia/arch/irq.h>
+#include <maia/arch/riscv_stack.h>
 #include <maia/soc/esp32p4_regs.h>
 #include <maia/soc/esp32p4_display.h>
 
@@ -31,7 +32,15 @@ static volatile uint32_t s_fp_abi_checks[2];
 
 /* Explicitly console-only: no display initialization or DMA service here. */
 void maia_display_putc(char c) { (void)c; }
-void maia_display_refresh_dma_if_needed(void) { }
+static volatile uint32_t s_irq_stack_checks, s_irq_stack_errors;
+void maia_display_refresh_dma_if_needed(void) {
+    uintptr_t here;
+    __asm__ volatile("mv %0, sp" : "=r"(here));
+    uintptr_t top = maia_trap_stack_metadata.irq_top;
+    ++s_irq_stack_checks;
+    if (here < top-MAIA_IRQ_STACK_BYTES+MAIA_RISCV_STACK_GUARD_BYTES || here >= top ||
+        !maia_stack_guard_valid(top-MAIA_IRQ_STACK_BYTES)) ++s_irq_stack_errors;
+}
 
 static uint32_t cycle_now(void) {
     uint32_t value;
@@ -69,7 +78,7 @@ static void finish(void) {
                traps_ok &&
                switches >= PROBE_TICKS && s_work[0] != 0U && s_work[1] != 0U &&
                (mstatus & 8U) != 0U && (mintstatus >> 24U) == 0U &&
-               s_register_errors == 0U;
+               s_register_errors == 0U && s_irq_stack_checks >= PROBE_TICKS && s_irq_stack_errors == 0U;
 #ifdef MAIA_NATIVE_PROBE_MIXED
     pass = pass && s_off_checks >= 20U && s_delays >= 10U && s_priority_checks >= 10U;
     maia_console_puts("MIXED off_checks="); print_number(s_off_checks);
@@ -86,6 +95,9 @@ static void finish(void) {
     maia_console_puts(" slots="); print_number(maia_task_count());
     maia_console_puts("\n");
 #endif
+    maia_console_puts("IRQ_STACK checks="); print_number(s_irq_stack_checks);
+    maia_console_puts(" errors="); print_number(s_irq_stack_errors);
+    maia_console_puts("\n");
     maia_console_puts("PROBE irq="); print_number(stats.timer_irqs);
     maia_console_puts(" ticks="); print_number((uint32_t)maia_tick_get());
     maia_console_puts(" ecall="); print_number(stats.ecall_count);

@@ -158,8 +158,10 @@ typedef struct maia_idle_stats {
 maia_status_t maia_sched_get_idle_stats(maia_idle_stats_t *out_stats);
 /* Thread/boot context only; not ISR-safe. Caller owns stack_mem for task lifetime.
  * Returns INVALID for null entry/stack, a stack smaller than the architecture
- * minimum (256 integer, 400 RV32F), or pointer+length overflow; NOMEM when full.
+ * minimum (304 integer, 448 RV32F), or pointer+length overflow; NOMEM when full.
  * Once started, callers must have IRQs enabled; otherwise returns PERM.
+ * Active-task overlap and private idle/port stack reservations return INVALID.
+ * A guard prefix and alignment space are reserved within the supplied buffer.
  * Readiness is published only after frame/TCB construction, under local exclusion.
  * Minimum size is not a workload stack bound; allow for actual C/interrupt depth.
  */
@@ -186,7 +188,9 @@ maia_status_t  maia_task_get_info(uint32_t index, maia_task_info_t *out_info);
 /* Called by timer ISR (or host test harness) on each system tick */
 int            maia_sched_tick_isr(void);
 
-/* Selects next runnable task and returns its saved stack pointer (for trap/context switch) */
+/* Port-only selection: validates guards/frame bounds before restore/publication.
+ * Returns zero on corruption/invalid SP; native dispatch must halt on that result.
+ */
 uintptr_t      maia_sched_select_next_sp(uintptr_t current_sp);
 
 /* Starts scheduling the highest-priority ready task */

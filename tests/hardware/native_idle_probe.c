@@ -2,6 +2,7 @@
 #include <maia/kernel.h>
 #include <maia/console.h>
 #include <maia/arch/irq.h>
+#include <maia/arch/riscv_stack.h>
 #include <maia/scheduler_internal.h>
 #include <maia/soc/esp32p4_display.h>
 #include <stdint.h>
@@ -17,7 +18,15 @@ extern float maia_probe_fp_add(float, float);
 #endif
 extern void maia_soc_systimer_init(uint32_t hz);
 void maia_display_putc(char c) { (void)c; }
-void maia_display_refresh_dma_if_needed(void) { }
+static volatile uint32_t irq_stack_checks, irq_stack_errors;
+void maia_display_refresh_dma_if_needed(void) {
+    uintptr_t here;
+    __asm__ volatile("mv %0, sp" : "=r"(here));
+    uintptr_t top=maia_trap_stack_metadata.irq_top;
+    ++irq_stack_checks;
+    if (here < top-MAIA_IRQ_STACK_BYTES+MAIA_RISCV_STACK_GUARD_BYTES || here >= top ||
+        !maia_stack_guard_valid(top-MAIA_IRQ_STACK_BYTES)) ++irq_stack_errors;
+}
 static uint32_t cycles(void) {
     uint32_t result; __asm__ volatile("rdcycle %0" : "=r"(result)); return result;
 }
@@ -72,13 +81,16 @@ void maia_arch_idle_wait(void) {
 #endif
     if (tick >= 150U || (uint32_t)(cycles()-start_cycle) >= 120000000U) {
         int pass = tick >= 150U && traps.timer_irqs >= 150U && idle.ticks >= 50U &&
-                   idle.entries != 0U && traps.sync_exceptions == traps.ecall_count && errors == 0U;
+                   idle.entries != 0U && traps.sync_exceptions == traps.ecall_count && errors == 0U &&
+                   irq_stack_checks >= 150U && irq_stack_errors == 0U;
 #ifdef MAIA_NATIVE_PROBE_EMPTY
         pass = pass && maia_task_count() == 0U && traps.ecall_count == 0U && idle.entries == 1U;
 #else
         pass = pass && steps[0] == 20U && steps[1] == 20U && returned == 2U &&
                both_sleeping_checks > 0U && all_exited_checks >= 10U && traps.ecall_count == 42U;
 #endif
+        maia_console_puts("IRQ_STACK checks="); number(irq_stack_checks);
+        maia_console_puts(" errors="); number(irq_stack_errors); maia_console_puts("\n");
         maia_console_puts("IDLE ticks="); number((uint32_t)idle.ticks);
         maia_console_puts(" entries="); number(idle.entries);
         maia_console_puts(" appA="); number(steps[0]);
