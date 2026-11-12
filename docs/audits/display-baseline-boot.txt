@@ -1,0 +1,36 @@
+Filtered verbatim lines from preserved-image boot, 2026-11-11. Full raw capture in recovery.
+I (307) hex_psram: vendor id    : 0x0d (AP)
+I (307) hex_psram: Latency      : 0x01 (Fixed)
+I (308) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (308) hex_psram: dev id       : 0x03 (generation 4)
+I (309) hex_psram: density      : 0x07 (256 Mbit)
+I (309) hex_psram: good-die     : 0x06 (Pass)
+I (309) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (310) hex_psram: BurstType    : 0x00 ( Wrap)
+I (310) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (310) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (311) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (311) hex_psram: DriveStrength: 0x00 (1/1)
+I esp_psram: Found 32MB PSRAM device
+I esp_psram: Speed: 200MHz
+I (508) mmu_psram: .rodata xip on psram
+I (566) mmu_psram: .text xip on psram
+I (567) hex_psram: psram CS IO is dedicated
+I (1002) esp_psram: SPI SRAM memory test OK
+I (1012) cpu_start: cpu freq: 360000000 Hz
+I (1012) app_init: Project name:     m5stack_tab5
+I (1012) app_init: App version:      e5a506b-dirty
+I (1012) app_init: Compile time:     Nov 10 2026 21:43:30
+I (1012) app_init: ELF file SHA256:  f48695592...
+I (1013) app_init: ESP-IDF:          v5.4.2-dirty
+I (1015) esp_psram: Adding pool of 30976K of PSRAM memory to heap allocator
+I (1015) esp_psram: Adding pool of 8K of PSRAM memory gap generated due to end address alignment of irom to the heap allocator
+I (1016) esp_psram: Adding pool of 29K of PSRAM memory gap generated due to end address alignment of drom to the heap allocator
+I (1018) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1683) M5STACK_TAB5: Detected ST7121 touch controller (FW version: 1), using ST7121 display
+I (1684) M5STACK_TAB5: MIPI DSI PHY Powered on
+I (1685) M5STACK_TAB5: Install MIPI DSI LCD control panel for ST712x
+I (1685) M5STACK_TAB5: Install LCD driver of ST7121
+I (1685) st7121: version: 1.0.0
+I (2845) M5STACK_TAB5: ST7123 Display initialized with resolution 720x1280
+I (2846) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10

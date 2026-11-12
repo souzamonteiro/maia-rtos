@@ -423,3 +423,23 @@ Backlight set to 50%
 Backlight set to 100%
 ```
 ```
+
+### Display baseline audit and corrections — 2026-11-11
+
+See [report, primary references and exact sections](../audits/display-baseline-audit.md)
+and [source/artifact manifest](../audits/display-baseline-manifest.json). M5Stack
+[Tab5 documentation](https://docs.m5stack.com/en/core/Tab5), unversioned, accessed
+2026-11-11, PinMap/Tab5 Screen Reset/Version Change: system I2C GPIO31/32,
+ST712x touch address0x55, reset P4 high via input pull-up. Requested clocks,
+porches and initialization are firmware configuration facts pinned to bf044d3,
+not measured waveforms. ESP-IDF f5c3654 ROM linker table + cache.h verify native
+writeback symbol address/signature/map; DPI driver/startup explain the legacy
+DMA/PSRAM dependencies. Reference files match pinned SDK HEAD.
+Actual boot selects ST7121 (FW1), reports32MiB PSRAM/200MHz, CPU360MHz and known
+ELF prefix. Canonical host comparison finds30 matching ST7121 table entries.
+Source inspection finds extra command-delay differences, native80/960 versus
+legacy70/965 requests, and unreserved SRAM bands conflicting with the diagnostic
+memory contract. No native display test or runtime import. Legacy shell/SciCalc14
+and desktop reverified through maia.py. Logs and limitations are in the report.
+This supersedes old blanket display-success claims as evidence of full parity,
+and corrects initial shorthand: panel constructors remain in ELF, lv_init absent.

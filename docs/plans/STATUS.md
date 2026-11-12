@@ -316,3 +316,21 @@ profiles preserve raw cause/exact ELF PC. Preserved flash shell, SciCalc
   TX-ready IRQ/reconnect/producer-space wait. Complete desktop still uses FreeRTOS.
 - Next: audit/preserve the working display initialization before native driver
   changes; PSRAM/cache/DMA/power/panel variants remain separate hardware risks.
+
+## Display baseline audit — 2026-11-11
+
+Read [display baseline audit](../audits/display-baseline-audit.md) and its pinned
+manifest. Documentation/evidence only: no native driver or firmware change.
+Preserved flash boot selects ST7121 via touch firmware1; later ST7123 log is
+generic. Active config is 70 MHz DPI/965 Mbps lane, not native 80/960. All30
+ST7121 table entries match, but extra delays differ. PSRAM startup/ownership,
+cache/DMA, safe reset, error propagation and memory reservations remain open.
+Native Cache_WriteBack_All address/signature/0x30 match pinned ROM references;
+policy/safety still need validation. Configured legacy L2 cache line is128B.
+Retained panel drivers are required; discarded LVGL must not be grouped with them.
+Recovery: `../maia-rtos-recovery/display-baseline-audit-20261111/`. Known baseline
+artifacts rehashed/copied; current build/bin is a different experimental image.
+Boot captured and maia.py shell/SciCalc14/desktop reverified. Native display
+NOT RUN; complete desktop remains FreeRTOS-dependent, POSIX remains DESIGN.
+Next: bounded system-I2C identification API/probe, read-only touch firmware
+transaction, explicit timeout/missing-device tests; no LDO/reset/DMA yet.

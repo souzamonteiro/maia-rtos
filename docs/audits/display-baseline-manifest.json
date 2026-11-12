@@ -1,0 +1,135 @@
+{
+  "date": "2026-11-11",
+  "audit_head": "1b9d8f55fbb112daf9b7f02fb01b722a279a9230",
+  "baseline_commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+  "sources": {
+    "platforms/tab5/main/app_main.cpp": {
+      "current_sha256": "39d36d5b36053fbc692421cfa08919afae9d748dd7870292bebd583196776a89",
+      "baseline_sha256": "3014b77c2abc64bcc93fb745cbec25043a4c106ee965a9408544cc38545c43e8",
+      "unchanged_since_baseline": false
+    },
+    "platforms/tab5/components/m5stack_tab5/m5stack_tab5.c": {
+      "current_sha256": "88ced4c40ec9fad64e560acbebf699be256eff8ebc4239ac1c9df65389316cca",
+      "baseline_sha256": "88ced4c40ec9fad64e560acbebf699be256eff8ebc4239ac1c9df65389316cca",
+      "unchanged_since_baseline": true
+    },
+    "platforms/tab5/components/esp_lcd_st7121/esp_lcd_st7121.c": {
+      "current_sha256": "f6e5454fdcca02bf5a71cf67c6ae16e74f4abb95093c5ab98fcfd8500a04a6fa",
+      "baseline_sha256": "f6e5454fdcca02bf5a71cf67c6ae16e74f4abb95093c5ab98fcfd8500a04a6fa",
+      "unchanged_since_baseline": true
+    },
+    "platforms/tab5/sdkconfig": {
+      "current_sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b",
+      "baseline_sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b",
+      "unchanged_since_baseline": true
+    },
+    "soc/espressif/esp32p4/soc_display.c": {
+      "current_sha256": "50cda87263da82f6bf800b8386cb6012182f60cf08eb1f9f6d1687b7dd9714eb",
+      "baseline_sha256": "50cda87263da82f6bf800b8386cb6012182f60cf08eb1f9f6d1687b7dd9714eb",
+      "unchanged_since_baseline": true
+    },
+    "soc/espressif/esp32p4/soc_board_io.c": {
+      "current_sha256": "5307e964fe9f2af0d5af3645c83268e85568343ac6623b7a1d6a65e144001f5d",
+      "baseline_sha256": "5307e964fe9f2af0d5af3645c83268e85568343ac6623b7a1d6a65e144001f5d",
+      "unchanged_since_baseline": true
+    },
+    "platforms/tab5/components/m5stack_tab5/esp_lcd_st7123.c": {
+      "current_sha256": "54fac070f00ace0b4c8dd82de67f18438fd25e7065c6bc9e2e521127e3e59c50",
+      "baseline_sha256": "54fac070f00ace0b4c8dd82de67f18438fd25e7065c6bc9e2e521127e3e59c50",
+      "unchanged_since_baseline": true
+    }
+  },
+  "preserved_firmware": {
+    "commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+    "files": {
+      "platforms/tab5/build/m5stack_tab5.bin": {
+        "size": 2093696,
+        "sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd"
+      },
+      "platforms/tab5/build/m5stack_tab5.elf": {
+        "size": 29121432,
+        "sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+      },
+      "platforms/tab5/build/m5stack_tab5.map": {
+        "size": 13191466,
+        "sha256": "5b768d18c5becfbec61f9d98ad7075fff9cc98d912d90dd4b9f8a4fcb466679a"
+      },
+      "platforms/tab5/build/bootloader/bootloader.bin": {
+        "size": 23136,
+        "sha256": "5d0feef7760570bdecbcb23220742b08a297e039062479d3b633ed53635233b5"
+      },
+      "platforms/tab5/build/partition_table/partition-table.bin": {
+        "size": 3072,
+        "sha256": "97ce22d502aaae32ae3de440ee5de7dc4782501c4faca6a91aef0dfe90ad256c"
+      },
+      "platforms/tab5/build/flash_args": {
+        "size": 153,
+        "sha256": "5cd7cee10d0062df7a7135c0f7a8483a979a41de62fd2ee6c58486d6bc7fbe4d"
+      },
+      "platforms/tab5/build/flasher_args.json": {
+        "size": 923,
+        "sha256": "607507acde2d92ac68383d05ae58de3f6a154bd0671fbe4c036ced5c79ac7454"
+      },
+      "platforms/tab5/sdkconfig": {
+        "size": 95487,
+        "sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b"
+      },
+      "platforms/tab5/sdkconfig.defaults": {
+        "size": 1450,
+        "sha256": "9bb2eff50471319400cbf5beccc2e1ae9ff5496f9f51cbebfc0c6755cfa6d8ba"
+      },
+      "platforms/tab5/dependencies.lock": {
+        "size": 7730,
+        "sha256": "5a92f6d9c18e1b4538e7e5f939cac642d84df03cc70e21833464733c9d9774c9"
+      }
+    }
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "sdk_reference": {
+    "components/esp_lcd/dsi/esp_lcd_panel_dpi.c": {
+      "sha256": "7bda5a71686ba9d1507d135a1b88a2e66c881dd036fbf3389f9bf436f78e95a8",
+      "matches_sdk_HEAD": true
+    },
+    "components/esp_system/port/cpu_start.c": {
+      "sha256": "5e70c1e8553c999e335495be063e6aeaea10108e1347face54573928e17d5da1",
+      "matches_sdk_HEAD": true
+    },
+    "components/esp_rom/esp32p4/ld/esp32p4.rom.ld": {
+      "sha256": "06f823cb69a26718852a09e37086fc585ddb464cbdf5df8bd533e9f43a71ed47",
+      "matches_sdk_HEAD": true
+    },
+    "components/esp_rom/esp32p4/include/esp32p4/rom/cache.h": {
+      "sha256": "8acac1062d6287045a247ff987fd87a0f0542e54bc78086ad6887c621a9074e7",
+      "matches_sdk_HEAD": true
+    }
+  },
+  "st7121_table_comparison": {
+    "equal": true,
+    "entries": 30,
+    "sha256": "b5d0e195fb1ad06620b1d5fa42f7286fc4e003acf454769685ec57a1bc8665b2",
+    "excludes_extra_intercommand_delay": true
+  },
+  "current_build_not_preserved_baseline": {
+    "sha256": "779cc94c213391825f41363d0a896ab2278b66ecad3a80df34418988ad9c5ba2",
+    "size": 2092288
+  },
+  "observed_boot": {
+    "touch_firmware": 1,
+    "selected_panel_branch": "ST7121",
+    "psram_MiB": 32,
+    "psram_MHz": 200,
+    "cpu_MHz": 360,
+    "elf_sha256_prefix": "f48695592",
+    "note": "Reported prefix only; no full flash readback."
+  },
+  "experimental_comparison": {
+    "soc/espressif/esp32p4/soc_display.c": {
+      "sha256": "50cda87263da82f6bf800b8386cb6012182f60cf08eb1f9f6d1687b7dd9714eb",
+      "equal_current": true
+    },
+    "soc/espressif/esp32p4/soc_board_io.c": {
+      "sha256": "5307e964fe9f2af0d5af3645c83268e85568343ac6623b7a1d6a65e144001f5d",
+      "equal_current": true
+    }
+  }
+}
