@@ -1,0 +1,24 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 7936 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+1/32 no power/reset/DMA writes
+TOUCH_STATUS result_code=0 raw=4
+TOUCH_ID reads=16 firmware=1 final=1 errors=0
+TOUCH_ABSENT address=0x56 NACK
+TOUCH_INJECT sampled_SCL_low TIMEOUT
+MAIA_NATIVE_TOUCH_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Touch identity: PASS

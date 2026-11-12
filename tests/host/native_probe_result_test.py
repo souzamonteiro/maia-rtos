@@ -99,3 +99,18 @@ assert not runner.evaluate_serial_output_event(event_tx.replace('timeout=150', '
 assert not runner.evaluate_serial_output_event(event_tx.replace('irq_write=1', 'irq_write=0'))
 assert not runner.evaluate_serial_output_event(event_tx + 'TX_EVENT_TRIGGER\n')
 print('PASS: TX event capture requires quiet head/tail, finite retry and exactly one IRQ-triggered record')
+
+identity = ('TOUCH_STATUS result_code=0 raw=4\nTOUCH_ID reads=16 firmware=1 final=1 errors=0\n'
+            'TOUCH_ABSENT address=0x56 NACK\n'
+            'TOUCH_INJECT sampled_SCL_low TIMEOUT\nMAIA_NATIVE_TOUCH_PASS\n')
+assert runner.evaluate_touch_identity(identity)
+assert runner.evaluate_touch_identity(identity.replace('firmware=1 final=1', 'firmware=3 final=3'))
+for old, new in [('raw=4', 'raw=1'), ('result_code=0', 'result_code=2'), ('reads=16', 'reads=1'), ('final=1', 'final=3'), ('errors=0', 'errors=1'),
+                 ('firmware=1', 'firmware=0'), ('TOUCH_ABSENT address=0x56 NACK\n', ''),
+                 ('TOUCH_INJECT sampled_SCL_low TIMEOUT\n', ''), ('MAIA_NATIVE_TOUCH_PASS', '')]:
+    assert not runner.evaluate_touch_identity(identity.replace(old, new))
+assert not runner.evaluate_touch_identity(identity + identity)
+assert not runner.evaluate_touch_identity(identity + 'MAIA_NATIVE_TOUCH_FAIL')
+assert not runner.evaluate_touch_identity(identity + 'MAIA_NATIVE_FATAL')
+assert not runner.evaluate_touch_identity('MAIA_NATIVE_PREEMPT_PASS')
+print('PASS: touch capture requires stable known firmware, all reads, negative probes and no failure')

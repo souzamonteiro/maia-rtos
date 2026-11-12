@@ -1,0 +1,250 @@
+{
+  "date": "2026-11-11",
+  "parent_commit": "0fa0894b7c0ef2625615e1652e92d68dbd8fb801",
+  "scope": "Warm-reset RAM-only native read-only touch identification; no flash or SD writes",
+  "documents": {
+    "docs/hardware/Tab5.pdf": {
+      "size": 14894447,
+      "sha256": "482e6be9a6409fea58018a878a6fd31bc346d831401ca1bb7bb4e952f4cf4af7",
+      "supplied_by_owner_commit": "0fa0894"
+    },
+    "docs/hardware/datasheets/ST7123-TDDI-Interface-Protocol-V01.11.pdf.pdf": {
+      "size": 526309,
+      "sha256": "40db033ce31fa5785dac1698b9271561382609150e6d3e7b1f5fcdb9f838efce",
+      "supplied_by_owner_commit": "0fa0894"
+    }
+  },
+  "reference_only_sdk": {
+    "components/soc/esp32p4/register/soc/gpio_reg.h": {
+      "sha256": "3987f0b60a21c57ea45f595f6f5e5159c2479863822f526fb8659de8a74ce0d0",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/io_mux_reg.h": {
+      "sha256": "226694dfb025ee93f1e4c60e423979e3ea1edd9fd9cd9b3e6a2c14db8aa9793d",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h": {
+      "sha256": "7ed2b000f4a757ac4016020165cc9370195db8ebab34121d6fb42b9b9dfe0572",
+      "matches_HEAD": true
+    },
+    "components/hal/esp32p4/include/hal/systimer_ll.h": {
+      "sha256": "7242f2bbe570f93e04b4f3f2f46c503134e4e8390b5215401d563dda1b15fe8d",
+      "matches_HEAD": true
+    }
+  },
+  "sdk_reference_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "ram_image": {
+    "entrypoint": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 7936
+      }
+    ]
+  },
+  "preserved_flash_baseline": {
+    "commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+    "files": {
+      "platforms/tab5/build/m5stack_tab5.bin": {
+        "size": 2093696,
+        "sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd"
+      },
+      "platforms/tab5/build/m5stack_tab5.elf": {
+        "size": 29121432,
+        "sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+      },
+      "platforms/tab5/build/m5stack_tab5.map": {
+        "size": 13191466,
+        "sha256": "5b768d18c5becfbec61f9d98ad7075fff9cc98d912d90dd4b9f8a4fcb466679a"
+      },
+      "platforms/tab5/build/bootloader/bootloader.bin": {
+        "size": 23136,
+        "sha256": "5d0feef7760570bdecbcb23220742b08a297e039062479d3b633ed53635233b5"
+      },
+      "platforms/tab5/build/partition_table/partition-table.bin": {
+        "size": 3072,
+        "sha256": "97ce22d502aaae32ae3de440ee5de7dc4782501c4faca6a91aef0dfe90ad256c"
+      },
+      "platforms/tab5/build/flash_args": {
+        "size": 153,
+        "sha256": "5cd7cee10d0062df7a7135c0f7a8483a979a41de62fd2ee6c58486d6bc7fbe4d"
+      },
+      "platforms/tab5/build/flasher_args.json": {
+        "size": 923,
+        "sha256": "607507acde2d92ac68383d05ae58de3f6a154bd0671fbe4c036ced5c79ac7454"
+      },
+      "platforms/tab5/sdkconfig": {
+        "size": 95487,
+        "sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b"
+      },
+      "platforms/tab5/sdkconfig.defaults": {
+        "size": 1450,
+        "sha256": "9bb2eff50471319400cbf5beccc2e1ae9ff5496f9f51cbebfc0c6755cfa6d8ba"
+      },
+      "platforms/tab5/dependencies.lock": {
+        "size": 7730,
+        "sha256": "5a92f6d9c18e1b4538e7e5f939cac642d84df03cc70e21833464733c9d9774c9"
+      }
+    }
+  },
+  "source_files": {
+    "source/CMakeLists.txt": {
+      "size": 21221,
+      "sha256": "0b154f3a48c9366a394e734ee3cc2ec934ae35b7815e8eba7145dad99c16d78a"
+    },
+    "source/drivers/i2c/bitbang.c": {
+      "size": 4350,
+      "sha256": "ef08dcb616d52df7e760cab622eeb1408605958cd39aa8f2a1ff2e6b5621bea9"
+    },
+    "source/include/maia/drivers/i2c_bitbang.h": {
+      "size": 1939,
+      "sha256": "4f225def8567fb8dfd5d9e330f43e84b9bcb91ca0138926582ad20bcfc40b49e"
+    },
+    "source/soc/espressif/esp32p4/soc_boot_i2c.c": {
+      "size": 4038,
+      "sha256": "02b0afe472d4a3bb37f8494aa83307a17f3f95547ae92681f064fa9498ebb15a"
+    },
+    "source/include/maia/soc/esp32p4_boot_i2c.h": {
+      "size": 1027,
+      "sha256": "c0e0445addf191ea6e6281757965fed50e7d14b1becc149ac8704341c63c28a6"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 11423,
+      "sha256": "add4c594176cd7f3c787d9f9912bb709722215146b3675b9056503715672e853"
+    },
+    "source/boards/m5stack/tab5/touch_identify.c": {
+      "size": 441,
+      "sha256": "7afc901193daba7e7e2436d93661e2b21fcff4849c85dc98940b8db373914ec3"
+    },
+    "source/include/maia/boards/tab5_touch.h": {
+      "size": 812,
+      "sha256": "f74b34ac4c33e779d7649ebbbda500fb182a16e32d1aae3cde41d5604e3cca23"
+    },
+    "source/tests/host/i2c_bitbang_test.c": {
+      "size": 6570,
+      "sha256": "4085aed665e46874fa9ae8ba8d217bef1abf014eaa06fd030da4361f4835338e"
+    },
+    "source/tests/host/esp32p4_regs_test.c": {
+      "size": 3775,
+      "sha256": "26558557bbf0b6e3592e3de6d78eb7df40a4e3e564844fed3fadfd40def0205c"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 6376,
+      "sha256": "0c036c393fb96fbface08e984ce83538d0008b3b92f8ccc3994299fa9ff1617e"
+    },
+    "source/tests/hardware/native_touch_probe.c": {
+      "size": 3116,
+      "sha256": "59e8a28a4faac21ffd9e2a75609206a9e2da4c0efc026b07d429c68909251f9e"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 11283,
+      "sha256": "5ce0b4c051c3d8f45c05db9714a7fb57bfdfaec129d188ec8b5236f371c0526b"
+    },
+    "source/docs/audits/native-touch-identify.md": {
+      "size": 9494,
+      "sha256": "ddebd139b307ff8b2924b75543bc0607a179e05148ca1aa2f309cdfab2e62956"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 27159,
+      "sha256": "67a7b43db3ab49b165d9a6e8994b3f6c3d489fcf5797f70fc8bdf782fefc1ee1"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 25010,
+      "sha256": "0d07a733f7f29ce17b49ca5b220c37a693c2eb0d7abad7d51c019ca862cd1893"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 34167,
+      "sha256": "79b3e6d01c2c246ef133166782733d707ce8c5f91fb00ed150bddd2dfc38662f"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 5108,
+      "sha256": "78761eadb7ea90801e796a64fc215f4f91bdd322bd40d9a68fe0b539d302c739"
+    }
+  },
+  "artifacts": {
+    "build/maia_sched_probe.elf": {
+      "size": 25376,
+      "sha256": "7ca59f74e8d37e0ed82a09d03989dff7eb7dd3d7bce61ecd6d25c7f31a6ae5ed"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 16988,
+      "sha256": "d618b3887ca6e0334d414275137592f8d8489fd08e21708c279d54fea70130ce"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 8016,
+      "sha256": "10343272a2ae46a9c3bcb51be0832d4de73120d7bc47369875c2eb2554c8e9db"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 30523,
+      "sha256": "538bb474f9940b1ac9e9d5d27b0fac09b9eb6acec3b39d99f239f383c7cc77da"
+    },
+    "build/CMakeCache.txt": {
+      "size": 19644,
+      "sha256": "abca60b85e734abe2505065f78312d1a3d5bf9a85660f07b1f6b7bd7206dc67c"
+    },
+    "logs/maia-touch-hardware-final.log": {
+      "size": 720,
+      "sha256": "a6ae74cf71b910a94279a68aa13bebde529fc4c0887a156e6b736103cbc72374"
+    },
+    "logs/maia-touch-hardware-diagnose.log": {
+      "size": 765,
+      "sha256": "b31153014c3b5414ebdb594db57c0509c72d23560c29ac58bf57dad1ad481aa9"
+    },
+    "logs/maia-touch-host-config.log": {
+      "size": 916,
+      "sha256": "5f5b2f9a1803fa4f1013f75b07d0ac9a64d000c842eb770bd946f6de4e6a31f1"
+    },
+    "logs/maia-touch-invalid-profile.log": {
+      "size": 1236,
+      "sha256": "6266ed787109de36d43fef5a0935d56eb327bf8039eb2e255c4cd054e046c480"
+    },
+    "logs/maia-touch-desktop-final-verified.log": {
+      "size": 3300,
+      "sha256": "ccae805a54ceaa24fec758fbc45da2a3f3ffb6250131848820006d7f2fbf06c7"
+    },
+    "logs/maia-touch-host-test.log": {
+      "size": 2183,
+      "sha256": "0652748622020032b12bee5891ed63adf1ca75ca193912a4473c1e468feac3a1"
+    },
+    "logs/maia-touch-sanitized.log": {
+      "size": 110,
+      "sha256": "26b96d9a07955d5b9ca212f68141eb4dab4d372789b2afcbec74c49fbfe03d67"
+    },
+    "logs/maia-touch-hardware.log": {
+      "size": 706,
+      "sha256": "839736bb94f1c920d94dbceef7f3b54c4c68292415d1e2d24bf0a3fbdc00ae1d"
+    },
+    "logs/maia-touch-desktop-verified.log": {
+      "size": 3300,
+      "sha256": "541d1fb879d00159ba7939cf28891d166bbd1feb6af9b1ea6038a0e459f8544a"
+    },
+    "logs/maia-touch-hardware-final-verified.log": {
+      "size": 688,
+      "sha256": "c0f557bcdb44b25622516fca998b2dd39d209756aba7e22901e1026e9db67f0a"
+    },
+    "logs/maia-touch-native-build.log": {
+      "size": 1079,
+      "sha256": "3b9bf45ebc098e0a28a31befa35c5cbfbc987a6d9a98f7d01e7c856ab6e94346"
+    },
+    "logs/maia-touch-hardware-initial-fail.log": {
+      "size": 706,
+      "sha256": "839736bb94f1c920d94dbceef7f3b54c4c68292415d1e2d24bf0a3fbdc00ae1d"
+    },
+    "logs/maia-touch-mutants.log": {
+      "size": 251,
+      "sha256": "7143a54ee145ede793f1ed33d7acf9eb94471e8e05d341d3805a3d7e7ed7bc85"
+    },
+    "logs/maia-touch-native-config.log": {
+      "size": 1260,
+      "sha256": "fd259b8bd60f178dc5145123a91a8af833168e537df9364ac21e2a498c4e8dd7"
+    },
+    "logs/maia-touch-runner-tests.log": {
+      "size": 552,
+      "sha256": "972c1a84eaa57d8bcc6034f221768caff5a951e61c1880a35c15f7dcc16202f2"
+    },
+    "logs/maia-touch-host-build.log": {
+      "size": 875,
+      "sha256": "2caa2d9bf11bf10f7eaf07d3c4381d5564a77600e836076f4bf92b0c76201999"
+    }
+  }
+}

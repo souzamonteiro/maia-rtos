@@ -443,3 +443,24 @@ memory contract. No native display test or runtime import. Legacy shell/SciCalc1
 and desktop reverified through maia.py. Logs and limitations are in the report.
 This supersedes old blanket display-success claims as evidence of full parity,
 and corrects initial shorthand: panel constructors remain in ELF, lv_init absent.
+
+### Boot-only native system-I2C prerequisites — 2026-11-11
+
+[Touch identification source ledger](../audits/native-touch-identify.md) records
+primary URLs, revisions and pages: user-supplied Tab5.pdf update2026-11-05 p12
+(SDA31/SCL32/address0x55), embedded schematics pp8–10 visually inspected; Sitronix
+ST7123 interface protocol v01.11 2023-12-25 pp9/10/15 (16-bit pointer, STOP/START,
+timing, firmware/status readiness). ESP32-P4 rev1.3 TRM Pre-release v0.4 ch9,
+p552 and ch15 pp1041/1044, plus pinned v5.4.2 GPIO register definitions establish
+IO_MUX offsets, GPIO input/output-enable registers and OEN_SEL bit10. The new
+boot transport uses low latch + release-by-output-disable; SYSTIMER with bounded
+snapshot/progress waits. No voltage, clock waveform, cold panel startup or
+multi-task I2C functionality is inferred from those references.
+
+Target result (same report): status4/Idle, firmware1 stable16 reads plus recovery
+read; actual0x56 NACK and software-sampled SCL-low TIMEOUT, errors0. No physical
+stuck-wire/frozen-timer/cold-panel injection. First strict-status-gate failures
+are preserved; final policy accepts Normal/Idle only for read-only firmware ID.
+Native ELF gate PASS, host19/19/sanitized fixture/C++98/six mutants PASS. After
+RAM-only probe/reset, preserved shell/SciCalc14/desktop verified via maia.py.
+No FreeRTOS/SDK runtime imports or flash/SD/power/reset/DMA writes.

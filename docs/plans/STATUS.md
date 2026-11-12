@@ -334,3 +334,23 @@ Boot captured and maia.py shell/SciCalc14/desktop reverified. Native display
 NOT RUN; complete desktop remains FreeRTOS-dependent, POSIX remains DESIGN.
 Next: bounded system-I2C identification API/probe, read-only touch firmware
 transaction, explicit timeout/missing-device tests; no LDO/reset/DMA yet.
+
+## Native boot-only touch identification — 2026-11-11
+
+Read [native touch transport/evidence](../audits/native-touch-identify.md). New
+independent GPIO register-read engine has explicit NACK/TIMEOUT/BUSY, full high
+hold after stretching, bounded waits and output commit after successful STOP.
+Boot-exclusive core0/IRQs-off SoC backend uses SYSTIMER, not presumed CPU MHz;
+caller must ensure pre-scheduler pin/timer ownership. No runtime locking/teardown.
+Tab5 status0/4 permits read-only firmware ID; other states return BUSY, unknown
+firmware is preserved without panel fallback. No production driver is replaced.
+Host19/19, sanitizer fixture, C++98 headers, six negative mutants and invalid
+profile rejection PASS. Target warm-reset RAM probe reads status4/firmware1
+16 times plus recovery read, actual0x56 NACK, sampled-SCL injection TIMEOUT,
+errors0. Initial too-strict Normal-only gate failures are retained. Physical
+stuck-wire/frozen-timer/cold-panel tests NOT RUN. No power/reset/DMA/flash/SD writes.
+Legacy shell/SciCalc14/desktop verified after final reset. Artifacts/manifest:
+`../maia-rtos-recovery/native-touch-identify-20261111/`. User's local Tab5 PDF
+and Sitronix protocol now pin the inspected pages; see EVIDENCE. Full firmware
+still uses FreeRTOS; POSIX DESIGN. Next: checked bounded expander-register access
+and safe bit-preserving reset/power contract, separately from memory/display DMA.

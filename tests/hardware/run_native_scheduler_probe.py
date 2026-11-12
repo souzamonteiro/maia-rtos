@@ -36,6 +36,16 @@ def evaluate_capture(output, expected_fatal=None, expected_pc=None, expected_sta
             'MAIA_NATIVE_PREEMPT_PASS' not in output and 'MAIA_NATIVE_PREEMPT_FAIL' not in output)
 
 
+def evaluate_touch_identity(output):
+    states = re.findall(r'^TOUCH_STATUS result_code=0 raw=(0|4)$', output, re.M)
+    ids = re.findall(r'^TOUCH_ID reads=16 firmware=([13]) final=([13]) errors=0$', output, re.M)
+    return (len(states) == 1 and len(ids) == 1 and ids[0][0] == ids[0][1] and
+            output.split('\n').count('TOUCH_ABSENT address=0x56 NACK') == 1 and
+            output.split('\n').count('TOUCH_INJECT sampled_SCL_low TIMEOUT') == 1 and
+            output.split('\n').count('MAIA_NATIVE_TOUCH_PASS') == 1 and
+            all(word not in output for word in ('FAIL', 'MAIA_NATIVE_FATAL', 'MAIA_STACK_FAULT')))
+
+
 def serial_output_record(source, sequence):
     prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
     return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
@@ -100,6 +110,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--touch-identify', action='store_true', help='verify boot-only touch identity and negative probes')
     parser.add_argument('--serial-output-event', action='store_true', help='verify TX empty waits and IRQ enqueue wakeup')
     parser.add_argument('--serial-output', action='store_true', help='verify 80 complete TX records from two producers')
     parser.add_argument('--serial-input', action='store_true', help='send binary RX fixture after RAM probe markers')
@@ -117,6 +128,9 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.touch_identify and (args.serial_output_event or args.serial_output or args.serial_input or
+                                args.expect_fatal_cause is not None):
+        parser.error("touch probe cannot be combined with scheduler/serial profiles")
     if args.serial_output_event:
         args.serial_output = True
     if args.serial_output and (args.serial_input or args.expect_fatal_cause is not None):
@@ -184,13 +198,15 @@ def main():
                 esp._port.close()
         passed = evaluate_capture(output, args.expect_fatal_cause, args.expect_fatal_pc,
                                   args.expect_stack_reason, args.expect_stack_guard, args.expect_stack_sp)
+        if args.touch_identify:
+            passed = evaluate_touch_identity(output.replace("\r", ""))
         if args.serial_input:
             passed = passed and stimulus.phase == 2
         if args.serial_output:
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

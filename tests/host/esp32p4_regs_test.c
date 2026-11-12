@@ -57,6 +57,9 @@ int main(void) {
     if (MAIA_ESP32P4_HP_CLKRST_SOC_CLK_CTRL3_REG != 0x500E6020UL) return 42;
     if (MAIA_ESP32P4_HP_CLKRST_HP_RST_EN1_REG != 0x500E60C4UL) return 43;
 
+    if (MAIA_ESP32P4_GPIO_FUNC_OUT_SEL_REG(31U) != 0x500E05D4UL) return 47;
+    if (MAIA_ESP32P4_GPIO_FUNC_OUT_SEL_REG(32U) != 0x500E05D8UL) return 48;
+    if (MAIA_ESP32P4_GPIO_FUNC_OEN_SEL != (1UL << 10U)) return 49;
     puts("ESP32-P4 register address contract PASS");
     return 0;
 }

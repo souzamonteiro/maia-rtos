@@ -38,6 +38,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  option(MAIA_NATIVE_PROBE_TOUCH "Read-only boot touch identification (no panel init)" OFF)
   option(MAIA_NATIVE_PROBE_SERIAL_TX_EVENT "Exercise TX worker notifications and quiet waits" OFF)
   option(MAIA_NATIVE_PROBE_NOTIFY "Exercise native notification waits and IRQ wakeups" OFF)
   option(MAIA_NATIVE_PROBE_SERIAL_TX "Exercise queued TX from multiple tasks" OFF)
@@ -52,7 +53,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_EMPTY AND NOT MAIA_NATIVE_PROBE_IDLE)
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
-  if(MAIA_NATIVE_PROBE_SERIAL_TX_EVENT)
+  if(MAIA_NATIVE_PROBE_TOUCH)
+    if(MAIA_NATIVE_PROBE_SERIAL_TX_EVENT OR MAIA_NATIVE_PROBE_NOTIFY OR MAIA_NATIVE_PROBE_SERIAL_TX OR
+       MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_STACK OR
+       MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_FP32 OR
+       MAIA_NATIVE_PROBE_MIXED OR MAIA_NATIVE_PROBE_LIFECYCLE)
+      message(FATAL_ERROR "Touch probe requires a separate boot-only workload")
+    endif()
+    set(MAIA_PROBE_APP tests/hardware/native_touch_probe.c drivers/i2c/bitbang.c
+      boards/m5stack/tab5/touch_identify.c soc/espressif/esp32p4/soc_boot_i2c.c)
+  elseif(MAIA_NATIVE_PROBE_SERIAL_TX_EVENT)
     set(MAIA_PROBE_APP tests/hardware/native_serial_tx_event_probe.c services/serial_output.c kernel/ksync.c)
   elseif(MAIA_NATIVE_PROBE_NOTIFY)
     set(MAIA_PROBE_APP tests/hardware/native_notification_probe.c)
@@ -291,6 +301,13 @@ else()
       target_compile_options(riscv_trap_policy_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME riscv_trap_policy_test COMMAND riscv_trap_policy_test)
+    add_executable(i2c_bitbang_test tests/host/i2c_bitbang_test.c drivers/i2c/bitbang.c
+      boards/m5stack/tab5/touch_identify.c)
+    target_include_directories(i2c_bitbang_test PRIVATE include)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(i2c_bitbang_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME i2c_bitbang_test COMMAND i2c_bitbang_test)
     add_executable(serial_output_test tests/host/serial_output_test.c services/serial_output.c
       soc/espressif/esp32p4/soc_serial_tx.c soc/espressif/esp32p4/soc_serial_rx.c
       soc/espressif/esp32p4/soc_console.c kernel/ksync.c)
