@@ -6,6 +6,11 @@
 #ifdef MAIA_NATIVE_PROBE_EXPANDER
 #include <maia/drivers/pi4ioe5v6408.h>
 #endif
+#ifdef MAIA_NATIVE_PROBE_PANEL_RESET
+#include <maia/boards/tab5_panel_reset.h>
+#include <maia/soc/esp32p4_regs.h>
+extern uint64_t maia_soc_time_us(void);
+#endif
 static maia_esp32p4_boot_i2c_t bus;
 static unsigned errors;
 void maia_display_putc(char c) { (void)c; }
@@ -51,6 +56,43 @@ static void expander(uint8_t address) {
     maia_console_puts(" dir=");number(before[0]);maia_console_puts(" out=");number(before[1]);maia_console_puts("\n");
 }
 #endif
+#ifdef MAIA_NATIVE_PROBE_PANEL_RESET
+static int reset_panel(void) {
+    const uint8_t regs[]={3U,5U,7U,0x0BU,0x0DU};
+    const uint8_t masks[]={0x30U,0x30U,0x30U,0x10U,0x10U};
+    const uint8_t bits[]={0x20U,0x20U,0U,0x10U,0x10U};
+    uint8_t before[2][5],fw;
+    if (maia_tab5_touch_identify(&bus.lines,&fw) != MAIA_I2C_OK || (fw != 1U && fw != 3U)) return 0;
+    /* ST712x test precondition: TP_INT input, no GT911 address strap. */
+    MAIA_MMIO32(MAIA_ESP32P4_GPIO_ENABLE_W1TC_REG)=1UL<<23U;
+    MAIA_MMIO32(MAIA_ESP32P4_GPIO_FUNC_OUT_SEL_REG(23U))=
+        MAIA_ESP32P4_GPIO_SIG_GPIO_OUT_IDX | MAIA_ESP32P4_GPIO_FUNC_OEN_SEL;
+    MAIA_MMIO32(MAIA_ESP32P4_IO_MUX_GPIO_REG(23U))=
+        MAIA_ESP32P4_IO_MUX_MCU_SEL_GPIO | MAIA_ESP32P4_IO_MUX_FUN_IE;
+    for (unsigned b=0U;b<2U;++b) for (unsigned i=0U;i<5U;++i)
+        if (maia_pi4io_read_config(&bus.lines,(uint8_t)(0x43U+b),regs[i],&before[b][i]) != MAIA_I2C_OK) return 0;
+    maia_tab5_reset_report_t report;
+    uint64_t start=maia_soc_time_us();
+    maia_i2c_result_t result=maia_tab5_panel_reset(&bus.lines,&report);
+    uint64_t elapsed=maia_soc_time_us()-start;
+    if (result != MAIA_I2C_OK) {
+        maia_console_puts("PANEL_RESET error_code=");number((uint32_t)(-result));
+        maia_console_puts(" stage=");number((uint32_t)report.completed);maia_console_puts("\n");return 0;
+    }
+    unsigned preserved=1U;
+    for (unsigned b=0U;b<2U;++b) for (unsigned i=0U;i<5U;++i) {
+        uint8_t value;
+        uint8_t expected=b ? before[b][i] : (uint8_t)((before[b][i] & (uint8_t)~masks[i]) | bits[i]);
+        if (maia_pi4io_read_config(&bus.lines,(uint8_t)(0x43U+b),regs[i],&value) != MAIA_I2C_OK || value != expected) preserved=0U;
+    }
+    unsigned input=!(MAIA_MMIO32(MAIA_ESP32P4_GPIO_ENABLE_REG)&(1UL<<23U)) &&
+        (MAIA_MMIO32(MAIA_ESP32P4_IO_MUX_GPIO_REG(23U))&MAIA_ESP32P4_IO_MUX_FUN_IE);
+    maia_console_puts("PANEL_RESET stage=");number((uint32_t)report.completed);
+    maia_console_puts(" changed=");number(report.may_have_changed);maia_console_puts(" preserved=");number(preserved);
+    maia_console_puts(" elapsed_us=");number((uint32_t)elapsed);maia_console_puts(" gpio23_input=");number(input);maia_console_puts("\n");
+    return report.completed == MAIA_TAB5_RESET_VERIFIED && report.may_have_changed && preserved && input && elapsed>=200000U;
+}
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_TOUCH_PROBE boot-only GPIO31/32 no panel/DMA initialization\n");
     maia_i2c_result_t r=maia_esp32p4_boot_i2c_prepare(&bus,31U,32U);
@@ -64,6 +106,12 @@ void maia_boot_main(void) {
     maia_i2c_result_t absent_write=maia_i2c_write_register8(&bus.lines,0x56U,5U,0U);
     check(absent_write == MAIA_I2C_NACK);
     maia_console_puts(absent_write == MAIA_I2C_NACK ? "EXPANDER_ABSENT_WRITE NACK\n" : "EXPANDER_ABSENT_WRITE FAIL\n");
+#endif
+#ifdef MAIA_NATIVE_PROBE_PANEL_RESET
+    if (!reset_panel()) {
+        maia_console_puts("MAIA_NATIVE_TOUCH_FAIL panel reset\n");
+        for (;;) __asm__ volatile("wfi");
+    }
 #endif
     uint8_t raw_status=0xCCU;
     maia_i2c_result_t status_result=maia_i2c_read_register16(&bus.lines,0x55U,1U,&raw_status);

@@ -54,6 +54,11 @@ def evaluate_expander(output):
             output.split('\n').count('EXPANDER_ABSENT_WRITE NACK') == 1)
 
 
+def evaluate_panel_reset(output):
+    result = re.findall(r'^PANEL_RESET stage=9 changed=1 preserved=1 elapsed_us=(\d+) gpio23_input=1$', output, re.M)
+    return evaluate_expander(output) and len(result) == 1 and int(result[0]) >= 200000
+
+
 def serial_output_record(source, sequence):
     prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
     return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
@@ -118,6 +123,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--panel-reset', action='store_true', help='verify LCD/touch reset, preserved bits and touch recovery')
     parser.add_argument('--expander', action='store_true', help='verify both expanders and same-value writes, including touch regression')
     parser.add_argument('--touch-identify', action='store_true', help='verify boot-only touch identity and negative probes')
     parser.add_argument('--serial-output-event', action='store_true', help='verify TX empty waits and IRQ enqueue wakeup')
@@ -137,6 +143,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.panel_reset:
+        args.expander = True
     if args.expander:
         args.touch_identify = True
     if args.touch_identify and (args.serial_output_event or args.serial_output or args.serial_input or
@@ -213,6 +221,8 @@ def main():
             passed = evaluate_touch_identity(output.replace("\r", ""))
         if args.expander:
             passed = evaluate_expander(output.replace("\r", ""))
+        if args.panel_reset:
+            passed = evaluate_panel_reset(output.replace("\r", ""))
         if args.serial_input:
             passed = passed and stimulus.phase == 2
         if args.serial_output:

@@ -373,3 +373,21 @@ verified after reset. Artifacts: `../maia-rtos-recovery/native-expander-port-202
 No flash/SD write; full desktop still depends on FreeRTOS. Next: checked board
 reset sequence with safe LCD input/pull-up release and explicit partial-failure
 contract, separately from LDO/DSI/PSRAM/DMA. POSIX remains DESIGN.
+
+## Native LCD/touch reset — 2026-11-11
+
+Read [native panel reset port](../audits/native-panel-reset.md). ST712x-only checked
+bank43 P4/P5 sequence ports functional BSP100/100ms waits, cross-checked with
+M5Stack input/pull-up LCD release. Apache-2.0 Espressif notice/license retained;
+all dependencies are native, no FreeRTOS/SDK runtime. Snapshot, masked updates,
+full verification and report last completed stage; error stops, no compensating
+writes/retry/rollback. Caller exclusively owns boot bus/pins, stable supplies,
+GPIO23 input and inactive display/DMA. Bounded pauses use SYSTIMER, not CPU MHz.
+Host21/21, sanitizer fixture, C++98, six mutants, profile-negative PASS. Target
+RAM reset reaches stage9, preserved1, elapsed244643us; touch status0/firmware1
+16 reads plus recovery, errors0. Both-bank snapshots preserve unrelated config.
+No voltage/waveform/pixels/cold-power/SMP/runtime claim. Preserved flash shell,
+SciCalc14/desktop verified after reset; no flash/SD write. Exact artifacts/logs:
+`../maia-rtos-recovery/native-panel-reset-20261111/`. Legacy full desktop remains
+FreeRTOS-based and POSIX DESIGN. Next: audit/port MIPI PHY LDO acquisition with
+calibration/ownership/error contracts before DSI clocks or framebuffer/DMA.

@@ -1,0 +1,30 @@
+Line endings normalized to LF; raw capture preserved in recovery.
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 11040 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+MAIA_TOUCH_PROBE boot-only GPIO31/32 no panel/DMA initialization
+EXPANDER_PROBE same-value OUT05 writes; no reset/power transitions requested
+EXPANDER bank=67 rounds=16 mirror=1 unchanged=1 dir=111 out=102
+EXPANDER bank=68 rounds=16 mirror=1 unchanged=1 dir=185 out=9
+EXPANDER_ABSENT_WRITE NACK
+PANEL_RESET stage=9 changed=1 preserved=1 elapsed_us=244643 gpio23_input=1
+TOUCH_STATUS result_code=0 raw=0
+TOUCH_ID reads=16 firmware=1 final=1 errors=0
+TOUCH_ABSENT address=0x56 NACK
+TOUCH_INJECT sampled_SCL_low TIMEOUT
+MAIA_NATIVE_TOUCH_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Touch identity: PASS

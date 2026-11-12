@@ -488,3 +488,22 @@ write NACK and touch firmware1 regression pass. No changed reset/power bits or
 physical voltage/glitch measurement. Host20/20, two sanitizer fixtures, C++98 and
 five driver mutants PASS; original flash shell/SciCalc14/desktop verified after
 RAM reset. Raw evidence/provenance/limits in ../audits/native-expander-port.md.
+
+### Native panel-reset port prerequisites — 2026-11-11
+
+[Reset source ledger](../audits/native-panel-reset.md): Tab5.pdf update2026-11-05
+p9 schematic bank43 P4/P5 and p16 reset electrical-mode rule; functional bf044d3
+bsp_reset_tp100ms assertion +100ms stabilization; M5Unified Power_Class.inl
+input/pull-up release, M5GFX tab5_power_on10/100ms distinguished from that baseline.
+GPIO23 input preparation reuses pinned GPIO/IO_MUX constants and primary register
+references in the touch audit. Apache-2.0 Espressif notice/full license retained
+for the modified BSP reset port; MIT expander adaptation remains separately
+attributed. No new MMIO addresses or CPU-frequency delay assumption introduced.
+
+Actual reset target: stage9/changed1/preserved1, native SYSTIMER elapsed244643us,
+GPIO23 input readback1; after reset touch status0/firmware1 sixteen reads plus
+recovery, errors0. Both-bank snapshots compare final reset masks/unrelated bits.
+This proves register sequencing/touch recovery on warm supplies, not electrical
+voltages/waveforms, pixels or cold power-up. Host21/21, sanitizer/C++98/six mutants
+PASS. Preserved shell/SciCalc14/desktop verified after runner reset; no flash/SD
+write. Raw captures/artifact hashes/limits: ../audits/native-panel-reset.md.

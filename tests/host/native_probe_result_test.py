@@ -125,3 +125,13 @@ for old,new in [('bank=68','bank=67'),('rounds=16','rounds=0'),('mirror=1','mirr
 assert not runner.evaluate_expander(identity)
 assert not runner.evaluate_expander(expander + 'MAIA_NATIVE_TOUCH_FAIL')
 print('PASS: expander evidence requires both banks, unchanged snapshots, writes and touch regression')
+
+panel = expander + 'PANEL_RESET stage=9 changed=1 preserved=1 elapsed_us=250000 gpio23_input=1\n'
+assert runner.evaluate_panel_reset(panel)
+for old,new in [('stage=9','stage=8'),('changed=1','changed=0'),('preserved=1','preserved=0'),
+                ('elapsed_us=250000','elapsed_us=199999'),('gpio23_input=1','gpio23_input=0')]:
+    assert not runner.evaluate_panel_reset(panel.replace(old,new))
+assert not runner.evaluate_panel_reset(expander)
+assert not runner.evaluate_panel_reset(panel + 'PANEL_RESET stage=9 changed=1 preserved=1 elapsed_us=250000 gpio23_input=1\n')
+assert not runner.evaluate_panel_reset(panel + 'MAIA_NATIVE_TOUCH_FAIL')
+print('PASS: panel reset evidence requires verified stage, minimum delay, bit preservation and touch recovery')
