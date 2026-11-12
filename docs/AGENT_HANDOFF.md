@@ -414,3 +414,22 @@ Legacy shell/SciCalc14/desktop verified after final reset. Artifacts/manifest:
 and Sitronix protocol now pin the inspected pages; see EVIDENCE. Full firmware
 still uses FreeRTOS; POSIX DESIGN. Next: checked bounded expander-register access
 and safe bit-preserving reset/power contract, separately from memory/display DMA.
+
+## Native expander configuration port — 2026-11-11
+
+Owner permits open-source driver adaptation/porting (M5Stack, ESP-IDF, owner
+code and portable drivers found in FreeRTOS); zero underlying FreeRTOS remains
+mandatory. AGENTS.md supersedes its prior blanket copying prohibition, requiring
+license/attribution and native dependencies. Read [expander port](audits/native-expander-port.md).
+M5Unified configuration/bit-update model ported to C over bounded native I2C;
+MIT notice/source revision retained. New read8 repeated START/write8 transport,
+restricted config register set, mask-preserving update, no-op and full readback
+VERIFY error. Exclusive pre-scheduler ownership only; no retries/rollback/locks.
+Host20/20, two sanitizer fixtures, C++98 header and five mutants PASS. Actual
+RAM probe: banks43/44 accept identical OUT05 writes, five config bytes unchanged
+over16 rounds each; touch16 reads firmware1, actual absent-write NACK, errors0.
+Changed reset/power bits are NOT tested. Original flash shell/SciCalc14/desktop
+verified after reset. Artifacts: `../maia-rtos-recovery/native-expander-port-20261111/`.
+No flash/SD write; full desktop still depends on FreeRTOS. Next: checked board
+reset sequence with safe LCD input/pull-up release and explicit partial-failure
+contract, separately from LDO/DSI/PSRAM/DMA. POSIX remains DESIGN.

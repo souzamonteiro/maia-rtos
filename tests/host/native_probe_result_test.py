@@ -114,3 +114,14 @@ assert not runner.evaluate_touch_identity(identity + 'MAIA_NATIVE_TOUCH_FAIL')
 assert not runner.evaluate_touch_identity(identity + 'MAIA_NATIVE_FATAL')
 assert not runner.evaluate_touch_identity('MAIA_NATIVE_PREEMPT_PASS')
 print('PASS: touch capture requires stable known firmware, all reads, negative probes and no failure')
+
+expander = (identity + 'EXPANDER bank=67 rounds=16 mirror=1 unchanged=1 dir=111 out=102\n'
+            'EXPANDER bank=68 rounds=16 mirror=1 unchanged=1 dir=255 out=0\n'
+            'EXPANDER_ABSENT_WRITE NACK\n')
+assert runner.evaluate_expander(expander)
+for old,new in [('bank=68','bank=67'),('rounds=16','rounds=0'),('mirror=1','mirror=0'),
+                ('unchanged=1','unchanged=0'),('dir=255','dir=256'),('EXPANDER_ABSENT_WRITE NACK\n','')]:
+    assert not runner.evaluate_expander(expander.replace(old,new))
+assert not runner.evaluate_expander(identity)
+assert not runner.evaluate_expander(expander + 'MAIA_NATIVE_TOUCH_FAIL')
+print('PASS: expander evidence requires both banks, unchanged snapshots, writes and touch regression')

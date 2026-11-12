@@ -108,3 +108,40 @@ maia_i2c_result_t maia_i2c_read_register16(const maia_i2c_lines_t *b,
     if (r == MAIA_I2C_OK) *out = value;
     return r;
 }
+
+/* Unlike the touch protocol, an 8-bit-pointer register read retains bus
+ * ownership through a repeated START. SDA is released while SCL is low. */
+static maia_i2c_result_t restart(const maia_i2c_lines_t *b) {
+    drive(b, MAIA_I2C_SDA, 1U);
+    maia_i2c_result_t r = b->pause(b->context);
+    if (r == MAIA_I2C_OK) r = high(b);
+    if (r != MAIA_I2C_OK) return r;
+    if (!(b->sample(b->context) & MAIA_I2C_SDA)) return MAIA_I2C_BUSY;
+    drive(b, MAIA_I2C_SDA, 0U);
+    r = b->pause(b->context);
+    drive(b, MAIA_I2C_SCL, 0U);
+    return r;
+}
+maia_i2c_result_t maia_i2c_read_register8(const maia_i2c_lines_t *b,
+                                       uint8_t address, uint8_t reg, uint8_t *out) {
+    if (!valid(b, address) || !out) return MAIA_I2C_INVALID;
+    maia_i2c_result_t r = start(b);
+    if (r == MAIA_I2C_OK) r = send(b, (uint8_t)(address << 1U));
+    if (r == MAIA_I2C_OK) r = send(b, reg);
+    if (r == MAIA_I2C_OK) r = restart(b);
+    if (r == MAIA_I2C_OK) r = send(b, (uint8_t)((address << 1U) | 1U));
+    uint8_t value = 0U;
+    if (r == MAIA_I2C_OK) r = receive(b, &value);
+    r = finish(b, r);
+    if (r == MAIA_I2C_OK) *out = value;
+    return r;
+}
+maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *b,
+                                        uint8_t address, uint8_t reg, uint8_t value) {
+    if (!valid(b, address)) return MAIA_I2C_INVALID;
+    maia_i2c_result_t r = start(b);
+    if (r == MAIA_I2C_OK) r = send(b, (uint8_t)(address << 1U));
+    if (r == MAIA_I2C_OK) r = send(b, reg);
+    if (r == MAIA_I2C_OK) r = send(b, value);
+    return finish(b, r);
+}

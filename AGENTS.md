@@ -8,7 +8,8 @@ reference material, not the working firmware baseline.
 
 ## Hard prohibitions
 
-1. Do not introduce FreeRTOS, Arduino, or ESP-IDF runtime code, headers, link dependencies, compatibility shims, or copied implementations. Using standalone vendor compiler/binutils/flashing tools is permitted.
+1. Do not introduce FreeRTOS as an underlying runtime, scheduler, API dependency or compatibility shim, or depend on Arduino/ESP-IDF runtime libraries/headers. Using standalone vendor compiler/binutils/flashing tools is permitted.
+   Owner clarification (2026-11-11): open-source M5Stack, ESP-IDF and owner code may be adapted/ported to native MaiaRTOS APIs, preserving applicable licenses and attribution. Portable open-source drivers, including ones found in the FreeRTOS tree, may be ported too; studying FreeRTOS is permitted. This supersedes the blanket prohibition on copied implementations, not the zero-FreeRTOS runtime requirement. Remove foreign OS dependencies from a port and validate it incrementally; record source revision, license and remaining dependencies.
 2. Do not put MaiaOS, MaiaWASMVM, or WebAssembly assumptions in the MaiaRTOS kernel.
 3. Do not invent ESP32-P4 MMIO addresses, reset/boot protocols, interrupt routing, second-core startup, PSRAM timings, or board pinouts.
 4. Do not silently replace unknowns with plausible values. Create a verification task in docs/hardware/OPEN_QUESTIONS.md instead.

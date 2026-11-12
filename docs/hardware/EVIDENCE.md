@@ -464,3 +464,27 @@ are preserved; final policy accepts Normal/Idle only for read-only firmware ID.
 Native ELF gate PASS, host19/19/sanitized fixture/C++98/six mutants PASS. After
 RAM-only probe/reset, preserved shell/SciCalc14/desktop verified via maia.py.
 No FreeRTOS/SDK runtime imports or flash/SD/power/reset/DMA writes.
+
+### Native PI4IOE5V6408 port prerequisites — 2026-11-11
+
+Primary [Diodes PI4IOE5V6408 datasheet](https://www.diodes.com/datasheet/download/PI4IOE5V6408.pdf),
+DS40583 Rev3-5, September2022, pp8–10 register map/configuration and p13 Figures6/7
+(single-register write and repeated-START read; page rendered/visually inspected).
+OUT05 reads the latch, not physical pin voltage; DIR03 bit1 means output, and
+HIGH_Z07/PULL_ENABLE0B/PULL_SELECT0D are plain configuration. ID/control01 and
+interrupt/status registers have side effects, so the new subset excludes them.
+The local M5Unified revision44952cb8e4ac88bf04ad23b9dfd6f4b05c788348,
+PI4IOE5V6408_Class.inl/I2C_Class.inl, supplies the port's configuration/bit-update
+model under MIT (notice retained in LICENSES/M5Stack-MIT.txt). Its calls delegate
+to native transport; no M5Unified/Arduino/ESP-IDF/FreeRTOS runtime linkage.
+Existing Tab5 PDF pinmap/schematic and BSP audit establish system bus/address43/44.
+The forthcoming hardware probe mirrors only the current OUT05 latch byte and
+checks unchanged configuration; this does not measure electrical levels or reset.
+
+Actual target result: both expanders preserve five config bytes across16 rounds
+after identical OUT05 writes (43: DIR0x6F/OUT0x66;44: DIR0xB9/OUT0x09). Native
+transport/port has no foreign runtime symbols/archives. Actual absent-address
+write NACK and touch firmware1 regression pass. No changed reset/power bits or
+physical voltage/glitch measurement. Host20/20, two sanitizer fixtures, C++98 and
+five driver mutants PASS; original flash shell/SciCalc14/desktop verified after
+RAM reset. Raw evidence/provenance/limits in ../audits/native-expander-port.md.

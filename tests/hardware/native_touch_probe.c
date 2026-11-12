@@ -1,8 +1,11 @@
-/* RAM-only read-only touch identity probe. No expander, reset, display or DMA. */
+/* RAM touch probe; optional expander OUT05 same-value diagnostic. No panel/DMA. */
 #include <maia/boards/tab5_touch.h>
 #include <maia/soc/esp32p4_boot_i2c.h>
 #include <maia/console.h>
 #include <maia/kernel.h>
+#ifdef MAIA_NATIVE_PROBE_EXPANDER
+#include <maia/drivers/pi4ioe5v6408.h>
+#endif
 static maia_esp32p4_boot_i2c_t bus;
 static unsigned errors;
 void maia_display_putc(char c) { (void)c; }
@@ -16,13 +19,52 @@ static void check(int ok) { if (!ok) ++errors; }
 static unsigned forced_low(void *context) {
     return bus.lines.sample(context) & ~MAIA_I2C_SCL;
 }
+#ifdef MAIA_NATIVE_PROBE_EXPANDER
+static void expander(uint8_t address) {
+    const uint8_t regs[]={MAIA_PI4IO_DIRECTION,MAIA_PI4IO_OUTPUT,MAIA_PI4IO_HIGH_Z,
+        MAIA_PI4IO_PULL_ENABLE,MAIA_PI4IO_PULL_SELECT};
+    uint8_t before[5];unsigned rounds=0U,mirror=0U,unchanged=1U;
+    for (unsigned i=0U;i<5U;++i) {
+        if (maia_pi4io_read_config(&bus.lines,address,regs[i],&before[i]) != MAIA_I2C_OK) {
+            ++errors;return; /* Never write when snapshot is incomplete. */
+        }
+    }
+    /* OUT05 is a plain output latch, not reset/IRQ control. Mirror its exact
+     * byte to exercise an ACKed data write without requesting output edges. */
+    if (maia_i2c_write_register8(&bus.lines,address,MAIA_PI4IO_OUTPUT,before[1]) != MAIA_I2C_OK) {
+        ++errors;return; /* No retry/rollback after uncertain write completion. */
+    }
+    mirror=1U;
+    check(maia_pi4io_update_config(&bus.lines,address,MAIA_PI4IO_OUTPUT,0x10U,
+                                  before[1] & 0x10U) == MAIA_I2C_OK);
+    for (unsigned round=0U;round<16U;++round) {
+        for (unsigned i=0U;i<5U;++i) {
+            uint8_t value=0U;
+            if (maia_pi4io_read_config(&bus.lines,address,regs[i],&value) != MAIA_I2C_OK || value != before[i]) {
+                unchanged=0U;++errors;return;
+            }
+        }
+        ++rounds;
+    }
+    maia_console_puts("EXPANDER bank=");number(address);maia_console_puts(" rounds=");number(rounds);
+    maia_console_puts(" mirror=");number(mirror);maia_console_puts(" unchanged=");number(unchanged);
+    maia_console_puts(" dir=");number(before[0]);maia_console_puts(" out=");number(before[1]);maia_console_puts("\n");
+}
+#endif
 void maia_boot_main(void) {
-    maia_console_puts("MAIA_TOUCH_PROBE boot-only GPIO31/32 no power/reset/DMA writes\n");
+    maia_console_puts("MAIA_TOUCH_PROBE boot-only GPIO31/32 no panel/DMA initialization\n");
     maia_i2c_result_t r=maia_esp32p4_boot_i2c_prepare(&bus,31U,32U);
     if (r != MAIA_I2C_OK) {
         maia_console_puts("MAIA_NATIVE_TOUCH_FAIL prepare\n");
         for (;;) __asm__ volatile("wfi");
     }
+#ifdef MAIA_NATIVE_PROBE_EXPANDER
+    maia_console_puts("EXPANDER_PROBE same-value OUT05 writes; no reset/power transitions requested\n");
+    expander(0x43U);expander(0x44U);
+    maia_i2c_result_t absent_write=maia_i2c_write_register8(&bus.lines,0x56U,5U,0U);
+    check(absent_write == MAIA_I2C_NACK);
+    maia_console_puts(absent_write == MAIA_I2C_NACK ? "EXPANDER_ABSENT_WRITE NACK\n" : "EXPANDER_ABSENT_WRITE FAIL\n");
+#endif
     uint8_t raw_status=0xCCU;
     maia_i2c_result_t status_result=maia_i2c_read_register16(&bus.lines,0x55U,1U,&raw_status);
     maia_console_puts("TOUCH_STATUS result_code=");number((uint32_t)(-status_result));

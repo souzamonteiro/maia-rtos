@@ -46,6 +46,14 @@ def evaluate_touch_identity(output):
             all(word not in output for word in ('FAIL', 'MAIA_NATIVE_FATAL', 'MAIA_STACK_FAULT')))
 
 
+def evaluate_expander(output):
+    banks = re.findall(r'^EXPANDER bank=(67|68) rounds=16 mirror=1 unchanged=1 dir=(\d+) out=(\d+)$', output, re.M)
+    return (evaluate_touch_identity(output) and len(banks) == 2 and
+            sorted(bank[0] for bank in banks) == ['67', '68'] and
+            all(int(v) <= 255 for bank in banks for v in bank[1:]) and
+            output.split('\n').count('EXPANDER_ABSENT_WRITE NACK') == 1)
+
+
 def serial_output_record(source, sequence):
     prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
     return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
@@ -110,6 +118,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--expander', action='store_true', help='verify both expanders and same-value writes, including touch regression')
     parser.add_argument('--touch-identify', action='store_true', help='verify boot-only touch identity and negative probes')
     parser.add_argument('--serial-output-event', action='store_true', help='verify TX empty waits and IRQ enqueue wakeup')
     parser.add_argument('--serial-output', action='store_true', help='verify 80 complete TX records from two producers')
@@ -128,6 +137,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.expander:
+        args.touch_identify = True
     if args.touch_identify and (args.serial_output_event or args.serial_output or args.serial_input or
                                 args.expect_fatal_cause is not None):
         parser.error("touch probe cannot be combined with scheduler/serial profiles")
@@ -200,6 +211,8 @@ def main():
                                   args.expect_stack_reason, args.expect_stack_guard, args.expect_stack_sp)
         if args.touch_identify:
             passed = evaluate_touch_identity(output.replace("\r", ""))
+        if args.expander:
+            passed = evaluate_expander(output.replace("\r", ""))
         if args.serial_input:
             passed = passed and stimulus.phase == 2
         if args.serial_output:

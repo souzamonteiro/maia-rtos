@@ -1,0 +1,128 @@
+{
+  "date": "2026-11-11",
+  "parent_commit": "24e33d0db884426a70ce0a4603d4be2cfd56850b",
+  "scope": "Native configuration port; boot-only reads and same-value output-latch writes; no flash/SD writes",
+  "m5_reference": {
+    "LICENSE": {
+      "sha256": "44611d917bece311f5c8eeffce83d8bf9e9ca3f815d262f694ff4a7996af50ea",
+      "matches_HEAD": true
+    },
+    "src/utility/PI4IOE5V6408_Class.inl": {
+      "sha256": "42d70ebce2a6f183dab960ca6689673dd7b5e3ebaca69b4bfa6104963cd1ad4f",
+      "matches_HEAD": true
+    },
+    "src/utility/IOExpander_Base.hpp": {
+      "sha256": "1e6df6cfa4611171c8f71119d8e7055db7e0e535293047323987b77e9fe22c52",
+      "matches_HEAD": true
+    },
+    "src/utility/I2C_Class.inl": {
+      "sha256": "d296345a9b099ba7d3f23cc0c3900c3586f6ec4f2ce704a00de9ad62dec8b075",
+      "matches_HEAD": true
+    }
+  },
+  "m5_commit": "44952cb8e4ac88bf04ad23b9dfd6f4b05c788348",
+  "datasheet": {
+    "url": "https://www.diodes.com/datasheet/download/PI4IOE5V6408.pdf",
+    "revision": "DS40583 Rev3-5 September2022",
+    "pages": [
+      8,
+      9,
+      10,
+      13
+    ],
+    "sha256": "4ad734bac333c2a2c76f6af406a6a4337a446fac4ad068de1415a7c96cce6706"
+  },
+  "ram_image": {
+    "entrypoint": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 9440
+      }
+    ]
+  },
+  "preserved_firmware_manifest": {
+    "commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+    "files": {
+      "platforms/tab5/build/m5stack_tab5.bin": {
+        "size": 2093696,
+        "sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd"
+      },
+      "platforms/tab5/build/m5stack_tab5.elf": {
+        "size": 29121432,
+        "sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+      },
+      "platforms/tab5/build/m5stack_tab5.map": {
+        "size": 13191466,
+        "sha256": "5b768d18c5becfbec61f9d98ad7075fff9cc98d912d90dd4b9f8a4fcb466679a"
+      },
+      "platforms/tab5/build/bootloader/bootloader.bin": {
+        "size": 23136,
+        "sha256": "5d0feef7760570bdecbcb23220742b08a297e039062479d3b633ed53635233b5"
+      },
+      "platforms/tab5/build/partition_table/partition-table.bin": {
+        "size": 3072,
+        "sha256": "97ce22d502aaae32ae3de440ee5de7dc4782501c4faca6a91aef0dfe90ad256c"
+      },
+      "platforms/tab5/build/flash_args": {
+        "size": 153,
+        "sha256": "5cd7cee10d0062df7a7135c0f7a8483a979a41de62fd2ee6c58486d6bc7fbe4d"
+      },
+      "platforms/tab5/build/flasher_args.json": {
+        "size": 923,
+        "sha256": "607507acde2d92ac68383d05ae58de3f6a154bd0671fbe4c036ced5c79ac7454"
+      },
+      "platforms/tab5/sdkconfig": {
+        "size": 95487,
+        "sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b"
+      },
+      "platforms/tab5/sdkconfig.defaults": {
+        "size": 1450,
+        "sha256": "9bb2eff50471319400cbf5beccc2e1ae9ff5496f9f51cbebfc0c6755cfa6d8ba"
+      },
+      "platforms/tab5/dependencies.lock": {
+        "size": 7730,
+        "sha256": "5a92f6d9c18e1b4538e7e5f939cac642d84df03cc70e21833464733c9d9774c9"
+      }
+    }
+  },
+  "source_hashes": {
+    "source/AGENTS.md": "3b7e71558c02c495db28f22a08121655cb176e60d83051880c09c5811442ff72",
+    "source/CMakeLists.txt": "1077e0b9ee0eb96d85b139aa3d86d5498bfa2c8246d3d7bbe9d4869952b85c1d",
+    "source/drivers/i2c/bitbang.c": "a0b5f9468787bc0ce7c3dbf8d61fe82b2bc3a90c4275def35c1438857ef78783",
+    "source/include/maia/drivers/i2c_bitbang.h": "659418c0821d66932e2603ed093ad468091676a8a8d82d24facc99e8ed115343",
+    "source/drivers/gpio/pi4ioe5v6408.c": "bd43d70879fbcada34677ffbd3ed40dd2d2e9f7ae950ba6cd3fd406317fecedf",
+    "source/include/maia/drivers/pi4ioe5v6408.h": "00a5fd48f5499929c6e58065eb0dda9b55c5b8f01a0d20db61a1c4fad4139f09",
+    "source/LICENSES/M5Stack-MIT.txt": "44611d917bece311f5c8eeffce83d8bf9e9ca3f815d262f694ff4a7996af50ea",
+    "source/tests/host/i2c_bitbang_test.c": "a611905c1a23183c2f8097f29d88e5a2484dabd89d74ec29fda89ee3ab8c6e94",
+    "source/tests/host/pi4ioe5v6408_test.c": "798b2f97549dec230d9fabca653bc7b68f58f0751d5b0acb7100d928f03a9d65",
+    "source/tests/host/native_probe_result_test.py": "4cbd2efbcdd398eaa40e759117086d4e301ac593f5ec81a97fb5105108f248c5",
+    "source/tests/hardware/native_touch_probe.c": "1f326ee8acd174016cb9efc308e665f41e41ef05353259498fe5ba0ba4ab97f4",
+    "source/tests/hardware/run_native_scheduler_probe.py": "489b609c8beb2434f20e1a4c0694a9f1352ae022e98ef6f539826544643af868",
+    "source/docs/AGENT_HANDOFF.md": "526466d1730702f600fe7e1912d7c2ae779ce94495e784569de4602113fbecda",
+    "source/docs/plans/STATUS.md": "ece04b90c642f7e614c0c1f11a7dfca3b1daa3e4998ba53906cf61f9524461ad",
+    "source/docs/hardware/EVIDENCE.md": "fcc8818412978739f8b2115a375d200ae98ef2e45224389a21cf1417fbd8483b",
+    "source/docs/hardware/OPEN_QUESTIONS.md": "8e24c298043972cf301451f9c77442946da0f7a215fe999b188abdedb37f0a41",
+    "source/docs/audits/native-expander-port.md": "874ae330d8411b09646bd55de8e3850485df2225c9be43724d28fe2e9f1bf6a6",
+    "source/docs/audits/native-expander-hardware.txt": "14f46ab454ab192a86187850f65de4e8c92d23caa5aae0df058d39c4024885b1",
+    "source/docs/audits/native-expander-desktop.txt": "07ab234b20b76346308669bf68a14e9915d7ba6c99bae87d67ec49b4ea87b2b0"
+  },
+  "build_and_log_hashes": {
+    "build/maia_sched_probe.elf": "aab820057a2f28cc45fea08e2f8d7606b8d0f8a065a72eea452745884c8724cd",
+    "build/maia_sched_probe_ram.elf": "16849da267eedbaebcff30997e778e1b819a78c8c85f0f39c67a4680e5ff283f",
+    "build/maia_sched_probe_ram.bin": "b83c2787509f4e655dc2ea9134d8dd8a66a3b43e592f7f20995a1c8022c80a15",
+    "build/maia_sched_probe.map": "fe0eff853525e75b3369f0080acd67ab2b8ebde110dde7218debcfbdaa548d40",
+    "build/CMakeCache.txt": "2d5e366637c271bac36eee4ac109f4abfb810bb28e9515fc4af6bad91f625a78",
+    "logs/maia-expander-hardware.log": "e431caedf07ded9a626fb02f78a3c110f3e11c878e3449e4e9d162adc92649a9",
+    "logs/maia-expander-native-build.log": "221b92f0f832ad42a9fea2140aa1c6d1758e306b3ac61bd81853b891979d7678",
+    "logs/maia-expander-host-config.log": "6272660293487d77dce83b68864a4e1b515f4918004a1392d193a528d481ee2f",
+    "logs/maia-expander-desktop-verified.log": "33a50c9ab32c5e4a040d4210d7da1d0ea0fa8772bf492af96edd16b0ad3fffc6",
+    "logs/maia-expander-host-build.log": "622936c7779fdf684ea0037c551927f41bd333fe2dab8064059d2a7ec1a7c495",
+    "logs/maia-expander-mutants.log": "6f366f4ac65d4a3b71734ae920ec640c3f0b5725d133d424280e603c007a9dd6",
+    "logs/maia-expander-wire-sanitized.log": "b4fc91244957f5408358efeda39a41ae5670159332be5531a51ea29dcfa478d9",
+    "logs/maia-expander-sanitized.log": "1b6846c8468f1809c60deedfb2a90ae90803b1e41936ee04ca4db0af0422dcd4",
+    "logs/maia-expander-host-test.log": "779b4a9fe9de4bb3cbbb066ab9b95d48f7e3907083bc8ada0e08b9da9176d7b2",
+    "logs/maia-expander-native-config.log": "8de2c41c347d58715d111bd6c3f542089ebc544029dfe06f11b22c2cf6a20b9a",
+    "logs/maia-expander-invalid-profile.log": "dce9dc8497856635a5c77fc4e061abefc0fad55213a1ab68c34227d497340219"
+  }
+}

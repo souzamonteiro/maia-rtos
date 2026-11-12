@@ -8,7 +8,7 @@ typedef struct slave {
     unsigned master, slave_low, active, bit, reading, raised;
     unsigned starts, stops, bytes, pauses, fail_pause, nack_byte;
     unsigned stuck_scl, stuck_sda, stretch, remaining_stretch, fail_stop;
-    unsigned master_nacks, high_since;
+    unsigned master_nacks, high_since, address_phase;
     uint8_t accumulator, wire[64], reply;
 } slave_t;
 static unsigned sample(void *context) {
@@ -29,7 +29,7 @@ static void drive(void *context, unsigned mask, unsigned release) {
     s->master = release ? old | mask : old & ~mask;
     if ((old & MAIA_I2C_SCL) && (s->master & MAIA_I2C_SCL) && ((old ^ s->master) & MAIA_I2C_SDA)) {
         if (!(s->master & MAIA_I2C_SDA)) {
-            ++s->starts;s->active=1U;s->bit=0U;s->reading=0U;s->raised=0U;s->accumulator=0U;
+            ++s->starts;s->active=1U;s->bit=0U;s->reading=0U;s->raised=0U;s->accumulator=0U;s->address_phase=1U;
         } else { ++s->stops;s->active=0U;s->slave_low=0U; }
     }
     if (!(old & MAIA_I2C_SCL) && (s->master & MAIA_I2C_SCL) && s->active) {
@@ -49,9 +49,11 @@ static void drive(void *context, unsigned mask, unsigned release) {
         s->high_since=0U;s->raised=0U;s->slave_low=0U;
         if (++s->bit == 9U) {
             s->bit=0U;
-            /* First byte after either START is an address. */
-            if (s->bytes && (s->wire[s->bytes-1U] & 1U) &&
-                (s->wire[s->bytes-1U] == 0xABU)) s->reading=1U;
+            /* Decode only the address byte; odd data is not an address. */
+            if (s->address_phase) {
+                s->reading=s->wire[s->bytes-1U] & 1U;
+                s->address_phase=0U;
+            }
             s->accumulator=0U;
         }
     }
@@ -111,6 +113,31 @@ int main(void) {
     CHECK(!s.pauses && !s.starts);
     b.pause=0;
     CHECK(maia_i2c_probe_address(&b,0x55U) == MAIA_I2C_INVALID && !s.starts);
+    b=setup(&s);out=0xCCU;
+    CHECK(maia_i2c_read_register8(&b,0x43U,0x05U,&out) == MAIA_I2C_OK && out == 0x81U);
+    const uint8_t read8[]={0x86U,0x05U,0x87U};
+    CHECK(s.bytes == 3U && !memcmp(s.wire,read8,3) && s.starts == 2U && s.stops == 1U);
+    unsigned read8_pauses=s.pauses;
+    b=setup(&s);
+    CHECK(maia_i2c_write_register8(&b,0x44U,0x05U,0xABU) == MAIA_I2C_OK);
+    const uint8_t write8[]={0x88U,0x05U,0xABU};
+    CHECK(s.bytes == 3U && !memcmp(s.wire,write8,3) && s.starts == 1U && s.stops == 1U);
+    unsigned write8_pauses=s.pauses;
+    for (unsigned write=0U;write<2U;++write) {
+        for (unsigned n=1U;n<=(write ? write8_pauses : read8_pauses);++n) {
+            b=setup(&s);s.fail_pause=n;out=0xCCU;
+            maia_i2c_result_t r=write ? maia_i2c_write_register8(&b,0x43U,5U,0xABU) :
+                maia_i2c_read_register8(&b,0x43U,5U,&out);
+            CHECK(r == MAIA_I2C_TIMEOUT && out == 0xCCU && s.master == MAIA_I2C_BOTH);
+        }
+        for (unsigned n=1U;n<=3U;++n) {
+            b=setup(&s);s.nack_byte=n;out=0xCCU;
+            maia_i2c_result_t r=write ? maia_i2c_write_register8(&b,0x43U,5U,0xABU) :
+                maia_i2c_read_register8(&b,0x43U,5U,&out);
+            CHECK(r == MAIA_I2C_NACK && out == 0xCCU && s.bytes == n && s.master == MAIA_I2C_BOTH);
+        }
+    }
+    printf("PASS: read8/write8 wire order, repeated START, %u/%u pause failures and all byte NACK stages\n",read8_pauses,write8_pauses);
     b=setup(&s);s.nack_byte=1U;
     CHECK(maia_i2c_probe_address(&b,0x56U) == MAIA_I2C_NACK && s.wire[0] == 0xACU);
     b=setup(&s);s.reply=0U;
