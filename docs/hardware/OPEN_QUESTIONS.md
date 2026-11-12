@@ -33,3 +33,10 @@ and no clock/reset/abort writes. Target empty-controller arm/stop passes;
 active-transfer stop is HOST-TESTED only. Need native DMA-visible memory/cache
 fixture and actual traffic test, then PHY/bridge completion before clock gating.
 This does not establish the whole MIPI shutdown or retire VO3/panel-reset guards.
+
+Follow-up UQ-015: [active SRAM VDMA stop](../audits/native-vdma-transfer.md) now
+hardware-tests channel0 single-block M2M: full32KiB copy, then genuine active
+stop with1152B partial result, intact boundaries and stable post-stop memory.
+Native memory/cache handling is fixture-specific (NOLOAD reservation/NC alias/
+pinned ROM range operation), not a general allocator or PSRAM ownership solution.
+DSI/CSI PHY/bridge stop, peripheral handshakes and clock/power gating remain open.

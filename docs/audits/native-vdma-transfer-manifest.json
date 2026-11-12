@@ -1,0 +1,221 @@
+{
+  "date": "2026-11-12",
+  "parent_commit": "7e3b08debcb42aeb0e573c3aafa73ae493fc87b7",
+  "status": {
+    "sram_copy_active_stop": "HARDWARE-TESTED, LIMITED: channel0 32KiB M2M, partial1152B",
+    "peripheral_handshake_phy_shutdown": "NOT RUN",
+    "clock_or_vo3_cycle": "NOT RUN"
+  },
+  "sdk_reference": {
+    "components/esp_hw_support/test_apps/dma/main/test_dw_gdma.c": {
+      "sha256": "0352cd575466365b0b966b9f321ff83ae3a037540cea312289d204336047b1c2",
+      "matches_pinned_revision": true
+    },
+    "components/esp_hw_support/dma/dw_gdma.c": {
+      "sha256": "ace979c51265cd782d061c1dc157530fb13f8e8cc834234df6c50eb2fe2a349f",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/dw_gdma_ll.h": {
+      "sha256": "56be6ff8351f62027a167f166d6369ed498bfc1fb9da6bd1223971cec25c7a59",
+      "matches_pinned_revision": true
+    },
+    "components/hal/include/hal/dw_gdma_types.h": {
+      "sha256": "ff3ef107e5c64c15652bbe99f780cb5774a707508575da18598aabbb0d7efb96",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/dw_gdma_reg.h": {
+      "sha256": "441ce2f62aaab1597df1042697d3d76e7571c6384691a58ee3aa595b56f63477",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/dw_gdma_struct.h": {
+      "sha256": "39dd71b22328124d2e465cda6ce2ec36dba46f00ec6423f58f99266e6f74ee6f",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/ld/esp32p4.peripherals.ld": {
+      "sha256": "f78f25bd824b4794bc10b07d26857e54e2233ee982131d3a249be03d574c745c",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/cache_ll.h": {
+      "sha256": "69350989dae550c66769fe4b76e701dd7ecc7ef76ff648fa7cc89486502fd124",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/include/soc/ext_mem_defs.h": {
+      "sha256": "7694816d8f2c21c1bcd3e28cdf1a42ad0bc0d2df55f1cb3bb60305d79a9096b8",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/include/soc/soc.h": {
+      "sha256": "d59e92d8ab81c060c0fd27c9d0d2ed1b5888fb214e80584f631ac099f1db9cce",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/include/soc/soc_caps.h": {
+      "sha256": "312294c426a8a063a6d496089bcf421519c9e88efffaa7116960061dad79f4ea",
+      "matches_pinned_revision": true
+    },
+    "components/esp_rom/esp32p4/include/esp32p4/rom/cache.h": {
+      "sha256": "8acac1062d6287045a247ff987fd87a0f0542e54bc78086ad6887c621a9074e7",
+      "matches_pinned_revision": true
+    },
+    "components/esp_rom/esp32p4/ld/esp32p4.rom.ld": {
+      "sha256": "06f823cb69a26718852a09e37086fc585ddb464cbdf5df8bd533e9f43a71ed47",
+      "matches_pinned_revision": true
+    }
+  },
+  "trm": {
+    "url": "https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf",
+    "revision": "chip1.3 Pre-release v0.4",
+    "sections": [
+      "5.7.4 p343",
+      "5.5.7 pp337-338",
+      "CFG0 p349",
+      "7.3.1 pp451-454"
+    ],
+    "sha256": "ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830"
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "image": {
+    "entry": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 9824
+      }
+    ]
+  },
+  "reservation": {
+    "physical_start": "0x4ff03500",
+    "physical_end": "0x4ff13700",
+    "type": "NOBITS outside startup BSS",
+    "size": 66048,
+    "cpu_alias": "0x8ff03500",
+    "cache_line": 64
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  },
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-vdma-transfer-20261112",
+  "source_hashes": {
+    "source/CMakeLists.txt": {
+      "size": 29620,
+      "sha256": "9dd070adfca8b9506392e563925b9de33809119acfcedf8386f97bb65d410c3b"
+    },
+    "source/AGENTS.md": {
+      "size": 4741,
+      "sha256": "3b7e71558c02c495db28f22a08121655cb176e60d83051880c09c5811442ff72"
+    },
+    "source/boards/m5stack/tab5/linker.ld": {
+      "size": 2127,
+      "sha256": "d94afd9cd91e06c6976638c4f968c70afcc1754ba502748c98afb1cb8701ec87"
+    },
+    "source/arch/riscv/start.S": {
+      "size": 1309,
+      "sha256": "ff0d91ff30ef03d7dd54ffc202bd7237e3652274fafc59966db23d4c7f113b04"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 12546,
+      "sha256": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9"
+    },
+    "source/include/maia/soc/esp32p4_vdma.h": {
+      "size": 2625,
+      "sha256": "8bc8f6a59d5ae5520ff5b6a988f5fb970fb8308b3ff661d214700c94aeb3dea7"
+    },
+    "source/soc/espressif/esp32p4/soc_vdma_stop.c": {
+      "size": 3083,
+      "sha256": "6ad902f9e370039a88cbb939d193e413c54b46c14bfe333248bddad8d1b5fbba"
+    },
+    "source/soc/espressif/esp32p4/vdma_internal.h": {
+      "size": 1328,
+      "sha256": "c1b5b2063518662dc4f0f06673e561ca785bf9bef7f06e087fb0278db6cfbacb"
+    },
+    "source/tests/hardware/native_vdma_transfer_probe.c": {
+      "size": 7995,
+      "sha256": "77e4e8f39a38780c9070deaa4d2a1e5c66f7e7c50f5a0d73c3e6ec952e2408e2"
+    },
+    "source/tests/hardware/vdma_transfer_fixture.h": {
+      "size": 2427,
+      "sha256": "68317018bc1fbc132ab0689b5d0a24645ba964290e04e9f76f010b40a1c112d9"
+    },
+    "source/tests/hardware/native_vdma_memory.ld.in": {
+      "size": 636,
+      "sha256": "0069526d26f8e8afb94ab9969a240c872e48f4bae556331e26eb2a39c05d6491"
+    },
+    "source/tests/hardware/native_mipi_snapshot.h": {
+      "size": 2650,
+      "sha256": "df0d91ffbe9fb5df36da8d56325902a82c7ae9ffc87c29c5003fde19daabb839"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 24016,
+      "sha256": "25fd22b5db29875447701789d90658fddeef575fbc4ac73255153f80dcab4361"
+    },
+    "source/tests/host/vdma_transfer_fixture_test.c": {
+      "size": 1764,
+      "sha256": "8ade97ae5b79388a375d6896ad5ebcb6b534aab87e32cb47726df9a71d538157"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 16206,
+      "sha256": "dc23619d714197688b184a62151e6c558560d5192124544adb11b38821f17d6d"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 37160,
+      "sha256": "61f4be3c28c23e1adcfb4d1dfb7ef9e7a34b5225034a89177db6c07d0c08d9fc"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 35032,
+      "sha256": "fb7db1f910f9a5034a381940c88c706df1fb6db169e07cdb9ae50ba8fa703e4b"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 44557,
+      "sha256": "5ff9a36bb472563993e739d6c4191420c8a444e735f53d638b13205e6dd8d4c6"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 8240,
+      "sha256": "9f08f4d75031ea735e015c0ad3f7f3e1a8f31be0e864475024977b23a0d9fec9"
+    },
+    "source/docs/audits/native-vdma-transfer.md": {
+      "size": 10379,
+      "sha256": "7ced82c3a5257fae82cdd134e0ad84a5fa30d192a65c64e7c9eabcd096d1f11d"
+    },
+    "source/docs/audits/native-vdma-transfer-hardware.txt": {
+      "size": 1124,
+      "sha256": "4330d1e5a1085bb1d3d43e8dc51beec7c97bd0501ce7493907d43bde6f9d9ec5"
+    },
+    "source/docs/audits/native-vdma-transfer-desktop.txt": {
+      "size": 3297,
+      "sha256": "fc39d010e9f98ed062520f71dfc7d57a36ab4350dfd323cfdd583b5b4f00469f"
+    },
+    "source/docs/audits/native-vdma-transfer-initial-refusal.txt": {
+      "size": 812,
+      "sha256": "afbca6bb28137b77b7a26a5a86d43910aae2bdad179dbf5c395740c6491cb18e"
+    },
+    "source/docs/audits/native-vdma-transfer-truncated-capture.txt": {
+      "size": 1111,
+      "sha256": "93650ef5240e249bbfd23bfe8664bf1ada64a00422f7342a7ce431fdc60831b8"
+    }
+  },
+  "build_hashes": {
+    "build/maia_sched_probe.elf": {
+      "size": 27164,
+      "sha256": "639e7c36eb0c987ca30db67627a57b2712b205ebef3f403d72ee9cb03559b43a"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 18776,
+      "sha256": "d25157ee5ae156643510b040e904bfa34fbda484d30ac4619071f1f35142d916"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 9904,
+      "sha256": "9de0a96daadceb87b70371132d321fa534d9bfbdc84fc5cfd4178f6cfde796fc"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 29865,
+      "sha256": "5d9ac9fbb98a58a929a64eb83d334feeeecf33d14adc24e7d88ccf59900e470f"
+    },
+    "build/vdma_transfer_linker.ld": {
+      "size": 2764,
+      "sha256": "1a313fb35935f053e99c7ea7d9d2e9278862c7c898114db2f74cb4b3b78f38be"
+    },
+    "build/CMakeCache.txt": {
+      "size": 20429,
+      "sha256": "95b33093dfd6231186c224a2cf81c91169098b29924644ffb6484f48c8e49a58"
+    }
+  }
+}

@@ -593,3 +593,25 @@ preserved. This is not active DMA drain evidence; active path/failures are host
 25/25 +sanitizer tested. No clock/power/reset/IRQ clear/descriptor/flash/SD writes;
 shell/SciCalc14/desktop verified after RAM reset. PHY/bridge, DMA-visible memory
 and active-transfer tests remain separate prerequisites for full native display.
+
+### Native DMA-visible SRAM and active stop — 2026-11-12
+
+Primary source [ESP32-P4 chip1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+7.3.1 pp451–454 (CPU NC alias8FF and L2MEM4FF/DMA access),5.7.4 p343 (single
+block),5.5.7 pp337–338 and CFG0 p349 (stop/completion). Pinned SDK f5c3654
+[cache alias definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/cache_ll.h),
+ext_mem_defs.h offset40000000, dw_gdma_ll.h/register layout confirm memory-master1/
+width8/increment/burst1. ROM cache.h signature/L1D map10 and esp32p4.rom.ld
+4FC003FC/4FC003C8 are explicit immutable-ROM calls, not an IDF runtime link.
+Register INTSIGNAL writable maskF83F7FFB preserves observed07C08004 reserved/RO
+bits; the original zero-readback assumption was refused before channel enable.
+Exact source revisions/hashes/sections in [the fixture audit](../audits/native-vdma-transfer.md).
+
+Actual reserved SRAM4FF03500–4FF13700, CPU NC alias8FF03500, L1D64B/range purge
+success. Full32768B M2M verified; second transfer stopped with initialCFG1/CHEN1/
+requested1, two polls, finalglobal/channel/abort0, correct1152B prefix+zero tail,
+source/guards intact and eight full NC scans stable. Sampled clocks/MIPI/other
+channels unchanged. Status/common0 (no reported errors); no DMA IRQ claim.
+Host26/26/sanitizer/negative checks PASS. Final capture complete; earlier truncated
+banner retained/rejected. Shell/SciCalc14/desktop verified after reset; no flash/
+SD/power/reset/clock writes. Peripheral handshake/PHY stop and PSRAM remain open.

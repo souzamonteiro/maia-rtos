@@ -220,3 +220,24 @@ for armed in (False, True):
     assert not runner.evaluate_vdma_stop(capture.replace('requested=00000000', 'requested=00000001'), armed)
     assert not runner.evaluate_vdma_stop(capture.replace('cfg=00000000 channels', 'cfg=00000001 channels'), armed)
 print('PASS: VDMA empty-controller scope, adoption/armed distinction and invalid/failure captures')
+
+transfer = """MAIA_VDMA_TRANSFER_PROBE schema=1 owned-sram
+DMA_MEMORY start=4ff03280 end=4ff13480 alias=8ff03280 bytes=00008000 cache_line=00000040 prepared=00000001
+DMA_COPY matched=00008000 status=00000003 common=00000000
+DMA_STOP result=00000000 active=00000001 initial_cfg=00000001 initial_channels=00000001 requested=00000001 stage=00000003 polls=00000002 cfg=00000000 channels=00000000 abort=00000000 fifo=00000000
+DMA_VERIFY copied=00000400 bad=00000000 guards=00000001 stable=00000001 preserved=00000001 duplicate_busy=00000001 status=4000001b common=00000000
+MAIA_NATIVE_VDMA_TRANSFER_PASS
+"""
+assert runner.evaluate_vdma_transfer(transfer)
+assert not runner.evaluate_vdma_stop(transfer)
+for old, new in [('copied=00000400','copied=00008000'), ('copied=00000400','copied=00000000'),
+                 ('initial_channels=00000001','initial_channels=00000000'), ('requested=00000001','requested=00000000'),
+                 ('active=00000001','active=00000000'), ('matched=00008000','matched=00007fff'),
+                 ('alias=8ff03280','alias=4ff03280'), ('end=4ff13480','end=4ff33480'),
+                 ('prepared=00000001','prepared=00000000'), ('guards=00000001','guards=00000000'),
+                 ('stable=00000001','stable=00000000'), ('polls=00000002','polls=00001001'),
+                 ('status=4000001b','status=4000003b'), ('common=00000000','common=00000001')]:
+    assert not runner.evaluate_vdma_transfer(transfer.replace(old,new,1))
+assert not runner.evaluate_vdma_transfer(transfer+transfer)
+assert not runner.evaluate_vdma_transfer(transfer.replace('DMA_COPY matched','DMA_UNKNOWN matched'))
+print('PASS: DMA transfer evidence requires bounded memory, copy, active stop and partial stable result')

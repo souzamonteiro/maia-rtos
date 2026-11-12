@@ -115,6 +115,46 @@ def evaluate_mipi(output, allow_stop=False):
     return True
 
 
+def evaluate_vdma_transfer(output):
+    """Require real copy, an enabled channel inside stop, and a partial stable result."""
+    lines = output.replace('\r', '').splitlines()
+    if lines.count('MAIA_VDMA_TRANSFER_PROBE schema=1 owned-sram') != 1 or lines.count('MAIA_NATIVE_VDMA_TRANSFER_PASS') != 1 or 'FAIL' in output or 'FATAL' in output:
+        return False
+    schemas = {
+        'DMA_MEMORY': 'start end alias bytes cache_line prepared'.split(),
+        'DMA_COPY': 'matched status common'.split(),
+        'DMA_STOP': 'result active initial_cfg initial_channels requested stage polls cfg channels abort fifo'.split(),
+        'DMA_VERIFY': 'copied bad guards stable preserved duplicate_busy status common'.split(),
+    }
+    rows = {}
+    for line in lines:
+        if not line.startswith('DMA_'):
+            continue
+        kind = line.split()[0]
+        if kind not in schemas or kind in rows:
+            return False
+        match = re.fullmatch(kind + ''.join(' ' + key + r'=([0-9a-f]{8})' for key in schemas[kind]), line)
+        if not match:
+            return False
+        rows[kind] = dict(zip(schemas[kind], (int(value, 16) for value in match.groups())))
+    if rows.keys() != schemas.keys():
+        return False
+    mem, copy, stop, verify = (rows[key] for key in schemas)
+    if not (0x4ff00000 <= mem['start'] < mem['end'] <= 0x4ff28000 and mem['start'] % 128 == 0 and
+            mem['end'] - mem['start'] == 66048 and mem['alias'] == mem['start'] + 0x40000000 and
+            mem['bytes'] == 32768 and mem['cache_line'] in (16, 32, 64, 128) and mem['prepared'] == 1):
+        return False
+    if copy['matched'] != 32768 or copy['status'] & 0x023f7fe0 or copy['common']:
+        return False
+    expected = dict(result=0, active=1, initial_cfg=1, initial_channels=1, requested=1,
+                    stage=3, cfg=0, channels=0, abort=0)
+    if any(stop[key] != value for key, value in expected.items()) or not 1 <= stop['polls'] <= 4096 or stop['fifo'] > 15:
+        return False
+    return (0 < verify['copied'] < 32768 and verify['bad'] == 0 and
+            all(verify[key] == 1 for key in ('guards', 'stable', 'preserved', 'duplicate_busy')) and
+            not verify['status'] & 0x023f7fe0 and verify['common'] == 0)
+
+
 def evaluate_vdma_stop(output, armed=False):
     if not evaluate_mipi(output, allow_stop=True):
         return False
@@ -247,6 +287,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--vdma-transfer', action='store_true', help='verify owned SRAM DMA copy and active-channel stop')
     parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
     parser.add_argument('--vdma-arm-empty', action='store_true', help='arm empty VDMA and verify native global stop; no transfers')
     parser.add_argument('--mipi-state', action='store_true', help='verify read-only inherited MIPI/DW-GDMA state')
@@ -273,6 +314,10 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.vdma_transfer:
+        if args.vdma_arm_empty:
+            parser.error('VDMA transfer excludes empty-arm profile')
+        args.vdma_stop = True
     if args.vdma_arm_empty:
         args.vdma_stop = True
     if args.vdma_stop:
@@ -368,7 +413,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.vdma_stop:
+        if args.vdma_transfer:
+            passed = evaluate_vdma_transfer(output)
+        elif args.vdma_stop:
             passed = evaluate_vdma_stop(output, args.vdma_arm_empty)
         elif args.mipi_state:
             passed = evaluate_mipi(output)
@@ -382,7 +429,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

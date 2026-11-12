@@ -477,3 +477,24 @@ reset, no flash/SD write. Artifacts: `../maia-rtos-recovery/native-vdma-stop-202
 Next: reserved DMA-visible SRAM/cache ownership and actual active-transfer stop
 fixture, then separate PHY/bridge stop before clock gating/power tests. Full
 legacy desktop still uses FreeRTOS; POSIX DESIGN and native cold display pending.
+
+## Native SRAM transfer and active VDMA stop — 2026-11-12
+
+Read [active DMA fixture/evidence](../audits/native-vdma-transfer.md). Opt-in diagnostic reserves66048B
+NOLOAD outside BSS/stack/ROM; checks actual L1D line64, invokes pinned silicon ROM
+range writeback/invalidate, then uses only CPU NC alias8FF/physical DMA4FF.
+No SDK headers/runtime/FreeRTOS; explicit ROM entries documented. Channel0 M2M
+single-block8-bit/master1: actual full32768-byte copy, then active-channel stop
+(initialCFG1/CHEN1/requested1) stage3/two polls/finalglobal0. Correct partial1152B,
+zero tail31616B, source/guards intact and eight later full scans stable; sampled
+MIPI/clocks/other channels unchanged. This supersedes HOST-TESTED-only active
+stop for this SRAM workload, not peripheral/display/PSRAM/SMP/DMA IRQ behavior.
+Host26/26, sanitizer, four compiled mutants and two invalid profiles PASS. Initial
+RO/reserved INTSIGNAL readback refusal fixed with documented writable mask;
+first post-fix run lost early banner, correctly rejected by capture validator.
+Final complete capture PASS; no relaxed checks. Prior empty-controller binary
+remains byte-identical after CMake changes. Paced shell/SciCalc14/desktop restored
+and no flash/SD write. Artifacts: `../maia-rtos-recovery/native-vdma-transfer-20261112/`.
+Next: DSI/CSI PHY/bridge shutdown under explicit failure/ownership policy before
+clock gating/power tests. VO3 and panel-reset guards untouched; full desktop still
+uses FreeRTOS, native cold display pending, POSIX DESIGN.

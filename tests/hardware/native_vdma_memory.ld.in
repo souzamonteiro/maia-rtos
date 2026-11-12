@@ -1,0 +1,13 @@
+    /* Diagnostic-only reservation: excluded from cached .bss initialization. */
+    .maia_dma_probe (NOLOAD) : ALIGN(128)
+    {
+        __maia_dma_start = ABSOLUTE(.);
+        KEEP(*(.maia_dma_probe))
+        . = ALIGN(128);
+        __maia_dma_end = ABSOLUTE(.);
+    } > L2MEM_LOW
+    ASSERT(__maia_dma_end - __maia_dma_start == 66048, "unexpected DMA fixture reservation")
+    ASSERT(__bss_end <= __maia_dma_start, "DMA fixture overlaps BSS")
+    /* Pinned ESP32-P4 ROM entry points; no ESP-IDF library linkage. */
+    PROVIDE(maia_probe_cache_writeback_invalidate = 0x4FC003FC);
+    PROVIDE(maia_probe_cache_line_size = 0x4FC003C8);

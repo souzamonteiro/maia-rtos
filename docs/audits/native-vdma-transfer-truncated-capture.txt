@@ -1,0 +1,25 @@
+# Actual 2026-11-12 capture; CRLF normalized to LF.
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 9792 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+1 owned-sram
+DMA_MEMORY start=4ff03480 end=4ff13680 alias=8ff03480 bytes=00008000 cache_line=00000040 prepared=00000001
+DMA_COPY matched=00008000 status=00000000 common=00000000
+DMA_STOP result=00000000 active=00000001 initial_cfg=00000001 initial_channels=00000001 requested=00000001 stage=00000003 polls=00000002 cfg=00000000 channels=00000000 abort=00000000 fifo=00000000
+DMA_VERIFY copied=00000480 bad=00000000 guards=00000001 stable=00000001 preserved=00000001 duplicate_busy=00000001 status=00000000 common=00000000
+MAIA_NATIVE_VDMA_TRANSFER_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Active VDMA transfer: FAIL / NOT DEMONSTRATED
