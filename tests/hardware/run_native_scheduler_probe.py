@@ -115,6 +115,22 @@ def evaluate_mipi(output, allow_stop=False):
     return True
 
 
+def evaluate_mipi_park(output):
+    lines = output.replace('\r', '').splitlines()
+    if lines.count('MAIA_NATIVE_MIPI_PARK_PASS') != 1 or 'FAIL' in output or 'FATAL' in output:
+        return False
+    if sum(line.startswith('MIPI_PARK_SETUP ') for line in lines) != 1 or sum(line.startswith('MIPI_PARK ') for line in lines) != 1:
+        return False
+    setup = re.findall(r'^MIPI_PARK_SETUP sys_before=([0-9a-f]{8}) sys_ready=([0-9a-f]{8}) dsi_phy=([0-9a-f]{8}) csi_phy=([0-9a-f]{8}) armed=0000000f live=00000000$', output.replace('\r', ''), re.M)
+    result = re.findall(r'^MIPI_PARK result=00000000 stage=00000004 attempted=0000000f dsi_bridge=([0-9a-f]{8}) csi_bridge=([0-9a-f]{8}) dsi_phy=([0-9a-f]{8}) csi_phy=([0-9a-f]{8}) preserved=00000001 duplicate_busy=00000001$', output.replace('\r', ''), re.M)
+    if len(setup) != 1 or len(result) != 1:
+        return False
+    before, ready, dsi, csi = map(lambda s: int(s, 16), setup[0])
+    db, cb, dp, cp = map(lambda s: int(s, 16), result[0])
+    return (ready == before | 0x800 and ready & 0x1c20 == 0x1c20 and dsi & 15 == 2 and csi & 1 == 1 and
+            not db & 1 and not cb & 1 and dp == dsi & ~14 and cp == csi & ~1)
+
+
 def evaluate_vdma_transfer(output):
     """Require real copy, an enabled channel inside stop, and a partial stable result."""
     lines = output.replace('\r', '').splitlines()
@@ -287,6 +303,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--mipi-park', action='store_true', help='verify reset-state bridge/PHY parking, no live streams')
     parser.add_argument('--vdma-transfer', action='store_true', help='verify owned SRAM DMA copy and active-channel stop')
     parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
     parser.add_argument('--vdma-arm-empty', action='store_true', help='arm empty VDMA and verify native global stop; no transfers')
@@ -314,6 +331,10 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.mipi_park:
+        if args.vdma_transfer or args.vdma_stop or args.vdma_arm_empty:
+            parser.error('MIPI park excludes VDMA workloads')
+        args.mipi_state = True
     if args.vdma_transfer:
         if args.vdma_arm_empty:
             parser.error('VDMA transfer excludes empty-arm profile')
@@ -389,6 +410,10 @@ def main():
             esptool.main(['--chip', 'esp32p4', '--no-stub', 'load_ram', str(args.image)], esp=esp)
             port = esp._port
             port.timeout = 0.1
+            if args.mipi_park:
+                if port.write(b'P') != 1:
+                    raise RuntimeError('short MIPI park host-ready write')
+                port.flush()
             stimulus = SerialInputStimulus(port) if args.serial_input else None
             deadline = time.monotonic() + args.capture_seconds
             while time.monotonic() < deadline:
@@ -413,7 +438,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.vdma_transfer:
+        if args.mipi_park:
+            passed = evaluate_mipi_park(output)
+        elif args.vdma_transfer:
             passed = evaluate_vdma_transfer(output)
         elif args.vdma_stop:
             passed = evaluate_vdma_stop(output, args.vdma_arm_empty)
@@ -429,7 +456,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

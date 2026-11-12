@@ -40,3 +40,13 @@ stop with1152B partial result, intact boundaries and stable post-stop memory.
 Native memory/cache handling is fixture-specific (NOLOAD reservation/NC alias/
 pinned ROM range operation), not a general allocator or PSRAM ownership solution.
 DSI/CSI PHY/bridge stop, peripheral handshakes and clock/power gating remain open.
+
+- [ ] **UQ-016 (Live MIPI/ISP shutdown vs boot parking):** TRM chip1.3 v0.4
+  38.7.2 p1974 requires DMA completion, ISP reset and CSI host reset to stop RX.
+  Shared ISP ownership/reset and active DSI/CSI/PHY drain/settling remain open.
+  [Native boot reset parking](../audits/native-mipi-park.md) only accepts already-
+  shutdown hosts/analog PHYs and inactive VDMA, with fresh checks and four digital
+  control clears. Actual digital arm/park PASS; no live stream/analog shutdown
+  test. CSI host clock was temporarily enabled for real inspection; no longer
+  infer its reset state from unmeasured zeros. Verify boot ISP/consumer state
+  before checked clock gating/power tests; do not relax existing VO3/reset guards.

@@ -615,3 +615,25 @@ channels unchanged. Status/common0 (no reported errors); no DMA IRQ claim.
 Host26/26/sanitizer/negative checks PASS. Final capture complete; earlier truncated
 banner retained/rejected. Shell/SciCalc14/desktop verified after reset; no flash/
 SD/power/reset/clock writes. Peripheral handshake/PHY stop and PSRAM remain open.
+
+### Native boot/reset MIPI parking — 2026-11-12
+
+Primary [ESP32-P4 chip1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+38.7.2 p1974 identifies DMA completion/ISP reset/CSI host reset for live RX stop.
+This is not implemented by the smaller boot parking API. Pinned SDK f5c3654
+[mipi_csi_hal.c](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_csi_hal.c)
+init asserts shutdown/reset controls low; DSI/CSI LL functions and register
+headers pin bridge500A0804/5009F804 bit0, DSI PHY500A00A0 bits1..3 (bit0 shutdown
+release must already0), CSI PHY5009F044 bit0 reset release, host controls500A0004/
+5009F008/5009F040. hp_sys_clkrst_reg.h SYS+18 bit11/mipi_csi_ll host-bus helper
+allow CSI host inspection; no PHY clock/power change. Exact source hashes/sections
+and remaining contracts: [parking audit](../audits/native-mipi-park.md).
+
+Actual Tab5 digital-arm/park RAM test PASS. SYS0C0D5678->0C0D5E78 enables only CSI
+host access; shutdown/host controls remain low, DSI RSTZ2/CSI RSTZ1 and bridges1
+are armed, then native stage4/attemptF/four reported control words0. Sampled
+clocks after preparation and VDMA/channel/other config unchanged. DSI PHY clock-
+lane/forcePLL dirty cases host-tested only. Host27/27/sanitizer/header/negative
+checks PASS. Shell/SciCalc14/desktop verified after reset; no flash/SD/LDO/analog
+power writes. Shared ISP/live-stream quiesce and physical settling remain open
+before treating this as unconditional permission for clock/power gating.

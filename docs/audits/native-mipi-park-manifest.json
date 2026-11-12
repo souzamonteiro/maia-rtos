@@ -1,0 +1,195 @@
+{
+  "date": "2026-11-12",
+  "parent_commit": "4b16ddf563c672a59c493ac9f37bf38555a1d386",
+  "status": {
+    "digital_reset_parking": "HARDWARE-TESTED, LIMITED",
+    "live_stream_phy_shutdown": "NOT IMPLEMENTED",
+    "isp_quiesce_clock_gating_vo3_cycle": "NOT RUN"
+  },
+  "sdk_reference": {
+    "components/hal/mipi_csi_hal.c": {
+      "sha256": "0d4a6c28cfd25b874c4f354beca0b24d632077e1ed84a147050a37b6d72f9c63",
+      "matches_pinned_revision": true
+    },
+    "components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c": {
+      "sha256": "f2427915717e6f3c50da6a61c2824bfa514705656d1ddbf283ef4b3827e8cc1d",
+      "matches_pinned_revision": true
+    },
+    "components/esp_lcd/dsi/esp_lcd_panel_dpi.c": {
+      "sha256": "7bda5a71686ba9d1507d135a1b88a2e66c881dd036fbf3389f9bf436f78e95a8",
+      "matches_pinned_revision": true
+    },
+    "components/esp_lcd/dsi/esp_lcd_mipi_dsi_bus.c": {
+      "sha256": "8d92f212179003f314d207e32f7240fac96d6987ac53952ed91df3baa2842311",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h": {
+      "sha256": "639fe134a7de060e22cc4c8598254c807939e1fdb5a703bbf98c4d907a197df0",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_csi_brg_ll.h": {
+      "sha256": "018b51a094e7eca70e34369351d834824e40e8818ba0c04de4ea35fb60733e3e",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h": {
+      "sha256": "4d2e80a1e2b1f5d628a9fd5833215d9b5b5c811739a0199e7181a3d20778cf9d",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_dsi_phy_ll.h": {
+      "sha256": "b137ed2673c2d5d6db1d59ab5d1d2c3ccd1eb2f088a065549d1beeaf6dab1f86",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_csi_host_ll.h": {
+      "sha256": "7475219ba8bb6ff9b2942ef68c26f46ae27a1328c2b69c23ffd81681607f3eb3",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_csi_phy_ll.h": {
+      "sha256": "09c2f059f7d44a33e0ab878a393dcfd0a6003e0c54ffa341b1000e2c0387992a",
+      "matches_pinned_revision": true
+    },
+    "components/hal/esp32p4/include/hal/mipi_csi_ll.h": {
+      "sha256": "07ccb912dbfaaa80649f6e67279760f353ff4a7198da282111b9716a8a53f399",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h": {
+      "sha256": "7ed2b000f4a757ac4016020165cc9370195db8ebab34121d6fb42b9b9dfe0572",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/mipi_dsi_bridge_reg.h": {
+      "sha256": "1f9547324538ff6d0d66d8156a6188d4537899ffa663ceb1db709ace38962c7c",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/mipi_csi_bridge_reg.h": {
+      "sha256": "20690f9b81c4d907fd87ff2bc35a3d50cc6fb8fb276524102f09e534227c2924",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/mipi_dsi_host_reg.h": {
+      "sha256": "1cc712d3ba0ca28c8e17d0d7a8495e1bd14e9e500f87aeed9482e2ca5a22eb52",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/mipi_csi_host_reg.h": {
+      "sha256": "a46f35bdda43b7a5bd52206e08aa9bede9174246feb1a6931d6c5d05493bff8a",
+      "matches_pinned_revision": true
+    }
+  },
+  "trm": {
+    "url": "https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf",
+    "revision": "chip1.3 Pre-release v0.4",
+    "sections": [
+      "38.7.2 p1974",
+      "DSI release status incomplete"
+    ],
+    "sha256": "ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830"
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "image": {
+    "entry": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 8208
+      }
+    ]
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  },
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-mipi-park-20261112",
+  "source_hashes": {
+    "source/CMakeLists.txt": {
+      "size": 30426,
+      "sha256": "e64c1f935bb3a6d157c77c26c4fb053e579ecc63fa67cbc66c6bfefeece38f94"
+    },
+    "source/AGENTS.md": {
+      "size": 4741,
+      "sha256": "3b7e71558c02c495db28f22a08121655cb176e60d83051880c09c5811442ff72"
+    },
+    "source/include/maia/soc/esp32p4_mipi_park.h": {
+      "size": 2438,
+      "sha256": "2040866568e98c280f08eb8bef8ae3e705f9c1f4fb270e20850c5dde2f67b4d0"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 12546,
+      "sha256": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9"
+    },
+    "source/soc/espressif/esp32p4/mipi_park_internal.h": {
+      "size": 1484,
+      "sha256": "9915a68dae6799cddc3237c397bee3e9b6a23698f9a3691b22a4ade0c3ae2293"
+    },
+    "source/soc/espressif/esp32p4/soc_mipi_park.c": {
+      "size": 3261,
+      "sha256": "7482aa94e18ed937e89e19dd3420a878e6c8941e2a0d4b6c9de3900bd51a2789"
+    },
+    "source/tests/hardware/native_mipi_park_probe.c": {
+      "size": 4533,
+      "sha256": "dd1fcbc31125f60866de11057749bd2b314c5f3d3a108268d82b9928e7118fb3"
+    },
+    "source/tests/hardware/native_mipi_snapshot.h": {
+      "size": 2650,
+      "sha256": "df0d91ffbe9fb5df36da8d56325902a82c7ae9ffc87c29c5003fde19daabb839"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 25817,
+      "sha256": "dec73f4f78328e7b17285a602adc988c7787a88edc8569e71516085f39439735"
+    },
+    "source/tests/host/mipi_park_test.c": {
+      "size": 3963,
+      "sha256": "044575f6c1f1d47bd07dfef8540b726c937ddeba7a8c75916c7babbaba9caf96"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 17515,
+      "sha256": "d6210e2cc3e90f0d013ec32abf8d2aa2c2cdf44837be1ff14f93a4cba28d9ec3"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 38737,
+      "sha256": "efb47060130e6c518f1535d75ed550a385f9f4c7c4a0e91d507a974e68e381d9"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 36612,
+      "sha256": "08e8fef7321e623bbe3f0c3fdb181e060a5ad5a10c932115982d8a6a3856e1c6"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 46160,
+      "sha256": "b547b20d7587e731ccf654c15f9a26c1261918b7660573ace1ace2d9776cd179"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 8962,
+      "sha256": "c0ddfb36662220e636dbf7b9b3408f24a967d8648fe43eb0f728172be0bdf9cd"
+    },
+    "source/docs/audits/native-mipi-park.md": {
+      "size": 9848,
+      "sha256": "b766065bba97135b182e37e563887be00f043932c835baeeca2f2d34f441f798"
+    },
+    "source/docs/audits/native-mipi-park-hardware.txt": {
+      "size": 859,
+      "sha256": "21948d809eee662f798705d2cfbd0bbf97783b2aa749ecbae69e1248cfec88c7"
+    },
+    "source/docs/audits/native-mipi-park-desktop.txt": {
+      "size": 3297,
+      "sha256": "67660ffd0475e9646ab5e661cc76fb9e66073ad6faf227dd8b522a4d1b8bd3d2"
+    }
+  },
+  "build_hashes": {
+    "build/maia_sched_probe.elf": {
+      "size": 25252,
+      "sha256": "89e83f676d6137b033f95dd9f34d3df76312140a356589a51f6d866d5eeccba6"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 16864,
+      "sha256": "69fce31eaa6888203ed06260c0327a0950434a155eedf9c5517c5f1eb5a2fed2"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 8288,
+      "sha256": "f0c0b4f993177e1b33e571bb5e1b584a91d00ff73a81645931569f2b354b7c01"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 28246,
+      "sha256": "26c70b9203b7b99a81f8e070345b4f4ac3b2b87a7a19f5a40c25f272fc715edb"
+    },
+    "build/CMakeCache.txt": {
+      "size": 20493,
+      "sha256": "b96f1f7bc47faab7fdc242530cc6fc8c774618ca684e4e39ca0497c0ef86bbd0"
+    }
+  }
+}

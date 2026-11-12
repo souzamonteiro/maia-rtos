@@ -1,0 +1,65 @@
+# Actual 2026-11-12 capture; CRLF normalized to LF.
+
+
+I (248) esp_image: segment 4: paddr=001cde08 vaddr=4ff07408 sizeI (64285) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+NATIVE_CLIC_BASELINE_RESTORED
+
+I (67798) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+I (69060) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+=== MaiaRTOS Native RISC-V ELF Execution ===
+Loading: /sd/apps/scicalc.mobj (57256 bytes)
+Loader: Allocated 36096 bytes at 0x4ff1a600
+Loader: Relocations applied & fence.i synchronized.
+Loader: Executing maia_module_main at 0x4ff203d8...
+GDB: add-symbol-file <module.mobj> 0x4ff1a600
+I (69146) I2S_IF: Pending out channel for in channel running
+I (69147) I2S_IF: Mode 0 need extend bits 64 to 32
+I (69147) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (69147) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (69153) ES8388: Start on mode:2
+I (69154) Adev_Codec: Open codec device OK
+I (69212) KBD_TAB5: MaiaScript app: 29 registered controls
+
+I (70713) I2S_IF: Pending out channel for in channel running
+I (70713) I2S_IF: Mode 0 need extend bits 64 to 32
+I (70713) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (70713) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (70719) ES8388: Start on mode:2
+I (70720) Adev_Codec: Open codec device OK
+I (71281) I2S_IF: Pending out channel for in channel running
+I (71281) I2S_IF: Mode 0 need extend bits 64 to 32
+I (71281) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (71281) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (71287) ES8388: Start on mode:2
+I (71288) Adev_Codec: Open codec device OK
+I (71834) I2S_IF: Pending out channel for in channel running
+I (71834) I2S_IF: Mode 0 need extend bits 64 to 32
+I (71834) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (71834) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (71840) ES8388: Start on mode:2
+I (71841) Adev_Codec: Open codec device OK
+I (72402) I2S_IF: Pending out channel for in channel running
+I (72402) I2S_IF: Mode 0 need extend bits 64 to 32
+I (72402) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (72402) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (72408) ES8388: Start on mode:2
+I (72409) Adev_Codec: Open codec device OK
+I (72975) I2S_IF: Pending out channel for in channel running
+I (72975) I2S_IF: Mode 0 need extend bits 64 to 32
+I (72975) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (72975) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (72981) ES8388: Start on mode:2
+I (72982) Adev_Codec: Open codec device OK
+[SciCalc] 2+3*4 = 14
+I (73543) I2S_IF: Pending out channel for in channel running
+I (73543) I2S_IF: Mode 0 need extend bits 64 to 32
+I (73543) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (73543) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (73549) ES8388: Start on mode:2
+I (73550) Adev_Codec: Open codec device OK
+
+Loader: Module returned 0 (0x0)
+[SUCCESS] Module executed! Exit code: 0 (0x00)
+I (83456) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+
+PASS: baseline application restored, shell responsive, SciCalc 14, desktop left active

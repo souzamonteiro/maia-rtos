@@ -558,3 +558,25 @@ and no flash/SD write. Artifacts: `../maia-rtos-recovery/native-vdma-transfer-20
 Next: DSI/CSI PHY/bridge shutdown under explicit failure/ownership policy before
 clock gating/power tests. VO3 and panel-reset guards untouched; full desktop still
 uses FreeRTOS, native cold display pending, POSIX DESIGN.
+
+## Native boot MIPI reset parking — 2026-11-12
+
+Read [MIPI reset parking](audits/native-mipi-park.md). New native boot-exclusive API requires
+VDMA global/channel/abort/reset/FIFO0, already-shutdown DSI/CSI hosts/analog PHYs,
+DPI0 and DSI FIFO0. Three MIPI/both DMA bus clocks +PHY config clocks must already
+be enabled. Four masked/verified bridge/digital reset steps, preserved other bits,
+fresh guards/no-op skipping and sticky failure until reset. No analog/clock/power/
+DMA/IRQ-status writes. Live states reject; generic live-stream stop is not ported.
+TRM38.7.2 p1974 also requires shared ISP reset for CSI stop; do not skip ownership
+or treat this boot-only API as complete live teardown/power-cycle permission.
+Host27/27, sanitizer/C++98/four mutants/two invalid profiles PASS. Target RAM
+probe enables only CSI host bus SYS11 (0C0D5678->0C0D5E78) for inspection, arms
+both bridge EN and two digital reset-release bits while hosts/analog remain low.
+Native stage4/attemptmaskF/four control words0/preserved1/duplicate_busy1 PASS;
+clocks (prepared baseline) and sampled DMA/channel/other fields unchanged.
+DSI PHY clock-lane/forcePLL clearing host-tested only. Runner host-ready byte
+precedes setup/capture. Shell/SciCalc14/desktop restored after reset, no flash/SD
+write. Artifacts: `../maia-rtos-recovery/native-mipi-park-20261112/`.
+Next: shared ISP/boot consumer prerequisites, checked reset-state clock gating;
+then VO3/reset hardware gates and native display/PSRAM. Full desktop still uses
+FreeRTOS; live-stream shutdown and POSIX implementation remain pending.

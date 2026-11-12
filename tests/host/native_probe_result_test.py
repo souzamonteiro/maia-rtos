@@ -241,3 +241,22 @@ for old, new in [('copied=00000400','copied=00008000'), ('copied=00000400','copi
 assert not runner.evaluate_vdma_transfer(transfer+transfer)
 assert not runner.evaluate_vdma_transfer(transfer.replace('DMA_COPY matched','DMA_UNKNOWN matched'))
 print('PASS: DMA transfer evidence requires bounded memory, copy, active stop and partial stable result')
+
+park = """MIPI_PARK_SETUP sys_before=0c0d5678 sys_ready=0c0d5e78 dsi_phy=00000002 csi_phy=00000001 armed=0000000f live=00000000
+MIPI_PARK result=00000000 stage=00000004 attempted=0000000f dsi_bridge=00000000 csi_bridge=00000000 dsi_phy=00000000 csi_phy=00000000 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_PARK_PASS
+"""
+assert runner.evaluate_mipi_park(park)
+assert not runner.evaluate_mipi(park)
+for old,new in [('live=00000000','live=00000001'), ('attempted=0000000f','attempted=00000000'),
+                ('dsi_phy=00000002','dsi_phy=00000003'), ('stage=00000004','stage=00000003'),
+                ('preserved=00000001','preserved=00000000'), ('sys_ready=0c0d5e78','sys_ready=0c0d5678'),
+                ('dsi_bridge=00000000','dsi_bridge=00000001')]:
+    assert not runner.evaluate_mipi_park(park.replace(old,new,1))
+assert not runner.evaluate_mipi_park(park+park)
+assert not runner.evaluate_mipi_park(park.replace('MIPI_PARK_SETUP','MISSING'))
+print('PASS: MIPI parked reset scope, host clock preparation, all modified fields and capture negatives')
+
+assert not runner.evaluate_mipi_park(park + 'MIPI_PARK malformed\n')
+assert not runner.evaluate_mipi_park(park + 'MIPI_PARK_SETUP malformed\n')
+assert not runner.evaluate_mipi_park(park.replace('dsi_phy=00000002','dsi_phy=80000002'))
