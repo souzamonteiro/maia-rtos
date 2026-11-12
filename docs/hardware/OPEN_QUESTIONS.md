@@ -50,3 +50,11 @@ DSI/CSI PHY/bridge stop, peripheral handshakes and clock/power gating remain ope
   test. CSI host clock was temporarily enabled for real inspection; no longer
   infer its reset state from unmeasured zeros. Verify boot ISP/consumer state
   before checked clock gating/power tests; do not relax existing VO3/reset guards.
+
+Follow-up UQ-015/UQ-016: [native reset-state clock gate](../audits/native-mipi-gate.md)
+PASS holds shared ISP/CSI/DSI resets and clears all guarded MIPI clocks after native
+park/VDMA guards. Actual ISP clock is on, but source/input controls are disconnected
+(CNTL40002442/CAM4); no clock-on=idle inference. ISP function clock remains on with
+reset held. No MIPI/ISP reads after reset/gating. Live-stream/shared runtime ownership,
+internal/electrical reset/analog settling and PSRAM remain open. Existing VO3/reset
+guards were not bypassed; compose only the verified boot path for subsequent tests.

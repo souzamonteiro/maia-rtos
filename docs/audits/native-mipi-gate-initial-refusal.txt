@@ -1,0 +1,25 @@
+# Actual 2026-11-12 capture; CRLF normalized to LF.
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 10112 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+MIPI_PARK_SETUP sys_before=0c0d5678 sys_ready=0c0d5e78 dsi_phy=00000002 csi_phy=00000001 armed=0000000f live=00000000
+MIPI_PARK result=00000000 stage=00000004 attempted=0000000f dsi_bridge=00000000 csi_bridge=00000000 dsi_phy=00000000 csi_phy=00000000 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_PARK_PASS
+MIPI_ISP clock=02e82000 reset=00000040 norst=00000000
+MIPI_GATE result=00000003 stage=00000000 attempted=00000000 reset_before=00000040 reset_after=00000040 phy_before=000002b3 phy_after=000002b3 sys_before=0c0d5e78 sys_after=0c0d5e78 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_PARK_FAIL gate
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] MIPI clock gating: FAIL / NOT DEMONSTRATED

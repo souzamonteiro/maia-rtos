@@ -580,3 +580,24 @@ write. Artifacts: `../maia-rtos-recovery/native-mipi-park-20261112/`.
 Next: shared ISP/boot consumer prerequisites, checked reset-state clock gating;
 then VO3/reset hardware gates and native display/PSRAM. Full desktop still uses
 FreeRTOS; live-stream shutdown and POSIX implementation remain pending.
+
+## Checked native MIPI clock gating — 2026-11-12
+
+Read [MIPI gate evidence](audits/native-mipi-gate.md). Gate API requires internal native park
+claim, inactive VDMA and reset-state MIPI. Initial clock-off-only ISP guard
+refused02E82000; actual inspection found CNTL40002442/CAM4 (CSI input disabled,
+DVP disabled/held reset). Final guard accepts only that disconnected input mode
+when clocked, or skips unreadable clock-off/held-reset ISP; enabled/other sources
+reject. No ISP clock enabling or fabricated idle signal. Hold ISP/CSI host/CSI
+bridge/DSI bridge resets, then clear PHY93 and SYS1C00, checking full readbacks/
+preserved bits and fresh RCC/VDMA. No MIPI/ISP MMIO after reset; DMA clocks stay on.
+Failure after guards sticky until reset, no rollback/retry; duplicate BUSY.
+Target RAM PASS: reset40->3C000040, PHY2B3->220, SYS0C0D5E78->0C0D4278;
+stage5/attempt7/preserved1/duplicate_busy1. ISP clock remains on, module held reset.
+Host28/28, sanitizer/C++98/four mutants and invalid profile PASS. Preserved flash
+shell/SciCalc14/desktop verified after reset; no flash/SD/LDO/analog-power writes.
+Artifacts: `../maia-rtos-recovery/native-mipi-gate-20261112/`. This resolves only
+boot-reset clock gating; not live ISP/CSI/video stop, electrical settling or an
+unconditional power-cycle permission. Next: compose guarded VO3 off/acquire test
+with native park/gate, retaining supply/discharge/stabilization limitations.
+Full desktop still FreeRTOS-based; native cold display/PSRAM/POSIX pending.

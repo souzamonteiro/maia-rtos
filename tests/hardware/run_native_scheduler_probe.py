@@ -115,7 +115,9 @@ def evaluate_mipi(output, allow_stop=False):
     return True
 
 
-def evaluate_mipi_park(output):
+def evaluate_mipi_park(output, allow_gate=False):
+    if not allow_gate and 'MIPI_GATE' in output:
+        return False
     lines = output.replace('\r', '').splitlines()
     if lines.count('MAIA_NATIVE_MIPI_PARK_PASS') != 1 or 'FAIL' in output or 'FATAL' in output:
         return False
@@ -129,6 +131,32 @@ def evaluate_mipi_park(output):
     db, cb, dp, cp = map(lambda s: int(s, 16), result[0])
     return (ready == before | 0x800 and ready & 0x1c20 == 0x1c20 and dsi & 15 == 2 and csi & 1 == 1 and
             not db & 1 and not cb & 1 and dp == dsi & ~14 and cp == csi & ~1)
+
+
+def evaluate_mipi_gate(output):
+    if not evaluate_mipi_park(output, allow_gate=True):
+        return False
+    lines = output.replace('\r', '').splitlines()
+    if lines.count('MAIA_NATIVE_MIPI_GATE_PASS') != 1:
+        return False
+    for key in ('MIPI_ISP ', 'MIPI_ISP_STATE ', 'MIPI_GATE '):
+        if sum(line.startswith(key) for line in lines) != 1:
+            return False
+    isp = re.findall(r'^MIPI_ISP clock=([0-9a-f]{8}) reset=([0-9a-f]{8}) norst=([0-9a-f]{8})$', output.replace('\r', ''), re.M)
+    state = re.findall(r'^MIPI_ISP_STATE inspected=([01]{8}) control=([0-9a-f]{8}) camera=([0-9a-f]{8})$', output.replace('\r', ''), re.M)
+    gate = re.findall(r'^MIPI_GATE result=00000000 stage=00000005 attempted=([0-9a-f]{8}) reset_before=([0-9a-f]{8}) reset_after=([0-9a-f]{8}) phy_before=([0-9a-f]{8}) phy_after=([0-9a-f]{8}) sys_before=([0-9a-f]{8}) sys_after=([0-9a-f]{8}) preserved=00000001 duplicate_busy=00000001$', output.replace('\r', ''), re.M)
+    if len(isp) != 1 or len(gate) != 1 or len(state) != 1:
+        return False
+    clock, reset, norst = (int(s, 16) for s in isp[0])
+    inspected, control, camera = (int(s, 16) for s in state[0])
+    readable = bool(clock & (1 << 25)) and not bool(reset & (1 << 29))
+    if inspected != int(readable) or (readable and (control & 0x18000001 or camera & 7 != 4)) or (not readable and (control or camera)):
+        return False
+    attempted, rb, ra, pb, pa, sb, sa = (int(s, 16) for s in gate[0])
+    ready = re.search(r'^MIPI_PARK_SETUP .* sys_ready=([0-9a-f]{8}) ', output.replace('\r', ''), re.M)
+    return (not norst & 0x7800 and rb == reset and ra == rb | 0x3c000000 and
+            attempted == (6 if ra == rb else 7) and pb & 0x11 == 0x11 and pa == pb & ~0x93 and
+            ready is not None and sb == int(ready[1], 16) and sb & 0x1c20 == 0x1c20 and sa == sb & ~0x1c00)
 
 
 def evaluate_vdma_transfer(output):
@@ -303,6 +331,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--mipi-gate', action='store_true', help='verify held shared resets and boot MIPI clock gating')
     parser.add_argument('--mipi-park', action='store_true', help='verify reset-state bridge/PHY parking, no live streams')
     parser.add_argument('--vdma-transfer', action='store_true', help='verify owned SRAM DMA copy and active-channel stop')
     parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
@@ -331,6 +360,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.mipi_gate:
+        args.mipi_park = True
     if args.mipi_park:
         if args.vdma_transfer or args.vdma_stop or args.vdma_arm_empty:
             parser.error('MIPI park excludes VDMA workloads')
@@ -438,7 +469,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.mipi_park:
+        if args.mipi_gate:
+            passed = evaluate_mipi_gate(output)
+        elif args.mipi_park:
             passed = evaluate_mipi_park(output)
         elif args.vdma_transfer:
             passed = evaluate_vdma_transfer(output)
@@ -456,7 +489,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

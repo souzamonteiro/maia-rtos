@@ -260,3 +260,26 @@ print('PASS: MIPI parked reset scope, host clock preparation, all modified field
 assert not runner.evaluate_mipi_park(park + 'MIPI_PARK malformed\n')
 assert not runner.evaluate_mipi_park(park + 'MIPI_PARK_SETUP malformed\n')
 assert not runner.evaluate_mipi_park(park.replace('dsi_phy=00000002','dsi_phy=80000002'))
+
+gate = park + """MIPI_ISP clock=007fffff reset=80000001 norst=80000001
+MIPI_ISP_STATE inspected=00000000 control=00000000 camera=00000000
+MIPI_GATE result=00000000 stage=00000005 attempted=00000007 reset_before=80000001 reset_after=bc000001 phy_before=000002b3 phy_after=00000220 sys_before=0c0d5e78 sys_after=0c0d4278 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_GATE_PASS
+"""
+assert runner.evaluate_mipi_gate(gate)
+assert not runner.evaluate_mipi_park(gate)
+for old,new in [('clock=007fffff','clock=027fffff'),('reset_after=bc000001','reset_after=9c000001'),
+                ('norst=80000001','norst=80004001'),('phy_after=00000220','phy_after=00000221'),
+                ('sys_after=0c0d4278','sys_after=0c0d4258'),('attempted=00000007','attempted=00000006'),
+                ('stage=00000005','stage=00000004')]:
+    assert not runner.evaluate_mipi_gate(gate.replace(old,new,1))
+assert not runner.evaluate_mipi_gate(gate+gate)
+assert not runner.evaluate_mipi_gate(gate+'MIPI_GATE malformed\n')
+print('PASS: MIPI gate capture requires ISP off, all held resets, exact preserved masks and exclusive mode')
+
+clocked_gate = gate.replace('clock=007fffff','clock=02e82000').replace('inspected=00000000 control=00000000 camera=00000000', 'inspected=00000001 control=40002442 camera=00000004')
+assert runner.evaluate_mipi_gate(clocked_gate)
+for old,new in [('control=40002442','control=40002443'), ('control=40002442','control=48002442'),
+                ('camera=00000004','camera=00000005'), ('camera=00000004','camera=00000000'),
+                ('inspected=00000001','inspected=00000000')]:
+    assert not runner.evaluate_mipi_gate(clocked_gate.replace(old,new))

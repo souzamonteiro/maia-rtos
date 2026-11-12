@@ -637,3 +637,25 @@ lane/forcePLL dirty cases host-tested only. Host27/27/sanitizer/header/negative
 checks PASS. Shell/SciCalc14/desktop verified after reset; no flash/SD/LDO/analog
 power writes. Shared ISP/live-stream quiesce and physical settling remain open
 before treating this as unconditional permission for clock/power gating.
+
+### Shared ISP prerequisite and native clock gating — 2026-11-12
+
+[ESP32-P4 chip1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+38.7.2 p1974 requires VDMA completion/ISP reset/CSI host reset; 34.7.5–7 pp1574–1575
+separates input-source/input-enable from ISP global enable. Pinned SDK f5c3654
+[isp_ll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/isp_ll.h)
+module clock/reset and input source helpers, isp_reg.h CNTL+8 source bits28:27/
+MIPI_DATA_EN0 and CAM_CNTL+114 enable/update/reset bits0..2, plus mipi_csi_ll.h/
+mipi_dsi_ll.h clock/reset primitives pin the native policy. hp_sys_clkrst_reg.h
+RCC500E6000+A8 ISP clock25, +C0 reset26..29 mask3C000000, +CC reset overrides11..14
+mask7800, +3C PHY93 and +18 SYS1C00; preserve other fields. Exact sources/hashes and
+restrictions: [gate audit](../audits/native-mipi-gate.md).
+
+Target initially refused active ISP clock02E82000 before gate writes; clocked
+inspection measured CNTL40002442/CAM4: CSI source, no MIPI data input, DVP held
+reset/disabled. Native park claim +fresh input/VDMA/RCC guards then hold reset
+40->3C000040, PHY2B3->220, SYS0C0D5E78->0C0D4278; stage5/attempt7/preserved1/
+duplicate_busy1 PASS. All guarded MIPI clock bits0; ISP clock unchanged/module reset
+held, CPU/VDMA retained. No MIPI/ISP MMIO after reset, no LDO/analog power/flash/SD
+writes. Host28/28/sanitizer/header/negative checks PASS; shell/SciCalc14/desktop
+verified after RAM reset. Electrical settling and live shared-ISP shutdown not proven.

@@ -56,5 +56,34 @@ void maia_boot_main(void) {
     field(" dsi_bridge=",r.dsi_bridge);field(" csi_bridge=",r.csi_bridge);field(" dsi_phy=",r.dsi_phy);field(" csi_phy=",r.csi_phy);
     field(" preserved=",(uint32_t)preserved);field(" duplicate_busy=",(uint32_t)busy);maia_console_puts("\n");
     if (result != MAIA_MIPI_PARK_OK || r.completed != MAIA_MIPI_PARK_VERIFIED || r.attempted_mask != 15U || !preserved || !busy) halt("verification");
-    maia_console_puts("MAIA_NATIVE_MIPI_PARK_PASS\n");for (;;) __asm__ volatile("wfi");
+    maia_console_puts("MAIA_NATIVE_MIPI_PARK_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_MIPI_GATE
+    /* Parking API has committed its lifetime claim. Read RCC-only ISP state
+     * before requesting gate; no ISP MMIO through its disabled clock. */
+    field("MIPI_ISP clock=",rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xA8U));
+    field(" reset=",rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U));
+    field(" norst=",rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xCCU));maia_console_puts("\n");
+    maia_mipi_gate_report_t g,again;
+    result=maia_esp32p4_mipi_gate_clocks(&g);
+    field("MIPI_ISP_STATE inspected=",g.isp_inspected);field(" control=",g.isp_control);field(" camera=",g.isp_camera);maia_console_puts("\n");
+    int gate_busy=maia_esp32p4_mipi_gate_clocks(&again) == MAIA_MIPI_PARK_BUSY;
+    /* Do not snapshot MIPI after clocks go off. Only RCC and VDMA remain legal. */
+    int kept=rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x14U) == before.cpu &&
+        rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xA8U) == g.isp_clock &&
+        rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xCCU) == g.force_norst;
+    const unsigned dma_regs[]={0x10,0x18,0x1C};
+    for (unsigned i=0;i<3U;++i) if (rd(MAIA_ESP32P4_GDMA_BASE+dma_regs[i]) != before.dma[i]) kept=0;
+    for (unsigned c=0;c<4U;++c) {
+        const unsigned offsets[]={0x20,0x24,0x30,0x34,0,8,0x28};
+        for (unsigned i=0;i<7U;++i) if (rd(MAIA_ESP32P4_GDMA_BASE+0x100U*(c+1U)+offsets[i]) != before.channel[c][i]) kept=0;
+    }
+    field("MIPI_GATE result=",(uint32_t)(-result));field(" stage=",g.completed);field(" attempted=",g.attempted_mask);
+    field(" reset_before=",g.reset_before);field(" reset_after=",g.reset_after);
+    field(" phy_before=",g.phy_before);field(" phy_after=",g.phy_after);
+    field(" sys_before=",g.sys_before);field(" sys_after=",g.sys_after);
+    field(" preserved=",(uint32_t)kept);field(" duplicate_busy=",(uint32_t)gate_busy);maia_console_puts("\n");
+    if (result != MAIA_MIPI_PARK_OK || g.completed != MAIA_MIPI_GATE_VERIFIED || !kept || !gate_busy) halt("gate");
+    maia_console_puts("MAIA_NATIVE_MIPI_GATE_PASS\n");
+#endif
+    for (;;) __asm__ volatile("wfi");
 }
