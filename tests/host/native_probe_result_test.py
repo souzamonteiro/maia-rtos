@@ -135,3 +135,20 @@ assert not runner.evaluate_panel_reset(expander)
 assert not runner.evaluate_panel_reset(panel + 'PANEL_RESET stage=9 changed=1 preserved=1 elapsed_us=250000 gpio23_input=1\n')
 assert not runner.evaluate_panel_reset(panel + 'MAIA_NATIVE_TOUCH_FAIL')
 print('PASS: panel reset evidence requires verified stage, minimum delay, bit preservation and touch recovery')
+
+ldo = ('LDO3_VERSION chip_major=1 chip_minor=3 block_major=0 block_minor=1 disabled=0 rs_fail=0 corrected=0\n'
+       'LDO3_TRIM k=0 vos=0 c=0\n'
+       'LDO3_PLAN target_mv=2500 dref=9 mul=6 default_mask=7 estimated_uv=2500000 error_uv=0\n'
+       'LDO3_COEFF k1000=1000 vos1000=0 c1000=1000\n'
+       'LDO3_CURRENT enabled=0 sw_owner=0 bypass=0 source=0 dref=10 mul=0 vdet=0\n'
+       'LDO3_READONLY samples=16 unchanged=1 errors=0\nMAIA_NATIVE_LDO3_PASS\n')
+assert runner.evaluate_ldo3(ldo)
+for old,new in [('chip_minor=3','chip_minor=2'),('block_major=0','block_major=1'),('rs_fail=0','rs_fail=1'),
+                ('dref=9 mul=6','dref=13 mul=3'),('default_mask=7','default_mask=0'),
+                ('estimated_uv=2500000','estimated_uv=2500001'),('k1000=1000','k1000=999'),
+                ('samples=16','samples=1'),('unchanged=1','unchanged=0'),('k=0 vos=0','k=256 vos=0')]:
+    assert not runner.evaluate_ldo3(ldo.replace(old,new))
+assert not runner.evaluate_ldo3(ldo+ldo)
+assert not runner.evaluate_ldo3(ldo+'MAIA_NATIVE_LDO3_FAIL')
+assert not runner.evaluate_ldo3('MAIA_NATIVE_LDO3_PASS')
+print('PASS: LDO3 evidence validates raw trims, model/grid selection, stable registers and known silicon/schema')

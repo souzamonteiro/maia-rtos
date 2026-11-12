@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-12",
+  "started": "2026-11-11",
+  "parent_commit": "975a93db5d07655e2da25bd4466826adf7c4b7dd",
+  "scope": "Read-only VO3 eFuse/PMU inspection and pure2500mV planning; no regulator acquisition or writes",
+  "sdk_reference": {
+    "components/hal/esp32p4/include/hal/ldo_ll.h": {
+      "sha256": "b0dde231a26a013371d1750b38d3ec196007cbd412ce62d4decdd88aae440159",
+      "matches_HEAD": true
+    },
+    "components/hal/esp32p4/include/hal/efuse_ll.h": {
+      "sha256": "910a805ef46a46991c55c92362493339cd11a794f1aff639db6248926c4413af",
+      "matches_HEAD": true
+    },
+    "components/hal/efuse_hal.c": {
+      "sha256": "4177ce395425547645ac2e3e8d291522455185e673c256e65de31bd437379384",
+      "matches_HEAD": true
+    },
+    "components/esp_hw_support/ldo/esp_ldo_regulator.c": {
+      "sha256": "d47056dd6d44044aef554a5830401d47bdc7065c6e96738d665b7514041589a7",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/reg_base.h": {
+      "sha256": "36d5f6e0952e1696ac131d7e24dbe9b0f242bf9f43d77a1ee3d5ebca7b4ce631",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/efuse_reg.h": {
+      "sha256": "62090bd9b049e751f80aed34192f195376e4a5cdf86a49c94d8a37008e05d7d4",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/pmu_reg.h": {
+      "sha256": "112ca7c71da10819174dfe24d54064474991086a4ddf9f46ad8b9522975f9d8b",
+      "matches_HEAD": true
+    }
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "m5_reference": {
+    "commit": "28d47949bdc84f30881623476f555398e2194313",
+    "path": "src/lgfx/v1/platforms/esp32p4/Bus_DSI.inl",
+    "sha256": "7035de8062d8fb75e3c28c39f9e532c48055780730e768cd11a55fca665b1754"
+  },
+  "ram_image": {
+    "entrypoint": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 7984
+      }
+    ]
+  },
+  "preserved_firmware_manifest": {
+    "commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+    "files": {
+      "platforms/tab5/build/m5stack_tab5.bin": {
+        "size": 2093696,
+        "sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd"
+      },
+      "platforms/tab5/build/m5stack_tab5.elf": {
+        "size": 29121432,
+        "sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+      },
+      "platforms/tab5/build/m5stack_tab5.map": {
+        "size": 13191466,
+        "sha256": "5b768d18c5becfbec61f9d98ad7075fff9cc98d912d90dd4b9f8a4fcb466679a"
+      },
+      "platforms/tab5/build/bootloader/bootloader.bin": {
+        "size": 23136,
+        "sha256": "5d0feef7760570bdecbcb23220742b08a297e039062479d3b633ed53635233b5"
+      },
+      "platforms/tab5/build/partition_table/partition-table.bin": {
+        "size": 3072,
+        "sha256": "97ce22d502aaae32ae3de440ee5de7dc4782501c4faca6a91aef0dfe90ad256c"
+      },
+      "platforms/tab5/build/flash_args": {
+        "size": 153,
+        "sha256": "5cd7cee10d0062df7a7135c0f7a8483a979a41de62fd2ee6c58486d6bc7fbe4d"
+      },
+      "platforms/tab5/build/flasher_args.json": {
+        "size": 923,
+        "sha256": "607507acde2d92ac68383d05ae58de3f6a154bd0671fbe4c036ced5c79ac7454"
+      },
+      "platforms/tab5/sdkconfig": {
+        "size": 95487,
+        "sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b"
+      },
+      "platforms/tab5/sdkconfig.defaults": {
+        "size": 1450,
+        "sha256": "9bb2eff50471319400cbf5beccc2e1ae9ff5496f9f51cbebfc0c6755cfa6d8ba"
+      },
+      "platforms/tab5/dependencies.lock": {
+        "size": 7730,
+        "sha256": "5a92f6d9c18e1b4538e7e5f939cac642d84df03cc70e21833464733c9d9774c9"
+      }
+    }
+  },
+  "source_hashes": {
+    "source/CMakeLists.txt": "b641eeb0d485962a51b2cf4dd1fb2fc8a79043e9a7a796f362876b7959f60be8",
+    "source/include/maia/soc/esp32p4_ldo3.h": "8bfb508e8e2731ccf5c0ff4af2108b1692302e2a0f02c035dc57adfacddf7e13",
+    "source/include/maia/soc/esp32p4_regs.h": "ce6c48127a8039c00578ba0f408f7f414aa4629ab1cbcf71deb84015c06ba231",
+    "source/soc/espressif/esp32p4/soc_ldo3_plan.c": "4a24f2b3b5c25c893ec46775e324841f234dc63572b69d053e6114748a4b2dce",
+    "source/soc/espressif/esp32p4/soc_ldo3_snapshot.c": "10f905f73c88679dd74ac29b342405606b09c61392db23228ffd90a7f31f169e",
+    "source/tests/host/ldo3_plan_test.c": "d2e85503a50e1e36de55bd69161dccd2625d4631b3ab74715d2f1a3d5176fb71",
+    "source/tests/host/esp32p4_regs_test.c": "cdcebffd0d273a56c13db7ca7e2c2879d2667ea57396db73373c848a67d6c32a",
+    "source/tests/host/native_probe_result_test.py": "0965ba3ef016804f76839c5f72a1619b460ae2fd41db69a0ec93f12d829fc708",
+    "source/tests/hardware/native_ldo3_probe.c": "acb6cb3d7e339f5dfd68d19c320334193f2417ef50ece716fc6f1ebd4fc7d386",
+    "source/tests/hardware/run_native_scheduler_probe.py": "c946c58052592664f0114e57c6cdffaf3d2bce7588796602de6262cbde0640f4",
+    "source/LICENSES/Apache-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source/docs/AGENT_HANDOFF.md": "5668a0aee38be219c97b9e1ba46353f8cf42394fd861c11f4073685a8657ba65",
+    "source/docs/plans/STATUS.md": "e3af56fb248a8629db9fefd836ac33fb73884dc02a84d1b895060754e7afc2cf",
+    "source/docs/hardware/EVIDENCE.md": "9b7d0fcc9d16189cc75c1aa357ef2d660b1b0853f14cc5bd60b1430e01ba4cbf",
+    "source/docs/hardware/OPEN_QUESTIONS.md": "e514a6578722359ac24e7333a8b57bd47c4a578564cf3547ba51920da0c27c36",
+    "source/docs/audits/native-ldo3-calibration.md": "431e6c48873fc38260bf391991e3a52d71214f5104364f1268b65aa2ff49beeb",
+    "source/docs/audits/native-ldo3-hardware.txt": "3f7fc0c56707f16c04abd919620108c9122541a00231dfa2df758caa892f04e9",
+    "source/docs/audits/native-ldo3-desktop.txt": "edfc89618932df1cce1c955373075c3de843c0c4c92d78103b5d48593b43ed51",
+    "source/docs/audits/native-ldo3-desktop-initial-fail.txt": "a461811bf970928064f1dfe9752c63844d705a180c347e66d7d4b2c2d79b6de3"
+  },
+  "artifact_and_log_hashes": {
+    "build/maia_sched_probe.elf": "016565b35bd9039116399be2e650b3a6ed44a659c5fa85f2db8aae539c55c5f7",
+    "build/maia_sched_probe_ram.elf": "dbf3fd6b8b1655823cec73e3c84da09e889fe436da4ff63171ab5852c8478758",
+    "build/maia_sched_probe_ram.bin": "b0018f0c7d4ac60eb08f373e2bcd71fe4694e5e46ed35e2be01db3428a02841e",
+    "build/maia_sched_probe.map": "87b0ef63ce5c801de4306c232719e1d22ccc806e68e7f0db95ed7f2165f8964b",
+    "build/CMakeCache.txt": "8c4308383ce5b813f9bfd95cd1db550d7f1610f452cc7be656c68ff0213b839b",
+    "logs/maia-ldo3-desktop-verified.log": "626216535078822ae3ab3173e43234e3d62a3bc98c87d31ef95934c24020b8a6",
+    "logs/maia-ldo3-hardware.log": "4c49c2614a6beca4c4d975b85bdc14c432bfe8fe738922700cca98023e970777",
+    "logs/maia-ldo3-native-build.log": "c80dfeef5999cc45d4dd6f66c2ffed672bb5ccdfd8abced605098bde454c818d",
+    "logs/maia-ldo3-mutants.log": "04f9e5a002ff1489ec11ec38b26e8827ef0c7e0a2e00ee7966e2e62679b9cbd7",
+    "logs/maia-ldo3-differential.log": "52ed2b2b9c4ab3ef85c992ead69b8fbb3123c975a09a3372db9e4eea5fb1a803",
+    "logs/maia-ldo3-native-config.log": "31377c3b0f66cbf19d7bae6ab4d5aa20024681fbad9e9746948d5c39eefe19b3",
+    "logs/maia-ldo3-invalid-profile.log": "dd0e8b82b33507dbf3713d059336ce98edb5db6bc7b0c6fc4bf3cdde6cec9f8a",
+    "logs/maia-ldo3-host-config.log": "cb97485f5c8afad4cabf0cdc5546b1796ea889faa76cd6f08dd25bb7b1a01a73",
+    "logs/maia-ldo3-host-test.log": "c7bc43734a10f76b458b5de8be87cec3b69d865f9188815a47a5debf3c0d5ec9",
+    "logs/maia-ldo3-sanitized.log": "eb55c6d026f270b944ebf6a4245f622f06e8195ccc4870da0096af3181168c97",
+    "logs/maia-ldo3-desktop-initial-fail.log": "e328a060df041a82683535cab4806191f51c73787ba8ff9bce84f1aac1d9507f",
+    "logs/maia-ldo3-host-build.log": "ddfc2fac42577883cd41b2cf3ca8e37ca3e5b027a8aabfc55eeab074638f9c81"
+  }
+}

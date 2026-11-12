@@ -1,0 +1,48 @@
+Line endings normalized to LF; raw capture preserved in recovery.
+
+
+I (248) esp_image: segment 4: paddr=001cde08 vaddr=4ff07408 sizeI (3057277) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+NATIVE_CLIC_BASELINE_RESTORED
+
+I (3060892) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+I (3062156) KBD_TAB5: Real wallpaper from '/sd/wallpaper.raw' applied (1843200 bytes)!
+=== MaiaRTOS Native RISC-V ELF Execution ===
+Loading: /sd/apps/scicalc.mobj (57256 bytes)
+Loader: Allocated 36096 bytes at 0x4ff1a600
+Loader: Relocations applied & fence.i synchronized.
+Loader: Executing maia_module_main at 0x4ff203d8...
+GDB: add-symbol-file <module.mobj> 0x4ff1a600
+I (3062239) I2S_IF: Pending out channel for in channel running
+I (3062239) I2S_IF: Mode 0 need extend bits 64 to 32
+I (3062240) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (3062240) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (3062245) ES8388: Start on mode:2
+I (3062247) Adev_Codec: Open codec device OK
+I (3062305) KBD_TAB5: MaiaScript app: 29 registered controls
+
+I (3063806) I2S_IF: Pending out channel for in channel running
+I (3063806) I2S_IF: Mode 0 need extend bits 64 to 32
+I (3063806) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (3063806) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (3063812) ES8388: Start on mode:2
+I (3063813) Adev_Codec: Open codec device OK
+I (3063834) I2S_IF: Pending out channel for in channel running
+I (3063834) I2S_IF: Mode 0 need extend bits 64 to 32
+I (3063834) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (3063834) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (3063840) ES8388: Start on mode:2
+I (3063841) Adev_Codec: Open codec device OK
+I (3063867) I2S_IF: Pending out channel for in channel running
+I (3063867) I2S_IF: Mode 0 need extend bits 64 to 32
+I (3063867) I2S_IF: channel mode 0 bits:16/32 channel:2 mask:3
+I (3063867) I2S_IF: STD Mode 1 bits:16/32 channel:2 sample_rate:48000 mask:3
+I (3063873) ES8388: Start on mode:2
+I (3063875) Adev_Codec: Open codec device OK
+I (3063895) I2S_IF: Pending out channel for in channel running
+I (3063895) I2S_IF: Mode 0 need extend bits 64 to 32
+I (30
+Traceback (most recent call last):
+  File "/tmp/maia-clic-verify-restored.py", line 13, in <module>
+    c.ser.write(b'2+3*4=');out=c.wait_for_prompt(3);print(out,flush=True);assert re.search(r'\[SciCalc\] 2\+3\*4 = 14(?:\r?\n|$)',out)
+                                                                                 ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -38,6 +38,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  option(MAIA_NATIVE_PROBE_LDO3 "Read-only VO3 calibration diagnostic" OFF)
   option(MAIA_NATIVE_PROBE_PANEL_RESET "Exercise checked LCD/touch reset in boot diagnostic" OFF)
   if(MAIA_NATIVE_PROBE_PANEL_RESET AND NOT MAIA_NATIVE_PROBE_EXPANDER)
     message(FATAL_ERROR "Panel reset requires MAIA_NATIVE_PROBE_EXPANDER")
@@ -61,7 +62,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_EMPTY AND NOT MAIA_NATIVE_PROBE_IDLE)
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
-  if(MAIA_NATIVE_PROBE_TOUCH)
+  if(MAIA_NATIVE_PROBE_LDO3)
+    if(MAIA_NATIVE_PROBE_TOUCH OR MAIA_NATIVE_PROBE_EXPANDER OR MAIA_NATIVE_PROBE_PANEL_RESET OR
+       MAIA_NATIVE_PROBE_SERIAL_TX_EVENT OR MAIA_NATIVE_PROBE_NOTIFY OR MAIA_NATIVE_PROBE_SERIAL_TX OR
+       MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_STACK OR
+       MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_FP32 OR
+       MAIA_NATIVE_PROBE_MIXED OR MAIA_NATIVE_PROBE_LIFECYCLE)
+      message(FATAL_ERROR "LDO3 probe requires a separate read-only workload")
+    endif()
+    set(MAIA_PROBE_APP tests/hardware/native_ldo3_probe.c soc/espressif/esp32p4/soc_ldo3_plan.c
+      soc/espressif/esp32p4/soc_ldo3_snapshot.c)
+  elseif(MAIA_NATIVE_PROBE_TOUCH)
     if(MAIA_NATIVE_PROBE_SERIAL_TX_EVENT OR MAIA_NATIVE_PROBE_NOTIFY OR MAIA_NATIVE_PROBE_SERIAL_TX OR
        MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_STACK OR
        MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_FP32 OR
@@ -317,6 +328,12 @@ else()
       target_compile_options(riscv_trap_policy_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME riscv_trap_policy_test COMMAND riscv_trap_policy_test)
+    add_executable(ldo3_plan_test tests/host/ldo3_plan_test.c soc/espressif/esp32p4/soc_ldo3_plan.c)
+    target_include_directories(ldo3_plan_test PRIVATE include)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(ldo3_plan_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME ldo3_plan_test COMMAND ldo3_plan_test)
     add_executable(tab5_panel_reset_test tests/host/tab5_panel_reset_test.c
       boards/m5stack/tab5/panel_reset.c drivers/gpio/pi4ioe5v6408.c)
     target_include_directories(tab5_panel_reset_test PRIVATE include)

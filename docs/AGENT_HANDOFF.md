@@ -451,3 +451,26 @@ SciCalc14/desktop verified after reset; no flash/SD write. Exact artifacts/logs:
 `../maia-rtos-recovery/native-panel-reset-20261111/`. Legacy full desktop remains
 FreeRTOS-based and POSIX DESIGN. Next: audit/port MIPI PHY LDO acquisition with
 calibration/ownership/error contracts before DSI clocks or framebuffer/DMA.
+
+## Native VO3 calibration planning — 2026-11-12
+
+Read [VO3 calibration audit/port](audits/native-ldo3-calibration.md). Pure native
+C port of SDK voltage conversion and read-only ROM-shadow/PMU snapshot; Apache
+notice retained. No regulator acquisition/enable/write yet. Scope chip1.3, block
+schema0/minor>=1; disabled/unknown revision flags and uncorrectable block1 reject.
+SDK sign-magnitude/zero defaults,128-candidate first-minimum order, int64 math,
+modeled-voltage/default diagnostics. Snapshot boot/core0/IRQs-off only.
+Host22/22, sanitizer/C++98/six mutants PASS; exact SDK differential matches all
+1048576 trim triples. Actual block0.3 raw55/33/33 ->1030/-4/989 ->dref13/mul3,
+modeled2504637uV/error4637uV; sixteen snapshots unchanged, errors0. Current PMU
+is already enabled/SW-selected with those codes: inherited state, NOT native
+power-init proof. Old fixed code matches this chip but is not a generic port.
+Artifacts: `../maia-rtos-recovery/native-ldo3-calibration-20261112/`. Builds retain
+20261111 start-date suffix. Next: boot-exclusive acquire/lifetime/error policy,
+adopt matching active rail, reject conflicts, masked write/verify for off rail.
+No voltage/settling/cold-enable/display parity proof; full firmware still uses
+FreeRTOS, POSIX remains DESIGN.
+
+Preserved flash shell/SciCalc14/desktop verified after reset with paced keys;
+initial unpaced3s capture failed to collect the result and is retained in the
+VO3 report. No firmware fix or flash/SD write was made for this retest.

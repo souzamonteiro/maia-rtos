@@ -59,6 +59,34 @@ def evaluate_panel_reset(output):
     return evaluate_expander(output) and len(result) == 1 and int(result[0]) >= 200000
 
 
+def evaluate_ldo3(output):
+    version = re.findall(r'^LDO3_VERSION chip_major=1 chip_minor=3 block_major=0 block_minor=([1-7]) disabled=0 rs_fail=0 corrected=([0-7])$', output, re.M)
+    trim = re.findall(r'^LDO3_TRIM k=(\d+) vos=(\d+) c=(\d+)$', output, re.M)
+    plan = re.findall(r'^LDO3_PLAN target_mv=2500 dref=(\d+) mul=(\d+) default_mask=(\d+) estimated_uv=(\d+) error_uv=(\d+)$', output, re.M)
+    coeff = re.findall(r'^LDO3_COEFF k1000=(-?\d+) vos1000=(-?\d+) c1000=(-?\d+)$', output, re.M)
+    current = re.findall(r'^LDO3_CURRENT enabled=[01] sw_owner=[01] bypass=[01] source=[0-7] dref=(\d+) mul=([0-7]) vdet=[01]$', output, re.M)
+    if not all(len(x) == 1 for x in (version, trim, plan, coeff, current)):
+        return False
+    k, v, c = map(int, trim[0])
+    if k>255 or v>63 or c>63 or int(current[0][0])>15:
+        return False
+    def signed(raw, sign):
+        return -(raw-sign) if raw & sign else raw
+    K, V, C = 975+signed(k,128) if k else 1000, -3+signed(v,32) if v else 0, 990+signed(c,32) if c else 1000
+    candidates = []
+    for d in range(16):
+        ref = 10+d if d<9 else 2*d+2
+        for m in range(8):
+            predicted = (ref*K+20*V)*(4000+m*C)
+            candidates.append((abs(200000000-predicted), d, m, predicted))
+    error, dref, mul, predicted = min(candidates)
+    expected = (dref, mul, (not k)*1+(not v)*2+(not c)*4, (predicted+40)//80, (error+40)//80)
+    return (tuple(map(int, plan[0])) == expected and tuple(map(int, coeff[0])) == (K,V,C) and
+            output.split('\n').count('LDO3_READONLY samples=16 unchanged=1 errors=0') == 1 and
+            output.split('\n').count('MAIA_NATIVE_LDO3_PASS') == 1 and
+            all(word not in output for word in ('FAIL','MAIA_NATIVE_FATAL','MAIA_STACK_FAULT')))
+
+
 def serial_output_record(source, sequence):
     prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
     return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
@@ -123,6 +151,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--ldo3', action='store_true', help='verify read-only VO3 trim/planning and unchanged hardware')
     parser.add_argument('--panel-reset', action='store_true', help='verify LCD/touch reset, preserved bits and touch recovery')
     parser.add_argument('--expander', action='store_true', help='verify both expanders and same-value writes, including touch regression')
     parser.add_argument('--touch-identify', action='store_true', help='verify boot-only touch identity and negative probes')
@@ -143,6 +172,9 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.ldo3 and (args.panel_reset or args.expander or args.touch_identify or args.serial_output_event or
+                      args.serial_output or args.serial_input or args.expect_fatal_cause is not None):
+        parser.error("LDO3 requires a separate read-only profile")
     if args.panel_reset:
         args.expander = True
     if args.expander:
@@ -223,13 +255,15 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
+        if args.ldo3:
+            passed = evaluate_ldo3(output.replace("\r", ""))
         if args.serial_input:
             passed = passed and stimulus.phase == 2
         if args.serial_output:
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

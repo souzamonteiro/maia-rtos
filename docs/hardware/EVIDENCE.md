@@ -507,3 +507,26 @@ This proves register sequencing/touch recovery on warm supplies, not electrical
 voltages/waveforms, pixels or cold power-up. Host21/21, sanitizer/C++98/six mutants
 PASS. Preserved shell/SciCalc14/desktop verified after runner reset; no flash/SD
 write. Raw captures/artifact hashes/limits: ../audits/native-panel-reset.md.
+
+### Read-only native VO3 calibration prerequisites — 2026-11-12
+
+[Calibration source ledger](../audits/native-ldo3-calibration.md) pins primary
+ESP-IDF f5c3654 ldo_ll.h conversion/unit mapping, efuse_reg.h revision/VO3 trims,
+reg_base.h eFuse base5012D000 and pmu_reg.h P0_0P2A control/analog. Exact shadow
+addresses5012D04C/5012D050/5012D1C0 are read only; no eFuse command/program register
+is introduced. SDK model conversion is ported under retained Apache-2.0 notice.
+The current native stage computes a2500mV plan and observes registers; it neither
+claims the physical voltage nor acquires/enables the regulator. Actual power
+programming and ownership/failure contracts remain a separate step.
+
+Actual2026-11-12 RAM observation: chip1.3/block0.3, no version-disable or block1
+RS errors. Trims55/33/33 ->model coefficients1030/-4/989 ->dref13/mul3, model
+2504637uV/error4637uV, no default coefficients. Existing PMU enable/SW-selection
+and codes already match; no writes were made.16 snapshots unchanged, errors0.
+This validates reading/model arithmetic, not measured voltage or native power
+initialization. Host22/22, sanitizer/C++98/six mutants and1048576-case exact SDK
+differential PASS.
+
+Preserved flash shell/SciCalc14/desktop verified after reset with paced keys;
+initial unpaced3s capture failed to collect the result and is retained in the
+VO3 report. No firmware fix or flash/SD write was made for this retest.

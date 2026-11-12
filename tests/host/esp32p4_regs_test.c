@@ -60,6 +60,9 @@ int main(void) {
     if (MAIA_ESP32P4_GPIO_FUNC_OUT_SEL_REG(31U) != 0x500E05D4UL) return 47;
     if (MAIA_ESP32P4_GPIO_FUNC_OUT_SEL_REG(32U) != 0x500E05D8UL) return 48;
     if (MAIA_ESP32P4_GPIO_FUNC_OEN_SEL != (1UL << 10U)) return 49;
+    if (MAIA_ESP32P4_EFUSE_MAC_SYS2_REG != 0x5012D04CUL) return 50;
+    if (MAIA_ESP32P4_EFUSE_MAC_SYS3_REG != 0x5012D050UL) return 51;
+    if (MAIA_ESP32P4_EFUSE_RS_ERR0_REG != 0x5012D1C0UL) return 52;
     puts("ESP32-P4 register address contract PASS");
     return 0;
 }
