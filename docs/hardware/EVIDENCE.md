@@ -572,3 +572,24 @@ active DMA is not established. Snapshot cannot certify AXI drain/PHY stop or
 cold initialization. Host24/24, ASan/UBSan and negative checks PASS. Preserved
 flash shell/SciCalc14/desktop verified after reset; no flash/SD write. This
 checkpoint does not remove VO3/panel-reset guards or port native shutdown yet.
+
+### Native VDMA completion contract — 2026-11-12
+
+Primary silicon source: [ESP32-P4 chip1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf),
+section5.5.7 pp337–338 (early channel disable), register5.3 p349 (global EN
+readback stays1 until channel activity terminates), register5.4 p350 (EN_WE),
+register5.5 p351 (RESET), section5.8 pp344–347 (register offsets). SDK f5c3654
+[dw_gdma_ll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+channel-disable strobes/global completion/both bus clocks cross-check the same
+contract. Addresses remain DW_GDMA50081000, CFG+10, CHEN+18, ABORT+1C, RESET+58,
+channel FIFO+134/+234/+334/+434; no new interrupt mappings or DMA memory claims.
+Exact PDF/source hashes, local extraction and source sections are retained in
+[the stop audit/manifest](../audits/native-vdma-stop.md).
+
+Tab5 actual empty-controller test: CFG write1/read1 with all channels disabled,
+then native global stop0/read0 in one poll, no transfers. stage3/armed1/changed1/
+requested0/preserved1/duplicate_busy1; all sampled MIPI/clock/channel words
+preserved. This is not active DMA drain evidence; active path/failures are host
+25/25 +sanitizer tested. No clock/power/reset/IRQ clear/descriptor/flash/SD writes;
+shell/SciCalc14/desktop verified after RAM reset. PHY/bridge, DMA-visible memory
+and active-transfer tests remain separate prerequisites for full native display.

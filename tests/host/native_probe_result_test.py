@@ -200,3 +200,23 @@ assert not runner.evaluate_mipi(mipi_fixture().replace('sar=00000000', 'sar=0000
 assert not runner.evaluate_mipi(mipi_fixture().replace('cpu_after=00000000', 'cpu_after=00000001', 1))
 assert not runner.evaluate_mipi(mipi_fixture().replace('MIPI_DSI i=00000007', 'MIPI_DSI i=00000008', 1))
 print('PASS: complete MIPI records, clock validity, skipped domains, duplicate/missing/malformed/unstable negatives')
+
+# Hardware scope is explicit: empty controller only, no active transfer claim.
+for armed in (False, True):
+    row = ('VDMA_STOP armed=' + ('00000001' if armed else '00000000') +
+           ' stage=00000003 adopted=' + ('00000000' if armed else '00000001') +
+           ' changed=' + ('00000001' if armed else '00000000') +
+           ' requested=00000000 polls=00000001 cfg=00000000 channels=00000000 abort=00000000'
+           ' fifo=00000000 preserved=00000001 duplicate_busy=00000001\n')
+    capture = 'MAIA_VDMA_STOP_PROBE optional empty-controller writes; no transfers\n' + mipi_fixture(0x2000, 0x1c20, 15) + row
+    assert runner.evaluate_vdma_stop(capture, armed)
+    assert not runner.evaluate_mipi(capture)  # read-only mode must reject stop profile
+    assert not runner.evaluate_vdma_stop(capture, not armed)
+    assert not runner.evaluate_vdma_stop(capture + row, armed)
+    for key in ('stage=00000003', 'preserved=00000001', 'duplicate_busy=00000001'):
+        assert not runner.evaluate_vdma_stop(capture.replace(key, key[:-1]+'0'), armed)
+    assert not runner.evaluate_vdma_stop(capture.replace('cfg=00000000 enable', 'cfg=00000001 enable', 1), armed)
+    assert not runner.evaluate_vdma_stop(capture.replace('sar=00000000', 'sar=00000001', 1), armed)
+    assert not runner.evaluate_vdma_stop(capture.replace('requested=00000000', 'requested=00000001'), armed)
+    assert not runner.evaluate_vdma_stop(capture.replace('cfg=00000000 channels', 'cfg=00000001 channels'), armed)
+print('PASS: VDMA empty-controller scope, adoption/armed distinction and invalid/failure captures')

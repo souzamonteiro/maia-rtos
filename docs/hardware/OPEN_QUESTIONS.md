@@ -26,3 +26,10 @@ observes disabled DW-GDMA/global/channels, DSI host/bridge/DPI despite active
 clocks on this ROM entry. CSI host skipped (bus gate off). This narrows the
 unknown; it does not resolve ordered shutdown/AXI drain/PHY completion or justify
 clock/power writes. No active-stream stop test has run.
+
+Follow-up to UQ-015: [native VDMA stop](../audits/native-vdma-stop.md) uses TRM
+v0.4 DMAC_CFG0 global EN completion (p349), with bounded channel-disable requests
+and no clock/reset/abort writes. Target empty-controller arm/stop passes;
+active-transfer stop is HOST-TESTED only. Need native DMA-visible memory/cache
+fixture and actual traffic test, then PHY/bridge completion before clock gating.
+This does not establish the whole MIPI shutdown or retire VO3/panel-reset guards.

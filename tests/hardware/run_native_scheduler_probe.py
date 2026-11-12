@@ -59,8 +59,10 @@ def evaluate_panel_reset(output):
     return evaluate_expander(output) and len(result) == 1 and int(result[0]) >= 200000
 
 
-def evaluate_mipi(output):
+def evaluate_mipi(output, allow_stop=False):
     """A complete read-only observation, never a power-off/idle certificate."""
+    if not allow_stop and 'VDMA_STOP' in output:
+        return False
     lines = output.replace('\r', '').splitlines()
     schemas = {
         'MIPI_SAMPLE': 'i cpu sys phy cpu_after sys_after phy_after valid stable'.split(),
@@ -110,6 +112,34 @@ def evaluate_mipi(output):
             skipped += [records['MIPI_DMA'][i]] + [records['MIPI_CH'][(i, c)] for c in range(4)]
         if any(value for entry in skipped for key, value in entry.items() if key not in ('i', 'ch')):
             return False
+    return True
+
+
+def evaluate_vdma_stop(output, armed=False):
+    if not evaluate_mipi(output, allow_stop=True):
+        return False
+    lines = output.replace('\r', '').splitlines()
+    if lines.count('MAIA_VDMA_STOP_PROBE optional empty-controller writes; no transfers') != 1:
+        return False
+    expected = ('VDMA_STOP armed=' + ('00000001' if armed else '00000000') +
+                ' stage=00000003 adopted=' + ('00000000' if armed else '00000001') +
+                ' changed=' + ('00000001' if armed else '00000000') +
+                ' requested=00000000 polls=00000001 cfg=00000000 channels=00000000 abort=00000000'
+                ' fifo=00000000 preserved=00000001 duplicate_busy=00000001')
+    if len([line for line in lines if line.startswith('VDMA_STOP')]) != 1 or expected not in lines:
+        return False
+    # The actual diagnostic requires the controller/channels initially empty.
+    for line in lines:
+        if line.startswith('MIPI_SAMPLE '):
+            if int(re.search(r' valid=([0-9a-f]{8})', line)[1], 16) & 8 == 0:
+                return False
+        if line.startswith('MIPI_DMA '):
+            if not line.endswith('cfg=00000000 enable=00000000 abort=00000000'):
+                return False
+        if line.startswith('MIPI_CH '):
+            if any(int(re.search(' ' + key + r'=([0-9a-f]{8})', line)[1], 16)
+                   for key in ('transferred', 'fifo', 'sar', 'dar', 'llp')):
+                return False
     return True
 
 
@@ -217,6 +247,8 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
+    parser.add_argument('--vdma-arm-empty', action='store_true', help='arm empty VDMA and verify native global stop; no transfers')
     parser.add_argument('--mipi-state', action='store_true', help='verify read-only inherited MIPI/DW-GDMA state')
     parser.add_argument('--ldo3-acquire', action='store_true', help='verify boot LDO3 active-state adoption')
     parser.add_argument('--ldo3-cycle', action='store_true', help='verify guarded VO3 disable/enable through native acquire')
@@ -241,6 +273,10 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.vdma_arm_empty:
+        args.vdma_stop = True
+    if args.vdma_stop:
+        args.mipi_state = True
     if args.mipi_state and (args.ldo3 or args.ldo3_acquire or args.ldo3_cycle or args.panel_reset or
                             args.expander or args.touch_identify or args.serial_output_event or
                             args.serial_output or args.serial_input or args.expect_fatal_cause is not None):
@@ -332,7 +368,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.mipi_state:
+        if args.vdma_stop:
+            passed = evaluate_vdma_stop(output, args.vdma_arm_empty)
+        elif args.mipi_state:
             passed = evaluate_mipi(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
@@ -344,7 +382,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

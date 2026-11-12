@@ -516,3 +516,24 @@ via maia.py after reset; no flash/SD write. Full artifacts/reference hashes:
 contract covering reset/AXI completion, shared channels and PHY state before
 clock gating/power tests. Full desktop still uses FreeRTOS; physical VO3 cycle,
 guarded reset rerun, native cold display and POSIX implementation remain pending.
+
+## Bounded native VDMA stop — 2026-11-12
+
+Read [native VDMA stop](audits/native-vdma-stop.md). Original native C whole-controller boot
+reservation: require both existing bus clocks/exclusive all-channel ownership,
+reject abort/reset/inconsistent states, issue channel disable WE strobes only,
+clear global EN preserving other bits, bounded total poll budget and checked
+completion. TRM v0.4 CFG0 p349 readback stays1 until activity terminates; checking
+channel bits alone is insufficient. No IRQ-clear/abort/reset/clock/power/memory
+writes. FIFO residue reported, no lossless-transfer guarantee. Failure in stop
+phase is sticky until reset; success makes duplicate BUSY. Pending IRQ flags
+retained; handle before native IRQ enable. No ISR/task/SMP/runtime ownership.
+Host25/25, ASan/UBSan/C++98, four mutants and two invalid CMake profiles PASS.
+Target empty-controller arm/stop PASS: CFG0->1 verified, native stop->0 in one
+poll, stage3/armed1/adopted0/changed1/requested0/preserved1/duplicate_busy1, no DMA
+transfer started. Active-channel stop remains HOST-TESTED; PHY/MIPI clocks and
+VO3/panel-reset guards untouched. Paced shell/SciCalc14/desktop verified after
+reset, no flash/SD write. Artifacts: `../maia-rtos-recovery/native-vdma-stop-20261112/`.
+Next: reserved DMA-visible SRAM/cache ownership and actual active-transfer stop
+fixture, then separate PHY/bridge stop before clock gating/power tests. Full
+legacy desktop still uses FreeRTOS; POSIX DESIGN and native cold display pending.

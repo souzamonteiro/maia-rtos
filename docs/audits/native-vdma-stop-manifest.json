@@ -1,0 +1,180 @@
+{
+  "date": "2026-11-12",
+  "parent_commit": "26906291e0abb9cb95b8f9ba929a41b342657156",
+  "status": {
+    "empty_controller_stop": "HARDWARE-TESTED, LIMITED",
+    "active_channel_stop": "HOST-TESTED",
+    "adoption_only_profile": "compiled, NOT RUN on target",
+    "mipi_phy_shutdown": "NOT IMPLEMENTED",
+    "clock_gating_or_vo3_cycle": "NOT RUN"
+  },
+  "sdk_reference": {
+    "components/hal/esp32p4/include/hal/dw_gdma_ll.h": {
+      "sha256": "56be6ff8351f62027a167f166d6369ed498bfc1fb9da6bd1223971cec25c7a59",
+      "matches_pinned_revision": true
+    },
+    "components/hal/dw_gdma_hal.c": {
+      "sha256": "08cfd452d7f39251778562bfeb501ad319bb4cb37061756bf453457868bc67a8",
+      "matches_pinned_revision": true
+    },
+    "components/esp_hw_support/dma/dw_gdma.c": {
+      "sha256": "ace979c51265cd782d061c1dc157530fb13f8e8cc834234df6c50eb2fe2a349f",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/dw_gdma_reg.h": {
+      "sha256": "441ce2f62aaab1597df1042697d3d76e7571c6384691a58ee3aa595b56f63477",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/dw_gdma_struct.h": {
+      "sha256": "39dd71b22328124d2e465cda6ce2ec36dba46f00ec6423f58f99266e6f74ee6f",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h": {
+      "sha256": "7ed2b000f4a757ac4016020165cc9370195db8ebab34121d6fb42b9b9dfe0572",
+      "matches_pinned_revision": true
+    },
+    "components/soc/esp32p4/ld/esp32p4.peripherals.ld": {
+      "sha256": "f78f25bd824b4794bc10b07d26857e54e2233ee982131d3a249be03d574c745c",
+      "matches_pinned_revision": true
+    }
+  },
+  "trm": {
+    "url": "https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf",
+    "revision": "chip1.3 TRM Pre-release v0.4",
+    "sections": [
+      "5.5.7 pp337-338",
+      "5.8 pp344-347",
+      "register5.3 p349",
+      "register5.4 p350",
+      "register5.5 p351"
+    ],
+    "sha256": "ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830"
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "image": {
+    "entry": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 8448
+      }
+    ]
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  },
+  "source_hashes": {
+    "source/CMakeLists.txt": {
+      "size": 27897,
+      "sha256": "b36cd67c9a029e7e5061b4f52645b771d6c681499bfec806db74b3a6edb7a5c0"
+    },
+    "source/AGENTS.md": {
+      "size": 4741,
+      "sha256": "3b7e71558c02c495db28f22a08121655cb176e60d83051880c09c5811442ff72"
+    },
+    "source/include/maia/soc/esp32p4_vdma.h": {
+      "size": 2625,
+      "sha256": "8bc8f6a59d5ae5520ff5b6a988f5fb970fb8308b3ff661d214700c94aeb3dea7"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 12546,
+      "sha256": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9"
+    },
+    "source/soc/espressif/esp32p4/soc_vdma_stop.c": {
+      "size": 3083,
+      "sha256": "6ad902f9e370039a88cbb939d193e413c54b46c14bfe333248bddad8d1b5fbba"
+    },
+    "source/soc/espressif/esp32p4/vdma_internal.h": {
+      "size": 1328,
+      "sha256": "c1b5b2063518662dc4f0f06673e561ca785bf9bef7f06e087fb0278db6cfbacb"
+    },
+    "source/tests/hardware/native_mipi_probe.c": {
+      "size": 5331,
+      "sha256": "24b306d2cbb33756e265980cd9b09373eac0b02cbb5813628e7143ab81b10c7f"
+    },
+    "source/tests/hardware/native_mipi_snapshot.h": {
+      "size": 2650,
+      "sha256": "df0d91ffbe9fb5df36da8d56325902a82c7ae9ffc87c29c5003fde19daabb839"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 21337,
+      "sha256": "a29059bac3ea0d659cf1a6fd71cd533445dc3fd55d5901a24f16aea6c49098ad"
+    },
+    "source/tests/host/vdma_stop_test.c": {
+      "size": 5520,
+      "sha256": "125819c6873d4d70b634a6594e3e814b9f4e5a95259f16f6c737bec7345b067c"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 14479,
+      "sha256": "6631c0b4bf20b743a3dd31c3b6e288a2a6a8c07018791ff3c8fe58662f836f0f"
+    },
+    "source/docs/audits/native-vdma-stop.md": {
+      "size": 9572,
+      "sha256": "4c16fb835a6b0dd8518cc36055da14fb13d0866e7ddc99bafa505efb1140d34e"
+    },
+    "source/docs/audits/native-vdma-stop-hardware.txt": {
+      "size": 8598,
+      "sha256": "eaa5b86d10df533374c45a182ef78d636544106f76e40a56d4677ee5b5347433"
+    },
+    "source/docs/audits/native-vdma-stop-desktop.txt": {
+      "size": 3297,
+      "sha256": "5c965e7eb5917be9cf0043b6607eb309f03e9032968bf3cb2a18ce6e99e05784"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 35645,
+      "sha256": "bf4d198094ae9824395652563345896e7e84275a1b94dc1516a46ce8a5f57b56"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 33514,
+      "sha256": "41cb02ebf2e4417c79a76d29f45d7724b6696f2f256ea1338dbd5b92b8795237"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 42885,
+      "sha256": "7a22283e37e301834b4b7dd4ebb2f785df6519d6bf8fc0b9167cb3504d715d51"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 7758,
+      "sha256": "9e7d89355ab0f807c1b74c0f6c5c5fe36eadb63fedc4ea915bab6d207d660410"
+    }
+  },
+  "build_hashes": {
+    "build/armed-empty-HARDWARE/maia_sched_probe.elf": {
+      "size": 25300,
+      "sha256": "47f0e4a1d07bb06c70e04de957405ff472940d815df6370f89477b7959b834f8"
+    },
+    "build/armed-empty-HARDWARE/maia_sched_probe_ram.elf": {
+      "size": 16912,
+      "sha256": "77617349e45529b5c8817c7d81dacef64f66f3b320d0de3ac61aab6692f502aa"
+    },
+    "build/armed-empty-HARDWARE/maia_sched_probe.map": {
+      "size": 27762,
+      "sha256": "ae5204db1e7767a2dfa4eb7ca6b448b7c0ad071b890ac41fbb71db9f876c734a"
+    },
+    "build/armed-empty-HARDWARE/CMakeCache.txt": {
+      "size": 20325,
+      "sha256": "e2aff7ae01a669909b45dcad087b9b00ca2c9b31063204e10c33376083b07878"
+    },
+    "build/armed-empty-HARDWARE/maia_sched_probe_ram.bin": {
+      "size": 8528,
+      "sha256": "42966a67383d4f9a13dca8d26794f780e45df2a155085b7552d0ff37b7d124b5"
+    },
+    "build/adoption-compiled-NOT-RUN/maia_sched_probe.elf": {
+      "size": 25236,
+      "sha256": "d99c8e92871ac10682d1b37c5201f6bb49f85e917319408e2687606d5cb0764d"
+    },
+    "build/adoption-compiled-NOT-RUN/maia_sched_probe_ram.elf": {
+      "size": 16848,
+      "sha256": "f2335f48d6dd5c14e547bba30a82af63ab03693f0c66f1090301ca4ec91aff00"
+    },
+    "build/adoption-compiled-NOT-RUN/maia_sched_probe.map": {
+      "size": 27762,
+      "sha256": "53e4a149db5891b10ae99eb293d41d4c03870c3ea11d697b03274a95957b8aa7"
+    },
+    "build/adoption-compiled-NOT-RUN/CMakeCache.txt": {
+      "size": 20330,
+      "sha256": "1e1ac948fdedb614bf3457f625c9fbcacd2b1330ce66968ae14d87cd7bf9f0e8"
+    }
+  },
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-vdma-stop-20261112"
+}
