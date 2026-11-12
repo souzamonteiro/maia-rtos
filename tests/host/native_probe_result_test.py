@@ -152,3 +152,26 @@ assert not runner.evaluate_ldo3(ldo+ldo)
 assert not runner.evaluate_ldo3(ldo+'MAIA_NATIVE_LDO3_FAIL')
 assert not runner.evaluate_ldo3('MAIA_NATIVE_LDO3_PASS')
 print('PASS: LDO3 evidence validates raw trims, model/grid selection, stable registers and known silicon/schema')
+
+powered_ldo = ldo.replace('enabled=0 sw_owner=0 bypass=0 source=0 dref=10 mul=0 vdet=0',
+                          'enabled=1 sw_owner=1 bypass=0 source=0 dref=9 mul=6 vdet=1')
+acquire = powered_ldo + 'LDO3_CLOCKS sys_active=1 phy_active=1\nLDO3_ACQUIRE stage=5 adopted=1 changed=0 preserved=1 duplicate_busy=1\n'
+cycle = (powered_ldo + 'LDO3_CLOCKS sys_active=0 phy_active=0\nLDO3_CYCLE off_confirmed=1 clocks_gated=1\n'
+         'LDO3_ACQUIRE stage=5 adopted=0 changed=1 preserved=1 duplicate_busy=1\n')
+assert runner.evaluate_ldo3_acquire(acquire)
+assert runner.evaluate_ldo3_acquire(cycle, True)
+assert not runner.evaluate_ldo3_acquire(acquire, True)
+assert not runner.evaluate_ldo3_acquire(cycle)
+for old,new in [('stage=5','stage=4'),('preserved=1','preserved=0'),('duplicate_busy=1','duplicate_busy=0'),
+                ('adopted=1','adopted=0'),('changed=0','changed=1')]:
+    assert not runner.evaluate_ldo3_acquire(acquire.replace(old,new))
+assert not runner.evaluate_ldo3_acquire(cycle.replace('off_confirmed=1','off_confirmed=0'), True)
+assert not runner.evaluate_ldo3_acquire(acquire + acquire)
+print('PASS: LDO3 acquisition evidence requires exact adoption or guarded disable/enable, preservation and duplicate rejection')
+
+assert not runner.evaluate_ldo3_acquire(cycle.replace('sys_active=0', 'sys_active=1'), True)
+assert not runner.evaluate_ldo3_acquire(cycle.replace('phy_active=0', 'phy_active=1'), True)
+
+for old,new in [('enabled=1','enabled=0'),('sw_owner=1','sw_owner=0'),('bypass=0','bypass=1'),
+                ('source=0','source=1'),('dref=9 mul=6 vdet=1','dref=10 mul=6 vdet=1'),('vdet=1','vdet=0')]:
+    assert not runner.evaluate_ldo3_acquire(acquire.replace(old,new))

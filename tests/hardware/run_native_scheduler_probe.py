@@ -87,6 +87,18 @@ def evaluate_ldo3(output):
             all(word not in output for word in ('FAIL','MAIA_NATIVE_FATAL','MAIA_STACK_FAULT')))
 
 
+def evaluate_ldo3_acquire(output, cycle=False):
+    records = re.findall(r'^LDO3_ACQUIRE stage=5 adopted=([01]) changed=([01]) preserved=1 duplicate_busy=1$', output, re.M)
+    clocks = re.findall(r'^LDO3_CLOCKS sys_active=([01]) phy_active=([01])$', output, re.M)
+    expected = ('0', '1') if cycle else ('1', '0')
+    marker = output.split('\n').count('LDO3_CYCLE off_confirmed=1 clocks_gated=1')
+    current = re.findall(r'^LDO3_CURRENT enabled=1 sw_owner=1 bypass=0 source=0 dref=(\d+) mul=(\d+) vdet=1$', output, re.M)
+    planned = re.findall(r'^LDO3_PLAN target_mv=2500 dref=(\d+) mul=(\d+) ', output, re.M)
+    return (evaluate_ldo3(output) and records == [expected] and len(clocks) == 1 and
+            len(current) == 1 and current == planned and
+            (not cycle or clocks == [('0', '0')]) and marker == int(cycle))
+
+
 def serial_output_record(source, sequence):
     prefix = 'TXR:' + chr(ord('A') + source) + ':' + f'{sequence:02d}' + ':'
     return prefix + ''.join(chr(ord('a') + (source*7 + sequence + i) % 26)
@@ -151,6 +163,8 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--ldo3-acquire', action='store_true', help='verify boot LDO3 active-state adoption')
+    parser.add_argument('--ldo3-cycle', action='store_true', help='verify guarded VO3 disable/enable through native acquire')
     parser.add_argument('--ldo3', action='store_true', help='verify read-only VO3 trim/planning and unchanged hardware')
     parser.add_argument('--panel-reset', action='store_true', help='verify LCD/touch reset, preserved bits and touch recovery')
     parser.add_argument('--expander', action='store_true', help='verify both expanders and same-value writes, including touch regression')
@@ -172,6 +186,10 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.ldo3_cycle:
+        args.ldo3_acquire = True
+    if args.ldo3_acquire:
+        args.ldo3 = True
     if args.ldo3 and (args.panel_reset or args.expander or args.touch_identify or args.serial_output_event or
                       args.serial_output or args.serial_input or args.expect_fatal_cause is not None):
         parser.error("LDO3 requires a separate read-only profile")
@@ -257,6 +275,8 @@ def main():
             passed = evaluate_panel_reset(output.replace("\r", ""))
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
+        if args.ldo3_acquire:
+            passed = evaluate_ldo3_acquire(output.replace("\r", ""), args.ldo3_cycle)
         if args.serial_input:
             passed = passed and stimulus.phase == 2
         if args.serial_output:

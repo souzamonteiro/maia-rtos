@@ -125,3 +125,12 @@ Next: audit and port the MIPI PHY's LDO/power-control acquisition, including
 silicon/revision calibration, ownership and failure reporting, before touching
 DSI clocks/commands. Preserve the70MHz/965Mbps working configuration as reference;
 do not reuse the old fixed-register LDO/native DMA path without evidence.
+
+## Later qualification — 2026-11-12
+
+[VO3 acquisition audit](native-ldo3-acquire.md) observes retained active MIPI
+clocks after ROM RAM entry. This earlier reset probe did not measure its
+inactive-display/DMA precondition. Its register transitions/touch recovery remain
+observations, not proof of quiescent reset or cold display initialization. The
+probe now rejects active guarded MIPI clocks before resetting. A new physical
+run under proven quiesce is pending; the original captured evidence is unchanged.

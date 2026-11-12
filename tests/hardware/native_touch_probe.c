@@ -58,6 +58,10 @@ static void expander(uint8_t address) {
 #endif
 #ifdef MAIA_NATIVE_PROBE_PANEL_RESET
 static int reset_panel(void) {
+    if ((MAIA_MMIO32(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG)&MAIA_ESP32P4_HP_MIPI_SYS_CLK_MASK) ||
+        (MAIA_MMIO32(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG)&MAIA_ESP32P4_HP_MIPI_PHY_CLK_MASK)) {
+        maia_console_puts("PANEL_RESET_GUARD active_mipi_clocks=1\n");return 0;
+    }
     const uint8_t regs[]={3U,5U,7U,0x0BU,0x0DU};
     const uint8_t masks[]={0x30U,0x30U,0x30U,0x10U,0x10U};
     const uint8_t bits[]={0x20U,0x20U,0U,0x10U,0x10U};

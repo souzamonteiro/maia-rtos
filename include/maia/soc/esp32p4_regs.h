@@ -165,6 +165,16 @@ extern "C" {
 #define MAIA_ESP32P4_LP_IOMUX_PAD_MUX_SEL_LP    (1UL << 4U)
 #define MAIA_ESP32P4_LP_IOMUX_PAD_FUN_IE        (1UL << 10U)
 
+/* DSI/CSI clocks: acquire VO3 only while these functional clocks are gated. */
+#define MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG       (MAIA_ESP32P4_HP_SYS_CLKRST_BASE + 0x0018UL)
+#define MAIA_ESP32P4_HP_MIPI_SYS_CLK_MASK        (7UL << 10U)
+#define MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG       (MAIA_ESP32P4_HP_SYS_CLKRST_BASE + 0x003CUL)
+#define MAIA_ESP32P4_HP_MIPI_PHY_CLK_MASK      ((1UL << 0U) | (1UL << 1U) | (1UL << 4U) | (1UL << 7U))
+#define MAIA_ESP32P4_LDO3_XPD                (1UL << 8U)
+#define MAIA_ESP32P4_LDO3_SW_SELECT          (1UL << 7U)
+#define MAIA_ESP32P4_LDO3_CONTROL_MASK       ((1UL << 14U) | (7UL << 9U) | (1UL << 8U) | (1UL << 7U))
+#define MAIA_ESP32P4_LDO3_ANALOG_MASK        ((15UL << 28U) | (7UL << 23U) | (1UL << 26U))
+
 /* ROM-populated eFuse shadows: read-only calibration/version inspection. */
 #define MAIA_ESP32P4_EFUSE_BASE               0x5012D000UL
 #define MAIA_ESP32P4_EFUSE_MAC_SYS2_REG       (MAIA_ESP32P4_EFUSE_BASE + 0x004CUL)

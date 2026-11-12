@@ -1,0 +1,160 @@
+{
+  "date": "2026-11-12",
+  "parent_commit": "ffbad5cff9baecd4f38f53d03a6b6abf4e64e093",
+  "status": {
+    "active_adoption": "HARDWARE-TESTED, LIMITED",
+    "inactive_programming": "HOST-TESTED",
+    "physical_cycle": "NOT RUN: guarded MIPI clocks active",
+    "guarded_panel_reset_rerun": "NOT RUN: quiesce pending"
+  },
+  "sdk_reference": {
+    "components/hal/esp32p4/include/hal/ldo_ll.h": {
+      "sha256": "b0dde231a26a013371d1750b38d3ec196007cbd412ce62d4decdd88aae440159",
+      "matches_HEAD": true
+    },
+    "components/esp_hw_support/ldo/esp_ldo_regulator.c": {
+      "sha256": "d47056dd6d44044aef554a5830401d47bdc7065c6e96738d665b7514041589a7",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/pmu_reg.h": {
+      "sha256": "112ca7c71da10819174dfe24d54064474991086a4ddf9f46ad8b9522975f9d8b",
+      "matches_HEAD": true
+    },
+    "components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h": {
+      "sha256": "7ed2b000f4a757ac4016020165cc9370195db8ebab34121d6fb42b9b9dfe0572",
+      "matches_HEAD": true
+    },
+    "components/esp_lcd/dsi/esp_lcd_mipi_dsi_bus.c": {
+      "sha256": "8d92f212179003f314d207e32f7240fac96d6987ac53952ed91df3baa2842311",
+      "matches_HEAD": true
+    },
+    "components/esp_lcd/dsi/esp_lcd_panel_dpi.c": {
+      "sha256": "7bda5a71686ba9d1507d135a1b88a2e66c881dd036fbf3389f9bf436f78e95a8",
+      "matches_HEAD": true
+    },
+    "examples/peripherals/lcd/mipi_dsi/main/mipi_dsi_lcd_example_main.c": {
+      "sha256": "3a253a7459e2d5180bcdc0164fb13750c1f70e4fcbddef1a3d5596d9f59eda09",
+      "matches_HEAD": true
+    }
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "images": {
+    "adoption": {
+      "entrypoint": "0x4ff00100",
+      "segments": [
+        {
+          "address": "0x4ff00000",
+          "size": 9408
+        }
+      ]
+    },
+    "cycle-NOT-RUN": {
+      "entrypoint": "0x4ff00100",
+      "segments": [
+        {
+          "address": "0x4ff00000",
+          "size": 9600
+        }
+      ]
+    }
+  },
+  "preserved_firmware_manifest": {
+    "commit": "bf044d37e43c3b8db2011d6cbf81c9df2d2e1649",
+    "files": {
+      "platforms/tab5/build/m5stack_tab5.bin": {
+        "size": 2093696,
+        "sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd"
+      },
+      "platforms/tab5/build/m5stack_tab5.elf": {
+        "size": 29121432,
+        "sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+      },
+      "platforms/tab5/build/m5stack_tab5.map": {
+        "size": 13191466,
+        "sha256": "5b768d18c5becfbec61f9d98ad7075fff9cc98d912d90dd4b9f8a4fcb466679a"
+      },
+      "platforms/tab5/build/bootloader/bootloader.bin": {
+        "size": 23136,
+        "sha256": "5d0feef7760570bdecbcb23220742b08a297e039062479d3b633ed53635233b5"
+      },
+      "platforms/tab5/build/partition_table/partition-table.bin": {
+        "size": 3072,
+        "sha256": "97ce22d502aaae32ae3de440ee5de7dc4782501c4faca6a91aef0dfe90ad256c"
+      },
+      "platforms/tab5/build/flash_args": {
+        "size": 153,
+        "sha256": "5cd7cee10d0062df7a7135c0f7a8483a979a41de62fd2ee6c58486d6bc7fbe4d"
+      },
+      "platforms/tab5/build/flasher_args.json": {
+        "size": 923,
+        "sha256": "607507acde2d92ac68383d05ae58de3f6a154bd0671fbe4c036ced5c79ac7454"
+      },
+      "platforms/tab5/sdkconfig": {
+        "size": 95487,
+        "sha256": "84e08609316bdc1c3cb5a9fa38b092f84b910c65c182d7e633aed436bcfd214b"
+      },
+      "platforms/tab5/sdkconfig.defaults": {
+        "size": 1450,
+        "sha256": "9bb2eff50471319400cbf5beccc2e1ae9ff5496f9f51cbebfc0c6755cfa6d8ba"
+      },
+      "platforms/tab5/dependencies.lock": {
+        "size": 7730,
+        "sha256": "5a92f6d9c18e1b4538e7e5f939cac642d84df03cc70e21833464733c9d9774c9"
+      }
+    }
+  },
+  "source_hashes": {
+    "source/CMakeLists.txt": "3f4e9cdda2771ead47904b8142190052b87586c5a22e3d7d1e2b8faf80764246",
+    "source/include/maia/soc/esp32p4_ldo3.h": "84c13145b6341babcd4d8ffc7789222085eff85015463628541370be0753b231",
+    "source/include/maia/soc/esp32p4_regs.h": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9",
+    "source/soc/espressif/esp32p4/ldo3_internal.h": "66999f67daeb720a9ba092da6cc3524a88eff02c90e184d614603850d003462d",
+    "source/soc/espressif/esp32p4/soc_ldo3_acquire.c": "aa00a40951732e111d707be28f1e7f6436c973bc67a70d51c0fd81e898036a54",
+    "source/soc/espressif/esp32p4/soc_ldo3_snapshot.c": "3a97c8949724b7d8125f3a19587e081dc58e289cab4f8225343f6008efa95702",
+    "source/soc/espressif/esp32p4/soc_ldo3_plan.c": "4a24f2b3b5c25c893ec46775e324841f234dc63572b69d053e6114748a4b2dce",
+    "source/tests/host/ldo3_acquire_test.c": "c0dc5b74f8339151903f1c7a2be61d695fb8359ce466260a59e7c410dd3e06b6",
+    "source/tests/host/esp32p4_regs_test.c": "baf8f29305032bc056cfbb0503ed07f19da9daa40c43732ba266fb5c9d0fa1be",
+    "source/tests/host/native_probe_result_test.py": "a19f8ffd4023ecfaa1d0e7baad4e5cdfb1bdc782442ef4e060b58537f3b99ee6",
+    "source/tests/hardware/native_ldo3_probe.c": "507840d82f765081959f2be2eb503be4e5abb1f85003d42a10330456181f8da2",
+    "source/tests/hardware/native_touch_probe.c": "28318b95297f435dd8db29ac92617b6102933efb1458fcccd6c6de83990b2ffb",
+    "source/tests/hardware/run_native_scheduler_probe.py": "f3f61cf6531bee0031a8b27549880bdb01f1d3117efc2d9c962e00ed94f93e66",
+    "source/LICENSES/Apache-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source/docs/AGENT_HANDOFF.md": "34a78094df6a571de8e8cd6449117d6f9914b317ce82669fe602607f931fb374",
+    "source/docs/plans/STATUS.md": "272e8ee394e4b3447c05a7e7428f78e859095e965ae7f606d3e67d8fdc3e0ac5",
+    "source/docs/hardware/EVIDENCE.md": "e1b4635f37eef1f0b82a2b20ab405a8c2c8e3e41c6713cdccdd38b3b0e5d2b7c",
+    "source/docs/hardware/OPEN_QUESTIONS.md": "bb1b0699506a0249e62e4db99cb6d288351c419f36a2028de219b287e2fa3e65",
+    "source/docs/audits/native-panel-reset.md": "78dfcc0b5a26a9f6798d468fd6130ccec8609e506f9583e89cc866e6df2fc905",
+    "source/docs/audits/native-ldo3-acquire.md": "a75a068243817d45eda9b95d0d619c45ebd209875872d1cadc905af724fb4172",
+    "source/docs/audits/native-ldo3-acquire-hardware.txt": "99b445a4de12b7a9003c59974a23d22203d5bb2213dd461e2abb13d661dbd4d4",
+    "source/docs/audits/native-ldo3-acquire-initial-guard.txt": "31d363b72e177a2f9569fc3d1f9d7666b684e7791ea76f4f46178d6ee1f19339",
+    "source/docs/audits/native-ldo3-acquire-desktop.txt": "36783bd7c228e747d894cc5e0edc93a75320afd426c21aeee6b64079bb7dc759"
+  },
+  "artifact_and_log_hashes": {
+    "build/adoption/maia_sched_probe.elf": "93d48b1db5f60379b7da9e71db8d20adbe0caf4cfc70cdb14cf3312644fd5faa",
+    "build/adoption/maia_sched_probe_ram.elf": "222dc36c05ed276ed05bd7b69d351ddae2537fc9d3e39acb0afc759945d266fd",
+    "build/adoption/maia_sched_probe_ram.bin": "badf8a7f5fec853ad867243e363ac68dbad78ed5831b23db2a14b4a22e28b1ce",
+    "build/adoption/maia_sched_probe.map": "335394ab1fd6bf078e3ab248448b1da09ddf5301de91cb421a2d5909df017bf0",
+    "build/adoption/CMakeCache.txt": "dc60b21581657e054bef6a29817275c02df2c21150039d5798d811a73c45fd8e",
+    "build/cycle-NOT-RUN/maia_sched_probe.elf": "826030d82c8c2c72cf1d16b35039a137810f671894946bc0597ca19f5e9bcf20",
+    "build/cycle-NOT-RUN/maia_sched_probe_ram.elf": "63498df02b2657aa0d21377ef0b2ad1f12693431ba5cbca8314ba74f51a28d3b",
+    "build/cycle-NOT-RUN/maia_sched_probe_ram.bin": "45ad9422c1f51b42a2e124f35cc81b0174e18d6aeaeae2c8d69d50eaac9f5898",
+    "build/cycle-NOT-RUN/maia_sched_probe.map": "a404a6b00757b2545588179a280c38b73e981b263325e4e144ae5e79f0152f0e",
+    "build/cycle-NOT-RUN/CMakeCache.txt": "ae9a1d219cfd585ed1d0a6609494b09cf98a7b9ebf55b217c327b8e404da05aa",
+    "logs/maia-ldo3-acquire-native-build.log": "641a88d21dca92f33c136e48fd33af4795646bb9d089abe7525768543e9e25bf",
+    "logs/maia-ldo3-acquire-reset-guard-build.log": "984f7ef437632a9018391f267cf1132437abb8351bd3eb5aeaf186d074019ebd",
+    "logs/maia-ldo3-acquire-runner-test.log": "8e4560eef40d047cd44ca1e7e40d4bcda7e3970e0b0ab28e8f84fd3035a5d614",
+    "logs/maia-ldo3-acquire-native-config.log": "4197e6b4c6fb5277ab3fcce509b6deea4f08701595c14bf78ba7453147c34050",
+    "logs/maia-ldo3-acquire-invalid-0.log": "b025c0a4e75955a3838a0d0c1e9cbcd8713219cde037621fb88cfc114cb4a120",
+    "logs/maia-ldo3-acquire-initial-guard.log": "296d0f804299771908fd7de0e17e5cc0ed1565c183025ad0e124bd2e1de41084",
+    "logs/maia-ldo3-acquire-invalid-1.log": "8c758dd24a3d96005a10c3c04db0c66fb9f089a6b02c6d4a5520da1fa3c01619",
+    "logs/maia-ldo3-acquire-hardware-final.log": "094671bc88ed2d06a98a8b5ccd94f9f747884523798aa0700de726a180f3e440",
+    "logs/maia-ldo3-acquire-host-build.log": "339da8cf523658deda631507564a8564fa04abc93b1333141940359017fb5728",
+    "logs/maia-ldo3-acquire-hardware.log": "296d0f804299771908fd7de0e17e5cc0ed1565c183025ad0e124bd2e1de41084",
+    "logs/maia-ldo3-acquire-sanitized.log": "3a78f631dc74fc65befe400c7b4c9c0243ea0f640d8ae0f331380e86b50deda4",
+    "logs/maia-ldo3-acquire-host-test.log": "2afa489deb67fb9006ec4b596bc3166c5ea7a86c1fe215155cb10226a3e7246d",
+    "logs/maia-ldo3-acquire-mutants.log": "4062432e232904f289682162f7b2801be8945cb0d4dfd7213d3c720cb88a2b1b",
+    "logs/maia-ldo3-acquire-desktop-verified.log": "ad54b5ca92de95dfe80bb182fec09d752773fe52017e9e8c84b2cbe66fe77d6e",
+    "logs/maia-ldo3-acquire-host-config.log": "cb03ac97e7365bbee14dcb4fb4eaef266c8b0e728b2594bb0fba7de7da46466f",
+    "logs/maia-ldo3-cycle-native-config.log": "c85197c6b5f9d808a52993a765f9599636f3c8f8e467925e5bfca8ee62dc50e9",
+    "logs/maia-ldo3-cycle-native-build.log": "66ead0f0204743318ce9e7d233e7b627558a6ec981b27008072b61d83dc780f6"
+  }
+}

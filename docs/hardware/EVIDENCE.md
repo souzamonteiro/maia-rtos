@@ -530,3 +530,26 @@ differential PASS.
 Preserved flash shell/SciCalc14/desktop verified after reset with paced keys;
 initial unpaced3s capture failed to collect the result and is retained in the
 VO3 report. No firmware fix or flash/SD write was made for this retest.
+
+### Native VO3 acquisition prerequisites — 2026-11-12
+
+[Acquisition source ledger](../audits/native-ldo3-acquire.md) pins SDK f5c3654
+esp_ldo_regulator.c/ldo_ll.h acquire and VO3 mapping, pmu_reg.h control4F80 and
+analogF7800000 masks. Current-limit/delay/other fields are preserved. Pinned
+hp_sys_clkrst_reg.h +18 mask1C00 and +3C mask93 guard CSI/DSI functional clocks;
+API/diagnostic do not gate or program these clocks. LCD MIPI example identifies
+VO3 as VDD_MIPI_DPHY supply. Native API is boot-exclusive; the controlled enable
+probe may clear only VO3 XPD before invoking acquire, after checking existing
+calibration/source and all guarded clocks. This is not voltage/discharge proof.
+
+Target finding: retained clock words0x0C0D5678/0x2B3 keep guarded MIPI enables
+active across ROM RAM entry. Initial guard refused before writes; final native
+policy adopts matching active VO3 without writing. Actual stage5/adopted1/changed0,
+clock/PMU-slot preservation1 and duplicate BUSY. Inactive configure/enable is
+host-tested only; physical cycle NOT RUN until ordered consumer/DMA quiesce.
+Host23/23, sanitizer/C++98/six mutants PASS. Paced shell/SciCalc14/desktop verified
+after reset; no flash/SD or target regulator write. See ../audits/native-ldo3-acquire.md.
+
+The earlier panel-reset probe did not establish consumer/DMA quiescence. Its
+report is now qualified and its diagnostic rejects active MIPI clocks before
+reset; guarded probe compile passes, physical rerun remains pending quiesce.

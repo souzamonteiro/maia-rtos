@@ -1,0 +1,29 @@
+Line endings normalized to LF; raw capture preserved in recovery.
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 9408 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+y, guarded programming
+LDO3_VERSION chip_major=1 chip_minor=3 block_major=0 block_minor=3 disabled=0 rs_fail=0 corrected=0
+LDO3_TRIM k=55 vos=33 c=33
+LDO3_PLAN target_mv=2500 dref=13 mul=3 default_mask=0 estimated_uv=2504637 error_uv=4637
+LDO3_COEFF k1000=1030 vos1000=-4 c1000=989
+LDO3_CURRENT enabled=1 sw_owner=1 bypass=0 source=0 dref=13 mul=3 vdet=1
+LDO3_READONLY samples=16 unchanged=1 errors=0
+LDO3_CLOCKS sys_active=1 phy_active=1
+LDO3_ACQUIRE stage=5 adopted=1 changed=0 preserved=1 duplicate_busy=1
+MAIA_NATIVE_LDO3_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] LDO3 planning: PASS

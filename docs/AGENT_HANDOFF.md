@@ -474,3 +474,27 @@ FreeRTOS, POSIX remains DESIGN.
 Preserved flash shell/SciCalc14/desktop verified after reset with paced keys;
 initial unpaced3s capture failed to collect the result and is retained in the
 VO3 report. No firmware fix or flash/SD write was made for this retest.
+
+## Native VO3 acquisition — 2026-11-12
+
+Read [VO3 acquisition/evidence](audits/native-ldo3-acquire.md). Boot-only fixed
+reservation until reset, stable calibration snapshots, active matching adoption
+without writes; active mismatch BUSY. Off path guards DSI/CSI clocks, preserves
+other fields, verifies analog/source/enable in order. Failure after programming
+starts is sticky FAILED until reset; no rollback/retry/release. SDK runtime and
+locks are not imported; Apache notice retained. Host23/23, sanitizer/C++98/six
+mutants PASS. Actual target: stage5/adopted1/changed0/preserved1/duplicate_busy1.
+Important finding: MIPI clock enables persist through ROM load_ram (initial
+words0x0C0D5678/0x2B3). First overly broad guard rejected adoption; final policy
+permits write-free adoption only, preserving all guards for power writes. No
+regulator power write occurred on target. Off programming is HOST-TESTED; cycle
+candidate compiled, physical run NOT RUN due active-clock precondition. Never
+assume RAM entry quiesces display/DMA or just clear clocks to pass the guard.
+Paced shell/SciCalc14/desktop verified after reset; no flash/SD writes. Artifacts:
+`../maia-rtos-recovery/native-ldo3-acquire-20261112/`. Next: joint audit/port of
+ordered DSI/CSI/DMA quiesce before hardware off->on test and DSI bring-up. Full
+legacy desktop still uses FreeRTOS; native cold display remains pending.
+
+The earlier panel-reset probe did not establish consumer/DMA quiescence. Its
+report is now qualified and its diagnostic rejects active MIPI clocks before
+reset; guarded probe compile passes, physical rerun remains pending quiesce.
