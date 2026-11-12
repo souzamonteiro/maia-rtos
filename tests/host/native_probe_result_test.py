@@ -175,3 +175,28 @@ assert not runner.evaluate_ldo3_acquire(cycle.replace('phy_active=0', 'phy_activ
 for old,new in [('enabled=1','enabled=0'),('sw_owner=1','sw_owner=0'),('bypass=0','bypass=1'),
                 ('source=0','source=1'),('dref=9 mul=6 vdet=1','dref=10 mul=6 vdet=1'),('vdet=1','vdet=0')]:
     assert not runner.evaluate_ldo3_acquire(acquire.replace(old,new))
+
+# Complete read-only MIPI observations; PASS is not an idle certificate.
+def mipi_fixture(cpu=0, system=0, valid=0):
+    text = 'MAIA_MIPI_STATE_PROBE schema=1 read-only\n'
+    for i in range(8):
+        text += f'MIPI_SAMPLE i={i:08x} cpu={cpu:08x} sys={system:08x} phy=000002b3 cpu_after={cpu:08x} sys_after={system:08x} phy_after=000002b3 valid={valid:08x} stable=00000001\n'
+        text += f'MIPI_DSI i={i:08x} bridge=00000000 dpi=00000000 fifo=00000000 power=00000000 mode=00000000 reset=00000000 status=00000000\n'
+        text += f'MIPI_CSI i={i:08x} host=00000000 shutdown=00000000 reset=00000000 stop=00000000 bridge=00000000\n'
+        text += f'MIPI_DMA i={i:08x} cfg=00000000 enable=00000000 abort=00000000\n'
+        for c in range(4):
+            text += f'MIPI_CH i={i:08x} ch={c:08x} cfg0=00000000 cfg1=00000000 transferred=00000000 fifo=00000000 sar=00000000 dar=00000000 llp=00000000\n'
+    return text + 'MAIA_NATIVE_MIPI_PASS\n'
+for sample in (mipi_fixture(), mipi_fixture(0x2000, 0x1c20, 15)):
+    assert runner.evaluate_mipi(sample)
+    assert not runner.evaluate_mipi(sample + sample)
+    assert not runner.evaluate_mipi(sample.replace('MAIA_NATIVE_MIPI_PASS', 'MAIA_NATIVE_MIPI_FAIL'))
+    assert not runner.evaluate_mipi(sample.replace('MIPI_CH i=00000000 ch=00000000', 'MIPI_CH i=00000000 ch=00000001'))
+    assert not runner.evaluate_mipi(sample.replace('stable=00000001', 'stable=00000000', 1))
+    assert not runner.evaluate_mipi(sample.replace('cpu_after=', 'missing=', 1))
+    assert not runner.evaluate_mipi(sample.replace('MIPI_DMA i=00000000', 'MIPI_UNKNOWN i=00000000', 1))
+assert not runner.evaluate_mipi(mipi_fixture(0x2000, 0x1c20, 0))
+assert not runner.evaluate_mipi(mipi_fixture().replace('sar=00000000', 'sar=00000001', 1))
+assert not runner.evaluate_mipi(mipi_fixture().replace('cpu_after=00000000', 'cpu_after=00000001', 1))
+assert not runner.evaluate_mipi(mipi_fixture().replace('MIPI_DSI i=00000007', 'MIPI_DSI i=00000008', 1))
+print('PASS: complete MIPI records, clock validity, skipped domains, duplicate/missing/malformed/unstable negatives')

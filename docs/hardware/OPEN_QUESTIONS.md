@@ -20,3 +20,9 @@
 - [ ] **UQ-014 (Native VO3 acquisition and power behavior):** Read-only chip1.3/block0.3 trims and native2500mV planner are verified; `../audits/native-ldo3-calibration.md`. Actual codes13/3 match an already-enabled inherited rail; no native power-write/ownership proof. Follow-up `../audits/native-ldo3-acquire.md` implements boot reservation/conflict rejection/masked configure and sticky failures; active matching adoption is hardware-tested, off programming/failures host-tested. Physical off->on is pending consumer quiesce (UQ-015). Physical voltage/settling/current-load/cold-boot behavior remain unmeasured; protect other rails/PMU fields.
 
 - [ ] **UQ-015 (Inherited active MIPI/DMA state):** Native acquisition probe reads active MIPI clock enables after ROM load_ram: system0x0C0D5678, PHY0x2B3. RAM entry does not establish cold peripheral state or stopped DMA. Port ordered DSI/CSI/DMA quiesce with bounded failure/idle checks from primary SDK references before clearing clocks or toggling VO3. Do not reuse stale SDK object handles or infer native display initialization from a retained image. Native LDO active adoption is write-free; off->on hardware test remains pending this gate.
+
+Follow-up to UQ-015: [native read-only MIPI state](../audits/native-mipi-state.md)
+observes disabled DW-GDMA/global/channels, DSI host/bridge/DPI despite active
+clocks on this ROM entry. CSI host skipped (bus gate off). This narrows the
+unknown; it does not resolve ordered shutdown/AXI drain/PHY completion or justify
+clock/power writes. No active-stream stop test has run.

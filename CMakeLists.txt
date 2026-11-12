@@ -38,6 +38,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
+  option(MAIA_NATIVE_PROBE_MIPI "Read-only inherited MIPI/DW-GDMA state" OFF)
   option(MAIA_NATIVE_PROBE_LDO3_ACQUIRE "Exercise boot-only VO3 acquisition" OFF)
   option(MAIA_NATIVE_PROBE_LDO3_CYCLE "Controlled VO3 disable/enable diagnostic with DSI gated" OFF)
   if(MAIA_NATIVE_PROBE_LDO3_ACQUIRE AND NOT MAIA_NATIVE_PROBE_LDO3)
@@ -70,7 +71,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_EMPTY AND NOT MAIA_NATIVE_PROBE_IDLE)
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
-  if(MAIA_NATIVE_PROBE_LDO3)
+  if(MAIA_NATIVE_PROBE_MIPI)
+    if(MAIA_NATIVE_PROBE_LDO3 OR MAIA_NATIVE_PROBE_LDO3_ACQUIRE OR MAIA_NATIVE_PROBE_LDO3_CYCLE OR
+       MAIA_NATIVE_PROBE_TOUCH OR MAIA_NATIVE_PROBE_EXPANDER OR MAIA_NATIVE_PROBE_PANEL_RESET OR
+       MAIA_NATIVE_PROBE_SERIAL_TX_EVENT OR MAIA_NATIVE_PROBE_NOTIFY OR MAIA_NATIVE_PROBE_SERIAL_TX OR
+       MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_STACK OR
+       MAIA_NATIVE_PROBE_IDLE OR MAIA_NATIVE_PROBE_EMPTY OR MAIA_NATIVE_PROBE_FAULT OR MAIA_NATIVE_PROBE_FP32 OR
+       MAIA_NATIVE_PROBE_MIXED OR MAIA_NATIVE_PROBE_LIFECYCLE)
+      message(FATAL_ERROR "MIPI state requires a separate read-only diagnostic")
+    endif()
+    set(MAIA_PROBE_APP tests/hardware/native_mipi_probe.c)
+  elseif(MAIA_NATIVE_PROBE_LDO3)
     if(MAIA_NATIVE_PROBE_TOUCH OR MAIA_NATIVE_PROBE_EXPANDER OR MAIA_NATIVE_PROBE_PANEL_RESET OR
        MAIA_NATIVE_PROBE_SERIAL_TX_EVENT OR MAIA_NATIVE_PROBE_NOTIFY OR MAIA_NATIVE_PROBE_SERIAL_TX OR
        MAIA_NATIVE_PROBE_SERIAL OR MAIA_NATIVE_PROBE_QUEUE OR MAIA_NATIVE_PROBE_STACK OR
@@ -343,6 +354,10 @@ else()
       target_compile_options(riscv_trap_policy_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME riscv_trap_policy_test COMMAND riscv_trap_policy_test)
+    add_executable(mipi_snapshot_test tests/host/mipi_snapshot_test.c)
+    target_include_directories(mipi_snapshot_test PRIVATE include tests/hardware)
+    target_compile_options(mipi_snapshot_test PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME mipi_snapshot_test COMMAND mipi_snapshot_test)
     add_executable(ldo3_acquire_test tests/host/ldo3_acquire_test.c
       soc/espressif/esp32p4/soc_ldo3_acquire.c soc/espressif/esp32p4/soc_ldo3_snapshot.c
       soc/espressif/esp32p4/soc_ldo3_plan.c)

@@ -59,6 +59,60 @@ def evaluate_panel_reset(output):
     return evaluate_expander(output) and len(result) == 1 and int(result[0]) >= 200000
 
 
+def evaluate_mipi(output):
+    """A complete read-only observation, never a power-off/idle certificate."""
+    lines = output.replace('\r', '').splitlines()
+    schemas = {
+        'MIPI_SAMPLE': 'i cpu sys phy cpu_after sys_after phy_after valid stable'.split(),
+        'MIPI_DSI': 'i bridge dpi fifo power mode reset status'.split(),
+        'MIPI_CSI': 'i host shutdown reset stop bridge'.split(),
+        'MIPI_DMA': 'i cfg enable abort'.split(),
+        'MIPI_CH': 'i ch cfg0 cfg1 transferred fifo sar dar llp'.split(),
+    }
+    records = {key: {} for key in schemas}
+    if lines.count('MAIA_MIPI_STATE_PROBE schema=1 read-only') != 1 or lines.count('MAIA_NATIVE_MIPI_PASS') != 1:
+        return False
+    if 'FAIL' in output or 'FATAL' in output:
+        return False
+    for line in lines:
+        if not line.startswith('MIPI_'):
+            continue
+        parts = line.split()
+        kind = parts[0]
+        if kind not in schemas:
+            return False
+        pattern = kind + ''.join(' ' + key + r'=([0-9a-f]{8})' for key in schemas[kind])
+        match = re.fullmatch(pattern, line)
+        if not match:
+            return False
+        row = dict(zip(schemas[kind], (int(value, 16) for value in match.groups())))
+        index = (row['i'], row['ch']) if kind == 'MIPI_CH' else row['i']
+        if row['i'] >= 8 or (kind == 'MIPI_CH' and row['ch'] >= 4) or index in records[kind]:
+            return False
+        records[kind][index] = row
+    if any(len(rows) != (32 if kind == 'MIPI_CH' else 8) for kind, rows in records.items()):
+        return False
+    for i, row in records['MIPI_SAMPLE'].items():
+        expected = ((row['sys'] >> 12) & 1) | (((row['sys'] >> 11) & 1) << 1) | (((row['sys'] >> 10) & 1) << 2)
+        if row['cpu'] & (1 << 13) and row['sys'] & (1 << 5):
+            expected |= 8
+        if row['valid'] != expected or row['stable'] != 1 or any(row[key] != row[key + '_after'] for key in ('cpu', 'sys', 'phy')):
+            return False
+        skipped = []
+        if not expected & 1:
+            skipped.append(records['MIPI_DSI'][i])
+        csi = records['MIPI_CSI'][i]
+        if not expected & 2 and any(csi[key] for key in ('host', 'shutdown', 'reset', 'stop')):
+            return False
+        if not expected & 4 and csi['bridge']:
+            return False
+        if not expected & 8:
+            skipped += [records['MIPI_DMA'][i]] + [records['MIPI_CH'][(i, c)] for c in range(4)]
+        if any(value for entry in skipped for key, value in entry.items() if key not in ('i', 'ch')):
+            return False
+    return True
+
+
 def evaluate_ldo3(output):
     version = re.findall(r'^LDO3_VERSION chip_major=1 chip_minor=3 block_major=0 block_minor=([1-7]) disabled=0 rs_fail=0 corrected=([0-7])$', output, re.M)
     trim = re.findall(r'^LDO3_TRIM k=(\d+) vos=(\d+) c=(\d+)$', output, re.M)
@@ -163,6 +217,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--mipi-state', action='store_true', help='verify read-only inherited MIPI/DW-GDMA state')
     parser.add_argument('--ldo3-acquire', action='store_true', help='verify boot LDO3 active-state adoption')
     parser.add_argument('--ldo3-cycle', action='store_true', help='verify guarded VO3 disable/enable through native acquire')
     parser.add_argument('--ldo3', action='store_true', help='verify read-only VO3 trim/planning and unchanged hardware')
@@ -186,6 +241,10 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.mipi_state and (args.ldo3 or args.ldo3_acquire or args.ldo3_cycle or args.panel_reset or
+                            args.expander or args.touch_identify or args.serial_output_event or
+                            args.serial_output or args.serial_input or args.expect_fatal_cause is not None):
+        parser.error('MIPI state requires a separate read-only profile')
     if args.ldo3_cycle:
         args.ldo3_acquire = True
     if args.ldo3_acquire:
@@ -273,6 +332,8 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
+        if args.mipi_state:
+            passed = evaluate_mipi(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
         if args.ldo3_acquire:
@@ -283,7 +344,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

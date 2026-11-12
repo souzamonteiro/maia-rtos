@@ -498,3 +498,21 @@ legacy desktop still uses FreeRTOS; native cold display remains pending.
 The earlier panel-reset probe did not establish consumer/DMA quiescence. Its
 report is now qualified and its diagnostic rejects active MIPI clocks before
 reset; guarded probe compile passes, physical rerun remains pending quiesce.
+
+## Read-only inherited MIPI/DW-GDMA state — 2026-11-12
+
+Read [MIPI state audit](audits/native-mipi-state.md). New isolated RAM diagnostic observes only
+clock-enabled blocks, rechecks full clock words, never follows descriptors or
+writes MIPI/DMA/power/reset. Host24/24, ASan/UBSan, three mutation negatives and
+two mixed-profile rejection checks PASS; strict native runtime gate PASS.
+Actual Tab5 eight samples PASS: clocksE6DFB7FF/0C0D5678/2B3 stable; validity0D
+(DSI, CSI bridge, DW-GDMA; CSI host skipped). DSI bridge/DPI enable0, host power0/
+PHY reset0; DMA global/channel/abort0 and all four channel FIFO/address/status0.
+Active clocks are not evidence of enabled DMA in this observed state. This is
+not an atomic snapshot, AXI outstanding-traffic proof or ordered shutdown test;
+CSI host fields are unmeasured, not verified idle. Desktop/shell/SciCalc14 restored
+via maia.py after reset; no flash/SD write. Full artifacts/reference hashes:
+`../maia-rtos-recovery/native-mipi-state-20261112/`. Next: bounded native shutdown
+contract covering reset/AXI completion, shared channels and PHY state before
+clock gating/power tests. Full desktop still uses FreeRTOS; physical VO3 cycle,
+guarded reset rerun, native cold display and POSIX implementation remain pending.

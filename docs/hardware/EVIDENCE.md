@@ -553,3 +553,22 @@ after reset; no flash/SD or target regulator write. See ../audits/native-ldo3-ac
 The earlier panel-reset probe did not establish consumer/DMA quiescence. Its
 report is now qualified and its diagnostic rejects active MIPI clocks before
 reset; guarded probe compile passes, physical rerun remains pending quiesce.
+
+### Read-only inherited MIPI/DW-GDMA state — 2026-11-12
+
+[Source/register ledger and actual values](../audits/native-mipi-state.md)
+pins ESP-IDF f5c3654 revision/sections and primary URLs. In particular,
+[peripheral linker symbols](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/ld/esp32p4.peripherals.ld)
+verify DW_GDMA50081000 and CSI/DSI host/bridge bases. Pinned hp_sys_clkrst_reg.h
+SOC_CLK_CTRL0+14/CTRL1+18 bus gates control diagnostic access; DW-GDMA requires
+both CPU13/SYS5 per dw_gdma_ll_is_bus_clock_enabled. Native reads only listed
+non-clearing config/status registers; never reads memory through DMA pointers.
+
+Tab5 eight complete sequential samples: CPU/SYS/PHY E6DFB7FF/0C0D5678/2B3,
+valid0D. DSI bridge/DPI enable0, host POWER/PHY_RSTZ0; CSI bridge0. CSI host
+skipped because bus clock off. DW-GDMA CFG/CHEN0/CHEN1 all0, four channel
+FIFO/status/address/LLP0. Clock enables persist, but controller enables were0;
+active DMA is not established. Snapshot cannot certify AXI drain/PHY stop or
+cold initialization. Host24/24, ASan/UBSan and negative checks PASS. Preserved
+flash shell/SciCalc14/desktop verified after reset; no flash/SD write. This
+checkpoint does not remove VO3/panel-reset guards or port native shutdown yet.
