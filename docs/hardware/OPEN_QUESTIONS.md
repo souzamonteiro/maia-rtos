@@ -58,3 +58,14 @@ park/VDMA guards. Actual ISP clock is on, but source/input controls are disconne
 reset held. No MIPI/ISP reads after reset/gating. Live-stream/shared runtime ownership,
 internal/electrical reset/analog settling and PSRAM remain open. Existing VO3/reset
 guards were not bypassed; compose only the verified boot path for subsequent tests.
+
+Follow-up UQ-014/UQ-015/UQ-016: [guarded VO3 cycle](../audits/native-vo3-cycle.md)
+now passes actual off-control/native non-adopting acquire on Tab5 after verified
+park/gate. This closes only the previously pending enable-path hardware test.
+No voltage/discharge/stabilization/load measurement; matching analog/source
+steps were no-ops. Cold DSI/PHY/panel/PSRAM and live stream shutdown remain open.
+Inherited CSI bus/config clocks and reset bits vary after warm entry; establish
+all access/reset prerequisites before reads. An earlier preparation faulted on
+CSI RESETN before VO3 writes. Final guarded CSI reset/clock preparation and native
+trap vector pass, preserving unrelated ISP reset. Do not assume cold defaults or
+claim reset restores every unused peripheral; desktop recovery is functional proof.

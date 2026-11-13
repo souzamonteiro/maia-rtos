@@ -283,3 +283,42 @@ for old,new in [('control=40002442','control=40002443'), ('control=40002442','co
                 ('camera=00000004','camera=00000005'), ('camera=00000004','camera=00000000'),
                 ('inspected=00000001','inspected=00000000')]:
     assert not runner.evaluate_mipi_gate(clocked_gate.replace(old,new))
+
+cycle = 'VO3_CSI_PREP sys_before=0c0d5278 sys_after=0c0d5e78 phy_before=000002a3 phy_after=000002b3 reset_before=08000040 reset_after=00000040\n' + clocked_gate.replace('sys_before=0c0d5678','sys_before=0c0d5e78') + """VO3_PLAN dref=0000000d mul=00000003 defaults=00000000 control=00000180 analog=d5800000
+VO3_OFF control=00000080 analog=d5800000
+VO3_CYCLE_OFF_READY
+VO3_ON control=00000180 analog=d5800000
+VO3_CYCLE_ON_READY
+VO3_ACQUIRE stage=00000005 adopted=00000000 changed=00000001 preserved=00000001 duplicate_busy=00000001 samples=00000010
+MAIA_NATIVE_VO3_CYCLE_PASS
+"""
+assert runner.evaluate_vo3_cycle(cycle)
+assert not runner.evaluate_mipi_gate(cycle)
+for old,new in [('VO3_OFF control=00000080','VO3_OFF control=00000180'),('VO3_ON control=00000180','VO3_ON control=00000080'),
+                ('analog=d5800000','analog=d5000000'),('dref=0000000d','dref=0000000c'),
+                ('adopted=00000000','adopted=00000001'),('samples=00000010','samples=0000000f')]:
+    assert not runner.evaluate_vo3_cycle(cycle.replace(old,new,1))
+assert not runner.evaluate_vo3_cycle(cycle+cycle)
+assert not runner.evaluate_vo3_cycle(cycle.replace('VO3_CYCLE_OFF_READY','MISSING'))
+assert not runner.evaluate_vo3_cycle(cycle.replace('VO3_CYCLE_OFF_READY','VO3_CYCLE_ON_READY',1))
+class CyclePort:
+    def __init__(self): self.data=b''
+    def write(self,data): self.data+=data;return len(data)
+    def flush(self): pass
+class CycleClock:
+    def __init__(self): self.value=0.0
+    def now(self): return self.value
+    def pause(self,duration): self.value+=duration
+port=CyclePort();clock=CycleClock();stimulus=runner.Vo3CycleStimulus(port,clock.pause,clock.now)
+stimulus.feed('VO3_CYCLE_OFF_READY\n');assert port.data == b'O' and stimulus.phase == 1
+stimulus.feed(cycle);assert port.data == b'ON' and stimulus.phase == 2 and stimulus.holds == [.02,.02]
+stimulus.feed(cycle);assert port.data == b'ON'
+try:
+    runner.Vo3CycleStimulus(CyclePort(),lambda _:None,lambda:0).feed(cycle)
+except RuntimeError: pass
+else: raise AssertionError('short host observation window accepted')
+print('PASS: VO3 off/on preservation, non-adoption, complete captures and phased host observation ACKs')
+
+assert not runner.evaluate_vo3_cycle(cycle.replace('VO3_CSI_PREP','UNKNOWN'))
+assert not runner.evaluate_vo3_cycle(cycle.replace('phy_after=000002b3','phy_after=000002a3',1))
+assert not runner.evaluate_vo3_cycle(cycle.replace('sys_after=0c0d5e78','sys_after=0c0d5e58',1))

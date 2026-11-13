@@ -1,0 +1,21 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 14096 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+MAIA_MIPI_PARK_BOOT
+MIPI_CLOCK_GUARD sys=0c0d5278 cpu=e6dfb7ff phy=000002a3
+MAIA_NATIVE_MIPI_PARK_FAIL bus-clocks
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] Guarded VO3 cycle: FAIL / NOT DEMONSTRATED

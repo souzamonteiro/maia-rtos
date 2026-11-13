@@ -659,3 +659,28 @@ duplicate_busy1 PASS. All guarded MIPI clock bits0; ISP clock unchanged/module r
 held, CPU/VDMA retained. No MIPI/ISP MMIO after reset, no LDO/analog power/flash/SD
 writes. Host28/28/sanitizer/header/negative checks PASS; shell/SciCalc14/desktop
 verified after RAM reset. Electrical settling and live shared-ISP shutdown not proven.
+
+### Guarded VO3 off and native inactive-rail acquire — 2026-11-12
+
+Primary sources: ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[regulator](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/ldo/esp_ldo_regulator.c),
+[ldo_ll](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/ldo_ll.h),
+[CSI constructor](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c)
+and mipi_csi_ll.h/RCC/PMU/CSI register headers pinned in
+[manifest](../audits/native-vo3-cycle-manifest.json). TRM chip1.3 Pre-release v0.4
+38.7.2 p1974/34.7.5–7 pp1574–1575/VDMA CFG0 p349 remain park/gate prerequisites;
+[primary TRM](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf).
+SDK enable/disable is an XPD write, with no explicit voltage-ready/discharge wait.
+Native supply port attribution unchanged; no SDK runtime/refcounts imported.
+
+[Actual capture/audit](../audits/native-vo3-cycle.md): CSI clock/reset preparation
+38000040 ->20000040 before host MMIO; native park/gate held3C000040 and all MIPI
+clock masks0. CTRL40200180 ->40200080 ->40200180/ANA D5800000 retained, calibrated
+dref13/mul3/defaults0. Existing native acquire stage5/adopted0/changed1; sixteen
+samples each phase/other ten LDO words/guards preserved/duplicate BUSY. Host windows
+20.946/21.124ms are observation only, no electrical measurement. Analog/source
+writes skipped because already matching. Early clock refusal/access fault logged,
+no VO3 writes in either; final native trap vector and complete prerequisites pass.
+Host30/30, ASan/UBSan, four compiled mutants/invalid profile PASS. Native ELF runtime
+gate clean, SRAM-only image; preserved shell/SciCalc14/desktop verified after reset.
+No flash/SD writes; no native cold display, voltage/ramp/load or live-stream proof.

@@ -601,3 +601,25 @@ boot-reset clock gating; not live ISP/CSI/video stop, electrical settling or an
 unconditional power-cycle permission. Next: compose guarded VO3 off/acquire test
 with native park/gate, retaining supply/discharge/stabilization limitations.
 Full desktop still FreeRTOS-based; native cold display/PSRAM/POSIX pending.
+
+## Guarded native VO3 off/acquire — 2026-11-12
+
+Read [VO3 cycle audit](audits/native-vo3-cycle.md). Opt-in RAM diagnostic composes native park/gate
+with calibrated VO3 off request and unchanged native acquire. Boot CSI preparation
+now checks idle DMA/disconnected or reset-held ISP, asserts CSI resets, enables
+only its access/config clocks, releases CSI resets, then reads shutdown defaults.
+Actual inherited RESET38000040 ->20000040 retains ISP reset; warm RAM/reset is
+not a cold state. Early bus-clock refusal and CSI access-fault candidates are
+preserved; neither reached VO3 writes. VO3 profile installs native trap vector.
+Final target PASS: held reset3C000040/gated SYS0C0D4278/PHY220,
+CTRL40200180 ->40200080 ->40200180, ANA D5800000/dref13/mul3 retained.
+Native acquire verified5/non-adopted/changed,16 stable samples per phase, ten
+other LDO words and clock/reset/VDMA guards preserved, duplicate BUSY. Host quiet
+windows20.946/21.124ms are not physical voltage/settling proof; analog/source
+programming was a no-op because values matched. Host30/30, two sanitizer fixtures,
+four compiled negative mutants and invalid profile PASS. Shell/SciCalc14/desktop
+restored, no flash/SD writes; artifacts `../maia-rtos-recovery/native-vo3-cycle-20261112/`.
+No public API/default firmware change or new foreign runtime dependency. Full
+desktop still FreeRTOS-based. Next: checked native DSI clock/PHY prerequisites;
+cold panel/display/PSRAM, electrical characterization/live stream shutdown and
+POSIX implementation remain pending.

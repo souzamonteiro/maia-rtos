@@ -16,15 +16,33 @@ static void halt(const char *reason) {
     maia_console_puts("MAIA_NATIVE_MIPI_PARK_FAIL ");maia_console_puts(reason);maia_console_puts("\n");
     for (;;) __asm__ volatile("wfi");
 }
+#ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
+#include "native_vo3_cycle.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
     if (hart || status&8U) halt("context");
+#ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
+    extern void maia_soc_trap_init(void);
+    maia_soc_trap_init();
+#endif
     unsigned host_ready=0;
     for (unsigned i=0;i<10000000U;++i) if (maia_serial_rx_read(NULL) == 'P') { host_ready=1;break; }
     if (!host_ready) halt("host-timeout");
+#ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
+    uint32_t csi_sys=rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG),csi_phy=rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG);
+    uint32_t csi_reset=rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U);
+    if (!vo3_prepare_csi(rd,wr)) halt("vo3-csi-prepare");
+    field("VO3_CSI_PREP sys_before=",csi_sys);field(" sys_after=",rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG));
+    field(" phy_before=",csi_phy);field(" phy_after=",rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG));
+    field(" reset_before=",csi_reset);field(" reset_after=",rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U));maia_console_puts("\n");
+#endif
     uint32_t original_sys=rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG);
-    if ((original_sys&0x1420U) != 0x1420U || !(rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x14U)&(1U<<13U))) halt("bus-clocks");
+    if ((original_sys&0x1420U) != 0x1420U || !(rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x14U)&(1U<<13U))) {
+        field("MIPI_CLOCK_GUARD sys=",original_sys);field(" cpu=",rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x14U));
+        field(" phy=",rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG));maia_console_puts("\n");halt("bus-clocks");
+    }
     /* Only CSI host bus access enabled; no PHY/source/DPI clock or reset write. */
     if (!(original_sys&(1U<<11U))) wr(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG,original_sys|(1U<<11U));
     if (rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != (original_sys|(1U<<11U))) halt("host-bus-readback");
@@ -84,6 +102,9 @@ void maia_boot_main(void) {
     field(" preserved=",(uint32_t)kept);field(" duplicate_busy=",(uint32_t)gate_busy);maia_console_puts("\n");
     if (result != MAIA_MIPI_PARK_OK || g.completed != MAIA_MIPI_GATE_VERIFIED || !kept || !gate_busy) halt("gate");
     maia_console_puts("MAIA_NATIVE_MIPI_GATE_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
+    vo3_cycle(&g,before.cpu);
+#endif
 #endif
     for (;;) __asm__ volatile("wfi");
 }

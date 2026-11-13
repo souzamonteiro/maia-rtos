@@ -133,7 +133,9 @@ def evaluate_mipi_park(output, allow_gate=False):
             not db & 1 and not cb & 1 and dp == dsi & ~14 and cp == csi & ~1)
 
 
-def evaluate_mipi_gate(output):
+def evaluate_mipi_gate(output, allow_vo3=False):
+    if not allow_vo3 and 'VO3_' in output:
+        return False
     if not evaluate_mipi_park(output, allow_gate=True):
         return False
     lines = output.replace('\r', '').splitlines()
@@ -157,6 +159,48 @@ def evaluate_mipi_gate(output):
     return (not norst & 0x7800 and rb == reset and ra == rb | 0x3c000000 and
             attempted == (6 if ra == rb else 7) and pb & 0x11 == 0x11 and pa == pb & ~0x93 and
             ready is not None and sb == int(ready[1], 16) and sb & 0x1c20 == 0x1c20 and sa == sb & ~0x1c00)
+
+
+def evaluate_vo3_cycle(output):
+    if not evaluate_mipi_gate(output, allow_vo3=True):
+        return False
+    lines = output.replace('\r', '').splitlines()
+    schemas = {'VO3_CSI_PREP': 'sys_before sys_after phy_before phy_after reset_before reset_after'.split(), 'VO3_PLAN': 'dref mul defaults control analog'.split(),
+               'VO3_OFF': 'control analog'.split(), 'VO3_ON': 'control analog'.split(),
+               'VO3_ACQUIRE': 'stage adopted changed preserved duplicate_busy samples'.split()}
+    rows = {}
+    for line in lines:
+        if not line.startswith('VO3_') or line in ('VO3_CYCLE_OFF_READY', 'VO3_CYCLE_ON_READY'):
+            continue
+        kind = line.split()[0]
+        if kind not in schemas or kind in rows:
+            return False
+        match = re.fullmatch(kind + ''.join(' '+key+r'=([0-9a-f]{8})' for key in schemas[kind]),line)
+        if not match:
+            return False
+        rows[kind] = dict(zip(schemas[kind], (int(v,16) for v in match.groups())))
+    if rows.keys() != schemas.keys() or lines.count('MAIA_NATIVE_VO3_CYCLE_PASS') != 1:
+        return False
+    for marker in ('VO3_CYCLE_OFF_READY', 'VO3_CYCLE_ON_READY'):
+        if lines.count(marker) != 1:
+            return False
+    if not (lines.index('VO3_CYCLE_OFF_READY') < lines.index('VO3_CYCLE_ON_READY') < lines.index('MAIA_NATIVE_VO3_CYCLE_PASS')):
+        return False
+    prep, plan, off, on, acquired = (rows[key] for key in schemas)
+    park_start = re.search(r'^MIPI_PARK_SETUP sys_before=([0-9a-f]{8}) ',output.replace('\r',''),re.M)
+    gate_phy = re.search(r'^MIPI_GATE .* phy_before=([0-9a-f]{8}) ',output.replace('\r',''),re.M)
+    if not (prep['sys_before'] & 0x1020 == 0x1020 and prep['phy_before'] & 1 and
+            prep['sys_after'] == prep['sys_before'] | 0xc00 and prep['phy_after'] == prep['phy_before'] | 0x10 and prep['reset_after'] == prep['reset_before'] & ~0x18000000 and
+            park_start and int(park_start[1],16) == prep['sys_after'] and
+            gate_phy and int(gate_phy[1],16) == prep['phy_after']):
+        return False
+    if not (0 <= plan['dref'] <= 15 and 0 <= plan['mul'] <= 7 and 0 <= plan['defaults'] <= 7 and
+            plan['control'] & 0x4f80 == 0x180 and
+            plan['analog'] & 0xf7800000 == (plan['dref'] << 28) | (plan['mul'] << 23) | (1 << 26)):
+        return False
+    return (off['control'] == plan['control'] & ~0x100 and off['analog'] == plan['analog'] and
+            on['control'] == plan['control'] and on['analog'] == plan['analog'] and
+            acquired == dict(stage=5, adopted=0, changed=1, preserved=1, duplicate_busy=1, samples=16))
 
 
 def evaluate_vdma_transfer(output):
@@ -301,6 +345,30 @@ def evaluate_serial_output_event(output):
             int(waits[0][0]) >= 2 and int(waits[0][1]) > 0 and int(waits[0][2]) > 0 and int(waits[0][3]) == 1)
 
 
+class Vo3CycleStimulus:
+    """Host observation windows only, not rail discharge/settling specifications."""
+    def __init__(self, port, pause=time.sleep, now=time.monotonic):
+        self.port, self.pause, self.now = port, pause, now
+        self.phase, self.holds = 0, []
+
+    def feed(self, output):
+        clean = output.replace('\r', '')
+        for index, marker, ack, name in ((0, 'VO3_CYCLE_OFF_READY', b'O', 'off'),
+                                          (1, 'VO3_CYCLE_ON_READY', b'N', 'on')):
+            if self.phase == index and marker+'\n' in clean:
+                start = self.now()
+                self.pause(0.020)
+                elapsed = self.now()-start
+                if elapsed < 0.020:
+                    raise RuntimeError('short VO3 observation window')
+                if self.port.write(ack) != 1:
+                    raise RuntimeError('short VO3 acknowledgement write')
+                self.port.flush()
+                self.holds.append(elapsed)
+                self.phase += 1
+                print('[HOST] VO3 observation '+name+' ms='+format(elapsed*1000,'.3f'))
+
+
 class SerialInputStimulus:
     """Two paced binary batches, armed only by the RAM serial probe markers."""
     def __init__(self, port, pause=time.sleep):
@@ -331,6 +399,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--vo3-cycle', action='store_true', help='guarded VO3 disable/native acquire with host observation windows')
     parser.add_argument('--mipi-gate', action='store_true', help='verify held shared resets and boot MIPI clock gating')
     parser.add_argument('--mipi-park', action='store_true', help='verify reset-state bridge/PHY parking, no live streams')
     parser.add_argument('--vdma-transfer', action='store_true', help='verify owned SRAM DMA copy and active-channel stop')
@@ -360,6 +429,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.vo3_cycle:
+        args.mipi_gate = True
     if args.mipi_gate:
         args.mipi_park = True
     if args.mipi_park:
@@ -445,7 +516,7 @@ def main():
                 if port.write(b'P') != 1:
                     raise RuntimeError('short MIPI park host-ready write')
                 port.flush()
-            stimulus = SerialInputStimulus(port) if args.serial_input else None
+            stimulus = Vo3CycleStimulus(port) if args.vo3_cycle else SerialInputStimulus(port) if args.serial_input else None
             deadline = time.monotonic() + args.capture_seconds
             while time.monotonic() < deadline:
                 data = port.read(8192)
@@ -469,7 +540,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.mipi_gate:
+        if args.vo3_cycle:
+            passed = evaluate_vo3_cycle(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.mipi_gate:
             passed = evaluate_mipi_gate(output)
         elif args.mipi_park:
             passed = evaluate_mipi_park(output)
@@ -489,7 +562,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 
