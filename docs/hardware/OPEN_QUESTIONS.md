@@ -102,3 +102,13 @@ acceptance or bounded response. Counts0 disable hardware timeouts; future transf
 API must provide bounded software completion/errors, LP/VC selection and explicit
 ACK/read policy. Next native LP short writes, then panel reset/DCS startup and
 video/framebuffer/PSRAM. Nominal clock arithmetic remains unmeasured physically.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native LP DCS short transport](../audits/native-dsi-short.md)
+now attempts16 actual VC0 NOPs with busy witnessed, bounded drain/stop and zero
+observed errors on Tab5. No ACK requested: this does not establish panel receipt,
+read response or display initialization. Header publication has no safe readback;
+fast completion and silently ignored store can look alike without stronger evidence.
+Error status reads may consume latches; sole-owner OR accumulation/sticky failure
+prevents blind clear-and-retry. Next long payload path then panel-specific startup;
+read/BTA/ACK policy, cold panel identity/reset integration and physical waveforms
+remain unverified. Do not infer successful panel configuration from host FIFO idle.

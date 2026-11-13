@@ -7,7 +7,7 @@ extern "C" {
 #endif
 typedef enum maia_dsi_access_result {
     MAIA_DSI_ACCESS_OK=0, MAIA_DSI_ACCESS_INVALID=-1, MAIA_DSI_ACCESS_CONTEXT=-2,
-    MAIA_DSI_ACCESS_BUSY=-3, MAIA_DSI_ACCESS_VERIFY=-4, MAIA_DSI_ACCESS_FAILED=-5, MAIA_DSI_ACCESS_TIMEOUT=-6
+    MAIA_DSI_ACCESS_BUSY=-3, MAIA_DSI_ACCESS_VERIFY=-4, MAIA_DSI_ACCESS_FAILED=-5, MAIA_DSI_ACCESS_TIMEOUT=-6, MAIA_DSI_ACCESS_IO=-7
 } maia_dsi_access_result_t;
 typedef enum maia_dsi_access_stage {
     MAIA_DSI_ACCESS_NONE=0, MAIA_DSI_ACCESS_GUARDED, MAIA_DSI_ACCESS_BUS,
@@ -117,6 +117,35 @@ typedef struct maia_dsi_command_report {
  * No header/payload/IRQ acknowledgment/panel/HS/video/DMA/PSRAM writes or actual
  * packet transfer; OK proves checked host setup, not working panel/display. */
 maia_dsi_access_result_t maia_esp32p4_dsi_command_config(maia_dsi_command_report_t *report);
+typedef struct maia_dsi_short_report {
+    uint32_t completed; /*0:none 1:guarded 2:LP configured 3:header attempted
+                         4:host drained/PHY stopped observed 5:verified. */
+    uint32_t header,header_attempted,command_before,command_after;
+    uint32_t polls,status,fifo,error0,error1,saw_busy;
+} maia_dsi_short_report_t;
+/* Synchronous boot-exclusive DCS short write, only after native command_config.
+ * vc0..3, command/parameter0..255, parameter_count0..1; unused parameter must0.
+ * poll_budget1..100000 bounds completion observations (NOT elapsed-time limit).
+ * Same exclusive clock/supply/producer contract, no ISR/task/SMP/reentrant use.
+ * Require stable configured host/PHY, empty generic FIFOs/no read-busy, all lane
+ * stops and lock; ACK/TE/BTA disabled. Select only this packet's LP bit16 or17,
+ * preserve other CMD_MODE_CFG fields, encode VC in header (no RX VC programming).
+ * Publish exactly ONE header; no payload/long/read/BTA/ACK/HS/video operation.
+ * Guard clocks before MMIO, preserve table/root/supply; allow lane-stop change
+ * during TX while lock stays set. Observe FIFO drained and all-stopped together.
+ * Status errors are accumulated, including preexisting flags (IO=-7); status
+ * reads may consume diagnostics, so caller exclusively owns them. No IRQ-mask/
+ * clear writes. No GEN_HDR readback: store is publication, not a readable config.
+ * OK means host drain/stop OBSERVED, not panel ACK or verified wire completion;
+ * fast packets may finish without sampled busy (saw_busy records observation).
+ * Success permits next exclusive call; LP selection remains set. Timeout/error
+ * after guards sticky FAILED until reset, no rollback/retry: packet may already
+ * have been accepted. header_attempted set BEFORE store. Initial busy returns
+ * BUSY without writes; preexisting error is sticky IO even before publication.
+ * Required report initialized; invalid args INVALID/context CONTEXT without I/O.
+ * No panel-specific policy, memory/DMA/IRQ or PSRAM access. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dcs_short(uint32_t vc,uint32_t command,
+    uint32_t parameter_count,uint32_t parameter,uint32_t poll_budget,maia_dsi_short_report_t *report);
 #ifdef __cplusplus
 }
 #endif

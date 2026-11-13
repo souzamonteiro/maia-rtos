@@ -700,3 +700,24 @@ no flash/SD writes. Recovery `../maia-rtos-recovery/native-dsi-command-20261113/
 Default desktop still FreeRTOS. Next: packet-specific LP/VC settings and bounded
 short writes, distinguishing host completion from panel ACK; then panel DCS/video/
 framebuffer/PSRAM. No full native desktop or POSIX implementation claimed.
+
+## Bounded native LP DCS short writes — 2026-11-13
+
+Read [LP short transport](audits/native-dsi-short.md). Native boot API requires internal command claim,
+stable cached14 config/root/supply/PHY, empty generic FIFOs and ACK/TE/BTA off.
+DCS0/1, VC0..3/byte validation, LP bit16/17 masked, one GEN_HDR publication (no
+readback/payload), finite budget1..100000 observations, allow lane-stop activity
+while PLL stays locked. Read/OR error0mask1FFFFF/error1mask81FFF; reads may consume
+latches, no clear/mask writes. Sticky failure/timeout, no rollback/retry after
+possible publication. Success allows next exclusive call; not a runtime queue.
+Clock guard before LP readback fixed under host fault injection before target load.
+Actual Tab516 VC0 NOPs PASS: stage5/header05/attempted1, each2polls/busy witnessed;
+mode0->10000 once, final STATUS15BD/FIFO50015/errors0, prior config/root/supply
+preserved. panel_ack0: host drain/stop, not panel reception proof. Fast/unobservable
+publication limits explicit; DCS1/nonzeroVC host-tested only. Host35/35/sanitizer/
+C++98/five compiled mutants/invalid profile PASS. Shell/SciCalc14/desktop restored,
+no flash/SD writes. Recovery `../maia-rtos-recovery/native-dsi-short-20261113/`.
+New packing helper Apache-2.0 attributed, no foreign runtime or parser changes.
+Default desktop still FreeRTOS. Next: bounded LP long payload writes for vendor
+panel startup, then panel-specific reset/DCS integration; ACK/read/video/PSRAM/
+full native desktop and POSIX implementation remain pending.

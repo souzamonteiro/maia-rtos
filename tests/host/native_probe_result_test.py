@@ -394,3 +394,20 @@ assert not runner.evaluate_dsi_command(command+command)
 assert not runner.evaluate_dsi_command(command+'DSI_COMMAND_WORD malformed\n')
 assert not runner.evaluate_dsi_command(command.replace('MAIA_NATIVE_DSI_COMMAND_PASS',''))
 print('PASS: command config capture requires exact masked table, complete indices, rates and empty/not-busy FIFO')
+
+short=command
+for i in range(16):
+    short+=f'DSI_SHORT index={i:08x} result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000004 busy=00000001 before={0 if i==0 else 0x10000:08x} after=00010000 status=00001595 fifo=00000015 error0=00000000 error1=00000000\n'
+short+='DSI_SHORT_SUMMARY packets=00000010 busy=00000010 mode_changes=00000001 preserved=00000001 panel_ack=00000000\nMAIA_NATIVE_DSI_SHORT_PASS\n'
+assert runner.evaluate_dsi_short(short)
+assert not runner.evaluate_dsi_command(short)
+for old,new in [('header=00000005','header=00000015'),('attempted=00000001 polls=','attempted=00000000 polls='),
+                ('after=00010000 status=','after=00010002 status='),('error0=00000000','error0=00010000'),
+                ('error1=00000000','error1=00000100'),('panel_ack=00000000','panel_ack=00000001'),
+                ('DSI_SHORT index=00000001','DSI_SHORT index=00000000')]:
+    assert not runner.evaluate_dsi_short(short.replace(old,new,1))
+assert not runner.evaluate_dsi_short(short+short)
+assert not runner.evaluate_dsi_short(short+'DSI_SHORT malformed\n')
+assert not runner.evaluate_dsi_short(short.replace('MAIA_NATIVE_DSI_SHORT_PASS',''))
+assert runner.evaluate_dsi_short(short.replace('busy=00000001 before=','busy=00000000 before=').replace('busy=00000010 mode_changes=','busy=00000000 mode_changes='))
+print('PASS: short capture requires16 ordered NOP publications, LP/idle/error preservation and no panel ACK claim')

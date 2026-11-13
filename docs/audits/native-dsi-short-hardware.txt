@@ -1,0 +1,78 @@
+Serial port /dev/cu.usbmodem1301
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 26064 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+MAIA_MIPI_PARK_BOOT
+VO3_CSI_PREP sys_before=0c0d5278 sys_after=0c0d5e78 phy_before=000002a3 phy_after=000002b3 reset_before=38000040 reset_after=20000040
+MIPI_PARK_SETUP sys_before=0c0d5e78 sys_ready=0c0d5e78 dsi_phy=00000002 csi_phy=00000001 armed=0000000f live=00000000
+MIPI_PARK result=00000000 stage=00000004 attempted=0000000f dsi_bridge=00000000 csi_bridge=00000000 dsi_phy=00000000 csi_phy=00000000 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_PARK_PASS
+MIPI_ISP clock=02e82000 reset=20000040 norst=00000000
+MIPI_ISP_STATE inspected=00000000 control=00000000 camera=00000000
+MIPI_GATE result=00000000 stage=00000005 attempted=00000007 reset_before=20000040 reset_after=3c000040 phy_before=000002b3 phy_after=00000220 sys_before=0c0d5e78 sys_after=0c0d4278 preserved=00000001 duplicate_busy=00000001
+MAIA_NATIVE_MIPI_GATE_PASS
+VO3_PLAN dref=0000000d mul=00000003 defaults=00000000 control=40200180 analog=d5800000
+VO3_OFF control=40200080 analog=d5800000
+VO3_CYCLE_OFF_READY
+[HOST] VO3 observation off ms=25.017
+VO3_ON control=40200180 analog=d5800000
+VO3_CYCLE_ON_READY
+[HOST] VO3 observation on ms=25.019
+VO3_ACQUIRE stage=00000005 adopted=00000000 changed=00000001 preserved=00000001 duplicate_busy=00000001 samples=00000010
+MAIA_NATIVE_VO3_CYCLE_PASS
+DSI_ACCESS result=00000000 stage=00000005 attempted=00000007 sys_before=0c0d4278 sys_after=0c0d5278 phy_before=00000220 phy_after=00000221 reset_before=3c000040 reset_after=38000040 control=40200180 analog=d5800000 duplicate_busy=00000001
+DSI_CONFIG version=3134312a power=00000000 phy_reset=00000000 bridge=00000000 dpi=000019d0 fifo=00000000 status=00001528
+MAIA_NATIVE_DSI_ACCESS_PASS
+DSI_REFERENCE result=00000000 stage=00000007 attempted=00000010 divider=58170503 lp_gate=1ffcfffd provider_before=00000115 provider_after=00000115 source_before=38862600 source_after=38862600 phy_before=00000221 phy_after=00000223 nominal_hz=01312d00 preserved=00000001 duplicate_busy=00000001 samples=00000010
+DSI_REFERENCE_STATE power=00000000 phy_reset=00000000 bridge=00000000 dpi=000019d0 fifo=00000000 status=00001528
+MAIA_NATIVE_DSI_REFERENCE_PASS
+DSI_PHY result=00000000 stage=0000000b writes=00000028 bytes=00000005 polls=00000007 status=000015bd power=00000001 phy_reset=0000000f lanes_before=00000001 lanes=00000001 mbps=000003c0 preserved=00000001 duplicate_busy=00000001 samples=00000010
+MAIA_NATIVE_DSI_PHY_PASS
+DSI_COMMAND result=00000000 stage=00000010 attempted=0000181e status=000015bd fifo=00050015 escape_hz=01312d00 timeout_hz=00989680 preserved=00000001 duplicate_busy=00000001 samples=00000010
+DSI_COMMAND_WORD index=00000000 before=00000001 after=00000001
+DSI_COMMAND_WORD index=00000001 before=00000000 after=00000c06
+DSI_COMMAND_WORD index=00000002 before=00000000 after=00320068
+DSI_COMMAND_WORD index=00000003 before=00000000 after=002e0080
+DSI_COMMAND_WORD index=00000004 before=00000000 after=00000019
+DSI_COMMAND_WORD index=00000005 before=00000000 after=00000000
+DSI_COMMAND_WORD index=00000006 before=00000000 after=00000000
+DSI_COMMAND_WORD index=00000007 before=00000000 after=00000000
+DSI_COMMAND_WORD index=00000008 before=00000000 after=00000000
+DSI_COMMAND_WORD index=00000009 before=00000000 after=00000000
+DSI_COMMAND_WORD index=0000000a before=00000000 after=00000000
+DSI_COMMAND_WORD index=0000000b before=00000000 after=00001770
+DSI_COMMAND_WORD index=0000000c before=00000001 after=00003f01
+DSI_COMMAND_WORD index=0000000d before=00000000 after=00000000
+MAIA_NATIVE_DSI_COMMAND_PASS
+DSI_SHORT index=00000000 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00000000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000001 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000002 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000003 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000004 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000005 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000006 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000007 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000008 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=00000009 result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000a result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000b result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000c result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000d result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000e result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT index=0000000f result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 before=00010000 after=00010000 status=000015bd fifo=00050015 error0=00000000 error1=00000000
+DSI_SHORT_SUMMARY packets=00000010 busy=00000010 mode_changes=00000001 preserved=00000001 panel_ack=00000000
+MAIA_NATIVE_DSI_SHORT_PASS
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] DSI LP short packets: PASS

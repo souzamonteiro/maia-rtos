@@ -214,6 +214,35 @@ void maia_boot_main(void) {
     }
     if (!cmd_busy || !cmd_kept || command.completed != 16U) halt("command-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_COMMAND_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_SHORT
+    unsigned busy_packets=0,mode_changes=0;
+    int short_kept=1;
+    for (unsigned packet=0;packet<16U;++packet) {
+        maia_dsi_short_report_t sent;
+        maia_dsi_access_result_t result=maia_esp32p4_dsi_dcs_short(0,0,0,0,10000U,&sent);
+        field("DSI_SHORT index=",packet);field(" result=",(uint32_t)result);field(" stage=",sent.completed);
+        field(" header=",sent.header);field(" attempted=",sent.header_attempted);field(" polls=",sent.polls);
+        field(" busy=",sent.saw_busy);field(" before=",sent.command_before);field(" after=",sent.command_after);
+        field(" status=",sent.status);field(" fifo=",sent.fifo);field(" error0=",sent.error0);field(" error1=",sent.error1);maia_console_puts("\n");
+        if (result != MAIA_DSI_ACCESS_OK || sent.completed != 5U || !sent.header_attempted) halt("short");
+        busy_packets+=sent.saw_busy;mode_changes+=sent.command_before != sent.command_after;
+        for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i)
+            if (rd(MAIA_ESP32P4_DSI_HOST_BASE+command_registers[i]) != command.after[i]) short_kept=0;
+        if (rd(MAIA_ESP32P4_DSI_HOST_BASE+4U) != phy_report.power ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U) != phy_report.phy_reset ||
+            (rd(MAIA_ESP32P4_DSI_HOST_BASE+0x94U)&3U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U) || (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)&1U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU) ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) short_kept=0;
+    }
+    field("DSI_SHORT_SUMMARY packets=",16U);field(" busy=",busy_packets);field(" mode_changes=",mode_changes);
+    field(" preserved=",(uint32_t)short_kept);maia_console_puts(" panel_ack=00000000\n");
+    if (!short_kept) halt("short-preserve");
+    maia_console_puts("MAIA_NATIVE_DSI_SHORT_PASS\n");
+#endif
 #endif
 #endif
 #endif

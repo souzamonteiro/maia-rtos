@@ -788,3 +788,29 @@ HW timeout counts0, transaction completion API still pending. Host34/34/sanitize
 C++98/four compiled mutants/invalid profile PASS. Native runtime gate clean,
 preserved shell/SciCalc14/desktop verified; no flash/SD writes. No full native
 panel/display, physical timing or packet acceptance proof claimed.
+
+### Native bounded LP short packet publication — 2026-11-13
+
+Primary SDK f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[HAL DCS short cases](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c),
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[type definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/include/hal/mipi_dsi_types.h)
+and host register header: DT05/15, CMD_MODE_CFG+68 LP16/17/ACK1/TE0, GEN_HDR+6C
+parameter16..23/command8..15/VC6..7/DT0..5. RX VC untouched; no BTA/read. INT_ST0+BC
+bits0..20 mask1FFFFF, INT_ST1+C0 bits0..12/19 mask81FFF. Status reads may consume
+diagnostics: exclusive ownership/OR accumulation/immediate failure, no blind clear.
+Native packing helper Apache-2.0 attributed; no SDK runtime imports.
+
+Primary local [ST7123 SPEC V0.5](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/ST7123_SPEC_Preliminary_V0.5.pdf)
+2021/09 section6.2.1 p140 defines NOP00 with no display effect, usable in sleep-in/
+sleep-out. Source URL catalog/local SHA in [audit/manifest](../audits/native-dsi-short.md).
+Earlier chip1.3 TRM v0.4 ch10/p616/regs10.11–10.16 pp651–659 clock facts unchanged.
+
+Actual native Tab5 RAM16 NOPs PASS: one attempted header05 each, stage5, each2polls
+and busy witnessed before drain/stop. LP selector0->10000 once, STATUS15BD/
+FIFO50015/errors0, all prior config/root/supply/PHY guards retained. Explicit ACK0:
+no panel response/reception/initialization proof. Hardware DCS1/nonzeroVC and faults
+not exercised. Host35/35/sanitizer/C++98/five compiled mutants/invalid profile PASS;
+GEN_HDR dropped-store ambiguity modeled/documented, not falsely detected. Runtime
+gate clean, original shell/SciCalc14/desktop recovered, no flash/SD writes. Native
+long writes/ACK/read/panel/video/PSRAM/full desktop remain pending.
