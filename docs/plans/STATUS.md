@@ -601,3 +601,23 @@ shell/SciCalc14/desktop restored, no flash/SD writes. Recovery:
 `../maia-rtos-recovery/native-dsi-reference-20261113/`. Default firmware still
 FreeRTOS-based. Next: native PHY PLL/test-port configuration with bounded failure,
 then analog/lane lock/stop waits; no cold display/PSRAM/POSIX implementation yet.
+
+## Native two-lane960Mbps DSI PHY — 2026-11-13
+
+Read [native PHY](../audits/native-dsi-phy.md). New native PHY API requires internal reference claim,
+quiet inactive DMA/bridge/DPI/host/PHY, no HS request, lock initially low and fresh
+clock/reset/provider/divider/supply guards. Adapted pinned SDK init/test-port byte
+sequence, Apache-2.0 attributed in dsi_phy_program.h; no foreign runtime imported.
+Fixed M48/N1/hsfreq1A =>nominal960Mbps (working BSP requests965, SDK rounds960).
+Masked checked lane/host/analog/reset/clock/forcePLL and five byte writes, RO test
+output excluded from writable readback. Caller budget1..100000 observes lockbit0
+and all lane-stop94; sticky failure/timeout until reset, no rollback. PHY can drive
+LP idle, no packet/HS/video/panel command. Actual Tab5 RAM stage11 PASS:40 stores
+(lanes already1), five bytes, seven observations, STATUS15BD/power1/PHY_RSTZF;
+16 stable samples/guards preserved/duplicate BUSY. Not measured bitrate/timing.
+Host33/33/sanitizer/C++98/four compiled mutants/invalid profile PASS;41 dropped-
+store tests distinguish37 real failures from4 harmless identical clock-low stores.
+Shell/SciCalc14/desktop restored; no flash/SD writes. Recovery
+`../maia-rtos-recovery/native-dsi-phy-20261113/`. Default desktop still FreeRTOS.
+Next: native command-mode/escape+timeout clock configuration and bounded LP FIFO
+transfers, then panel DCS initialization; video/PSRAM/full native desktop pending.

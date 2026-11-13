@@ -735,3 +735,30 @@ no PLL-ready inference. VO3/eFuse/SYS/reset preserved; CSI/ISP resets held. Othe
 provider/mux programming branches host-tested only. Host32/32, sanitizer/C++98/four
 compiled mutants/invalid profile PASS; native runtime gate clean; desktop recovery
 shell/SciCalc14 PASS, no flash/SD writes. Native cold display/PSRAM/PHY PLL pending.
+
+### Native DSI PHY PLL lock and lane stop — 2026-11-13
+
+Primary ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[mipi_dsi_hal.c](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c)
+init/PLL/test-byte functions,
+[PHY LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_phy_ll.h),
+[range table](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/mipi_dsi_periph.c)
+and host register header: PHY_STATUS+B0 lockbit0/stopbits2,4,7; PHY_RSTZ+A0 bits0..3;
+PHY_IF_CFG+A4 lanes0..1; LPCLK+94 HS requests0..1; test+B4/B8 writable masks3/100FF,
+RO TESTDOUT15:8. Register facts from pinned SDK where TRM omits PHY internals.
+[TRM chip1.3 Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+10.2.2 p616/regs10.11–10.16 pp651–659 remain clock prerequisites. No guessed timing.
+
+Working local M5Stack-derived BSP ST7123/ST7121 constructor requests2lanes/965Mbps;
+SDK chooses M48/N1 from20MHz, modeled960Mbps/hsfreq1A. BSP hash and pinned source
+hashes in [audit/manifest](../audits/native-dsi-phy.md), not claimed unmodified upstream.
+Adapted test-port sequence carries Apache-2.0 attribution, no runtime/task dependencies.
+
+Actual native RAM PHY stage11 PASS:40 stores/five completed bytes/7polls,
+POWER1/PHY_RSTZF/lane word1, STATUS15BD(lock+all-stop95),16 stable later observations,
+clock/reset/VO3/eFuse guards preserved, duplicate BUSY. Initially status1528/lock0,
+so no stale-lock adoption. Physical bitrate/timing/settling unmeasured. Bridge/DPI
+remain off/FIFO0, no HS/packets/DCS/video/PSRAM. PHY powered/LP idle possible.
+Host33/33/sanitizer/C++98/four compiled mutants/invalid profile PASS.41 dropped-store
+positions tested,4 identical clock-low no-ops correctly tolerated. Original shell/
+SciCalc14/desktop recovery passes, no flash/SD writes. Native cold display pending.

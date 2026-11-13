@@ -86,3 +86,11 @@ SPLL startup/power/calibration and actual nonzero source switching are unproven 
 target. Mux supplies both config/reference: new native path gates config around
 source changes and avoids DSI reads while off (host-tested branch). Next PHY PLL/
 test-port programming, bounded lock/lane waits; no full display/PSRAM proof yet.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native PHY960](../audits/native-dsi-phy.md) now
+programs actual two-lane PLL/test interface and observes lock+clock/data0/data1 stop
+on Tab5 (STATUS15BD,7 bounded observations,16 stable later samples). This closes
+only boot PHY bring-up at modeled960Mbps/reference20MHz; not physical frequency,
+signal integrity, all rates, cold SPLL startup or runtime teardown. No packet/HS/
+video request or panel initialization yet. Next command-mode clocks/timing/bounded
+LP FIFO transfer, then panel DCS/video/framebuffer/PSRAM. Desktop remains baseline.

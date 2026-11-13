@@ -231,7 +231,9 @@ def evaluate_dsi_access(output, allow_reference=False):
             not power & 1 and not phy & 15 and not bridge & 1 and not dpi & 1 and not fifo & 0x3fff)
 
 
-def evaluate_dsi_reference(output):
+def evaluate_dsi_reference(output, allow_phy=False):
+    if not allow_phy and ('DSI_PHY ' in output or 'DSI_PHY_PASS' in output):
+        return False
     if not evaluate_dsi_access(output, allow_reference=True):
         return False
     clean=output.replace('\r','');lines=clean.splitlines()
@@ -252,6 +254,22 @@ def evaluate_dsi_reference(output):
             access_phy and int(access_phy[1],16)==a['phy_before'] and a['phy_after']==a['phy_before']|2 and
             a['nominal_hz']==20000000 and a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16 and
             not power&1 and not phy&15 and not bridge&1 and not dpi&1 and not fifo&0x3fff)
+
+
+def evaluate_dsi_phy(output):
+    if not evaluate_dsi_reference(output,allow_phy=True):
+        return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    keys='result stage writes bytes polls status power phy_reset lanes_before lanes mbps preserved duplicate_busy samples'.split()
+    rows=re.findall(r'^DSI_PHY'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+    if len(rows)!=1 or sum(l.startswith('DSI_PHY ') for l in lines)!=1 or lines.count('MAIA_NATIVE_DSI_PHY_PASS')!=1:
+        return False
+    if not (lines.index('MAIA_NATIVE_DSI_REFERENCE_PASS') < next(i for i,l in enumerate(lines) if l.startswith('DSI_PHY ')) < lines.index('MAIA_NATIVE_DSI_PHY_PASS')):
+        return False
+    a=dict(zip(keys,(int(v,16) for v in rows[0])))
+    return (a['result']==0 and a['stage']==11 and a['writes']==40+(a['lanes_before']&3!=1) and a['bytes']==5 and
+            1<=a['polls']<=100000 and a['status']&0x95==0x95 and a['power']&1==1 and a['phy_reset']&15==15 and
+            a['lanes']==(a['lanes_before']&~3)|1 and a['mbps']==960 and a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16)
 
 
 def evaluate_vdma_transfer(output):
@@ -450,6 +468,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-phy', action='store_true', help='initialize two-lane960Mbps PHY, bounded lock/stop polling, no video')
     parser.add_argument('--dsi-reference', action='store_true', help='prepare guarded nominal20MHz DSI PHY reference, no PLL initialization')
     parser.add_argument('--dsi-access', action='store_true', help='verify guarded DSI bus/config access, no PLL or lane activation')
     parser.add_argument('--vo3-cycle', action='store_true', help='guarded VO3 disable/native acquire with host observation windows')
@@ -482,6 +501,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_phy:
+        args.dsi_reference = True
     if args.dsi_reference:
         args.dsi_access = True
     if args.dsi_access:
@@ -597,7 +618,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dsi_reference:
+        if args.dsi_phy:
+            passed = evaluate_dsi_phy(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dsi_reference:
             passed = evaluate_dsi_reference(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dsi_access:
             passed = evaluate_dsi_access(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -623,7 +646,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

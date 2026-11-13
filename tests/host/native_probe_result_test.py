@@ -359,3 +359,18 @@ assert not runner.evaluate_dsi_reference(reference.replace('MAIA_NATIVE_DSI_REFE
 matching_reference=reference.replace('attempted=0000001f','attempted=00000010').replace('provider_before=a0ff00ff','provider_before=a0ff01ff').replace('source_before=a1234567','source_before=21234567')
 assert runner.evaluate_dsi_reference(matching_reference)
 print('PASS: DSI reference capture requires exact divider/provider/source/gate preservation and nominal frequency')
+
+phy = reference + """DSI_PHY result=00000000 stage=0000000b writes=00000029 bytes=00000005 polls=00000004 status=00001595 power=00000001 phy_reset=0000000f lanes_before=abcd1200 lanes=abcd1201 mbps=000003c0 preserved=00000001 duplicate_busy=00000001 samples=00000010
+MAIA_NATIVE_DSI_PHY_PASS
+"""
+assert runner.evaluate_dsi_phy(phy)
+assert not runner.evaluate_dsi_reference(phy)
+for old,new in [('stage=0000000b','stage=0000000a'),('writes=00000029','writes=00000028'),('bytes=00000005','bytes=00000004'),
+                ('polls=00000004','polls=00000000'),('status=00001595','status=00001594'),('status=00001595','status=00001515'),
+                ('power=00000001','power=00000000'),('phy_reset=0000000f','phy_reset=00000007'),('mbps=000003c0','mbps=000003c1'),
+                ('lanes=abcd1201','lanes=abcd1202')]:
+    assert not runner.evaluate_dsi_phy(phy.replace(old,new))
+assert not runner.evaluate_dsi_phy(phy+phy)
+assert not runner.evaluate_dsi_phy(phy+'DSI_PHY malformed\n')
+assert not runner.evaluate_dsi_phy(phy.replace('MAIA_NATIVE_DSI_PHY_PASS',''))
+print('PASS: PHY capture requires completed program, bounded lock/all-stop, exact lanes and nominal960Mbps')

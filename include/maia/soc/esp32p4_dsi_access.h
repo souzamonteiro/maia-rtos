@@ -7,7 +7,7 @@ extern "C" {
 #endif
 typedef enum maia_dsi_access_result {
     MAIA_DSI_ACCESS_OK=0, MAIA_DSI_ACCESS_INVALID=-1, MAIA_DSI_ACCESS_CONTEXT=-2,
-    MAIA_DSI_ACCESS_BUSY=-3, MAIA_DSI_ACCESS_VERIFY=-4, MAIA_DSI_ACCESS_FAILED=-5
+    MAIA_DSI_ACCESS_BUSY=-3, MAIA_DSI_ACCESS_VERIFY=-4, MAIA_DSI_ACCESS_FAILED=-5, MAIA_DSI_ACCESS_TIMEOUT=-6
 } maia_dsi_access_result_t;
 typedef enum maia_dsi_access_stage {
     MAIA_DSI_ACCESS_NONE=0, MAIA_DSI_ACCESS_GUARDED, MAIA_DSI_ACCESS_BUS,
@@ -70,6 +70,29 @@ typedef struct maia_dsi_reference_report {
  * No PHY test-port/PLL/analog/lane/panel/video writes; OK is reference routing and
  * nominal software frequency only, not PLL lock, clock measurement or display. */
 maia_dsi_access_result_t maia_esp32p4_dsi_reference20(maia_dsi_reference_report_t *report);
+typedef struct maia_dsi_phy_report {
+    uint32_t completed; /*0:none 1:guarded 2:lanes 3:host 4:analog 5:reset release
+                         6:clock 7:force PLL 8:programmed 9:lock 10:stop 11:verified. */
+    uint32_t writes,programmed,polls,status;
+    uint32_t power,phy_reset,lanes,nominal_mbps;
+} maia_dsi_phy_report_t;
+/* Fixed two-lane960Mbps PHY, nominal20MHz reference, exclusive boot contract.
+ * Only after this module's successful reference20 claim. Require unchanged
+ * reference routing/divider/provider, quiet VDMA, calibrated VO3, bridge/DPI off,
+ * host/PHY shutdown/reset and no HS clock request; initial lock must be low.
+ * Adapted SDK initialization and test-port sequence, attributed Apache-2.0.
+ * Mask/check lanes, host power, analog shutdown release, digital reset release,
+ * clock lane enable and forcePLL; program five PHY bytes (M48/N1/hsfreq1A).
+ * Test-interface readback verifies writable controls only, not hidden PHY bytes.
+ * Poll lock bit0 then all lane-stop bits94, finite poll_budget1..100000; no
+ * real-time/settling guarantee. TIMEOUT=-6 leaves state as-is/sticky FAILED.
+ * Fresh RCC/VDMA/supply/DSI guards between steps/polls; no rollback/retry on any
+ * programming failure. Duplicate success BUSY without MMIO, lifetime until reset.
+ * No packet/HS request, panel command, video/DMA/PSRAM setup or complete display.
+ * Powered PHY may drive LP idle levels; caller exclusively owns attached lanes.
+ * Model960Mbps not measured. Report required/always initialized except NULL;
+ * writes includes conservative attempted stores, programmed counts complete bytes. */
+maia_dsi_access_result_t maia_esp32p4_dsi_phy960(uint32_t poll_budget,maia_dsi_phy_report_t *report);
 #ifdef __cplusplus
 }
 #endif

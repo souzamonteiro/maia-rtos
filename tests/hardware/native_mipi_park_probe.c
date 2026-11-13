@@ -152,6 +152,37 @@ void maia_boot_main(void) {
     field(" status=",rd(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U));maia_console_puts("\n");
     if (routed != MAIA_DSI_ACCESS_OK || reference.completed != MAIA_DSI_REFERENCE_VERIFIED || !ref_kept || !ref_busy) halt("reference");
     maia_console_puts("MAIA_NATIVE_DSI_REFERENCE_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_PHY
+    uint32_t lanes_before=rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA4U);
+    maia_dsi_phy_report_t phy_report,phy_again;
+    maia_dsi_access_result_t initialized=maia_esp32p4_dsi_phy960(100000U,&phy_report);
+    if (initialized != MAIA_DSI_ACCESS_OK) {
+        field("DSI_PHY_FAILURE result=",(uint32_t)initialized);field(" stage=",phy_report.completed);
+        field(" writes=",phy_report.writes);field(" bytes=",phy_report.programmed);field(" polls=",phy_report.polls);
+        field(" status=",phy_report.status);maia_console_puts("\n");halt("phy");
+    }
+    int phy_busy=maia_esp32p4_dsi_phy960(1,&phy_again) == MAIA_DSI_ACCESS_BUSY,phy_kept=1;
+    for (unsigned sample=0;sample<16U;++sample) {
+        if ((rd(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U)&0x95U) != 0x95U ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+4U) != phy_report.power ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U) != phy_report.phy_reset ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA4U) != phy_report.lanes ||
+            (rd(MAIA_ESP32P4_DSI_HOST_BASE+0x94U)&3U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U) || (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)&1U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU) ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) phy_kept=0;
+    }
+    field("DSI_PHY result=",(uint32_t)initialized);field(" stage=",phy_report.completed);field(" writes=",phy_report.writes);
+    field(" bytes=",phy_report.programmed);field(" polls=",phy_report.polls);field(" status=",phy_report.status);
+    field(" power=",phy_report.power);field(" phy_reset=",phy_report.phy_reset);field(" lanes_before=",lanes_before);
+    field(" lanes=",phy_report.lanes);field(" mbps=",phy_report.nominal_mbps);field(" preserved=",(uint32_t)phy_kept);
+    field(" duplicate_busy=",(uint32_t)phy_busy);maia_console_puts(" samples=00000010\n");
+    if (!phy_kept || !phy_busy) halt("phy-preserve");
+    maia_console_puts("MAIA_NATIVE_DSI_PHY_PASS\n");
+#endif
 #endif
 #endif
 #endif
