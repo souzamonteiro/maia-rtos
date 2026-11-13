@@ -182,6 +182,39 @@ void maia_boot_main(void) {
     field(" duplicate_busy=",(uint32_t)phy_busy);maia_console_puts(" samples=00000010\n");
     if (!phy_kept || !phy_busy) halt("phy-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_PHY_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_COMMAND
+    maia_dsi_command_report_t command,command_again;
+    maia_dsi_access_result_t configured=maia_esp32p4_dsi_command_config(&command);
+    if (configured != MAIA_DSI_ACCESS_OK) {
+        field("DSI_COMMAND_FAILURE result=",(uint32_t)configured);field(" stage=",command.completed);
+        field(" attempted=",command.attempted_mask);field(" status=",command.status);field(" fifo=",command.fifo);
+        maia_console_puts("\n");halt("command");
+    }
+    int cmd_busy=maia_esp32p4_dsi_command_config(&command_again) == MAIA_DSI_ACCESS_BUSY,cmd_kept=1;
+    const uint16_t command_registers[MAIA_DSI_COMMAND_WORDS]={0x34,8,0x9C,0x98,0x2C,0x78,0x7C,0x80,0x84,0x88,0x8C,0xF4,0xA4,0x94};
+    for (unsigned sample=0;sample<16U;++sample) {
+        for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i)
+            if (rd(MAIA_ESP32P4_DSI_HOST_BASE+command_registers[i]) != command.after[i]) cmd_kept=0;
+        if ((rd(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U)&0x95U) != 0x95U ||
+            (rd(MAIA_ESP32P4_DSI_HOST_BASE+0x74U)&0x7FU) != 0x15U ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+4U) != phy_report.power ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U) != phy_report.phy_reset ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U) || (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)&1U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU) ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) cmd_kept=0;
+    }
+    field("DSI_COMMAND result=",(uint32_t)configured);field(" stage=",command.completed);field(" attempted=",command.attempted_mask);
+    field(" status=",command.status);field(" fifo=",command.fifo);field(" escape_hz=",command.escape_hz);field(" timeout_hz=",command.timeout_hz);
+    field(" preserved=",(uint32_t)cmd_kept);field(" duplicate_busy=",(uint32_t)cmd_busy);maia_console_puts(" samples=00000010\n");
+    for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i) {
+        field("DSI_COMMAND_WORD index=",i);field(" before=",command.before[i]);field(" after=",command.after[i]);maia_console_puts("\n");
+    }
+    if (!cmd_busy || !cmd_kept || command.completed != 16U) halt("command-preserve");
+    maia_console_puts("MAIA_NATIVE_DSI_COMMAND_PASS\n");
+#endif
 #endif
 #endif
 #endif

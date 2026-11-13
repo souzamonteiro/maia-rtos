@@ -762,3 +762,29 @@ remain off/FIFO0, no HS/packets/DCS/video/PSRAM. PHY powered/LP idle possible.
 Host33/33/sanitizer/C++98/four compiled mutants/invalid profile PASS.41 dropped-store
 positions tested,4 identical clock-low no-ops correctly tolerated. Original shell/
 SciCalc14/desktop recovery passes, no flash/SD writes. Native cold display pending.
+
+### Native DSI command-host setup — 2026-11-13
+
+Primary ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[DSI bus constructor](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_mipi_dsi_bus.c),
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[PHY LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_phy_ll.h)
+and host register header pin MODE+34, CLKMGR+8 (escape low8/timeout8..15),
+DATA_TMR+9C/CLK_TMR+98(10bit LP/HS fields), PCKHDL+2C(mask39), timeout registers
++78..8C, MAX_RD+F4(low15), PHY_IF+A4(stop-wait8..15), LPCLK+94(low2). Generic
+CMD_PKT_STATUS+74 low7 empty0/2/4, full1/3/5, readbusy6; require15. SDK switch
+counts50/104/46/128, maxread6000/stop63, timeout counts0. At nominal960Mbps,
+byteclk120MHz/div6=20MHz escape and/div12=10MHz timeout, not measured clocks.
+Earlier [TRM chip1.3 Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+10.2.2 p616/regs10.11–10.16 pp651–659 remain reference routing prerequisites.
+No guessed timing; complete parameter masks/source hashes in
+[audit/manifest](../audits/native-dsi-command.md).
+
+Actual native RAM command stage16/mask181E: six writes. CLKMGR0C06/DATA00320068/
+CLK002E0080/PCK19/MAXRD1770/PHY_IF3F01, MODE1 already retained. STATUS15BD and
+FIFO00050015(low7=15),16 stable later observations/clock/reset/supply/PHY guards
+preserved, duplicate BUSY. No header/payload or panel/HS/video/DMA/PSRAM writes;
+HW timeout counts0, transaction completion API still pending. Host34/34/sanitizer/
+C++98/four compiled mutants/invalid profile PASS. Native runtime gate clean,
+preserved shell/SciCalc14/desktop verified; no flash/SD writes. No full native
+panel/display, physical timing or packet acceptance proof claimed.

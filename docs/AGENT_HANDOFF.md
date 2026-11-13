@@ -681,3 +681,22 @@ Shell/SciCalc14/desktop restored; no flash/SD writes. Recovery
 `../maia-rtos-recovery/native-dsi-phy-20261113/`. Default desktop still FreeRTOS.
 Next: native command-mode/escape+timeout clock configuration and bounded LP FIFO
 transfers, then panel DCS initialization; video/PSRAM/full native desktop pending.
+
+## Native DSI command-mode host configuration — 2026-11-13
+
+Read [command configuration](audits/native-dsi-command.md). Native boot API requires internal PHY claim,
+locked/stopped2lanes/quiet VDMA/bridge/DPI, stable clock/supply and generic FIFOs
+empty/not busy.14 masked checked steps: mode1, timeoutdiv12/escapediv6, SDK PHY
+switch/read/stop timings, CRC/ECC/HS-EoTp. Hardware timeout counts0 by setup policy;
+no transaction/unbounded wait introduced. Packet-specific LP/BTA/read handling pending.
+Fresh full table/root/PMU/PHY/FIFO guards, no-op skipping, sticky failure/duplicate
+BUSY without I/O. Attributed Apache-2.0 table port; no foreign runtime headers/API.
+Actual Tab5 RAM stage16/mask181E PASS: six writes, CLKMGR0C06/DATA00320068/
+CLK002E0080/PCK19/MAXRD1770/PHY_IF3F01, MODE already1. STATUS15BD/FIFO00050015
+(low7=15),16 later stable samples/guards preserved. Modeled20/10MHz, not measured.
+No header/payload/HS/panel/video/DMA/PSRAM writes. Host34/34/sanitizer/C++98/four
+compiled mutants/invalid profile PASS. Original shell/SciCalc14/desktop restored,
+no flash/SD writes. Recovery `../maia-rtos-recovery/native-dsi-command-20261113/`.
+Default desktop still FreeRTOS. Next: packet-specific LP/VC settings and bounded
+short writes, distinguishing host completion from panel ACK; then panel DCS/video/
+framebuffer/PSRAM. No full native desktop or POSIX implementation claimed.

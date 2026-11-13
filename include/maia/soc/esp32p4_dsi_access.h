@@ -93,6 +93,30 @@ typedef struct maia_dsi_phy_report {
  * Model960Mbps not measured. Report required/always initialized except NULL;
  * writes includes conservative attempted stores, programmed counts complete bytes. */
 maia_dsi_access_result_t maia_esp32p4_dsi_phy960(uint32_t poll_budget,maia_dsi_phy_report_t *report);
+#define MAIA_DSI_COMMAND_WORDS 14U
+typedef struct maia_dsi_command_report {
+    uint32_t completed; /*0:none 1:guarded 2..15:verified table steps 16:complete. */
+    uint32_t attempted_mask,status,fifo,escape_hz,timeout_hz; /* Frequencies modeled. */
+    /* Ordered MODE,CLKMGR,DATA_TMR,CLK_TMR,PCKHDL,TO,HS_RD,LP_RD,HS_WR,LP_WR,
+     * BTA,MAX_RD,PHY_IF,LPCLK. Complete before/after words, unchanged on skipped steps. */
+    uint32_t before[MAIA_DSI_COMMAND_WORDS],after[MAIA_DSI_COMMAND_WORDS];
+} maia_dsi_command_report_t;
+/* Same exclusive chip1.3 boot/clock/supply contract, only after native PHY960
+ * success. Require powered two-lane PHY locked/all-stopped, no HS clock request,
+ * quiet VDMA/bridge/DPI and generic command/write/read FIFOs empty/not busy.
+ * Configure command mode, modeled escape20MHz/timeout10MHz, SDK switch times,
+ * CRC/ECC/HS-EoTp (LP-EoTp off), read-time6000/stop-wait3F. Hardware timeout
+ * COUNTS zero (SDK defaults); no transaction API/unbounded wait is introduced.
+ * Every future transfer requires separately bounded native completion handling.
+ * Finite14 masked/readback steps, skip matching words, preserve unrelated fields;
+ * fresh complete RCC/supply/VDMA/PHY/FIFO/table guards before each step and final.
+ * Failure after initial guards sticky FAILED until reset; no retry/rollback.
+ * Last completed phase/attempts reported; duplicate success BUSY without MMIO.
+ * Required report initialized; NULL INVALID/context CONTEXT, incompatible initial
+ * state BUSY, unstable fresh initial guard VERIFY without writes. No polling.
+ * No header/payload/IRQ acknowledgment/panel/HS/video/DMA/PSRAM writes or actual
+ * packet transfer; OK proves checked host setup, not working panel/display. */
+maia_dsi_access_result_t maia_esp32p4_dsi_command_config(maia_dsi_command_report_t *report);
 #ifdef __cplusplus
 }
 #endif

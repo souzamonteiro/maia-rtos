@@ -256,7 +256,9 @@ def evaluate_dsi_reference(output, allow_phy=False):
             not power&1 and not phy&15 and not bridge&1 and not dpi&1 and not fifo&0x3fff)
 
 
-def evaluate_dsi_phy(output):
+def evaluate_dsi_phy(output, allow_command=False):
+    if not allow_command and 'DSI_COMMAND' in output:
+        return False
     if not evaluate_dsi_reference(output,allow_phy=True):
         return False
     clean=output.replace('\r','');lines=clean.splitlines()
@@ -270,6 +272,35 @@ def evaluate_dsi_phy(output):
     return (a['result']==0 and a['stage']==11 and a['writes']==40+(a['lanes_before']&3!=1) and a['bytes']==5 and
             1<=a['polls']<=100000 and a['status']&0x95==0x95 and a['power']&1==1 and a['phy_reset']&15==15 and
             a['lanes']==(a['lanes_before']&~3)|1 and a['mbps']==960 and a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16)
+
+
+def evaluate_dsi_command(output):
+    if not evaluate_dsi_phy(output,allow_command=True):
+        return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    keys='result stage attempted status fifo escape_hz timeout_hz preserved duplicate_busy samples'.split()
+    rows=re.findall(r'^DSI_COMMAND'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+    words=re.findall(r'^DSI_COMMAND_WORD index=([0-9a-f]{8}) before=([0-9a-f]{8}) after=([0-9a-f]{8})$',clean,re.M)
+    if len(rows)!=1 or len(words)!=14 or sum(l.startswith('DSI_COMMAND ') for l in lines)!=1 or sum(l.startswith('DSI_COMMAND_WORD') for l in lines)!=14 or lines.count('MAIA_NATIVE_DSI_COMMAND_PASS')!=1:
+        return False
+    positions=[i for i,l in enumerate(lines) if l.startswith('DSI_COMMAND_WORD ')]
+    if not (lines.index('MAIA_NATIVE_DSI_PHY_PASS') < next(i for i,l in enumerate(lines) if l.startswith('DSI_COMMAND ')) < positions[0] and positions[-1] < lines.index('MAIA_NATIVE_DSI_COMMAND_PASS')):
+        return False
+    masks=[1,0xffff,0x03ff03ff,0x03ff03ff,0x39,0xffffffff,0xffff,0xffff,0xffff,0xffff,0xffff,0x7fff,0xff00,3]
+    values=[1,0x0c06,0x00320068,0x002e0080,0x19,0,0,0,0,0,0,6000,0x3f00,0]
+    attempted=0
+    for expected,(index,before,after),mask,value in zip(range(14),words,masks,values):
+        index,before,after=(int(v,16) for v in (index,before,after))
+        if index!=expected or after != (before&~mask)|value:
+            return False
+        if after!=before: attempted|=1<<index
+    lanes=re.search(r'^DSI_PHY .*lanes=([0-9a-f]{8}) ',clean,re.M)
+    if not lanes or int(words[12][1],16)!=int(lanes[1],16) or int(words[13][1],16)&3:
+        return False
+    a=dict(zip(keys,(int(v,16) for v in rows[0])))
+    return (a['result']==0 and a['stage']==16 and a['attempted']==attempted and a['status']&0x95==0x95 and
+            a['fifo']&0x7f==0x15 and a['escape_hz']==20000000 and a['timeout_hz']==10000000 and
+            a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16)
 
 
 def evaluate_vdma_transfer(output):
@@ -468,6 +499,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-command', action='store_true', help='configure command host/timings without sending packets')
     parser.add_argument('--dsi-phy', action='store_true', help='initialize two-lane960Mbps PHY, bounded lock/stop polling, no video')
     parser.add_argument('--dsi-reference', action='store_true', help='prepare guarded nominal20MHz DSI PHY reference, no PLL initialization')
     parser.add_argument('--dsi-access', action='store_true', help='verify guarded DSI bus/config access, no PLL or lane activation')
@@ -501,6 +533,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_command:
+        args.dsi_phy = True
     if args.dsi_phy:
         args.dsi_reference = True
     if args.dsi_reference:
@@ -618,7 +652,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dsi_phy:
+        if args.dsi_command:
+            passed = evaluate_dsi_command(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dsi_phy:
             passed = evaluate_dsi_phy(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dsi_reference:
             passed = evaluate_dsi_reference(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -646,7 +682,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

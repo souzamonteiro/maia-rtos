@@ -94,3 +94,11 @@ only boot PHY bring-up at modeled960Mbps/reference20MHz; not physical frequency,
 signal integrity, all rates, cold SPLL startup or runtime teardown. No packet/HS/
 video request or panel initialization yet. Next command-mode clocks/timing/bounded
 LP FIFO transfer, then panel DCS/video/framebuffer/PSRAM. Desktop remains baseline.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native command-host config](../audits/native-dsi-command.md)
+now sets/checks actual command mode, dividers and timing on Tab5 with locked/stopped
+PHY and idle generic FIFOs. No packet sent; successful setup does not prove panel
+acceptance or bounded response. Counts0 disable hardware timeouts; future transfer
+API must provide bounded software completion/errors, LP/VC selection and explicit
+ACK/read policy. Next native LP short writes, then panel reset/DCS startup and
+video/framebuffer/PSRAM. Nominal clock arithmetic remains unmeasured physically.
