@@ -340,3 +340,22 @@ assert not runner.evaluate_dsi_access(dsi_access+'DSI_ACCESS malformed\n')
 assert not runner.evaluate_dsi_access(dsi_access.replace('MAIA_NATIVE_DSI_ACCESS_PASS',''))
 assert not runner.evaluate_dsi_access('MAIA_NATIVE_DSI_ACCESS_PASS\n'+dsi_access.replace('MAIA_NATIVE_DSI_ACCESS_PASS\n',''))
 print('PASS: DSI config capture requires preserved VO3, exact clocks/reset release and transmit controls off')
+
+reference = dsi_access + """DSI_REFERENCE result=00000000 stage=00000007 attempted=0000001f divider=a51705f1 lp_gate=0a12abcd provider_before=a0ff00ff provider_after=a0ff01ff source_before=a1234567 source_after=21234567 phy_before=00000221 phy_after=00000223 nominal_hz=01312d00 preserved=00000001 duplicate_busy=00000001 samples=00000010
+DSI_REFERENCE_STATE power=00000000 phy_reset=00000000 bridge=00000000 dpi=000019d0 fifo=00000000 status=00001528
+MAIA_NATIVE_DSI_REFERENCE_PASS
+"""
+assert runner.evaluate_dsi_reference(reference)
+assert not runner.evaluate_dsi_access(reference)
+for old,new in [('stage=00000007','stage=00000006'),('attempted=0000001f','attempted=00000017'),
+                ('divider=a51705f1','divider=a51805f1'),('lp_gate=0a12abcd','lp_gate=0212abcd'),
+                ('provider_after=a0ff01ff','provider_after=a0ff01fe'),('source_after=21234567','source_after=61234567'),
+                ('phy_after=00000223','phy_after=000002a3'),('nominal_hz=01312d00','nominal_hz=01312d01'),
+                ('DSI_REFERENCE_STATE power=00000000','DSI_REFERENCE_STATE power=00000001')]:
+    assert not runner.evaluate_dsi_reference(reference.replace(old,new))
+assert not runner.evaluate_dsi_reference(reference+reference)
+assert not runner.evaluate_dsi_reference(reference+'DSI_REFERENCE malformed\n')
+assert not runner.evaluate_dsi_reference(reference.replace('MAIA_NATIVE_DSI_REFERENCE_PASS',''))
+matching_reference=reference.replace('attempted=0000001f','attempted=00000010').replace('provider_before=a0ff00ff','provider_before=a0ff01ff').replace('source_before=a1234567','source_before=21234567')
+assert runner.evaluate_dsi_reference(matching_reference)
+print('PASS: DSI reference capture requires exact divider/provider/source/gate preservation and nominal frequency')

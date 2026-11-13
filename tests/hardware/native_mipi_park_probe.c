@@ -120,6 +120,39 @@ void maia_boot_main(void) {
     field(" bridge=",access.bridge);field(" dpi=",access.dpi);field(" fifo=",access.fifo);field(" status=",access.phy_status);maia_console_puts("\n");
     if (opened != MAIA_DSI_ACCESS_OK || access.completed != MAIA_DSI_ACCESS_VERIFIED || !repeated) halt("dsi-access");
     maia_console_puts("MAIA_NATIVE_DSI_ACCESS_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_REFERENCE
+    maia_ldo3_snapshot_t supplied,observed;
+    if (maia_esp32p4_ldo3_snapshot(&supplied) != MAIA_LDO3_OK) halt("reference-snapshot");
+    maia_dsi_reference_report_t reference,ref_again;
+    maia_dsi_access_result_t routed=maia_esp32p4_dsi_reference20(&reference);
+    if (routed != MAIA_DSI_ACCESS_OK) {
+        field("DSI_REFERENCE_FAILURE result=",(uint32_t)routed);field(" stage=",reference.completed);
+        field(" attempted=",reference.attempted_mask);maia_console_puts("\n");halt("reference");
+    }
+    int ref_busy=routed == MAIA_DSI_ACCESS_OK && maia_esp32p4_dsi_reference20(&ref_again) == MAIA_DSI_ACCESS_BUSY;
+    int ref_kept=1;
+    for (unsigned sample=0;sample<16U;++sample) {
+        if (rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x28U) != reference.divider_word ||
+            rd(0x50111040U) != reference.lp_gate || rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x2CU) != reference.provider_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x38U) != reference.source_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) ref_kept=0;
+    }
+    field("DSI_REFERENCE result=",(uint32_t)routed);field(" stage=",reference.completed);field(" attempted=",reference.attempted_mask);
+    field(" divider=",reference.divider_word);field(" lp_gate=",reference.lp_gate);
+    field(" provider_before=",reference.provider_before);field(" provider_after=",reference.provider_after);
+    field(" source_before=",reference.source_before);field(" source_after=",reference.source_after);
+    field(" phy_before=",reference.phy_before);field(" phy_after=",reference.phy_after);field(" nominal_hz=",reference.nominal_hz);
+    field(" preserved=",(uint32_t)ref_kept);field(" duplicate_busy=",(uint32_t)ref_busy);maia_console_puts(" samples=00000010\n");
+    field("DSI_REFERENCE_STATE power=",rd(MAIA_ESP32P4_DSI_HOST_BASE+4U));
+    field(" phy_reset=",rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U));field(" bridge=",rd(MAIA_ESP32P4_DSI_BRG_BASE+4U));
+    field(" dpi=",rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U));field(" fifo=",rd(MAIA_ESP32P4_DSI_BRG_BASE+0x14U));
+    field(" status=",rd(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U));maia_console_puts("\n");
+    if (routed != MAIA_DSI_ACCESS_OK || reference.completed != MAIA_DSI_REFERENCE_VERIFIED || !ref_kept || !ref_busy) halt("reference");
+    maia_console_puts("MAIA_NATIVE_DSI_REFERENCE_PASS\n");
+#endif
 #endif
 #endif
 #endif

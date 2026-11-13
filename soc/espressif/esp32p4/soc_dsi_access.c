@@ -4,10 +4,10 @@
 #include <maia/soc/esp32p4_ldo3.h>
 #include "dsi_access_internal.h"
 enum { UNCLAIMED,OWNED,FAULTED };
-static unsigned state;
+static unsigned state,reference_state;
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
-void maia_dsi_access_test_reset(void) { state=UNCLAIMED; }
+void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED; }
 #endif
 static int dma_quiet(void) {
     if ((dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&1U) || (dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&15U) ||
@@ -73,4 +73,81 @@ maia_dsi_access_result_t maia_esp32p4_dsi_open_config(maia_dsi_access_report_t *
     if ((r->power&1U) || (r->phy_reset&15U) || (r->bridge&1U) || (r->dpi&1U) || (r->fifo&0x3FFFU) ||
         !guard(cpu,sys,phy,reset,isp,norst,&supply)) return MAIA_DSI_ACCESS_VERIFY;
     r->completed=MAIA_DSI_ACCESS_VERIFIED;state=OWNED;return MAIA_DSI_ACCESS_OK;
+}
+
+/* Original native reference-routing policy, primary sources native-dsi-reference.md. */
+typedef struct reference_guard {
+    uint32_t cpu,sys,phy,reset,isp,norst,divider,lp,provider,source;
+    maia_ldo3_snapshot_t supply;
+} reference_guard_t;
+static int reference_guard(const reference_guard_t *g) {
+    return guard(g->cpu,g->sys,g->phy,g->reset,g->isp,g->norst,&g->supply) &&
+        dsi_read(DSI_REF_DIV) == g->divider && dsi_read(DSI_LP_GATE) == g->lp &&
+        dsi_read(DSI_REF_GATE) == g->provider && dsi_read(DSI_REF_SOURCE) == g->source &&
+        (!(g->phy&1U) || (!(dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+4U)&1U) &&
+        !(dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U)&15U) &&
+        !(dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U) &&
+        !(dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)&1U) &&
+        !(dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU)));
+}
+maia_dsi_access_result_t maia_esp32p4_dsi_reference20(maia_dsi_reference_report_t *r) {
+    if (!r) return MAIA_DSI_ACCESS_INVALID;
+    r->completed=MAIA_DSI_REFERENCE_NONE;r->attempted_mask=0;
+    r->divider_word=r->lp_gate=r->nominal_hz=0;r->provider_before=r->provider_after=0;
+    r->source_before=r->source_after=r->phy_before=r->phy_after=0;
+    if (!dsi_context()) return MAIA_DSI_ACCESS_CONTEXT;
+    if (reference_state == OWNED) return MAIA_DSI_ACCESS_BUSY;
+    if (reference_state == FAULTED) return MAIA_DSI_ACCESS_FAILED;
+    if (state != OWNED) return MAIA_DSI_ACCESS_BUSY;
+    reference_guard_t g;
+    g.cpu=dsi_read(DSI_CPU);g.sys=dsi_read(DSI_SYS);g.phy=dsi_read(DSI_PHY);
+    g.reset=dsi_read(DSI_RESET);g.isp=dsi_read(DSI_ISP);g.norst=dsi_read(DSI_NORST);
+    g.divider=dsi_read(DSI_REF_DIV);g.lp=dsi_read(DSI_LP_GATE);
+    g.provider=dsi_read(DSI_REF_GATE);g.source=dsi_read(DSI_REF_SOURCE);
+    r->divider_word=g.divider;r->lp_gate=g.lp;r->provider_before=r->provider_after=g.provider;
+    r->source_before=r->source_after=g.source;r->phy_before=r->phy_after=g.phy;
+    if (!(g.cpu&(1U<<13U)) || !(g.sys&(1U<<5U)) || (g.sys&0x1C00U) != 0x1000U ||
+        (g.phy&0x93U) != 1U || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
+        ((g.divider>>16U)&255U) != 23U || (g.lp&0x0A000000U) != 0x0A000000U || !dma_quiet()) return MAIA_DSI_ACCESS_BUSY;
+    maia_ldo3_plan_t plan;
+    if (maia_esp32p4_ldo3_snapshot(&g.supply) != MAIA_LDO3_OK ||
+        maia_esp32p4_ldo3_plan2500(&g.supply,&plan) != MAIA_LDO3_OK ||
+        (g.supply.control&MAIA_ESP32P4_LDO3_CONTROL_MASK) != 0x180U ||
+        (g.supply.analog&MAIA_ESP32P4_LDO3_ANALOG_MASK) !=
+            (((uint32_t)plan.dref<<28U)|((uint32_t)plan.mul<<23U)|(1U<<26U))) return MAIA_DSI_ACCESS_BUSY;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    r->completed=MAIA_DSI_REFERENCE_GUARDED;reference_state=FAULTED;
+    uint32_t desired=g.provider|0x100U;
+    if (desired != g.provider) { r->attempted_mask|=1U;dsi_write(DSI_REF_GATE,desired); }
+    r->provider_after=dsi_read(DSI_REF_GATE);
+    if (r->provider_after != desired) return MAIA_DSI_ACCESS_VERIFY;
+    g.provider=desired;r->completed=MAIA_DSI_REFERENCE_PROVIDER;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    /* Source drives both config and reference: gate config for a mux change. */
+    unsigned switch_source=(g.source&0xC0000000U) != 0U;
+    desired=switch_source ? g.phy&~1U : g.phy;
+    if (desired != g.phy) { r->attempted_mask|=2U;dsi_write(DSI_PHY,desired); }
+    r->phy_after=dsi_read(DSI_PHY);
+    if (r->phy_after != desired) return MAIA_DSI_ACCESS_VERIFY;
+    g.phy=desired;r->completed=MAIA_DSI_REFERENCE_CONFIG_OFF;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    desired=g.source&~0xC0000000U;
+    if (desired != g.source) { r->attempted_mask|=4U;dsi_write(DSI_REF_SOURCE,desired); }
+    r->source_after=dsi_read(DSI_REF_SOURCE);
+    if (r->source_after != desired) return MAIA_DSI_ACCESS_VERIFY;
+    g.source=desired;r->completed=MAIA_DSI_REFERENCE_SOURCE;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    desired=g.phy|1U;
+    if (desired != g.phy) { r->attempted_mask|=8U;dsi_write(DSI_PHY,desired); }
+    r->phy_after=dsi_read(DSI_PHY);
+    if (r->phy_after != desired) return MAIA_DSI_ACCESS_VERIFY;
+    g.phy=desired;r->completed=MAIA_DSI_REFERENCE_CONFIG;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    desired=g.phy|2U;r->attempted_mask|=16U;dsi_write(DSI_PHY,desired);
+    r->phy_after=dsi_read(DSI_PHY);
+    if (r->phy_after != desired) return MAIA_DSI_ACCESS_VERIFY;
+    g.phy=desired;r->completed=MAIA_DSI_REFERENCE_CLOCK;
+    if (!reference_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    r->nominal_hz=20000000U;r->completed=MAIA_DSI_REFERENCE_VERIFIED;reference_state=OWNED;
+    return MAIA_DSI_ACCESS_OK;
 }

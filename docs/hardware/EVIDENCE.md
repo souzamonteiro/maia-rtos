@@ -708,3 +708,30 @@ analog power/transmit/panel/video/PSRAM writes. Host31/31/sanitizer/C++98/four c
 mutants/invalid profile PASS. SRAM image dependency gate clean; installed baseline
 shell/SciCalc14/desktop recovered; no flash/SD writes. Cold native display remains
 pending. Exact pinned source hashes in manifest; original native code, no SDK runtime.
+
+### Native nominal20MHz DSI reference routing — 2026-11-13
+
+Primary [chip1.3 TRM Pre-release v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf):
+10.2.2 p616 clock tree SPLL480MHz; registers10.11 p651 REF_CLK_CTRL1/+28,
+10.12 p652 REF_CLK_CTRL2/+2C,10.15 pp657–658 PERI_CLK_CTRL02/+38,
+10.16 p659 PERI_CLK_CTRL03/+3C. DSI source31:30 drives BOTH config/reference;
+0=PLL_F20M,1=RC_FAST,2=PLL_F25M,3=invalid. Gate config around mux changes.
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[clk_tree_ll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_tree_ll.h)
+F20 divider=getfield+1,
+[esp_clk_tree.c](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/port/esp32p4/esp_clk_tree.c)
+nominal480MHz/div24,
+[clk_gate_ll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_gate_ll.h)
+REF20 provider bit8. Pinned
+[lp_clkrst_reg.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/lp_clkrst_reg.h)
+HP_CLK_CTRL50111040 XTAL40bit25/SPLL480bit27 sampled read-only, not lock proof.
+
+[Audit/capture/manifest](../audits/native-dsi-reference.md): actual RAM stage7/
+mask10/16 stable samples PASS. DIV58170503, LP1FFCFFFD, provider115, source38862600
+already match; retained unchanged. PHY221->223 only actual write, reference on,
+config retained. No physical frequency measurement: reported20MHz is model only.
+DSI analog/digital/host/bridge controls0, DPI19D0(enable0), FIFO0/STATUS1528 observed,
+no PLL-ready inference. VO3/eFuse/SYS/reset preserved; CSI/ISP resets held. Other
+provider/mux programming branches host-tested only. Host32/32, sanitizer/C++98/four
+compiled mutants/invalid profile PASS; native runtime gate clean; desktop recovery
+shell/SciCalc14 PASS, no flash/SD writes. Native cold display/PSRAM/PHY PLL pending.

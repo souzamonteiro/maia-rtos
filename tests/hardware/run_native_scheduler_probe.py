@@ -205,7 +205,9 @@ def evaluate_vo3_cycle(output, allow_dsi=False):
             acquired == dict(stage=5, adopted=0, changed=1, preserved=1, duplicate_busy=1, samples=16))
 
 
-def evaluate_dsi_access(output):
+def evaluate_dsi_access(output, allow_reference=False):
+    if not allow_reference and 'DSI_REFERENCE' in output:
+        return False
     if not evaluate_vo3_cycle(output, allow_dsi=True):
         return False
     clean = output.replace('\r','')
@@ -227,6 +229,29 @@ def evaluate_dsi_access(output):
             a['reset_after'] == a['reset_before'] & ~0x4000000 and
             supply and [a['control'],a['analog']] == [int(v,16) for v in supply.groups()] and
             not power & 1 and not phy & 15 and not bridge & 1 and not dpi & 1 and not fifo & 0x3fff)
+
+
+def evaluate_dsi_reference(output):
+    if not evaluate_dsi_access(output, allow_reference=True):
+        return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    keys='result stage attempted divider lp_gate provider_before provider_after source_before source_after phy_before phy_after nominal_hz preserved duplicate_busy samples'.split()
+    rows=re.findall(r'^DSI_REFERENCE'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+    states=re.findall(r'^DSI_REFERENCE_STATE power=([0-9a-f]{8}) phy_reset=([0-9a-f]{8}) bridge=([0-9a-f]{8}) dpi=([0-9a-f]{8}) fifo=([0-9a-f]{8}) status=([0-9a-f]{8})$',clean,re.M)
+    if len(rows)!=1 or len(states)!=1 or sum(l.startswith('DSI_REFERENCE ') for l in lines)!=1 or sum(l.startswith('DSI_REFERENCE_STATE') for l in lines)!=1 or lines.count('MAIA_NATIVE_DSI_REFERENCE_PASS')!=1:
+        return False
+    if not (lines.index('MAIA_NATIVE_DSI_ACCESS_PASS') < next(i for i,l in enumerate(lines) if l.startswith('DSI_REFERENCE ')) < next(i for i,l in enumerate(lines) if l.startswith('DSI_REFERENCE_STATE ')) < lines.index('MAIA_NATIVE_DSI_REFERENCE_PASS')):
+        return False
+    a=dict(zip(keys,(int(v,16) for v in rows[0])))
+    access_phy=re.search(r'^DSI_ACCESS .*phy_after=([0-9a-f]{8}) ',clean,re.M)
+    expected=16 | (1 if not a['provider_before']&0x100 else 0) | (14 if a['source_before']&0xc0000000 else 0)
+    power,phy,bridge,dpi,fifo,_=(int(v,16) for v in states[0])
+    return (a['result']==0 and a['stage']==7 and a['attempted']==expected and
+            a['divider']>>16&255==23 and a['lp_gate']&0x0a000000==0x0a000000 and
+            a['provider_after']==a['provider_before']|0x100 and a['source_after']==a['source_before']&~0xc0000000 and
+            access_phy and int(access_phy[1],16)==a['phy_before'] and a['phy_after']==a['phy_before']|2 and
+            a['nominal_hz']==20000000 and a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16 and
+            not power&1 and not phy&15 and not bridge&1 and not dpi&1 and not fifo&0x3fff)
 
 
 def evaluate_vdma_transfer(output):
@@ -425,6 +450,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-reference', action='store_true', help='prepare guarded nominal20MHz DSI PHY reference, no PLL initialization')
     parser.add_argument('--dsi-access', action='store_true', help='verify guarded DSI bus/config access, no PLL or lane activation')
     parser.add_argument('--vo3-cycle', action='store_true', help='guarded VO3 disable/native acquire with host observation windows')
     parser.add_argument('--mipi-gate', action='store_true', help='verify held shared resets and boot MIPI clock gating')
@@ -456,6 +482,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_reference:
+        args.dsi_access = True
     if args.dsi_access:
         args.vo3_cycle = True
     if args.vo3_cycle:
@@ -569,7 +597,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dsi_access:
+        if args.dsi_reference:
+            passed = evaluate_dsi_reference(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dsi_access:
             passed = evaluate_dsi_access(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.vo3_cycle:
             passed = evaluate_vo3_cycle(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -593,7 +623,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

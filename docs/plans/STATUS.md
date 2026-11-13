@@ -582,3 +582,22 @@ Recovery `../maia-rtos-recovery/native-dsi-access-20261112/`. Default production
 firmware unchanged and still FreeRTOS-based. Next: verified native DSI reference
 source/provider/frequency, then PHY PLL/lane sequence; cold display/PSRAM/electrical
 settling and POSIX implementation remain pending. No parser changes.
+
+## Native nominal20MHz DSI PHY reference — 2026-11-13
+
+Read [DSI reference](../audits/native-dsi-reference.md). Existing native DSI module now requires internal
+successful access claim, quiet DSI/VDMA, calibrated VO3, CSI/ISP reset-held state,
+LP XTAL40/SPLL480 gates and shared REF20 divider24. Never reprograms shared divider
+or root PLL/LP power. Enables provider if needed, gates config around mux change
+(the mux feeds both config/reference), restores config, then enables reference.
+No gated DSI MMIO; fresh full guards/readbacks, skipped matching writes, sticky
+failure/no rollback, duplicate BUSY without I/O. Not a runtime clock manager.
+Actual Tab5 RAM PASS stage7/mask10: divider58170503/LP1FFCFFFD/provider115/source
+38862600 retained, PHY221->223 one actual reference-gate write;16 stable samples
+and supplied VO3/eFuse preserved. Model20MHz, no physical measurement/PLL-ready
+claim. Provider enable/nonzero mux switch branches HOST-TESTED only. Host32/32,
+sanitizer ASan/UBSan, C++98, four compiled mutants/invalid profile PASS. Original
+shell/SciCalc14/desktop restored, no flash/SD writes. Recovery:
+`../maia-rtos-recovery/native-dsi-reference-20261113/`. Default firmware still
+FreeRTOS-based. Next: native PHY PLL/test-port configuration with bounded failure,
+then analog/lane lock/stop waits; no cold display/PSRAM/POSIX implementation yet.

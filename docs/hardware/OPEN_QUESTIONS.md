@@ -77,3 +77,12 @@ STATUS1528 is not treated as lane/PLL readiness while PHY reset/shutdown is acti
 Need native clock-provider/reference source and verified frequency before PHY PLL,
 then bounded lock/stop waits, panel commands and framebuffer/PSRAM. No inference of
 cold/native display success or electrical settling from readable host registers.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native DSI reference](../audits/native-dsi-reference.md)
+passes actual reference-gate enable under unchanged matching inherited SPLL divider24
+and source0/provider on. Nominal20MHz is computed, not measured; LP gate bits do
+not establish PLL lock/stability, which remains a caller boot prerequisite. Cold
+SPLL startup/power/calibration and actual nonzero source switching are unproven on
+target. Mux supplies both config/reference: new native path gates config around
+source changes and avoids DSI reads while off (host-tested branch). Next PHY PLL/
+test-port programming, bounded lock/lane waits; no full display/PSRAM proof yet.

@@ -42,6 +42,34 @@ typedef struct maia_dsi_access_report {
  * OK means safe configuration access with transmit controls off, not initialized
  * PHY/lanes, settling, functional display or a complete native desktop. */
 maia_dsi_access_result_t maia_esp32p4_dsi_open_config(maia_dsi_access_report_t *report);
+typedef enum maia_dsi_reference_stage {
+    MAIA_DSI_REFERENCE_NONE=0, MAIA_DSI_REFERENCE_GUARDED,
+    MAIA_DSI_REFERENCE_PROVIDER, MAIA_DSI_REFERENCE_CONFIG_OFF, MAIA_DSI_REFERENCE_SOURCE,
+    MAIA_DSI_REFERENCE_CONFIG,
+    MAIA_DSI_REFERENCE_CLOCK, MAIA_DSI_REFERENCE_VERIFIED
+} maia_dsi_reference_stage_t;
+typedef struct maia_dsi_reference_report {
+    maia_dsi_reference_stage_t completed;
+    uint32_t attempted_mask; /* Bits0..4: provider, config off, mux, config restore, ref on. */
+    uint32_t divider_word,lp_gate,nominal_hz; /* Model480MHz/div24, NOT measured. */
+    uint32_t provider_before,provider_after,source_before,source_after,phy_before,phy_after;
+} maia_dsi_reference_report_t;
+/* Same exclusive boot/supply contract, only after successful native open_config
+ * in this boot (internal claim). Requires still-shutdown DSI, same access/reset
+ * pattern, inactive VDMA, reference/DPI/CSI clocks off. Caller guarantees stable
+ * inherited SPLL480MHz/40MHz XTAL; this is NOT cold PLL startup or frequency
+ * measurement. Verify LP XTAL/SPLL gates on and shared REF20 divider exactly24;
+ * never reprogram that divider, root PLL/power or LP gates. Refuse other dividers.
+ * Enable shared REF20 provider only if off, select DSI source0 only if needed,
+ * gate config clock around any mux change, restore config, then enable reference
+ * bit1. No DSI MMIO while config clock is off. Preserve other fields; shared gate stays
+ * enabled until reset; no general clock manager/refcount/runtime teardown.
+ * Fresh RCC/provider/LP/divider/VDMA/eFuse/PMU/DSI-off guards and full readbacks.
+ * Finite steps/no waits/rollback; failure after guards sticky FAILED until reset,
+ * duplicate successful call BUSY without MMIO. Required report always initialized.
+ * No PHY test-port/PLL/analog/lane/panel/video writes; OK is reference routing and
+ * nominal software frequency only, not PLL lock, clock measurement or display. */
+maia_dsi_access_result_t maia_esp32p4_dsi_reference20(maia_dsi_reference_report_t *report);
 #ifdef __cplusplus
 }
 #endif
