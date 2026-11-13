@@ -69,3 +69,11 @@ all access/reset prerequisites before reads. An earlier preparation faulted on
 CSI RESETN before VO3 writes. Final guarded CSI reset/clock preparation and native
 trap vector pass, preserving unrelated ISP reset. Do not assume cold defaults or
 claim reset restores every unused peripheral; desktop recovery is functional proof.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native DSI config access](../audits/native-dsi-access.md)
+now enables only DSI register/config clocks and releases only DSI bridge reset after
+held-reset/gated MIPI and guarded VO3 acquisition. Actual shutdown controls verified;
+STATUS1528 is not treated as lane/PLL readiness while PHY reset/shutdown is active.
+Need native clock-provider/reference source and verified frequency before PHY PLL,
+then bounded lock/stop waits, panel commands and framebuffer/PSRAM. No inference of
+cold/native display success or electrical settling from readable host registers.

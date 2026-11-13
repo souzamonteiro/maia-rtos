@@ -322,3 +322,21 @@ print('PASS: VO3 off/on preservation, non-adoption, complete captures and phased
 assert not runner.evaluate_vo3_cycle(cycle.replace('VO3_CSI_PREP','UNKNOWN'))
 assert not runner.evaluate_vo3_cycle(cycle.replace('phy_after=000002b3','phy_after=000002a3',1))
 assert not runner.evaluate_vo3_cycle(cycle.replace('sys_after=0c0d5e78','sys_after=0c0d5e58',1))
+
+dsi_access = cycle + """DSI_ACCESS result=00000000 stage=00000005 attempted=00000007 sys_before=0c0d4278 sys_after=0c0d5278 phy_before=00000220 phy_after=00000221 reset_before=bc000001 reset_after=b8000001 control=00000180 analog=d5800000 duplicate_busy=00000001
+DSI_CONFIG version=3134312a power=00000000 phy_reset=00000000 bridge=00000000 dpi=00000000 fifo=00000000 status=00000000
+MAIA_NATIVE_DSI_ACCESS_PASS
+"""
+assert runner.evaluate_dsi_access(dsi_access)
+assert not runner.evaluate_vo3_cycle(dsi_access)
+for old,new in [('sys_after=0c0d5278','sys_after=0c0d5e78'),('phy_after=00000221','phy_after=00000223'),
+                ('reset_after=b8000001','reset_after=98000001'),('power=00000000','power=00000001'),
+                ('phy_reset=00000000','phy_reset=00000008'),('bridge=00000000 dpi=','bridge=00000001 dpi='),
+                ('dpi=00000000','dpi=00000001'),('fifo=00000000 status=','fifo=00000001 status='),
+                ('control=00000180 analog=d5800000 duplicate_busy=','control=00000080 analog=d5800000 duplicate_busy=')]:
+    assert not runner.evaluate_dsi_access(dsi_access.replace(old,new))
+assert not runner.evaluate_dsi_access(dsi_access+dsi_access)
+assert not runner.evaluate_dsi_access(dsi_access+'DSI_ACCESS malformed\n')
+assert not runner.evaluate_dsi_access(dsi_access.replace('MAIA_NATIVE_DSI_ACCESS_PASS',''))
+assert not runner.evaluate_dsi_access('MAIA_NATIVE_DSI_ACCESS_PASS\n'+dsi_access.replace('MAIA_NATIVE_DSI_ACCESS_PASS\n',''))
+print('PASS: DSI config capture requires preserved VO3, exact clocks/reset release and transmit controls off')

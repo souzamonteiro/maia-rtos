@@ -563,3 +563,22 @@ No public API/default firmware change or new foreign runtime dependency. Full
 desktop still FreeRTOS-based. Next: checked native DSI clock/PHY prerequisites;
 cold panel/display/PSRAM, electrical characterization/live stream shutdown and
 POSIX implementation remain pending.
+
+## Native DSI configuration access — 2026-11-12
+
+Read [native DSI access](../audits/native-dsi-access.md). New boot-exclusive SoC API requires all MIPI
+clocks gated, shared resets held, overrides clear, inactive clocked VDMA and
+matching active calibrated VO3. Enables only DSI SYS12/PHY config0, then releases
+only DSI bridge RCC reset26, with fresh full guards/readbacks. No DSI MMIO before
+access/config clocks and reset release; no ISP/CSI MMIO. Target RAM stage5/attempt7
+PASS: SYS0C0D4278->0C0D5278, PHY220->221, RESET3C000040->38000040; VO3 unchanged.
+VERSION3134312A, POWER/PHY_RSTZ/BRIDGE/FIFO0, DPI19D0(enable0), STATUS1528 observed,
+not treated as PHY-ready proof. CSI/ISP resets held; reference/DPI clocks remain
+gated. No PLL/source/test-port/analog/lane/video/panel/DMA/PSRAM writes.
+Sticky failure/no rollback, duplicate BUSY without I/O; no runtime ownership or
+release implementation. Host31/31, sanitizer, C++98, four compiled mutants and
+invalid profile PASS. Shell/SciCalc14/desktop recovery verified; no flash/SD writes.
+Recovery `../maia-rtos-recovery/native-dsi-access-20261112/`. Default production
+firmware unchanged and still FreeRTOS-based. Next: verified native DSI reference
+source/provider/frequency, then PHY PLL/lane sequence; cold display/PSRAM/electrical
+settling and POSIX implementation remain pending. No parser changes.

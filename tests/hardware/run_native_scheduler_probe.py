@@ -161,7 +161,9 @@ def evaluate_mipi_gate(output, allow_vo3=False):
             ready is not None and sb == int(ready[1], 16) and sb & 0x1c20 == 0x1c20 and sa == sb & ~0x1c00)
 
 
-def evaluate_vo3_cycle(output):
+def evaluate_vo3_cycle(output, allow_dsi=False):
+    if not allow_dsi and ('DSI_ACCESS' in output or 'DSI_CONFIG' in output):
+        return False
     if not evaluate_mipi_gate(output, allow_vo3=True):
         return False
     lines = output.replace('\r', '').splitlines()
@@ -201,6 +203,30 @@ def evaluate_vo3_cycle(output):
     return (off['control'] == plan['control'] & ~0x100 and off['analog'] == plan['analog'] and
             on['control'] == plan['control'] and on['analog'] == plan['analog'] and
             acquired == dict(stage=5, adopted=0, changed=1, preserved=1, duplicate_busy=1, samples=16))
+
+
+def evaluate_dsi_access(output):
+    if not evaluate_vo3_cycle(output, allow_dsi=True):
+        return False
+    clean = output.replace('\r','')
+    schema = 'result stage attempted sys_before sys_after phy_before phy_after reset_before reset_after control analog duplicate_busy'.split()
+    rows = re.findall(r'^DSI_ACCESS' + ''.join(' '+k+r'=([0-9a-f]{8})' for k in schema) + '$',clean,re.M)
+    configs = re.findall(r'^DSI_CONFIG version=([0-9a-f]{8}) power=([0-9a-f]{8}) phy_reset=([0-9a-f]{8}) bridge=([0-9a-f]{8}) dpi=([0-9a-f]{8}) fifo=([0-9a-f]{8}) status=([0-9a-f]{8})$',clean,re.M)
+    lines = clean.splitlines()
+    if len(rows) != 1 or len(configs) != 1 or sum(l.startswith('DSI_ACCESS') for l in lines) != 1 or sum(l.startswith('DSI_CONFIG') for l in lines) != 1 or lines.count('MAIA_NATIVE_DSI_ACCESS_PASS') != 1:
+        return False
+    if not (lines.index('MAIA_NATIVE_VO3_CYCLE_PASS') < next(i for i,l in enumerate(lines) if l.startswith('DSI_ACCESS ')) < next(i for i,l in enumerate(lines) if l.startswith('DSI_CONFIG ')) < lines.index('MAIA_NATIVE_DSI_ACCESS_PASS')):
+        return False
+    a = dict(zip(schema,(int(v,16) for v in rows[0])))
+    gate = re.search(r'^MIPI_GATE .*reset_after=([0-9a-f]{8}) .*phy_after=([0-9a-f]{8}) .*sys_after=([0-9a-f]{8}) ',clean,re.M)
+    supply = re.search(r'^VO3_ON control=([0-9a-f]{8}) analog=([0-9a-f]{8})$',clean,re.M)
+    _,power,phy,bridge,dpi,fifo,_ = (int(v,16) for v in configs[0])
+    return (a['result'] == 0 and a['stage'] == 5 and a['attempted'] == 7 and a['duplicate_busy'] == 1 and
+            gate and [a['reset_before'],a['phy_before'],a['sys_before']] == [int(v,16) for v in gate.groups()] and
+            a['sys_after'] == a['sys_before'] | 0x1000 and a['phy_after'] == a['phy_before'] | 1 and
+            a['reset_after'] == a['reset_before'] & ~0x4000000 and
+            supply and [a['control'],a['analog']] == [int(v,16) for v in supply.groups()] and
+            not power & 1 and not phy & 15 and not bridge & 1 and not dpi & 1 and not fifo & 0x3fff)
 
 
 def evaluate_vdma_transfer(output):
@@ -399,6 +425,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-access', action='store_true', help='verify guarded DSI bus/config access, no PLL or lane activation')
     parser.add_argument('--vo3-cycle', action='store_true', help='guarded VO3 disable/native acquire with host observation windows')
     parser.add_argument('--mipi-gate', action='store_true', help='verify held shared resets and boot MIPI clock gating')
     parser.add_argument('--mipi-park', action='store_true', help='verify reset-state bridge/PHY parking, no live streams')
@@ -429,6 +456,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_access:
+        args.vo3_cycle = True
     if args.vo3_cycle:
         args.mipi_gate = True
     if args.mipi_gate:
@@ -540,7 +569,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.vo3_cycle:
+        if args.dsi_access:
+            passed = evaluate_dsi_access(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.vo3_cycle:
             passed = evaluate_vo3_cycle(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.mipi_gate:
             passed = evaluate_mipi_gate(output)
@@ -562,7 +593,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

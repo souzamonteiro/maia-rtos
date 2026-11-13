@@ -684,3 +684,27 @@ no VO3 writes in either; final native trap vector and complete prerequisites pas
 Host30/30, ASan/UBSan, four compiled mutants/invalid profile PASS. Native ELF runtime
 gate clean, SRAM-only image; preserved shell/SciCalc14/desktop verified after reset.
 No flash/SD writes; no native cold display, voltage/ramp/load or live-stream proof.
+
+### Native DSI register/config access — 2026-11-12
+
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[DSI bus constructor](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_mipi_dsi_bus.c)
+`esp_lcd_new_dsi_bus` and
+[mipi_dsi_ll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_ll.h)
+pin RCC SYS12, PHY config0/reference1/DPI7 and reset26; source selection separate.
+Pinned RCC/DSI register headers define host version+0/power+4/PHY_RSTZ+A0/status+B0,
+bridge+4/DPI+40/FIFO+14. No guessed registers/timings. Earlier TRM chip1.3 v0.4
+38.7.2 p1974/34.7.5–7 pp1574–1575/VDMA CFG0 p349 remain park/gate prerequisites.
+Primary [TRM](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf).
+
+[Audit/capture/manifest](../audits/native-dsi-access.md): native gated/reset-held
+access preparation after guarded VO3 cycle passes actual SYS0C0D4278->0C0D5278,
+PHY220->221, RESET3C000040->38000040. VO3 CTRL40200180/ANA D5800000 unchanged.
+VERSION3134312A/POWER0/PHY_RSTZ0/BRIDGE0/DPI19D0(enable0)/FIFO0/STATUS1528;
+status is observation, not PLL/lanes ready proof. All CSI/ISP resets remain held,
+reference/DPI clocks off. Only three RCC writes by new API, stage5/attempt7,
+duplicate BUSY and final RCC/VDMA/eFuse/PMU guards pass. No source/PLL/test-port/
+analog power/transmit/panel/video/PSRAM writes. Host31/31/sanitizer/C++98/four compiled
+mutants/invalid profile PASS. SRAM image dependency gate clean; installed baseline
+shell/SciCalc14/desktop recovered; no flash/SD writes. Cold native display remains
+pending. Exact pinned source hashes in manifest; original native code, no SDK runtime.

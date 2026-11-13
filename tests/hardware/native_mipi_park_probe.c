@@ -16,6 +16,9 @@ static void halt(const char *reason) {
     maia_console_puts("MAIA_NATIVE_MIPI_PARK_FAIL ");maia_console_puts(reason);maia_console_puts("\n");
     for (;;) __asm__ volatile("wfi");
 }
+#ifdef MAIA_NATIVE_PROBE_DSI_ACCESS
+#include <maia/soc/esp32p4_dsi_access.h>
+#endif
 #ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
 #include "native_vo3_cycle.h"
 #endif
@@ -104,6 +107,20 @@ void maia_boot_main(void) {
     maia_console_puts("MAIA_NATIVE_MIPI_GATE_PASS\n");
 #ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
     vo3_cycle(&g,before.cpu);
+#ifdef MAIA_NATIVE_PROBE_DSI_ACCESS
+    maia_dsi_access_report_t access,access_again;
+    maia_dsi_access_result_t opened=maia_esp32p4_dsi_open_config(&access);
+    int repeated=opened == MAIA_DSI_ACCESS_OK && maia_esp32p4_dsi_open_config(&access_again) == MAIA_DSI_ACCESS_BUSY;
+    field("DSI_ACCESS result=",(uint32_t)opened);field(" stage=",access.completed);field(" attempted=",access.attempted_mask);
+    field(" sys_before=",access.sys_before);field(" sys_after=",access.sys_after);
+    field(" phy_before=",access.phy_before);field(" phy_after=",access.phy_after);
+    field(" reset_before=",access.reset_before);field(" reset_after=",access.reset_after);
+    field(" control=",access.control);field(" analog=",access.analog);field(" duplicate_busy=",(uint32_t)repeated);maia_console_puts("\n");
+    field("DSI_CONFIG version=",access.version);field(" power=",access.power);field(" phy_reset=",access.phy_reset);
+    field(" bridge=",access.bridge);field(" dpi=",access.dpi);field(" fifo=",access.fifo);field(" status=",access.phy_status);maia_console_puts("\n");
+    if (opened != MAIA_DSI_ACCESS_OK || access.completed != MAIA_DSI_ACCESS_VERIFIED || !repeated) halt("dsi-access");
+    maia_console_puts("MAIA_NATIVE_DSI_ACCESS_PASS\n");
+#endif
 #endif
 #endif
     for (;;) __asm__ volatile("wfi");
