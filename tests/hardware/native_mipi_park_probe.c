@@ -23,6 +23,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
 #include "native_vo3_cycle.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DSI_RESET
+#include "native_dsi_reset.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -108,6 +111,9 @@ void maia_boot_main(void) {
     maia_console_puts("MAIA_NATIVE_MIPI_GATE_PASS\n");
 #ifdef MAIA_NATIVE_PROBE_VO3_CYCLE
     vo3_cycle(&g,before.cpu);
+#ifdef MAIA_NATIVE_PROBE_DSI_RESET
+    dsi_panel_reset(&g,before.cpu);
+#endif
 #ifdef MAIA_NATIVE_PROBE_DSI_ACCESS
     maia_dsi_access_report_t access,access_again;
     maia_dsi_access_result_t opened=maia_esp32p4_dsi_open_config(&access);

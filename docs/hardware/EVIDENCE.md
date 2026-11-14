@@ -885,3 +885,25 @@ clean. Full predecessor checks pass; shell/SciCalc14/desktop recovered. No flash
 writes. Response word does not prove exact length/model. Electrical error cause
 and detailed P4bit20 meaning remain unresolved; native cold panel init/video/
 framebuffer/PSRAM/full desktop still pending. Default firmware still FreeRTOS.
+
+### Quiet native reset integrated before DSI — 2026-11-14
+
+Primary [Tab5 PDF](https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/static/pdf/static/en/core/Tab5.pdf)
+update2026-11-05 schematicp9/P4 LCD_RST/P5 TP_RST, p12/GPIO23 and p16 reset-release
+input/pull-up; unchanged native100/100ms port documented in native-panel-reset.md.
+[Preserved working BSP](https://github.com/souzamonteiro/maia-rtos/blob/d0886c3/platforms/tab5/components/m5stack_tab5/m5stack_tab5.c)
+bsp_detect_display_type maps touch firmware1->ST7121,3->ST7123; this device reports1.
+This is BSP variant policy, not independent die identification. No mapping from
+DSI00FBA080 to an assumed model. Native guarded clock/DMA/supply facts unchanged
+from earlier pinned TRM/SDK references; no new MMIO/pin/timing fact introduced.
+
+[Integrated reset audit/captures/manifest](../audits/native-dsi-reset.md) records two
+final RAM loads: MIPI sys0C0D4278/phy220/reset3C000040/DMAquiet1/supplyready1;
+reset result0/stage9/changed1/elapsed3BD55 and3B5FEus hex, firmware1/status0,
+banks/clocks/supply/GPIO input preserved1, followed by four bounded stable00FBA080
+RDDID words each/errors0/restored controls. Earlier standalone reset had no proven
+gate; this closes that limited integration gate. No cold power/electrical pulse/
+visual/panel-startup proof. Host38/38, two sanitized fixtures/four mutants/invalid
+profile PASS, native runtime gate clean; original shell/SciCalc14/desktop restored.
+No flash/SD/parser/foreign-runtime changes. Next selected ST7121 command sequence;
+video/framebuffer/PSRAM/full native desktop remain pending.

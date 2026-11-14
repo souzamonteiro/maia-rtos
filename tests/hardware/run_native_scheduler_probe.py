@@ -363,7 +363,9 @@ def evaluate_dsi_long(output, allow_read=False):
             [int(v,16) for v in summary[0]]==[4,busy,changes,1,0])
 
 
-def evaluate_dsi_read(output):
+def evaluate_dsi_read(output, allow_reset=False):
+    if not allow_reset and 'DSI_RESET' in output: return False
+    if not allow_reset and 'DSI_PANEL_RESET' in output: return False
     if not evaluate_dsi_long(output,allow_read=True): return False
     clean=output.replace('\r','');lines=clean.splitlines()
     keys='index result stage headers words word id0 id1 id2 polls before after packet vc restored status fifo error0 error1'.split()
@@ -383,6 +385,31 @@ def evaluate_dsi_read(output):
         if identity is None: identity=a['word']&0xffffff
         elif identity!=a['word']&0xffffff: return False
     return [int(v,16) for v in summary[0]]==[4,identity,1,1]
+
+
+def evaluate_dsi_reset(output):
+    if not evaluate_dsi_read(output,allow_reset=True): return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    schemas={
+        'DSI_RESET_QUIET':'sys phy reset firmware dma_quiet supply_ready'.split(),
+        'DSI_PANEL_RESET':'result stage changed elapsed_us'.split(),
+        'DSI_RESET_RECOVERY':'firmware status banks_preserved clocks_preserved supply_preserved gpio23_input'.split(),
+    }
+    rows={};positions=[]
+    for prefix,keys in schemas.items():
+        found=re.findall('^'+prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+        if len(found)!=1 or sum(l.startswith(prefix) for l in lines)!=1: return False
+        rows[prefix]=dict(zip(keys,(int(v,16) for v in found[0])))
+        positions.append(next(i for i,l in enumerate(lines) if l.startswith(prefix)))
+    q=rows['DSI_RESET_QUIET'];r=rows['DSI_PANEL_RESET'];a=rows['DSI_RESET_RECOVERY']
+    if lines.count('MAIA_NATIVE_DSI_RESET_PASS')!=1: return False
+    return (lines.index('MAIA_NATIVE_VO3_CYCLE_PASS')<positions[0]<positions[1]<positions[2]<
+            lines.index('MAIA_NATIVE_DSI_RESET_PASS')<next(i for i,l in enumerate(lines) if l.startswith('DSI_ACCESS ')) and
+            q['sys']&0x1c00==0 and q['phy']&0x93==0 and q['reset']&0x3c000000==0x3c000000 and
+            q['firmware'] in (1,3) and q['dma_quiet']==q['supply_ready']==1 and
+            r['result']==0 and r['stage']==9 and r['changed']==1 and r['elapsed_us']>=200000 and
+            a['firmware']==q['firmware'] and a['status']==0 and
+            all(a[k]==1 for k in ('banks_preserved','clocks_preserved','supply_preserved','gpio23_input')))
 
 
 def evaluate_vdma_transfer(output):
@@ -581,6 +608,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-reset', action='store_true', help='quiet native ST712x reset before DSI bring-up and responses')
     parser.add_argument('--dsi-read', action='store_true', help='bounded RDDID response word, no assumed panel model')
     parser.add_argument('--dsi-long', action='store_true', help='four bounded DCS long frames containing only NOP, then short NOP')
     parser.add_argument('--dsi-short', action='store_true', help='send sixteen bounded LP NOP packets; host drain only, no panel ACK')
@@ -618,6 +646,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_reset:
+        args.dsi_read = True
     if args.dsi_read:
         args.dsi_long = True
     if args.dsi_long:
@@ -743,7 +773,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dsi_read:
+        if args.dsi_reset:
+            passed = evaluate_dsi_reset(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dsi_read:
             passed = evaluate_dsi_read(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dsi_long:
             passed = evaluate_dsi_long(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -779,7 +811,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

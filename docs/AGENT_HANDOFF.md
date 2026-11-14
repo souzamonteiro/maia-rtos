@@ -779,3 +779,22 @@ Shell/SciCalc14/desktop recovered, no flash/SD/foreign-runtime/parser changes.
 Recovery `../maia-rtos-recovery/native-dsi-bta-escape-20261114/`. Default desktop
 still FreeRTOS. Next: guarded native panel reset integration and variant-verified
 bounded DCS startup, then video/framebuffer/PSRAM; no native desktop/POSIX claim.
+
+## Quiet native panel reset before DSI responses — 2026-11-14
+
+Read [integrated reset](audits/native-dsi-reset.md). New opt-in DSI_RESET profile reuses existing
+native I2C/expander/board reset after proven MIPI gate+VO3, before DSI open. Exact
+RCC/ISP/VDMA/supply guards, supported firmware1/3, verified GPIO23 input, both-bank
+preservation and touch recovery; any error halts, no rollback/retry. Private boot
+diagnostic only, no new production/public driver/parser changes. Actual two final
+RAM loads PASS: sys0C0D4278/phy220/reset3C000040, stage9/reset~244ms, FW1/status0,
+banks/clocks/supply/GPIO preserved, then four stable00FBA080 error-free RDDID words
+each and prior native DSI/short/long checks. Host38/38, two ASan+UBSan fixtures/four
+compiled mutants/invalid profile PASS, native runtime gate clean. Shell/SciCalc14/
+desktop restored, no flash/SD writes. Recovery
+`../maia-rtos-recovery/native-dsi-reset-20261114/`. Earlier standalone reset capture
+remains qualified; new gate evidence applies to this integrated profile only.
+Important: preserved BSP maps observed touch FW1 to ST7121, FW3 to ST7123. Do not
+reverse this or guess from DSI raw word. Next: selected ST7121 command-table port
+with bounded delays/failure policy; video/framebuffer/PSRAM/full native desktop/
+POSIX pending. Default full desktop still FreeRTOS-based.

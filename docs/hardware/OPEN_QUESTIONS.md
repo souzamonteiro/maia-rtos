@@ -149,3 +149,12 @@ Divider6->7 is the only functional setting change, based on official rounded
 meaning remain open; no scope/frequency measurement. Exact RX length/model cannot
 be inferred from the stripped FIFO word. Next native quiet reset plus verified
 variant-specific DCS startup; video/framebuffer/PSRAM/cold power remain pending.
+
+Follow-up UQ-014/UQ-015/UQ-016: [quiet reset+DSI](../audits/native-dsi-reset.md)
+now proves warm-entry reset under native MIPI gate+VO3, touch recovery and bounded
+error-free responses afterwards (two final loads). Older standalone reset evidence
+remains historically qualified. No cold supplies/pulse-voltage/native pixels claim.
+Observed touch firmware1 selects ST7121 in preserved working BSP; firmware3 selects
+ST7123. Audit the selected ST7121 startup table/driver provenance before vendor
+commands; never substitute the ST7123 custom table or guess from DSI raw response.
+Next bounded startup/delays, then video/framebuffer/PSRAM. Full desktop still legacy.

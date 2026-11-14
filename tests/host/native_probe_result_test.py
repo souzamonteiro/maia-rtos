@@ -455,3 +455,25 @@ assert not runner.evaluate_dsi_read(read.replace(
     'restored=00000005 status=00001595 fifo=00050015 error0=00000000',
     'restored=00000005 status=00001595 fifo=00050015 error0=00100000',1))
 print('PASS: read capture requires four response words/stable byte views, bounded polls and restored host state')
+
+quiet_reset=('DSI_RESET_QUIET sys=0c0d4278 phy=00000220 reset=3c000040 firmware=00000001 dma_quiet=00000001 supply_ready=00000001\n'
+             'DSI_PANEL_RESET result=00000000 stage=00000009 changed=00000001 elapsed_us=0003bba3\n'
+             'DSI_RESET_RECOVERY firmware=00000001 status=00000000 banks_preserved=00000001 clocks_preserved=00000001 supply_preserved=00000001 gpio23_input=00000001\n'
+             'MAIA_NATIVE_DSI_RESET_PASS\n')
+assert 'MAIA_NATIVE_VO3_CYCLE_PASS\n' in read
+reset=read.replace('MAIA_NATIVE_VO3_CYCLE_PASS\n','MAIA_NATIVE_VO3_CYCLE_PASS\n'+quiet_reset)
+assert runner.evaluate_dsi_reset(reset)
+assert not runner.evaluate_dsi_read(reset)
+for old,new in [('sys=0c0d4278','sys=0c0d5278'),('phy=00000220','phy=00000221'),
+                ('reset=3c000040','reset=38000040'),('firmware=00000001 dma_quiet','firmware=00000002 dma_quiet'),
+                ('dma_quiet=00000001','dma_quiet=00000000'),('supply_ready=00000001','supply_ready=00000000'),
+                ('stage=00000009 changed=','stage=00000008 changed='),('elapsed_us=0003bba3','elapsed_us=00000001'),
+                ('DSI_RESET_RECOVERY firmware=00000001','DSI_RESET_RECOVERY firmware=00000003'),
+                ('banks_preserved=00000001','banks_preserved=00000000'),('clocks_preserved=00000001','clocks_preserved=00000000'),
+                ('gpio23_input=00000001','gpio23_input=00000000')]:
+    assert old in reset and not runner.evaluate_dsi_reset(reset.replace(old,new,1))
+assert not runner.evaluate_dsi_reset(read)
+assert not runner.evaluate_dsi_reset(reset+quiet_reset)
+assert not runner.evaluate_dsi_reset(read+quiet_reset)
+assert not runner.evaluate_dsi_reset(reset.replace('MAIA_NATIVE_DSI_RESET_PASS\n',''))
+print('PASS: quiet reset requires parked clocks/DMA, supported firmware, completed reset/recovery before DSI response')
