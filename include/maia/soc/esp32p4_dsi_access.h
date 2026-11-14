@@ -146,6 +146,31 @@ typedef struct maia_dsi_short_report {
  * No panel-specific policy, memory/DMA/IRQ or PSRAM access. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dcs_short(uint32_t vc,uint32_t command,
     uint32_t parameter_count,uint32_t parameter,uint32_t poll_budget,maia_dsi_short_report_t *report);
+#define MAIA_DSI_LONG_MAX_BYTES 64U /* Policy cap, NOT a verified FIFO-depth claim. */
+typedef struct maia_dsi_long_report {
+    maia_dsi_short_report_t transfer; /* completed0:none 1:guarded 2:LP selected
+                                     3:payload attempted 4:header attempted
+                                     5:drain/stop observed 6:verified. */
+    uint32_t payload_bytes_attempted,payload_words_attempted,space_polls,pre_header_fifo;
+} maia_dsi_long_report_t;
+/* Same boot-exclusive ownership/supply/context contract and native command claim.
+ * Force DCS long39, vc0..3, payload length1..64 INCLUDING command byte. Caller
+ * supplies readable immutable ordinary RAM (not MMIO), no alias with report.
+ * Bytewise little-endian packing, zero unused last-word bytes, no tail overread.
+ * LP bit19, ACK/TE/BTA off; stage all payload before one header with exact WC.
+ * Check both generic FIFO and GEN_BUFF full/empty levels; front FIFO empty alone
+ * is not completion. Shared total budget1..100000 covers payload-space/header/completion observations,
+ * plus finite preflight/final checks. Length cap is policy; unknown FIFO depth may
+ * cause bounded timeout BEFORE header. Do not infer streaming/chunking support.
+ * No GEN_PLD or GEN_HDR readback; counters set before stores mean ATTEMPTS, not
+ * confirmed bytes. Failure after guards (even partial payload/no header) poisons
+ * BOTH short and long transport until reset. No retry/flush/rollback/retransmit.
+ * OK allows another exclusive transfer: host drain/PHY stop observed, not panel
+ * ACK or proof of payload/wire acceptance. Same status-read/fast-completion limits
+ * as short API. Parameter bytes stay caller/panel policy; no automatic DCS command
+ * conversion, panel initialization, read/ACK/HS/video/DMA/PSRAM operations. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dcs_long(uint32_t vc,const uint8_t *bytes,
+    uint32_t length,uint32_t poll_budget,maia_dsi_long_report_t *report);
 #ifdef __cplusplus
 }
 #endif

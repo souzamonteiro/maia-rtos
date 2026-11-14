@@ -814,3 +814,28 @@ not exercised. Host35/35/sanitizer/C++98/five compiled mutants/invalid profile P
 GEN_HDR dropped-store ambiguity modeled/documented, not falsely detected. Runtime
 gate clean, original shell/SciCalc14/desktop recovered, no flash/SD writes. Native
 long writes/ACK/read/panel/video/PSRAM/full desktop remain pending.
+
+### Native LP long framing and internal-buffer completion — 2026-11-14
+
+Primary SDK f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[HAL long path](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c),
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[register header](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_host_reg.h):
+GEN_PLD+70, GEN_HDR+6C WC8..23, DCS39/LPbit19, CMD_PKT_STATUS+74 low interface
+bits0..6 plus GEN_BUFF_CMD_EMPTY/FULL16/17, GEN_BUFF_PLD_EMPTY/FULL18/19. Require
+both levels idle (F007F=50015); space checks mask80008, pre-header command30003=
+10001. No capacity inferred. Native bytewise packing avoids SDK unaligned/tail
+32-bit overread, Apache-2.0 port attribution retained.
+[ST7123 V0.5](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/ST7123_SPEC_Preliminary_V0.5.pdf)
+2021/09 sections5.4.2.3.1 p92/typep99/WCp102/payload103,109/NOP6.2.1p140 support
+framing/content. DT39 is not payload command39. No ACK/panel acceptance proof.
+Earlier TRM chip1.3 v0.4 ch10/p616/regs10.11–10.16 pp651–659 clock facts unchanged.
+
+[Final capture/audit/manifest](../audits/native-dsi-long.md): preliminary capture
+revealed10015 after staging despite front-empty; preserved and guard strengthened.
+Revised Tab5 RAM4 one-byte NOP long frames stage6/header139/oneword/onebyte/4polls/
+2space/busy1, pre10015->50015/PHY15BD/errors0, mode10000->90000 once, preserved1/
+panel_ack0. Short NOP followup succeeds. Multiword/otherVC/buffer-depth unverified
+on target. Host36/36/ASan+UBSan/C++98/seven compiled mutants/invalid profile PASS.
+Native runtime gate clean, old shell/SciCalc14/desktop recovered. No flash/SD/
+parser/video/PSRAM/panel configuration writes. Recovery carries both candidates.

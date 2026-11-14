@@ -411,3 +411,21 @@ assert not runner.evaluate_dsi_short(short+'DSI_SHORT malformed\n')
 assert not runner.evaluate_dsi_short(short.replace('MAIA_NATIVE_DSI_SHORT_PASS',''))
 assert runner.evaluate_dsi_short(short.replace('busy=00000001 before=','busy=00000000 before=').replace('busy=00000010 mode_changes=','busy=00000000 mode_changes='))
 print('PASS: short capture requires16 ordered NOP publications, LP/idle/error preservation and no panel ACK claim')
+
+long=short
+for i in range(4):
+    long+=f'DSI_LONG index={i:08x} result=00000000 stage=00000006 header=00000139 attempted=00000001 bytes=00000001 words=00000001 polls=00000004 space=00000002 busy=00000001 before={0x10000 if i==0 else 0x90000:08x} after=00090000 pre_fifo=00010011 status=00001595 fifo=00050015 error0=00000000 error1=00000000\n'
+long+='DSI_LONG_FOLLOWUP result=00000000 stage=00000005 header=00000005 attempted=00000001 polls=00000002 busy=00000001 status=00001595 fifo=00050015 error0=00000000 error1=00000000\nDSI_LONG_SUMMARY packets=00000004 busy=00000004 mode_changes=00000001 preserved=00000001 panel_ack=00000000\nMAIA_NATIVE_DSI_LONG_PASS\n'
+assert runner.evaluate_dsi_long(long)
+assert not runner.evaluate_dsi_short(long)
+for old,new in [('header=00000139','header=00000439'),('bytes=00000001 words=','bytes=00000004 words='),
+                ('space=00000002','space=00000004'),('after=00090000','after=000d0000'),
+                ('pre_fifo=00010011','pre_fifo=00010051'),('DSI_LONG index=00000001','DSI_LONG index=00000000')]:
+    assert not runner.evaluate_dsi_long(long.replace(old,new,1))
+assert not runner.evaluate_dsi_long(long+long)
+assert not runner.evaluate_dsi_long(long+'DSI_LONG malformed\n')
+assert not runner.evaluate_dsi_long(long.replace('MAIA_NATIVE_DSI_LONG_PASS',''))
+assert not runner.evaluate_dsi_long(long.replace('DSI_LONG_FOLLOWUP','MISSING'))
+print('PASS: long capture requires4 exact-WC NOP frames, payload counts/LP state, bounded checks and short followup')
+
+assert not runner.evaluate_dsi_long(long.replace("fifo=00050015", "fifo=00010015",1))

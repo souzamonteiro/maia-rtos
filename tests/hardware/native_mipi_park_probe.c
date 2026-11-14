@@ -1,4 +1,5 @@
-/* Native boot reset parking only. Host/analog shutdown must remain asserted. */
+/* Boot MIPI/DSI diagnostics: default reset parking; opt-in supply/PHY setup and
+ * LP NOP packet framing. No video, framebuffer or PSRAM initialization. */
 #include <maia/console.h>
 #include <maia/drivers/serial_rx.h>
 #include <maia/soc/esp32p4_mipi_park.h>
@@ -242,6 +243,42 @@ void maia_boot_main(void) {
     field(" preserved=",(uint32_t)short_kept);maia_console_puts(" panel_ack=00000000\n");
     if (!short_kept) halt("short-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_SHORT_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_LONG
+    const uint8_t nop_content[1]={0};unsigned long_busy=0,long_mode_changes=0;int long_kept=1;
+    for (unsigned packet=0;packet<4U;++packet) {
+        maia_dsi_long_report_t sent;
+        maia_dsi_access_result_t result=maia_esp32p4_dsi_dcs_long(0,nop_content,1,10000,&sent);
+        field("DSI_LONG index=",packet);field(" result=",(uint32_t)result);field(" stage=",sent.transfer.completed);
+        field(" header=",sent.transfer.header);field(" attempted=",sent.transfer.header_attempted);
+        field(" bytes=",sent.payload_bytes_attempted);field(" words=",sent.payload_words_attempted);
+        field(" polls=",sent.transfer.polls);field(" space=",sent.space_polls);field(" busy=",sent.transfer.saw_busy);
+        field(" before=",sent.transfer.command_before);field(" after=",sent.transfer.command_after);field(" pre_fifo=",sent.pre_header_fifo);
+        field(" status=",sent.transfer.status);field(" fifo=",sent.transfer.fifo);
+        field(" error0=",sent.transfer.error0);field(" error1=",sent.transfer.error1);maia_console_puts("\n");
+        if (result != MAIA_DSI_ACCESS_OK || sent.transfer.completed != 6U || !sent.transfer.header_attempted) halt("long");
+        long_busy+=sent.transfer.saw_busy;long_mode_changes+=sent.transfer.command_before != sent.transfer.command_after;
+        for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i)
+            if (rd(MAIA_ESP32P4_DSI_HOST_BASE+command_registers[i]) != command.after[i]) long_kept=0;
+        if (rd(MAIA_ESP32P4_DSI_HOST_BASE+4U) != phy_report.power ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U) != phy_report.phy_reset ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U) || (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)&1U) ||
+            (rd(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU) ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) long_kept=0;
+    }
+    maia_dsi_short_report_t followup;
+    maia_dsi_access_result_t followed=maia_esp32p4_dsi_dcs_short(0,0,0,0,10000,&followup);
+    field("DSI_LONG_FOLLOWUP result=",(uint32_t)followed);field(" stage=",followup.completed);field(" header=",followup.header);
+    field(" attempted=",followup.header_attempted);field(" polls=",followup.polls);field(" busy=",followup.saw_busy);
+    field(" status=",followup.status);field(" fifo=",followup.fifo);field(" error0=",followup.error0);field(" error1=",followup.error1);maia_console_puts("\n");
+    if (followed != MAIA_DSI_ACCESS_OK || followup.completed != 5U) halt("long-followup");
+    field("DSI_LONG_SUMMARY packets=",4U);field(" busy=",long_busy);field(" mode_changes=",long_mode_changes);
+    field(" preserved=",(uint32_t)long_kept);maia_console_puts(" panel_ack=00000000\n");
+    if (!long_kept) halt("long-preserve");
+    maia_console_puts("MAIA_NATIVE_DSI_LONG_PASS\n");
+#endif
 #endif
 #endif
 #endif

@@ -305,7 +305,9 @@ def evaluate_dsi_command(output, allow_short=False):
             a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16)
 
 
-def evaluate_dsi_short(output):
+def evaluate_dsi_short(output, allow_long=False):
+    if not allow_long and 'DSI_LONG' in output:
+        return False
     if not evaluate_dsi_command(output,allow_short=True):
         return False
     clean=output.replace('\r','');lines=clean.splitlines()
@@ -328,6 +330,35 @@ def evaluate_dsi_short(output):
             return False
         previous=a['after'];busy+=a['busy'];changes+=a['before']!=a['after']
     return [int(v,16) for v in summary[0]]==[16,busy,changes,1,0]
+
+
+def evaluate_dsi_long(output):
+    if not evaluate_dsi_short(output,allow_long=True):
+        return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    keys='index result stage header attempted bytes words polls space busy before after pre_fifo status fifo error0 error1'.split()
+    follow_keys='result stage header attempted polls busy status fifo error0 error1'.split()
+    rows=re.findall(r'^DSI_LONG'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+    follow=re.findall(r'^DSI_LONG_FOLLOWUP'+''.join(' '+k+r'=([0-9a-f]{8})' for k in follow_keys)+'$',clean,re.M)
+    summary=re.findall(r'^DSI_LONG_SUMMARY packets=([0-9a-f]{8}) busy=([0-9a-f]{8}) mode_changes=([0-9a-f]{8}) preserved=([0-9a-f]{8}) panel_ack=([0-9a-f]{8})$',clean,re.M)
+    if len(rows)!=4 or len(follow)!=1 or len(summary)!=1 or sum(l.startswith('DSI_LONG ') for l in lines)!=4 or sum(l.startswith('DSI_LONG_FOLLOWUP') for l in lines)!=1 or sum(l.startswith('DSI_LONG_SUMMARY') for l in lines)!=1 or lines.count('MAIA_NATIVE_DSI_LONG_PASS')!=1:
+        return False
+    positions=[i for i,l in enumerate(lines) if l.startswith('DSI_LONG ')]
+    if not (lines.index('MAIA_NATIVE_DSI_SHORT_PASS')<positions[0] and positions[-1]<next(i for i,l in enumerate(lines) if l.startswith('DSI_LONG_FOLLOWUP '))<next(i for i,l in enumerate(lines) if l.startswith('DSI_LONG_SUMMARY '))<lines.index('MAIA_NATIVE_DSI_LONG_PASS')):
+        return False
+    previous=int(re.findall(r'^DSI_SHORT .* after=([0-9a-f]{8}) ',clean,re.M)[-1],16);busy=changes=0
+    for index,row in enumerate(rows):
+        a=dict(zip(keys,(int(v,16) for v in row)))
+        if not (a['index']==index and a['result']==0 and a['stage']==6 and a['header']==0x139 and a['attempted']==1 and
+                a['bytes']==a['words']==1 and 3<=a['polls']<=10000 and 2<=a['space']<a['polls'] and a['busy'] in (0,1) and
+                a['before']==previous and a['after']==a['before']|0x80000 and a['before']&3==0 and a['pre_fifo']&0x30003==0x10001 and
+                a['pre_fifo']&0x70==0x10 and a['status']&0x95==0x95 and a['fifo']&0xf007f==0x50015 and
+                not a['error0']&0x1fffff and not a['error1']&0x81fff): return False
+        busy+=a['busy'];changes+=a['before']!=a['after'];previous=a['after']
+    a=dict(zip(follow_keys,(int(v,16) for v in follow[0])))
+    return (a['result']==0 and a['stage']==5 and a['header']==5 and a['attempted']==1 and 1<=a['polls']<=10000 and a['busy'] in (0,1) and
+            a['status']&0x95==0x95 and a['fifo']&0xf007f==0x50015 and not a['error0']&0x1fffff and not a['error1']&0x81fff and
+            [int(v,16) for v in summary[0]]==[4,busy,changes,1,0])
 
 
 def evaluate_vdma_transfer(output):
@@ -526,6 +557,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dsi-long', action='store_true', help='four bounded DCS long frames containing only NOP, then short NOP')
     parser.add_argument('--dsi-short', action='store_true', help='send sixteen bounded LP NOP packets; host drain only, no panel ACK')
     parser.add_argument('--dsi-command', action='store_true', help='configure command host/timings without sending packets')
     parser.add_argument('--dsi-phy', action='store_true', help='initialize two-lane960Mbps PHY, bounded lock/stop polling, no video')
@@ -561,6 +593,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dsi_long:
+        args.dsi_short = True
     if args.dsi_short:
         args.dsi_command = True
     if args.dsi_command:
@@ -682,7 +716,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dsi_short:
+        if args.dsi_long:
+            passed = evaluate_dsi_long(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dsi_short:
             passed = evaluate_dsi_short(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dsi_command:
             passed = evaluate_dsi_command(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -714,7 +750,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

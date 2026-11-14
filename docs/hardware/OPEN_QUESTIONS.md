@@ -112,3 +112,17 @@ Error status reads may consume latches; sole-owner OR accumulation/sticky failur
 prevents blind clear-and-retry. Next long payload path then panel-specific startup;
 read/BTA/ACK policy, cold panel identity/reset integration and physical waveforms
 remain unverified. Do not infer successful panel configuration from host FIFO idle.
+
+Follow-up UQ-014/UQ-015/UQ-016: [native long transport](../audits/native-dsi-long.md)
+now stages one actual NOP word then WC1/DCS39 header on Tab5, records busy and
+requires front+internal buffers empty. First10015 observation motivated stronger
+F007F=50015 completion; final retest passes, no ACK/panel reception inferred.
+Multiword/lengths2..64 remain host-tested only;64 is policy, not FIFO capacity.
+
+- [ ] Verify generic interface/internal payload FIFO depths and maximum safe
+  pre-header staging for this chip revision from primary documentation and a
+  separately scoped target fixture. Never infer capacity from full/empty flags,
+  silently split DCS payloads or import SDK's unbounded prefill waits. Current
+  full-before-complete request times out/poisons shared transport before header.
+- [ ] Add bounded BTA/read response handling and establish panel identity/response
+  before panel-specific reset/DCS startup and full video/framebuffer/PSRAM claims.

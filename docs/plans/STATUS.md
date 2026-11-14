@@ -661,3 +661,24 @@ New packing helper Apache-2.0 attributed, no foreign runtime or parser changes.
 Default desktop still FreeRTOS. Next: bounded LP long payload writes for vendor
 panel startup, then panel-specific reset/DCS integration; ACK/read/video/PSRAM/
 full native desktop and POSIX implementation remain pending.
+
+## Bounded native LP DCS long framing — 2026-11-14
+
+Read [long transport](../audits/native-dsi-long.md). New boot API stages1..64 payload bytes (command
+included) then exact WC/DCS39 header.64 is policy, not verified FIFO depth. Bytewise
+unaligned/end-safe packing and zero high tail bytes; no SDK overread/unbounded wait.
+Aggregate budget covers space/header/drain, no reset per word. Partial payload
+failure poisons BOTH long/short paths until reset, no flush/retry/header on partial
+WC. Shared guards renamed, short semantics otherwise preserved. Attributed Apache
+packing helper, no runtime imports. First target capture exposed internal buffer
+pending while front FIFO empty (10015). Preserved initial image/log; strengthened
+long initial/final maskF007F==50015, command30003==10001, room80008, then retested.
+Final Tab54 long VC0/NOP00/WC1 PASS: stage6/header139/1word/1byte,4polls/2space/busy
+witness each, pre10015->final50015/STATUS15BD/errors0, LP10000->90000 once; short
+NOP followup PASS. Full prior config/root/supply retained, panel_ack0. Multiword/
+lengths2..64/nonzeroVC host-only; no panel acceptance or initialization claim.
+Host36/36/sanitizer/C++98/seven compiled mutants/invalid profile PASS. Shell/SciCalc
+14/desktop restored, no flash/SD writes. Recovery
+`../maia-rtos-recovery/native-dsi-long-20261114/` (build paths13 reflect start date).
+Default desktop still FreeRTOS. Next: bounded read/BTA for panel response/identity,
+then verified reset/DCS startup; video/PSRAM/full native desktop/POSIX pending.
