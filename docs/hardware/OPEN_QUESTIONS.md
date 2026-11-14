@@ -158,3 +158,15 @@ Observed touch firmware1 selects ST7121 in preserved working BSP; firmware3 sele
 ST7123. Audit the selected ST7121 startup table/driver provenance before vendor
 commands; never substitute the ST7123 custom table or guess from DSI raw response.
 Next bounded startup/delays, then video/framebuffer/PSRAM. Full desktop still legacy.
+
+Follow-up UQ-014/UQ-015/UQ-016: [ST7121 program](../audits/native-st7121-program.md)
+now sends the selected board recipe natively after quiet reset, including actual
+61byte long packet; two final loads/all31 commands+1150ms waits+postRDDID pass.
+First90015 refusal showed internal full is not generic-interface no-space: pinned
+SDK uses front fullbit3. Completion still requires both buffer levels empty. Max
+FIFO capacity/other lengths remain unproven. Opaque recipe bytes retain original
+source semantics/lengths/delays; no undocumented register meaning fabricated.
+- [ ] Read bounded panel state/configuration to prove effects of sleep-out/display
+  commands, rather than infer them from host drain or unchanged RDDID.
+- [ ] Native DPI video/framebuffer/PSRAM/cold startup still pending; no native
+  desktop equivalence. Firmware1->ST7121 selection stays BSP policy.

@@ -907,3 +907,28 @@ visual/panel-startup proof. Host38/38, two sanitized fixtures/four mutants/inval
 profile PASS, native runtime gate clean; original shell/SciCalc14/desktop restored.
 No flash/SD/parser/foreign-runtime changes. Next selected ST7121 command sequence;
 video/framebuffer/PSRAM/full native desktop remain pending.
+
+### Native ST7121 command program and generic FIFO space — 2026-11-14
+
+Primary preserved [ST7121 driver](https://github.com/souzamonteiro/maia-rtos/blob/883e9a6/platforms/tab5/components/esp_lcd_st7121/esp_lcd_st7121.c)
+883e9a6, panel_st7121_reset/reset_gpio=-1, vendor_specific_init_default,
+panel_st7121_init:01/120ms then30 table entries with source delays+5ms. Port exact
+31 packets/461 bytes/1150ms, max61bytes. Apache-2.0 source/attribution retained;
+no foreign runtime/DPI code imported. BSP firmware1 policy selects this program.
+No new vendor-register semantics guessed; data is the known-working board recipe.
+
+Primary pinnedSDK f5c3654 [host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h)
+gen_is_write_fifo_full uses GEN_PLD_W_FULL/bit3;
+[HAL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c)
+checks it before each payload write. Actual initial90015/internal-full bit19 with
+front bit3clear blocked old conservative mask after8bytes/before header. Corrected
+space predicate tobit3, retained both-level empty/full completion F007F=50015 and
+all native guards/errors/budgets. No FIFO capacity or streaming inferred.
+
+[Audit/captures/manifest](../audits/native-st7121-program.md): two final RAM loads
+pass31 packets/all waits, A7/61bytes stage6/23polls/errors0, then four stable
+00FBA080 responses each/stage10/PHY15BD/FIFO50015/modeB0000 restored/mask5/errors0.
+Host39/39/two sanitized fixtures/C++98/five mutants/invalid profile/table equality
+PASS; runtime gate clean. Original shell/SciCalc14/desktop restored, no flash/SD.
+No register/state/visual readback yet; next bounded panel-state verification,
+then DPI/video/framebuffer/PSRAM. Default full desktop still FreeRTOS-based.

@@ -167,3 +167,12 @@ BTA/ACK/read responses, panel reset/DCS startup integration, video/framebuffer/
 PSRAM/full native desktop, runtime ownership/teardown or physical signal metrics.
 Next small task: bounded read/BTA to obtain a panel response/identity before
 claiming external reception or integrating panel-specific startup commands.
+
+## Later payload-space correction — 2026-11-14
+
+[ST7121 program](native-st7121-program.md) found actual internal-full/front-empty
+90015 after8 staged bytes. Generic-interface writer room follows vendor LL bit3,
+so the old space mask80008 was overrestrictive. Space now usesbit3; both-level
+initial/final F007F=50015 completion remains unchanged. Two final loads send
+61byte packets and complete full selected program. Earlier captures remain
+historical; no general capacity/streaming claim follows.

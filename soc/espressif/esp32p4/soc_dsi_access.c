@@ -435,7 +435,10 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dcs_long(uint32_t vc,const uint8_t *by
             r->space_polls+=io->polls-before;
             if (result != MAIA_DSI_ACCESS_OK) return result;
             if ((io->status&0x94U) != 0x94U || (io->fifo&0x30003U) != 0x10001U) return MAIA_DSI_ACCESS_VERIFY;
-            if (!(io->fifo&0x80008U)) { ready=1;break; }
+            /* HAL generic-interface space is bit3; internal buffer-full bit19
+             * can coexist with writable front FIFO. Both levels still required
+             * empty at initial/final completion. */
+            if (!(io->fifo&8U)) { ready=1;break; }
         }
         if (!ready) return MAIA_DSI_ACCESS_TIMEOUT;
         uint32_t count=length-offset;if (count>4U) count=4U;

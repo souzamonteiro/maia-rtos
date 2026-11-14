@@ -477,3 +477,24 @@ assert not runner.evaluate_dsi_reset(reset+quiet_reset)
 assert not runner.evaluate_dsi_reset(read+quiet_reset)
 assert not runner.evaluate_dsi_reset(reset.replace('MAIA_NATIVE_DSI_RESET_PASS\n',''))
 print('PASS: quiet reset requires parked clocks/DMA, supported firmware, completed reset/recovery before DSI response')
+
+program=reset
+for i,(command,length) in enumerate([(1, 1), (96, 4), (96, 4), (96, 4), (120, 2), (121, 2), (164, 2), (183, 7), (176, 8), (191, 3), (165, 3), (215, 7), (144, 8), (163, 40), (166, 56), (167, 61), (172, 45), (173, 26), (174, 8), (178, 18), (232, 15), (117, 3), (231, 43), (225, 3), (234, 4), (200, 38), (201, 38), (96, 4), (17, 1), (41, 1), (53, 2)]):
+    program+=f'ST7121_PACKET index={i:08x} command={command:08x} bytes={length:08x} result=00000000 stage={5 if length<=2 else 6:08x} polls=00000007 error0=00000000 error1=00000000\n'
+program+='ST7121_PROGRAM result=00000000 attempted=0000001f completed=0000001f waited_ms=0000047e last=00000035 callback=00000000 elapsed_us=00130000\n'
+for i in range(4):
+    program+=f'ST7121_REPLY index={i:08x} result=00000000 stage=0000000a headers=00000003 polls=00000007 word=00fba080 words=00000001 before=000b0000 after=000b0000 restored=00000005 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+program+='MAIA_NATIVE_ST7121_PASS\n'
+assert runner.evaluate_st7121(program)
+assert not runner.evaluate_dsi_reset(program)
+for old,new in [('command=000000a7 bytes=0000003d','command=000000a7 bytes=0000003c'),
+                ('completed=0000001f waited_ms=','completed=0000001e waited_ms='),('waited_ms=0000047e','waited_ms=0000047d'),
+                ('elapsed_us=00130000','elapsed_us=00010000'),('last=00000035 callback=','last=00000029 callback='),
+                ('before=000b0000 after=000b0000','before=000b0000 after=010f0000'),
+                ('words=00000001 before=000b0000','words=00000000 before=000b0000')]:
+    assert old in program and not runner.evaluate_st7121(program.replace(old,new,1))
+assert not runner.evaluate_st7121(reset)
+assert not runner.evaluate_st7121(program.replace('MAIA_NATIVE_ST7121_PASS',''))
+assert not runner.evaluate_st7121(program+program)
+assert not runner.evaluate_st7121(program.replace('error0=00000000 error1=00000000\nST7121_REPLY','error0=00100000 error1=00000000\nST7121_REPLY',1))
+print('PASS: pinned ST7121 packet sequence, full waits, post-program stable responses and host restoration required')

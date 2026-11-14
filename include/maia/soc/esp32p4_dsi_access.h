@@ -158,8 +158,9 @@ typedef struct maia_dsi_long_report {
  * supplies readable immutable ordinary RAM (not MMIO), no alias with report.
  * Bytewise little-endian packing, zero unused last-word bytes, no tail overread.
  * LP bit19, ACK/TE/BTA off; stage all payload before one header with exact WC.
- * Check both generic FIFO and GEN_BUFF full/empty levels; front FIFO empty alone
- * is not completion. Shared total budget1..100000 covers payload-space/header/completion observations,
+ * Space follows generic-interface full bit3 (SDK LL), not internal full bit19.
+ * Initial/final checks require BOTH generic FIFO and GEN_BUFF empty/not full;
+ * front FIFO empty alone is not completion. Shared total budget1..100000 covers payload-space/header/completion observations,
  * plus finite preflight/final checks. Length cap is policy; unknown FIFO depth may
  * cause bounded timeout BEFORE header. Do not infer streaming/chunking support.
  * No GEN_PLD or GEN_HDR readback; counters set before stores mean ATTEMPTS, not

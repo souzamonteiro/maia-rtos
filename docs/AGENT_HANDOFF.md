@@ -798,3 +798,23 @@ Important: preserved BSP maps observed touch FW1 to ST7121, FW3 to ST7123. Do no
 reverse this or guess from DSI raw word. Next: selected ST7121 command-table port
 with bounded delays/failure policy; video/framebuffer/PSRAM/full native desktop/
 POSIX pending. Default full desktop still FreeRTOS-based.
+
+## Selected ST7121 command program and generic FIFO space fix — 2026-11-14
+
+Read [program audit](audits/native-st7121-program.md). New native board API executes exact883e9a6 software
+reset+vendor table:31 packets/461bytes/requested1150ms, max61byte packet, firmware1
+only. Portable checked callbacks, no heap/MMIO/foreign runtime; single lifetime
+claim, success duplicate BUSY/failure sticky FAILED, no rollback/retry. Apache-2.0
+table attribution retained; no DPI init/final duplicate29 imported. First target
+attempt stopped A3/40bytes at stage3 after8 staged bytes/FIFO90015/internal-full
+but generic-front not full. Corrected only payload-space predicate per pinnedSDK
+LL: use front fullbit3, not internalbit19. Both initial/final buffer completion,
+errors/guards/budget/partial-sticky policy retained. Refusal images/logs preserved.
+Two final RAM loads pass31 packets including A7/61bytes(stage6/23polls), full waits,
+then4 stable00FBA080 words each/stage10/errors0/modeB0000 restored/mask5. Host39/39,
+two ASan+UBSan fixtures/C++98/five runtime mutants/invalid profile/table comparison
+PASS; native runtime gate clean. Original shell/SciCalc14/desktop restored, no
+flash/SD/parser changes. Recovery `../maia-rtos-recovery/native-st7121-20261114/`.
+Next bounded panel-state readback before DPI/video/framebuffer/PSRAM. Program
+completion does NOT prove vendor registers/sleep/display state/pixels. Default
+complete desktop still FreeRTOS-based; POSIX remains DESIGN.

@@ -21,6 +21,7 @@ static uint32_t expected_header,selected_lp,last_header,drift_mask;
 static const uint8_t *expected_bytes;
 static unsigned expected_length,long_request,staged_words,payload_writes,capacity,space_stalls,lp_changed,partial_error,buffer_drain_after;
 static uint32_t payload_trace[16];
+static unsigned internal_full_only;
 
 static const unsigned table_index[14]={34,35,36,37,38,39,40,41,42,43,44,45,30,31};
 static const uint32_t masks[14]={1,0xFFFF,0x03FF03FF,0x03FF03FF,0x39,0xFFFFFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0x7FFF,0xFF00,3};
@@ -45,7 +46,7 @@ uint32_t maia_dsi_access_test_read(uintptr_t address) {
    }
    if (i == 46U && long_request) {
     if (lp_changed && space_stalls) { --space_stalls;return 0x90019; }
-    return staged_words>=capacity ? 0x90019 : staged_words ? 0x10011 : 0x50015;
+    return staged_words>=capacity ? 0x90019 : internal_full_only && lp_changed ? 0x90015 : staged_words ? 0x10011 : 0x50015;
    }
    if (i == 22U && tx_active) return regs[i] | (post_polls>=stopped_after ? 0x94U : 0x84U);
    if (i == 49U || i == 50U) {
@@ -173,6 +174,7 @@ static maia_dsi_long_report_t long_report;
 static void setup_long(void) {
  setup_short();long_request=1;staged_words=payload_writes=space_stalls=lp_changed=partial_error=0;capacity=16;buffer_drain_after=2;
  for (unsigned i=0;i<16;++i) payload_trace[i]=0;
+ internal_full_only=0;
 }
 static maia_dsi_access_result_t transmit(uint32_t vc,const uint8_t *bytes,unsigned length,unsigned budget) {
  long_request=1;expected_header=(length<<8U)|(vc<<6U)|0x39U;selected_lp=1U<<19;
@@ -208,6 +210,11 @@ int main(void) {
   if (length%4U) assert((payload_trace[payload_writes-1]>>(8U*(length%4U))) == 0U);
   free(allocation);
  }
+ /* Actual P4 refusal state90015: internal full, generic write FIFO empty.
+  * Vendor LL grants space through bit3; do not stall on internal bit19. */
+ uint8_t multi[61]={0xA7};
+ setup_long();internal_full_only=1;assert(transmit(0,multi,61,100) == MAIA_DSI_ACCESS_OK);
+ assert(payload_writes == 16 && long_report.payload_bytes_attempted == 61 && header_writes == 1);
  setup_long();capacity=1;assert(transmit(0,&nop,1,20) == MAIA_DSI_ACCESS_OK); /* Full payload FIFO still permits header. */
  setup_long();drain_after=stopped_after=1;buffer_drain_after=4;
  assert(transmit(0,&nop,1,20) == MAIA_DSI_ACCESS_OK && long_report.transfer.polls == 6);

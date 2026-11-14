@@ -26,6 +26,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DSI_RESET
 #include "native_dsi_reset.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_ST7121
+#include "native_st7121.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -309,6 +312,9 @@ void maia_boot_main(void) {
     field("DSI_READ_SUMMARY replies=",4U);field(" id=",first_id);field(" stable=",(uint32_t)id_stable);field(" preserved=",(uint32_t)read_kept);maia_console_puts("\n");
     if (!id_stable || !read_kept) halt("read-id-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_READ_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_ST7121
+    st7121_program();
+#endif
 #endif
 #endif
 #endif
