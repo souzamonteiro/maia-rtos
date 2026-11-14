@@ -700,3 +700,22 @@ Recovery `../maia-rtos-recovery/native-dsi-read-20261114/`. Working desktop rema
 FreeRTOS-based. Next: resolve P4-specific error semantics and BTA/turnaround cause;
 require error-free panel responses before panel-specific startup/video/PSRAM.
 Do not ignore error20 based on SDK omissions or a different controller's manual.
+
+## Native RDDID response after escape divider correction — 2026-11-14
+
+Read [escape/BTA correction](../audits/native-dsi-bta-escape.md). The prior ede1698 refusal is historical;
+successful bounded response is now HARDWARE-TESTED, LIMITED. Fixed CLKMGR0C06->
+0C07 follows official Espressif cebb3dd4d8704a5aa1c2b3a23c4c4b9b26e71194 rounded
+18MHz-target divider policy for960Mbps: byte120MHz/7 = modeled17.142857MHz.
+Report derives integer17142857Hz from checked divider. No relaxed error masks,
+BTA/read guards or invented turnaround registers; exact electrical cause unmeasured.
+Two FINAL RAM loads each pass4 RDDID responses: stage10/headers3/oneword00FBA080,
+low bytes80 A0 FB/polls7/errors0/PHY15BD/FIFO50015, mode90000 restored, mask5,
+stable1/preserved1. Model/exact response length NOT established. Preceding native
+16short/4long/followup and all clock/supply checks pass. Intermediate successful
+runs with stale frequency report are preserved separately. Host37/37, four
+ASan+UBSan fixtures/C++98/two targeted mutants PASS; native runtime gate clean.
+Shell/SciCalc14/desktop recovered, no flash/SD/foreign-runtime/parser changes.
+Recovery `../maia-rtos-recovery/native-dsi-bta-escape-20261114/`. Default desktop
+still FreeRTOS. Next: guarded native panel reset integration and variant-verified
+bounded DCS startup, then video/framebuffer/PSRAM; no native desktop/POSIX claim.

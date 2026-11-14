@@ -140,3 +140,12 @@ with RX data ready (FIFO50005), PHY15BD, no RX pop. The panel ID is UNREAD.
   on target before closing read gate. MRPS3/one FIFO word does not prove exact
   response length or model. Earlier short/long evidence remains host-completion
   evidence only. Panel startup/video/framebuffer/PSRAM still pending.
+
+Follow-up UQ-014/UQ-015/UQ-016: [escape divider correction](../audits/native-dsi-bta-escape.md)
+closes the bounded error-free response/restoration gate in the tested warm boot
+conditions: two final loads/four responses each,00FBA080/errors0/preserved1.
+Divider6->7 is the only functional setting change, based on official rounded
+18MHz-target policy. No error flag ignored. Physical mechanism/P4 error20 detailed
+meaning remain open; no scope/frequency measurement. Exact RX length/model cannot
+be inferred from the stripped FIFO word. Next native quiet reset plus verified
+variant-specific DCS startup; video/framebuffer/PSRAM/cold power remain pending.

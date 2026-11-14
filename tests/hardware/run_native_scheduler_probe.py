@@ -289,7 +289,7 @@ def evaluate_dsi_command(output, allow_short=False):
     if not (lines.index('MAIA_NATIVE_DSI_PHY_PASS') < next(i for i,l in enumerate(lines) if l.startswith('DSI_COMMAND ')) < positions[0] and positions[-1] < lines.index('MAIA_NATIVE_DSI_COMMAND_PASS')):
         return False
     masks=[1,0xffff,0x03ff03ff,0x03ff03ff,0x39,0xffffffff,0xffff,0xffff,0xffff,0xffff,0xffff,0x7fff,0xff00,3]
-    values=[1,0x0c06,0x00320068,0x002e0080,0x19,0,0,0,0,0,0,6000,0x3f00,0]
+    values=[1,0x0c07,0x00320068,0x002e0080,0x19,0,0,0,0,0,0,6000,0x3f00,0]
     attempted=0
     for expected,(index,before,after),mask,value in zip(range(14),words,masks,values):
         index,before,after=(int(v,16) for v in (index,before,after))
@@ -301,7 +301,7 @@ def evaluate_dsi_command(output, allow_short=False):
         return False
     a=dict(zip(keys,(int(v,16) for v in rows[0])))
     return (a['result']==0 and a['stage']==16 and a['attempted']==attempted and a['status']&0x95==0x95 and
-            a['fifo']&0x7f==0x15 and a['escape_hz']==20000000 and a['timeout_hz']==10000000 and
+            a['fifo']&0x7f==0x15 and a['escape_hz']==120000000//7 and a['timeout_hz']==10000000 and
             a['preserved']==1 and a['duplicate_busy']==1 and a['samples']==16)
 
 

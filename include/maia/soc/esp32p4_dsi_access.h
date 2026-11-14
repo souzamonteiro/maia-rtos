@@ -104,7 +104,7 @@ typedef struct maia_dsi_command_report {
 /* Same exclusive chip1.3 boot/clock/supply contract, only after native PHY960
  * success. Require powered two-lane PHY locked/all-stopped, no HS clock request,
  * quiet VDMA/bridge/DPI and generic command/write/read FIFOs empty/not busy.
- * Configure command mode, modeled escape20MHz/timeout10MHz, SDK switch times,
+ * Configure command mode, modeled escape120/7MHz/timeout10MHz, SDK switch times,
  * CRC/ECC/HS-EoTp (LP-EoTp off), read-time6000/stop-wait3F. Hardware timeout
  * COUNTS zero (SDK defaults); no transaction API/unbounded wait is introduced.
  * Every future transfer requires separately bounded native completion handling.
@@ -179,8 +179,8 @@ typedef struct maia_dsi_read_report {
     uint32_t packet_before,vc_before,restore_attempted;
     uint8_t id[3]; /* View of requested3 bytes from one RX word, not RX length proof. */
 } maia_dsi_read_report_t;
-/* HOST-TESTED success path; target rejects DPHY_ERRORS_4 before RX pop.
- * Successful target response not yet demonstrated (native-dsi-read audit).
+/* HARDWARE-TESTED bounded responses with escape divider7; see
+ * native-dsi-bta-escape audit. No exact RX-length or panel model proof.
  * Fixed boot-exclusive VC0/RDDID04 read with MRPS3, only after native command
  * claim. Same root/supply/producer ownership; initial all FIFOs/buffers empty,
  * PHY locked/stopped/TX direction, TE/ACK/BTA off. Temporary LP read/MRPS bits,

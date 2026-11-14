@@ -282,7 +282,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_command_config(maia_dsi_command_report
     if (!command_guard(&g,words,r->after)) return MAIA_DSI_ACCESS_VERIFY;
     r->status=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U);r->fifo=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x74U);
     if ((r->status&0x95U) != 0x95U || (r->fifo&0x7FU) != 0x15U) return MAIA_DSI_ACCESS_VERIFY;
-    r->escape_hz=20000000U;r->timeout_hz=10000000U;
+    r->escape_hz=120000000U/(r->after[1]&0xFFU);r->timeout_hz=10000000U;
     for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i) saved_command_table[i]=r->after[i];
     r->completed=16;command_state=OWNED;return MAIA_DSI_ACCESS_OK;
 }

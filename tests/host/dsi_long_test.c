@@ -24,7 +24,7 @@ static uint32_t payload_trace[16];
 
 static const unsigned table_index[14]={34,35,36,37,38,39,40,41,42,43,44,45,30,31};
 static const uint32_t masks[14]={1,0xFFFF,0x03FF03FF,0x03FF03FF,0x39,0xFFFFFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0x7FFF,0xFF00,3};
-static const uint32_t values[14]={1,0x0C06,0x00320068,0x002E0080,0x19,0,0,0,0,0,0,6000,0x3F00,0};
+static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,0,6000,0x3F00,0};
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;

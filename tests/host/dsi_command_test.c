@@ -17,7 +17,7 @@ static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
 static maia_dsi_reference_report_t ref;
 static const unsigned table_index[14]={34,35,36,37,38,39,40,41,42,43,44,45,30,31};
 static const uint32_t masks[14]={1,0xFFFF,0x03FF03FF,0x03FF03FF,0x39,0xFFFFFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0x7FFF,0xFF00,3};
-static const uint32_t values[14]={1,0x0C06,0x00320068,0x002E0080,0x19,0,0,0,0,0,0,6000,0x3F00,0};
+static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,0,6000,0x3F00,0};
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;
@@ -121,7 +121,7 @@ int main(void) {
  setup_command(0);context=0;assert(configure() == MAIA_DSI_ACCESS_CONTEXT && !reads && !writes);
  setup_command(0);assert(configure() == MAIA_DSI_ACCESS_OK && writes == 13U);
  assert(command_report.completed == 16 && command_report.attempted_mask == 0x1FFFU);
- assert(command_report.escape_hz == 20000000 && command_report.timeout_hz == 10000000);
+ assert(command_report.escape_hz == 120000000U/7U && command_report.timeout_hz == 10000000);
  for (unsigned i=0;i<14U;++i) {
   assert(command_report.after[i] == ((command_report.before[i]&~masks[i])|values[i]));
   assert(regs[table_index[i]] == command_report.after[i]);

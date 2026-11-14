@@ -862,3 +862,26 @@ Microchip section6.5.42 labels an identically named bit LP1 contention; this is 
 research clue, not P4 confirmation (primary link and limits in audit). No DSI
 erratum in Espressif summary consulted2026-11-14; does not prove error benign.
 No flash/SD/parser/production changes. Read/initialization/video/PSRAM gate open.
+
+### DSI escape divider correction and bounded responses — 2026-11-14
+
+Primary official ESP-IDF [bus initialization](https://github.com/espressif/esp-idf/blob/cebb3dd4d8704a5aa1c2b3a23c4c4b9b26e71194/components/esp_lcd/dsi/esp_lcd_mipi_dsi_bus.c)
+revision cebb3dd4d8704a5aa1c2b3a23c4c4b9b26e71194, esp_lcd_new_dsi_bus,
+MIPI_DSI_DEFAULT_ESCAPE_CLOCK_FREQ_MHZ=18, TxClkEsc2..20MHz comment and rounded
+lane_Mbps/8/18. Native fixed960Mbps selects7, replacing original pinned f5c3654
+integer-truncated6. Register field CLKMGR+08 TX_ESC_CLK_DIVISION low8 is from
+[original LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h).
+No new addresses/PHY analog timing assumed. CLKMGR0C07 => nominal120/7MHz escape,
+timeout unchanged10MHz; report17142857Hz. Not physically measured. Attribution
+Apache-2.0 retained; no foreign runtime/headers/roundf function imported.
+
+[Final audit/captures/manifest](../audits/native-dsi-bta-escape.md): two final RAM
+loads pass4 bounded reads each, stage10/header attempts3/oneword00FBA080/bytes
+80 A0 FB/polls7/error0=error1=0/PHY15BD/FIFO50015/restored mask5/mode90000,
+stable1/preserved1. Earlier2 divider6 loads rejected ST0bit20; no acceptance rule
+relaxed. Intermediate divider7 captures with stale report retained separately.
+Host37/37/four ASan+UBSan fixtures/C++98/two targeted mutants PASS, runtime gate
+clean. Full predecessor checks pass; shell/SciCalc14/desktop recovered. No flash/SD
+writes. Response word does not prove exact length/model. Electrical error cause
+and detailed P4bit20 meaning remain unresolved; native cold panel init/video/
+framebuffer/PSRAM/full desktop still pending. Default firmware still FreeRTOS.

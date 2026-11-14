@@ -1,5 +1,9 @@
 # Bounded native VC0 RDDID/BTA read — 2026-11-14
 
+Later checkpoint: [escape divider correction](native-dsi-bta-escape.md) records
+successful target responses. The refusal and limitations below describe the
+original ede1698 image and remain preserved; do not treat them as current status.
+
 **HOST-TESTED API; HARDWARE-TESTED refusal, successful read NOT DEMONSTRATED.** Fixed read-only DCS04 request with maximum return
 size3, guarded one-word RX pop, shared timeout/fault policy and restoration of
 host packet/RXVC/LP settings after verified idle. No model/response-length guess,

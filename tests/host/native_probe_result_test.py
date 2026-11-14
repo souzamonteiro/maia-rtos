@@ -376,8 +376,8 @@ assert not runner.evaluate_dsi_phy(phy.replace('MAIA_NATIVE_DSI_PHY_PASS',''))
 print('PASS: PHY capture requires completed program, bounded lock/all-stop, exact lanes and nominal960Mbps')
 
 command_masks=[1,0xffff,0x03ff03ff,0x03ff03ff,0x39,0xffffffff,0xffff,0xffff,0xffff,0xffff,0xffff,0x7fff,0xff00,3]
-command_values=[1,0x0c06,0x00320068,0x002e0080,0x19,0,0,0,0,0,0,6000,0x3f00,0]
-command=phy+'DSI_COMMAND result=00000000 stage=00000010 attempted=00001fff status=00001595 fifo=00000015 escape_hz=01312d00 timeout_hz=00989680 preserved=00000001 duplicate_busy=00000001 samples=00000010\n'
+command_values=[1,0x0c07,0x00320068,0x002e0080,0x19,0,0,0,0,0,0,6000,0x3f00,0]
+command=phy+'DSI_COMMAND result=00000000 stage=00000010 attempted=00001fff status=00001595 fifo=00000015 escape_hz=01059449 timeout_hz=00989680 preserved=00000001 duplicate_busy=00000001 samples=00000010\n'
 for i,(mask,value) in enumerate(zip(command_masks,command_values)):
     before=(0xa5000000&~mask)|(~value&mask) if i<12 else 0xabcd1201 if i==12 else 0x40000000
     command+=f'DSI_COMMAND_WORD index={i:08x} before={before:08x} after={(before&~mask)|value:08x}\n'
@@ -385,8 +385,9 @@ command+='MAIA_NATIVE_DSI_COMMAND_PASS\n'
 assert runner.evaluate_dsi_command(command)
 assert not runner.evaluate_dsi_phy(command)
 for old,new in [('stage=00000010 attempted=','stage=0000000f attempted='),('attempted=00001fff','attempted=00000fff'),
-                ('fifo=00000015','fifo=00000055'),('escape_hz=01312d00','escape_hz=01312d01'),
-                ('after=a5000c06','after=a5000c05'),('after=abcd3f01','after=abcd3f02'),
+                ('fifo=00000015','fifo=00000055'),('escape_hz=01059449','escape_hz=01059448'),
+                ('after=a5000c07','after=a5000c05'),('after=a5000c07','after=a5000c06'),
+                ('escape_hz=01059449','escape_hz=01312d00'),('after=abcd3f01','after=abcd3f02'),
                 ('DSI_COMMAND_WORD index=00000001','DSI_COMMAND_WORD index=00000000')]:
     assert old in command
     assert not runner.evaluate_dsi_command(command.replace(old,new))
