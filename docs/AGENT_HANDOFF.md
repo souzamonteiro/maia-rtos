@@ -818,3 +818,24 @@ flash/SD/parser changes. Recovery `../maia-rtos-recovery/native-st7121-20261114/
 Next bounded panel-state readback before DPI/video/framebuffer/PSRAM. Program
 completion does NOT prove vendor registers/sleep/display state/pixels. Default
 complete desktop still FreeRTOS-based; POSIX remains DESIGN.
+
+## Native panel power-state readback — 2026-11-14
+
+Read [power-state audit](audits/native-panel-power.md). New fixed VC0 RDDPM0A/MRPS1 API shares the existing
+private bounded read state machine with RDDID04/MRPS3; guards/errors/sticky claim,
+one RX pop and success-only host restoration unchanged. Low byte only is power
+payload; upper word/id[1..2] are not requested data. MRPS1 persists until next
+request. No arbitrary read API/foreign runtime/parser/board-table change.
+Two final RAM loads each read4 stable08 before and4 stable9C after unchanged
+ST7121 program. Every power read stage10/headerA06/headers3/polls6/oneword/errors0,
+PHY15BD/FIFO50015, mode90000 orB0000 restored/mask5. Standard DCS bit4 SleepOut
+andbit2 DisplayOn transition0->1; stronger than command drain, still no pixels.
+Primary pinnedSDK0A and Linuxv6.12 bit facts, corroborating Sitronix ST7121P V1.0
+2024/01 p103; P suffix not established for this device. No Linux code imported.
+Host39/39/ASan+UBSan/C++98/five runtime mutants/invalid profile PASS. Capture tests
+reject already-on baseline/missing transition and allow unrelated bit changes.
+Runtime gate clean; prior native program/reset/read checks pass. Shell/SciCalc14/
+desktop recovered, no flash/SD writes. Recovery
+`../maia-rtos-recovery/native-panel-power-20261114/`. Next native DPI format/clock/
+timing with DMA inactive and matched panel format, then video/framebuffer/PSRAM.
+Complete installed desktop still FreeRTOS-based; no pixels/POSIX claim.

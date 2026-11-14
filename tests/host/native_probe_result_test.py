@@ -498,3 +498,37 @@ assert not runner.evaluate_st7121(program.replace('MAIA_NATIVE_ST7121_PASS',''))
 assert not runner.evaluate_st7121(program+program)
 assert not runner.evaluate_st7121(program.replace('error0=00000000 error1=00000000\nST7121_REPLY','error0=00100000 error1=00000000\nST7121_REPLY',1))
 print('PASS: pinned ST7121 packet sequence, full waits, post-program stable responses and host restoration required')
+
+def power_row(phase,index,value):
+    mode=0x90000 if phase==0 else 0xb0000
+    return (f'PANEL_POWER phase={phase:08x} index={index:08x} result=00000000 stage=0000000a request=00000a06 headers=00000003 polls=00000007 '
+            f'word={value:08x} value={value:08x} words=00000001 before={mode:08x} after={mode:08x} restored=00000005 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n')
+power_before=''.join(power_row(0,i,8) for i in range(4))
+power_after=''.join(power_row(1,i,0x9c) for i in range(4))
+power=program.replace('MAIA_NATIVE_DSI_READ_PASS\n','MAIA_NATIVE_DSI_READ_PASS\n'+power_before)+power_after
+power+='PANEL_POWER_SUMMARY before=00000008 after=0000009c sleep_out=00000001 display_on=00000001\nMAIA_NATIVE_PANEL_POWER_PASS\n'
+assert runner.evaluate_panel_power(power)
+assert not runner.evaluate_st7121(power)
+for old,new in [('request=00000a06','request=00000406'),('value=00000008','value=00000009'),
+                ('stage=0000000a request=','stage=00000007 request='),('PANEL_POWER phase=00000000 index=00000001','PANEL_POWER phase=00000000 index=00000000'),
+                ('before=00090000 after=00090000 restored=00000005','before=00090000 after=010d0000 restored=00000005'),
+                ('before=000b0000 after=000b0000 restored=00000005','before=000b0000 after=000b0000 restored=00000001'),
+                ('sleep_out=00000001 display_on=00000001','sleep_out=00000000 display_on=00000001')]:
+    assert old in power and not runner.evaluate_panel_power(power.replace(old,new,1))
+assert not runner.evaluate_panel_power(power.replace(power_after,''))
+assert not runner.evaluate_panel_power(power.replace('MAIA_NATIVE_PANEL_POWER_PASS',''))
+assert not runner.evaluate_panel_power(power+power_after)
+# Consistent byte/word/summary without SleepOut or DisplayOn still rejects.
+for bad in (0x8c,0x98):
+    assert not runner.evaluate_panel_power(power.replace('0000009c',f'{bad:08x}'))
+assert not runner.evaluate_panel_power(power.replace(power_before,'')+power_before)
+print('PASS: eight bounded RDDPM responses, low-byte views, restored state and real SleepOut/DisplayOn transition required')
+# Already-on before programming must not count as a demonstrated transition.
+already_on=power.replace(power_before,power_before.replace('00000008','0000009c')).replace(
+    'PANEL_POWER_SUMMARY before=00000008','PANEL_POWER_SUMMARY before=0000009c')
+assert not runner.evaluate_panel_power(already_on)
+# Unrelated status bits are observations, not a hardcoded08/9C acceptance test.
+other_bits=power.replace(power_before,power_before.replace('00000008','00000000')).replace(
+    power_after,power_after.replace('0000009c','00000094')).replace(
+    'PANEL_POWER_SUMMARY before=00000008 after=0000009c','PANEL_POWER_SUMMARY before=00000000 after=00000094')
+assert runner.evaluate_panel_power(other_bits)

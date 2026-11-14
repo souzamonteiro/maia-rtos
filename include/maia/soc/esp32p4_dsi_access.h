@@ -200,6 +200,14 @@ typedef struct maia_dsi_read_report {
  * missing claim/busy initial state BUSY without writes. No panel reset/visual
  * DCS setup, framebuffer/DMA/PSRAM or full display/native desktop claim. */
 maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t poll_budget,maia_dsi_read_report_t *report);
+/* Fixed VC0/RDDPM0A with MRPS1. Same boot/context/guard/error/sticky/budget and
+ * success-only host restoration contract as read_id; shares the same transport
+ * claim. Low byte of word (also id[0]) is the returned power-mode byte view.
+ * Other word bytes/id[1..2] are NOT requested payload and must not be decoded.
+ * At most one FIFO word, no exact response-framing/length proof; no automatic
+ * power-state interpretation. MRPS1 remains the panel's protocol return limit
+ * after success. No arbitrary command/length API or visual/state writes. */
+maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t poll_budget,maia_dsi_read_report_t *report);
 #ifdef __cplusplus
 }
 #endif

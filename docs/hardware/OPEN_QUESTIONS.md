@@ -170,3 +170,11 @@ source semantics/lengths/delays; no undocumented register meaning fabricated.
   commands, rather than infer them from host drain or unchanged RDDID.
 - [ ] Native DPI video/framebuffer/PSRAM/cold startup still pending; no native
   desktop equivalence. Firmware1->ST7121 selection stays BSP policy.
+
+Follow-up UQ-014/UQ-015/UQ-016: [RDDPM power readback](../audits/native-panel-power.md)
+closes the limited sleep/display-state evidence gate: two final loads/four stable
+reads per phase,08->9C/bit4 SleepOut0->1/bit2 DisplayOn0->1 after native program.
+No register writes added by this read diagnostic, no assumed exact silicon suffix.
+Color format/vendor-register/image output still unverified. Next audit matched
+panel/DPI format, clock/timing and inactive DMA before video/framebuffer/PSRAM.
+Cold power/full native desktop remain pending. No exact RX framing/length proof.

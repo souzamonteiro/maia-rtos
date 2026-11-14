@@ -19,7 +19,7 @@ static unsigned tx_active,post_polls,drain_after,stopped_after,header_writes,acc
 static uint32_t expected_header,selected_lp,last_header,drift_mask;
 static unsigned read_phase,phase_polls,mrps_delay,reply_delay,idle_delay,busy_clear_at,pops,extra,read_error_phase,read_error_word,drop_read_write;
 static uint32_t reply_word,original_mode,original_packet,original_vc;
-static uint32_t read_error_mask;
+static uint32_t read_error_mask,requested_mrps,requested_command;
 static unsigned error_when_ready;
 static const unsigned table_index[14]={34,35,36,37,38,39,40,41,42,43,44,45,30,31};
 static const uint32_t masks[14]={1,0xFFFF,0x03FF03FF,0x03FF03FF,0x39,0xFFFFFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0x7FFF,0xFF00,3};
@@ -79,7 +79,7 @@ void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
  ++writes;assert(writes<=41U);
  if (reference_mode == 6U) {
   static const unsigned indices[8]={47,48,38,51,48,38,51,47};
-  uint32_t values[8]={original_mode|0x01040000U,0x337,original_packet|4U,original_vc&~3U,0x406,original_packet,original_vc,original_mode};
+  uint32_t values[8]={original_mode|0x01040000U,requested_mrps,original_packet|4U,original_vc&~3U,requested_command,original_packet,original_vc,original_mode};
   assert(writes<=8U && address == addresses[indices[writes-1U]] && value == values[writes-1U]);
   if (writes>=6U) assert(pops == 1U && read_phase == 3U && phase_polls>=idle_delay);
   if (writes != drop_read_write) {
@@ -194,7 +194,7 @@ static void setup_read(void) {
  for (unsigned i=0;i<53U;++i) counts[i]=0;
  regs[46]=0x50015;regs[47]=original_mode=0x80500000;original_packet=regs[38];regs[51]=original_vc=0xA5040003;
  read_phase=phase_polls=pops=extra=read_error_phase=read_error_word=drop_read_write=0;
- read_error_mask=1;error_when_ready=0;
+ read_error_mask=1;error_when_ready=0;requested_mrps=0x337;requested_command=0x406;
  mrps_delay=2;reply_delay=3;idle_delay=2;busy_clear_at=2;reply_word=0xAABBCCDD;
 }
 static maia_dsi_access_result_t read_id(unsigned budget) { return maia_esp32p4_dsi_read_id(budget,&received); }
@@ -235,5 +235,23 @@ int main(void) {
  setup_read();regs[49]=1;assert(read_id(20) == MAIA_DSI_ACCESS_IO && !writes && received.transfer.error0 == 1);sticky();
  setup_read();regs[22]=0x1597;assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes);
  setup_read();regs[46]=0x50005;assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes && !pops);
+ /* One-byte power read uses the SAME guarded state machine and claim. */
+ setup_read();requested_mrps=0x137;requested_command=0xA06;reply_word=0xAABBCC9C;
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_OK);
+ assert(received.transfer.header == 0xA06 && received.id[0] == 0x9C && received.word == reply_word && pops == 1);
+ assert(received.transfer.completed == 10 && received.restore_attempted == 7 && regs[38] == original_packet);
+ /* Reuse successful transport across MRPS1 power -> MRPS3 identity. */
+ writes=reads=pops=phase_polls=read_phase=0;requested_mrps=0x337;requested_command=0x406;
+ assert(read_id(20) == MAIA_DSI_ACCESS_OK && received.transfer.header == 0x406 && pops == 1);
+ setup_read();requested_mrps=0x137;requested_command=0xA06;reply_delay=99;
+ assert(maia_esp32p4_dsi_read_power_mode(5,&received) == MAIA_DSI_ACCESS_TIMEOUT && !pops);sticky();
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_FAILED);
+ setup_read();requested_mrps=0x137;requested_command=0xA06;extra=1;
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_IO && pops == 1);sticky();
+ setup_read();requested_mrps=0x137;requested_command=0xA06;drop_read_write=6;
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_VERIFY);sticky();
+ setup_read();requested_mrps=0x137;requested_command=0xA06;read_error_phase=2;read_error_mask=0x100000;
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_IO && !pops);sticky();
+ assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_FAILED);
  puts("PASS: RDDID fixed headers, bounded MRPS/RX/idle, one guarded pop, RX direction, errors/excess data and restored host controls");
 }

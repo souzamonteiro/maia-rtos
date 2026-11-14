@@ -29,6 +29,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_ST7121
 #include "native_st7121.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_PANEL_POWER
+#include "native_panel_power.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -313,7 +316,17 @@ void maia_boot_main(void) {
     if (!id_stable || !read_kept) halt("read-id-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_READ_PASS\n");
 #ifdef MAIA_NATIVE_PROBE_ST7121
+#ifdef MAIA_NATIVE_PROBE_PANEL_POWER
+    uint32_t power_before=panel_power_sample(0);
+#endif
     st7121_program();
+#ifdef MAIA_NATIVE_PROBE_PANEL_POWER
+    uint32_t power_after=panel_power_sample(1);
+    field("PANEL_POWER_SUMMARY before=",power_before);field(" after=",power_after);
+    field(" sleep_out=",(power_after>>4U)&1U);field(" display_on=",(power_after>>2U)&1U);maia_console_puts("\n");
+    if ((power_before&0x14U) || (power_after&0x14U) != 0x14U) halt("panel-power-transition");
+    maia_console_puts("MAIA_NATIVE_PANEL_POWER_PASS\n");
+#endif
 #endif
 #endif
 #endif

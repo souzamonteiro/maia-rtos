@@ -932,3 +932,23 @@ Host39/39/two sanitized fixtures/C++98/five mutants/invalid profile/table equali
 PASS; runtime gate clean. Original shell/SciCalc14/desktop restored, no flash/SD.
 No register/state/visual readback yet; next bounded panel-state verification,
 then DPI/video/framebuffer/PSRAM. Default full desktop still FreeRTOS-based.
+
+### Bounded RDDPM and reported SleepOut/DisplayOn transition — 2026-11-14
+
+Primary pinnedSDK [commands](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/include/esp_lcd_panel_commands.h)
+LCD_CMD_RDDPM0A. [Linuxv6.12 DCS constants](https://github.com/torvalds/linux/blob/v6.12/include/drm/drm_mipi_dsi.h)
+corroborate bit2 Display/bit4 Sleep positions; facts only, no source imported.
+Supplier-hosted [Sitronix ST7121P V1.0](https://www.display-lcd.com/data/upload/admin/202509/68b935053144a.pdf)
+2024/01 section6.1 p95/6.2.6 p103:0A/one byte, SleepOut1/DisplayOn1, available
+in sleep-in/out. Actual P suffix unproven; used only to corroborate standard DCS,
+not identify silicon. Independent standard definition cross-checks heading typo.
+All SoC packet/register/guard facts unchanged from native-dsi-read pinned HAL/LL.
+
+[Power audit/captures/manifest](../audits/native-panel-power.md): two final RAM loads
+observe4 stable08 before and4 stable9C after selected program each, all stage10/
+requestA06/headers3/polls6/oneword/PHY15BD/FIFO50015/errors0; host mode restored
+90000/B0000/mask5. Bits14h change0->14h; no full-byte hardcoding. Confirms reported
+power-state transition, not pixels/color format/all vendor registers. Host39/39,
+ASan+UBSan/C++98/five mutants/invalid profile PASS, runtime gate clean.
+Original shell/SciCalc14/desktop recovered; no flash/SD/parser/table/foreign-runtime
+changes. Next DPI format/timing/clock before video/framebuffer/PSRAM/full desktop.

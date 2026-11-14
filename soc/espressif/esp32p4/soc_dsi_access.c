@@ -489,7 +489,7 @@ static maia_dsi_access_result_t read_next(const reference_guard_t *g,const uint3
     if (!read_guard(g,words,mode,packet,vc)) return MAIA_DSI_ACCESS_VERIFY;
     return MAIA_DSI_ACCESS_OK;
 }
-maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_report_t *r) {
+static maia_dsi_access_result_t dsi_read_fixed(uint32_t budget,maia_dsi_read_report_t *r,uint32_t mrps_header,uint32_t request_header) {
     if (!r) return MAIA_DSI_ACCESS_INVALID;
     maia_dsi_short_report_t *io=&r->transfer;
     io->completed=io->header=io->header_attempted=io->command_before=io->command_after=0;
@@ -533,7 +533,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_
     io->command_after=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x68U);
     if (io->command_after != mode || !read_guard(&g,words,mode,packet,vc)) return MAIA_DSI_ACCESS_VERIFY;
     io->completed=2;r->headers_attempted|=1;io->header_attempted=1;
-    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,READ_ID_MRPS_HEADER);io->completed=3;
+    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,mrps_header);io->completed=3;
     while (io->polls<budget) {
         maia_dsi_access_result_t result=read_next(&g,words,mode,packet,vc,budget,io);
         if (result != MAIA_DSI_ACCESS_OK) return result;
@@ -554,8 +554,8 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_
     if (!read_guard(&g,words,mode,packet,vc) || !transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
     if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
     if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
-    io->completed=5;r->headers_attempted|=2;io->header=READ_ID_DCS_HEADER;
-    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,READ_ID_DCS_HEADER);io->completed=6;
+    io->completed=5;r->headers_attempted|=2;io->header=request_header;
+    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,request_header);io->completed=6;
     while (io->polls<budget) {
         maia_dsi_access_result_t result=read_next(&g,words,mode,packet,vc,budget,io);
         if (result != MAIA_DSI_ACCESS_OK) return result;
@@ -592,4 +592,10 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_
     if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
     if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
     io->completed=10;transfer_state=UNCLAIMED;return MAIA_DSI_ACCESS_OK;
+}
+maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_report_t *r) {
+    return dsi_read_fixed(budget,r,READ_ID_MRPS_HEADER,READ_ID_DCS_HEADER);
+}
+maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t budget,maia_dsi_read_report_t *r) {
+    return dsi_read_fixed(budget,r,READ_POWER_MRPS_HEADER,READ_POWER_DCS_HEADER);
 }
