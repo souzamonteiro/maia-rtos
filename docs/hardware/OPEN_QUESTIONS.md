@@ -126,3 +126,17 @@ Multiword/lengths2..64 remain host-tested only;64 is policy, not FIFO capacity.
   full-before-complete request times out/poisons shared transport before header.
 - [ ] Add bounded BTA/read response handling and establish panel identity/response
   before panel-specific reset/DCS startup and full video/framebuffer/PSRAM claims.
+
+Follow-up UQ-014/UQ-015/UQ-016: [bounded RDDID/BTA](../audits/native-dsi-read.md)
+API is HOST-TESTED, but two target loads reject ST0bit20 DPHY_ERRORS_4 at stage6
+with RX data ready (FIFO50005), PHY15BD, no RX pop. The panel ID is UNREAD.
+- [ ] Verify bit20 meaning and latch semantics specifically for ESP32-P4 rev1.3.
+  Another vendor's identically named bit suggests Lane0 LP1 contention only; this
+  is not P4 evidence. No DSI entry found in consulted Espressif errata summary.
+- [ ] Distinguish BTA/turnaround configuration, retained panel state and electrical
+  conditions from historical/consuming error latches. Preserve captures; do not
+  mask/clear/ignore flags to make a success. No blind FIFO drain or retry.
+- [ ] Verify four bounded error-free RDDID responses and host-control restoration
+  on target before closing read gate. MRPS3/one FIFO word does not prove exact
+  response length or model. Earlier short/long evidence remains host-completion
+  evidence only. Panel startup/video/framebuffer/PSRAM still pending.

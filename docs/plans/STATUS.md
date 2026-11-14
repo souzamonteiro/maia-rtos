@@ -682,3 +682,21 @@ Host36/36/sanitizer/C++98/seven compiled mutants/invalid profile PASS. Shell/Sci
 `../maia-rtos-recovery/native-dsi-long-20261114/` (build paths13 reflect start date).
 Default desktop still FreeRTOS. Next: bounded read/BTA for panel response/identity,
 then verified reset/DCS startup; video/PSRAM/full native desktop/POSIX pending.
+
+## Native bounded RDDID read: reproducible PHY refusal — 2026-11-14
+
+Read [read/BTA audit](../audits/native-dsi-read.md). Fixed VC0 DCS04/MRPS3 native API, bounded aggregate
+poll budget, one RX-word maximum, error/guard checks, sticky shared failure and
+success-only restoration of packet/RXVC/LP controls. No SDK/FreeRTOS runtime/header
+imports; Apache-2.0 attributed packet definitions. HOST-TESTED successful path;
+actual target successful read NOT DEMONSTRATED. Two RAM loads reproduced IO at
+stage6/headers3/polls6, FIFO50005 (data available), PHY15BD, ST0=00100000
+(DPHY_ERRORS_4). Rejected BEFORE pop, words0/restored0; zero ID fields mean unread.
+No masking/clearing/automatic retry. Both preceding native short/long runs pass.
+37/37 host tests/sanitizers/C++98/seven mutants/invalid profile PASS; runtime gate
+clean. Exact error+RX-ready and capture false-success regressions included.
+Both shell/SciCalc14/desktop recoveries verified; no flash/SD/default/parser changes.
+Recovery `../maia-rtos-recovery/native-dsi-read-20261114/`. Working desktop remains
+FreeRTOS-based. Next: resolve P4-specific error semantics and BTA/turnaround cause;
+require error-free panel responses before panel-specific startup/video/PSRAM.
+Do not ignore error20 based on SDK omissions or a different controller's manual.

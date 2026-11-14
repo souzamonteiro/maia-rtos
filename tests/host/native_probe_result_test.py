@@ -429,3 +429,28 @@ assert not runner.evaluate_dsi_long(long.replace('DSI_LONG_FOLLOWUP','MISSING'))
 print('PASS: long capture requires4 exact-WC NOP frames, payload counts/LP state, bounded checks and short followup')
 
 assert not runner.evaluate_dsi_long(long.replace("fifo=00050015", "fifo=00010015",1))
+
+read=long
+for i in range(4):
+    read+=f'DSI_READ index={i:08x} result=00000000 stage=0000000a headers=00000003 words=00000001 word=aabbccdd id0=000000dd id1=000000cc id2=000000bb polls=00000007 before=00090000 after=00090000 packet=00000019 vc=00000000 restored=00000005 status=00001595 fifo=00050015 error0=00000000 error1=00000000\n'
+read+='DSI_READ_SUMMARY replies=00000004 id=00bbccdd stable=00000001 preserved=00000001\nMAIA_NATIVE_DSI_READ_PASS\n'
+assert runner.evaluate_dsi_read(read)
+assert not runner.evaluate_dsi_long(read)
+for old,new in [('headers=00000003','headers=00000001'),('words=00000001 word=','words=00000000 word='),
+                ('id0=000000dd','id0=000000dc'),('after=00090000 packet=','after=010d0000 packet='),
+                ('restored=00000005','restored=00000001'),('status=00001595 fifo=00050015 error0=00000000 error1=00000000\nDSI_READ', 'status=00001597 fifo=00050015 error0=00000000 error1=00000000\nDSI_READ')]:
+    assert old in read;assert not runner.evaluate_dsi_read(read.replace(old,new,1))
+assert not runner.evaluate_dsi_read(read+read)
+assert not runner.evaluate_dsi_read(read+'DSI_READ malformed\n')
+assert not runner.evaluate_dsi_read(read.replace('MAIA_NATIVE_DSI_READ_PASS',''))
+refusal=('DSI_READ index=00000000 result=fffffff9 stage=00000006 headers=00000003 '
+         'words=00000000 word=00000000 id0=00000000 id1=00000000 id2=00000000 '
+         'polls=00000006 before=00090000 after=010d0000 packet=00000019 vc=00000000 '
+         'restored=00000000 status=000015bd fifo=00050005 error0=00100000 error1=00000000\n'
+         'MAIA_NATIVE_MIPI_PARK_FAIL read-id\n')
+assert not runner.evaluate_dsi_read(long+refusal)
+# A success marker cannot turn a PHY-error response into a valid read.
+assert not runner.evaluate_dsi_read(read.replace(
+    'restored=00000005 status=00001595 fifo=00050015 error0=00000000',
+    'restored=00000005 status=00001595 fifo=00050015 error0=00100000',1))
+print('PASS: read capture requires four response words/stable byte views, bounded polls and restored host state')

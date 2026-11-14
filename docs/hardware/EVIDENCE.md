@@ -839,3 +839,26 @@ panel_ack0. Short NOP followup succeeds. Multiword/otherVC/buffer-depth unverifi
 on target. Host36/36/ASan+UBSan/C++98/seven compiled mutants/invalid profile PASS.
 Native runtime gate clean, old shell/SciCalc14/desktop recovered. No flash/SD/
 parser/video/PSRAM/panel configuration writes. Recovery carries both candidates.
+
+### Native RDDID/BTA request and PHY refusal — 2026-11-14
+
+Primary pinned SDK f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[HAL read path](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c),
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_host_reg.h):
+MRPS DT37/read DT06, LP bits24/18, BTA PCKHDLbit2/RXVC low2; RXempty4/readbusy6,
+PHYdirection1; GEN_PLD+70 pop. ST0bit20 named DPHY_ERRORS_4, detailed meaning NA.
+[ST7123 SPEC V0.5](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/ST7123_SPEC_Preliminary_V0.5.pdf)
+2021/09 section6.2.3 p142 specifies DCS04 and3 ID bytes/defaultFF in sleep-in/out;
+p99 packet types. Does not prove this device's response or identity.
+
+[Read audit/captures/manifest](../audits/native-dsi-read.md): two actual RAM loads
+return IO at stage6/polls6/headers3, RXready FIFO50005/PHY15BD/ST0=00100000.
+No payload pop/ID/restoration accepted; halt+reset preserved baseline. Working
+shell/SciCalc14/desktop verified twice. Native predecessors pass, runtime gate
+clean;37/37 host/sanitizer/C++98/seven mutants/invalid profile PASS. Success path
+HOST-TESTED ONLY. Error meaning/cause unresolved, no mask/IRQ-status writes.
+Microchip section6.5.42 labels an identically named bit LP1 contention; this is a
+research clue, not P4 confirmation (primary link and limits in audit). No DSI
+erratum in Espressif summary consulted2026-11-14; does not prove error benign.
+No flash/SD/parser/production changes. Read/initialization/video/PSRAM gate open.

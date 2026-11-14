@@ -462,3 +462,131 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dcs_long(uint32_t vc,const uint8_t *by
     if ((io->status&0x95U) != 0x95U || (io->fifo&0xF007FU) != 0x50015U) return MAIA_DSI_ACCESS_VERIFY;
     io->completed=6;transfer_state=UNCLAIMED;return MAIA_DSI_ACCESS_OK;
 }
+
+#include "dsi_read_packet.h"
+static int read_guard(const reference_guard_t *g,const uint32_t words[5],uint32_t mode,uint32_t packet,uint32_t vc) {
+    if (!phy_guard(g,words) || !transfer_bus_guard(g) || dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x68U) != mode ||
+        dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x30U) != vc) return 0;
+    for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i) {
+        uint32_t expected=i == 4U ? packet : saved_command_table[i];
+        if (dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+command_offsets[i]) != expected) return 0;
+    }
+    return 1;
+}
+static int read_idle(const maia_dsi_short_report_t *io) {
+    return (io->fifo&0xF007FU) == 0x50015U && (io->status&0x97U) == 0x95U;
+}
+static maia_dsi_access_result_t read_next(const reference_guard_t *g,const uint32_t words[5],
+    uint32_t mode,uint32_t packet,uint32_t vc,uint32_t budget,maia_dsi_short_report_t *io) {
+    if (io->polls>=budget) return MAIA_DSI_ACCESS_TIMEOUT;
+    if (!transfer_bus_guard(g)) return MAIA_DSI_ACCESS_VERIFY;
+    ++io->polls;
+    if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
+    if (!(io->status&1U)) return MAIA_DSI_ACCESS_IO;
+    if (!read_guard(g,words,mode,packet,vc)) return MAIA_DSI_ACCESS_VERIFY;
+    return MAIA_DSI_ACCESS_OK;
+}
+maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_report_t *r) {
+    if (!r) return MAIA_DSI_ACCESS_INVALID;
+    maia_dsi_short_report_t *io=&r->transfer;
+    io->completed=io->header=io->header_attempted=io->command_before=io->command_after=0;
+    io->polls=io->status=io->fifo=io->error0=io->error1=io->saw_busy=0;
+    r->headers_attempted=r->words_received=r->word=r->packet_before=r->vc_before=r->restore_attempted=0;
+    r->id[0]=r->id[1]=r->id[2]=0;
+    if (!budget || budget>100000U) return MAIA_DSI_ACCESS_INVALID;
+    if (!dsi_context()) return MAIA_DSI_ACCESS_CONTEXT;
+    if (transfer_state == FAULTED) return MAIA_DSI_ACCESS_FAILED;
+    if (transfer_state == OWNED || command_state != OWNED) return MAIA_DSI_ACCESS_BUSY;
+    reference_guard_t g;
+    g.cpu=dsi_read(DSI_CPU);g.sys=dsi_read(DSI_SYS);g.phy=dsi_read(DSI_PHY);
+    g.reset=dsi_read(DSI_RESET);g.isp=dsi_read(DSI_ISP);g.norst=dsi_read(DSI_NORST);
+    g.divider=dsi_read(DSI_REF_DIV);g.lp=dsi_read(DSI_LP_GATE);
+    g.provider=dsi_read(DSI_REF_GATE);g.source=dsi_read(DSI_REF_SOURCE);
+    if (!(g.cpu&0x2000U) || !(g.sys&0x20U) || (g.sys&0x1C00U) != 0x1000U ||
+        (g.phy&0x93U) != 3U || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
+        ((g.divider>>16U)&255U) != 23U || (g.lp&0x0A000000U) != 0x0A000000U ||
+        !(g.provider&0x100U) || (g.source&0xC0000000U) || !dma_quiet()) return MAIA_DSI_ACCESS_BUSY;
+    maia_ldo3_plan_t plan;
+    if (maia_esp32p4_ldo3_snapshot(&g.supply) != MAIA_LDO3_OK ||
+        maia_esp32p4_ldo3_plan2500(&g.supply,&plan) != MAIA_LDO3_OK ||
+        (g.supply.control&MAIA_ESP32P4_LDO3_CONTROL_MASK) != 0x180U ||
+        (g.supply.analog&MAIA_ESP32P4_LDO3_ANALOG_MASK) !=
+          (((uint32_t)plan.dref<<28U)|((uint32_t)plan.mul<<23U)|(1U<<26U))) return MAIA_DSI_ACCESS_BUSY;
+    uint32_t words[5]={dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+4U),dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0xA0U),
+        dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0xA4U),dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x94U),
+        dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x40U)};
+    io->command_before=io->command_after=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x68U);
+    io->fifo=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x74U);io->status=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0xB0U);
+    if (!(words[0]&1U) || (words[1]&15U) != 15U || (words[2]&3U) != 1U || (words[3]&3U) || (words[4]&1U) ||
+        (io->status&0x97U) != 0x95U || (io->fifo&0xF007FU) != 0x50015U || (io->command_before&3U) || (saved_command_table[4]&4U)) return MAIA_DSI_ACCESS_BUSY;
+    r->packet_before=saved_command_table[4];r->vc_before=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x30U);
+    if (!read_guard(&g,words,io->command_after,r->packet_before,r->vc_before)) return MAIA_DSI_ACCESS_VERIFY;
+    if (!transfer_observe(io)) { transfer_state=FAULTED;return MAIA_DSI_ACCESS_IO; }
+    if ((io->status&0x97U) != 0x95U || (io->fifo&0xF007FU) != 0x50015U) return MAIA_DSI_ACCESS_BUSY;
+    io->completed=1;transfer_state=FAULTED;
+    uint32_t mode=io->command_before|READ_ID_LP_BITS,packet=r->packet_before,vc=r->vc_before;
+    if (mode != io->command_before) dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x68U,mode);
+    if (!transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    io->command_after=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x68U);
+    if (io->command_after != mode || !read_guard(&g,words,mode,packet,vc)) return MAIA_DSI_ACCESS_VERIFY;
+    io->completed=2;r->headers_attempted|=1;io->header_attempted=1;
+    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,READ_ID_MRPS_HEADER);io->completed=3;
+    while (io->polls<budget) {
+        maia_dsi_access_result_t result=read_next(&g,words,mode,packet,vc,budget,io);
+        if (result != MAIA_DSI_ACCESS_OK) return result;
+        if ((io->fifo&0x70U) != 0x10U) return MAIA_DSI_ACCESS_IO;
+        if (read_idle(io)) { io->completed=4;break; }
+        io->saw_busy=1;
+    }
+    if (io->completed != 4U) return MAIA_DSI_ACCESS_TIMEOUT;
+    uint32_t wanted=packet|4U;
+    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x2CU,wanted);
+    if (!transfer_bus_guard(&g) || dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x2CU) != wanted) return MAIA_DSI_ACCESS_VERIFY;
+    packet=wanted;
+    if (!read_guard(&g,words,mode,packet,vc)) return MAIA_DSI_ACCESS_VERIFY;
+    wanted=vc&~3U;
+    if (wanted != vc) dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x30U,wanted);
+    if (!transfer_bus_guard(&g) || dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x30U) != wanted) return MAIA_DSI_ACCESS_VERIFY;
+    vc=wanted;
+    if (!read_guard(&g,words,mode,packet,vc) || !transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
+    if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
+    io->completed=5;r->headers_attempted|=2;io->header=READ_ID_DCS_HEADER;
+    dsi_write(MAIA_ESP32P4_DSI_HOST_BASE+0x6CU,READ_ID_DCS_HEADER);io->completed=6;
+    while (io->polls<budget) {
+        maia_dsi_access_result_t result=read_next(&g,words,mode,packet,vc,budget,io);
+        if (result != MAIA_DSI_ACCESS_OK) return result;
+        if (!(io->fifo&0x40U) && !(io->fifo&0x10U)) {
+            if (!transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+            r->word=dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+0x70U);r->words_received=1;
+            for (unsigned i=0;i<3U;++i) r->id[i]=(uint8_t)(r->word>>(8U*i));
+            io->completed=7;break;
+        }
+        io->saw_busy=1;
+    }
+    if (io->completed != 7U) return MAIA_DSI_ACCESS_TIMEOUT;
+    while (io->polls<budget) {
+        maia_dsi_access_result_t result=read_next(&g,words,mode,packet,vc,budget,io);
+        if (result != MAIA_DSI_ACCESS_OK) return result;
+        if (!(io->fifo&0x10U) && !(io->fifo&0x40U)) return MAIA_DSI_ACCESS_IO; /* Excess word, no blind drain. */
+        if (read_idle(io)) { io->completed=8;break; }
+    }
+    if (io->completed != 8U) return MAIA_DSI_ACCESS_TIMEOUT;
+    /* No RX in progress: disable BTA before changing RX VC and LP selection. */
+    const uintptr_t addresses[3]={MAIA_ESP32P4_DSI_HOST_BASE+0x2CU,MAIA_ESP32P4_DSI_HOST_BASE+0x30U,MAIA_ESP32P4_DSI_HOST_BASE+0x68U};
+    const uint32_t originals[3]={r->packet_before,r->vc_before,io->command_before};
+    for (unsigned i=0;i<3U;++i) {
+        if (!read_guard(&g,words,mode,packet,vc) || !transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+        if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
+        if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
+        uint32_t current=i == 0U ? packet : i == 1U ? vc : mode;
+        if (current != originals[i]) { r->restore_attempted|=1U<<i;dsi_write(addresses[i],originals[i]); }
+        if (!transfer_bus_guard(&g) || dsi_read(addresses[i]) != originals[i]) return MAIA_DSI_ACCESS_VERIFY;
+        if (i == 0U) packet=originals[i];else if (i == 1U) vc=originals[i];else mode=originals[i];
+    }
+    io->command_after=mode;io->completed=9;
+    if (!read_guard(&g,words,mode,packet,vc) || !transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
+    if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
+    if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
+    io->completed=10;transfer_state=UNCLAIMED;return MAIA_DSI_ACCESS_OK;
+}

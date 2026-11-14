@@ -278,6 +278,32 @@ void maia_boot_main(void) {
     field(" preserved=",(uint32_t)long_kept);maia_console_puts(" panel_ack=00000000\n");
     if (!long_kept) halt("long-preserve");
     maia_console_puts("MAIA_NATIVE_DSI_LONG_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DSI_READ
+    uint32_t first_id=0;int id_stable=1,read_kept=1;
+    for (unsigned attempt=0;attempt<4U;++attempt) {
+        maia_dsi_read_report_t reply;
+        maia_dsi_access_result_t result=maia_esp32p4_dsi_read_id(10000,&reply);
+        field("DSI_READ index=",attempt);field(" result=",(uint32_t)result);field(" stage=",reply.transfer.completed);
+        field(" headers=",reply.headers_attempted);field(" words=",reply.words_received);field(" word=",reply.word);
+        field(" id0=",reply.id[0]);field(" id1=",reply.id[1]);field(" id2=",reply.id[2]);field(" polls=",reply.transfer.polls);
+        field(" before=",reply.transfer.command_before);field(" after=",reply.transfer.command_after);
+        field(" packet=",reply.packet_before);field(" vc=",reply.vc_before);field(" restored=",reply.restore_attempted);
+        field(" status=",reply.transfer.status);field(" fifo=",reply.transfer.fifo);field(" error0=",reply.transfer.error0);field(" error1=",reply.transfer.error1);maia_console_puts("\n");
+        if (result != MAIA_DSI_ACCESS_OK || reply.transfer.completed != 10U || reply.words_received != 1U) halt("read-id");
+        if (!attempt) first_id=reply.word&0xFFFFFFU;else if ((reply.word&0xFFFFFFU) != first_id) id_stable=0;
+        for (unsigned i=0;i<MAIA_DSI_COMMAND_WORDS;++i)
+            if (rd(MAIA_ESP32P4_DSI_HOST_BASE+command_registers[i]) != command.after[i]) read_kept=0;
+        if (rd(MAIA_ESP32P4_DSI_HOST_BASE+0x68U) != reply.transfer.command_before ||
+            rd(MAIA_ESP32P4_DSI_HOST_BASE+0x30U) != reply.vc_before ||
+            rd(MAIA_ESP32P4_HP_MIPI_PHY_CLK_REG) != reference.phy_after ||
+            rd(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG) != access.sys_after ||
+            rd(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0xC0U) != access.reset_after ||
+            maia_esp32p4_ldo3_snapshot(&observed) != MAIA_LDO3_OK || !vo3_same(&supplied,&observed)) read_kept=0;
+    }
+    field("DSI_READ_SUMMARY replies=",4U);field(" id=",first_id);field(" stable=",(uint32_t)id_stable);field(" preserved=",(uint32_t)read_kept);maia_console_puts("\n");
+    if (!id_stable || !read_kept) halt("read-id-preserve");
+    maia_console_puts("MAIA_NATIVE_DSI_READ_PASS\n");
+#endif
 #endif
 #endif
 #endif

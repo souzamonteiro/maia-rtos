@@ -171,6 +171,34 @@ typedef struct maia_dsi_long_report {
  * conversion, panel initialization, read/ACK/HS/video/DMA/PSRAM operations. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dcs_long(uint32_t vc,const uint8_t *bytes,
     uint32_t length,uint32_t poll_budget,maia_dsi_long_report_t *report);
+typedef struct maia_dsi_read_report {
+    maia_dsi_short_report_t transfer; /*0:none 1:guarded 2:LP 3:MRPS attempted
+       4:MRPS drained 5:BTA configured 6:read attempted 7:RX word popped
+       8:RX idle/TX direction 9:host restored 10:verified. */
+    uint32_t headers_attempted,words_received,word;
+    uint32_t packet_before,vc_before,restore_attempted;
+    uint8_t id[3]; /* View of requested3 bytes from one RX word, not RX length proof. */
+} maia_dsi_read_report_t;
+/* HOST-TESTED success path; target rejects DPHY_ERRORS_4 before RX pop.
+ * Successful target response not yet demonstrated (native-dsi-read audit).
+ * Fixed boot-exclusive VC0/RDDID04 read with MRPS3, only after native command
+ * claim. Same root/supply/producer ownership; initial all FIFOs/buffers empty,
+ * PHY locked/stopped/TX direction, TE/ACK/BTA off. Temporary LP read/MRPS bits,
+ * BTA and RX VC0; two header attempts, no payload writes. MRPS changes panel's
+ * protocol return limit, not image settings. Aggregate budget1..100000 covers
+ * MRPS completion/response/idle loops, not elapsed time. At most ONE RX word
+ * read, only when data available/readbusy0. Extra data is IO, never blindly drain.
+ * Hardware strips response framing; word/low3 bytes do not prove exact response
+ * length/model. Success requires no observed errors, RX empty/readbusy0, front+
+ * internal buffers empty, PHY stopped and back to TX. Then restore full original
+ * packet/RXVC/mode settings with guards/readback (MRPS3 remains protocol state).
+ * Failure after guards poisons short/long/read until reset, no retry/rollback/
+ * automatic restoration with RX possibly active. headers_attempted flags0:MRPS,
+ * 1:DCS read, set before stores. Observed error latches accumulated, may be consumed.
+ * Required report initialized, invalid budget/NULL INVALID/context CONTEXT;
+ * missing claim/busy initial state BUSY without writes. No panel reset/visual
+ * DCS setup, framebuffer/DMA/PSRAM or full display/native desktop claim. */
+maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t poll_budget,maia_dsi_read_report_t *report);
 #ifdef __cplusplus
 }
 #endif
