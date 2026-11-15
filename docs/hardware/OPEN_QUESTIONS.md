@@ -190,3 +190,14 @@ This is not running-clock or active-video proof. Pending before activation:
   bridge/output/DMA; current route223 was already matching (switch host-only).
 - [ ] Establish configuration update/latch, active video/ACK policy, DMA/memory/
   cache/framebuffer/PSRAM and actual pixels; do not treat staged readback as output.
+
+Follow-up UQ-014/UQ-015/UQ-016: [format and clock](../audits/native-dpi-clock.md)
+now reads initial00, selects3A55 via M5GFX-supported policy, verifies DBI color05,
+enables DPI gate under private staged claim, and retains color05/power9C after it
+(two final loads). Source/provider logical gates checked; no physical clock measure
+or cold PLL startup. Actual provider240 was alreadyon; enable-off branch host-only.
+- [ ] Verify actual wire format/pixels with guarded native test pattern: reported
+  DBI16bpp does not establish pixel packet acceptance. ExactP suffix unknown;
+  supplierP datatype table lists24-bit, while working BSP/M5GFX useRGB565.
+- [ ] Establish latch/output/ACK strategy while DMA inactive, then memory/cache/
+  framebuffer/PSRAM. No register-only visual claim. Full desktop remains legacy.

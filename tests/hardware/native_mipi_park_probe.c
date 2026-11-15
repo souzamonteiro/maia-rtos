@@ -35,6 +35,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DPI_STAGE
 #include "native_dpi_stage.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_CLOCK
+#include "native_dpi_clock.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -331,6 +334,9 @@ void maia_boot_main(void) {
     maia_console_puts("MAIA_NATIVE_PANEL_POWER_PASS\n");
 #ifdef MAIA_NATIVE_PROBE_DPI_STAGE
     dpi_stage();
+#ifdef MAIA_NATIVE_PROBE_DPI_CLOCK
+    dpi_clock();
+#endif
 #endif
 #endif
 #endif

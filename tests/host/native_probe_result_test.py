@@ -555,3 +555,37 @@ assert not runner.evaluate_dpi_stage(power)
 assert not runner.evaluate_dpi_stage(dpi_stage.replace('MAIA_NATIVE_DPI_STAGE_PASS',''))
 assert not runner.evaluate_dpi_stage(dpi_stage+dpi_stage)
 print('PASS: staged RGB565/80MHz route/timing requires exact fields, idle output/DMA and retained power responses')
+
+def dpi_color_row(phase,index,value):
+    return (f'DPI_COLOR phase={phase:08x} index={index:08x} result=00000000 stage=0000000a request=00000c06 headers=00000003 polls=00000006 '
+            f'word={value:08x} value={value:08x} words=00000001 before=000b0000 after=000b0000 restored=00000005 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n')
+clocked=dpi_stage+''.join(dpi_color_row(p,i,7 if p==0 else 5) for p in (0,1) for i in range(4))
+clocked+='DPI_COLOR_SELECT before=00000007 after=00000005 parameter=00000055 attempted=00000001 header=00553a15\n'
+clocked+='DPI_CLOCK result=00000000 stage=00000004 attempted=00000002 provider_before=58170503 provider_after=58170503 clock_before=00000223 clock_after=000002a3 nominal_hz=04c4b400 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+clocked+='DPI_CLOCK_IDLE mode=00000001 bridge=00000000 dpi=000019d0 update=00000000 dma_quiet=00000001 preserved=00000001 duplicate_busy=00000001\n'
+clocked+=''.join(dpi_color_row(2,i,5) for i in range(4))
+for i in range(4):
+    clocked+=f'DPI_CLOCK_REPLY index={i:08x} result=00000000 stage=0000000a headers=00000003 polls=00000006 word=0000009c words=00000001 before=000b0000 after=000b0000 restored=00000005 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+clocked+='MAIA_NATIVE_DPI_CLOCK_PASS\n'
+assert runner.evaluate_dpi_clock(clocked)
+assert not runner.evaluate_dpi_stage(clocked)
+for old,new in [('provider_after=58170503 clock_before','provider_after=18170503 clock_before'),
+                ('clock_after=000002a3 nominal_hz','clock_after=00000223 nominal_hz'),
+                ('DPI_COLOR_SELECT before=00000007 after=00000005','DPI_COLOR_SELECT before=00000007 after=00000007'),
+                ('header=00553a15','header=00773a15'),('stage=00000004 attempted=00000002 provider_before','stage=00000003 attempted=00000002 provider_before'),
+                ('DPI_CLOCK_IDLE mode=00000001','DPI_CLOCK_IDLE mode=00000000')]:
+    assert old in clocked and not runner.evaluate_dpi_clock(clocked.replace(old,new,1))
+assert not runner.evaluate_dpi_clock(clocked.replace('MAIA_NATIVE_DPI_CLOCK_PASS',''))
+assert not runner.evaluate_dpi_clock(dpi_stage)
+assert not runner.evaluate_dpi_clock(clocked+clocked)
+# Already-selected5 skips COLMOD, but still verifies readback and owned clock.
+selected=clocked
+for i in range(4): selected=selected.replace(dpi_color_row(0,i,7),dpi_color_row(0,i,5))
+selected=selected.replace('DPI_COLOR_SELECT before=00000007','DPI_COLOR_SELECT before=00000005').replace('attempted=00000001 header=00553a15','attempted=00000000 header=00000000')
+assert runner.evaluate_dpi_clock(selected)
+print('PASS: RGB565 readback, exact provider/gate enable, inactive output/DMA and retained color/power responses required')
+
+initial_zero=clocked
+for i in range(4): initial_zero=initial_zero.replace(dpi_color_row(0,i,7),dpi_color_row(0,i,0))
+initial_zero=initial_zero.replace('DPI_COLOR_SELECT before=00000007','DPI_COLOR_SELECT before=00000000')
+assert runner.evaluate_dpi_clock(initial_zero)

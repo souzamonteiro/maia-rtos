@@ -253,5 +253,9 @@ int main(void) {
  setup_read();requested_mrps=0x137;requested_command=0xA06;read_error_phase=2;read_error_mask=0x100000;
  assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_IO && !pops);sticky();
  assert(maia_esp32p4_dsi_read_power_mode(20,&received) == MAIA_DSI_ACCESS_FAILED);
+ setup_read();requested_mrps=0x137;requested_command=0xC06;reply_word=0xAABBCC07;
+ assert(maia_esp32p4_dsi_read_color_mode(20,&received) == MAIA_DSI_ACCESS_OK && received.id[0] == 7 && received.transfer.header == 0xC06);
+ setup_read();requested_mrps=0x137;requested_command=0xC06;read_error_phase=2;read_error_mask=0x100000;
+ assert(maia_esp32p4_dsi_read_color_mode(20,&received) == MAIA_DSI_ACCESS_IO && !pops);sticky();
  puts("PASS: RDDID fixed headers, bounded MRPS/RX/idle, one guarded pop, RX direction, errors/excess data and restored host controls");
 }

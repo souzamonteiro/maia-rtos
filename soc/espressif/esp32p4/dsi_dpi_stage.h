@@ -4,6 +4,21 @@
  * ESP-IDF f5c3654 HAL dpi timing/color and esp_lcd_panel_dpi setup.
  * LICENSES/Apache-2.0.txt. No SDK headers/runtime. Native staging guards,
  * checked RMW, failure claim and clock-gated policy original MaiaRTOS MIT. */
+/* Private staged snapshot is ownership evidence, never supplied by a caller. */
+static reference_guard_t dpi_staged_guard;
+static uint32_t dpi_staged_phy[5],dpi_staged_mode,dpi_staged_words[MAIA_DSI_DPI_WORDS];
+static void dpi_save(const reference_guard_t *g,const uint32_t phy[5],uint32_t mode,const uint32_t words[MAIA_DSI_DPI_WORDS]) {
+    dpi_staged_guard.cpu=g->cpu;dpi_staged_guard.sys=g->sys;dpi_staged_guard.phy=g->phy;
+    dpi_staged_guard.reset=g->reset;dpi_staged_guard.isp=g->isp;dpi_staged_guard.norst=g->norst;
+    dpi_staged_guard.divider=g->divider;dpi_staged_guard.lp=g->lp;
+    dpi_staged_guard.provider=g->provider;dpi_staged_guard.source=g->source;
+    dpi_staged_guard.supply.control=g->supply.control;dpi_staged_guard.supply.analog=g->supply.analog;
+    dpi_staged_guard.supply.mac_sys2=g->supply.mac_sys2;dpi_staged_guard.supply.mac_sys3=g->supply.mac_sys3;
+    dpi_staged_guard.supply.rs_error0=g->supply.rs_error0;
+    for (unsigned i=0;i<5U;++i) dpi_staged_phy[i]=phy[i];
+    for (unsigned i=0;i<MAIA_DSI_DPI_WORDS;++i) dpi_staged_words[i]=words[i];
+    dpi_staged_mode=mode;
+}
 static const uint16_t dpi_offsets[MAIA_DSI_DPI_WORDS]={
     0x0C,0x10,0x14,0x38,0x3C,0x40,0x44,0x48,0x4C,0x50,0x54,0x58,0x5C,0x60,
     0x18,0x30,0x34,0x38,0x3C};
@@ -92,6 +107,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dpi_stage(const maia_dsi_dpi_timing_t 
     if (!dpi_guard(&g,phy,mode,r->after) || !transfer_bus_guard(&g)) return MAIA_DSI_ACCESS_VERIFY;
     if (!transfer_observe(io)) return MAIA_DSI_ACCESS_IO;
     if (!read_idle(io)) return MAIA_DSI_ACCESS_VERIFY;
+    dpi_save(&g,phy,mode,r->after);
     r->nominal_hz=80000000U;r->completed=22;dpi_state=OWNED;transfer_state=UNCLAIMED;
     return MAIA_DSI_ACCESS_OK;
 }

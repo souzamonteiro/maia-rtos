@@ -801,3 +801,26 @@ Recovery `../maia-rtos-recovery/native-dpi-stage-20261114/`. Next panel-format
 verification and native clock source/provider/enable with output inactive, then
 latch/video/framebuffer/PSRAM. No pixels/full native desktop/POSIX; installed
 working desktop still FreeRTOS-based.
+
+## Reported RGB565 selection and inactive DPI clock enable — 2026-11-14
+
+Read [format/clock audit](../audits/native-dpi-clock.md). Fixed color0C/MRPS1 read shares native guarded
+transport; private staging cache and new clock API require actual stage claim,
+exact19 words/root/supply/PHY/mode, bridge/output/DMA inactive. Enable REF240 bit30
+atHP+28 (preserve shared20MHz divider), then DPIgate7 atHP+3C, no source retune/
+PLL/latch/video/HS/DMA/IRQ writes. Duplicate BUSY/no I/O; partial failure poisons
+all transfers until reboot. LP preflights accept clock-on only with private claim,
+correct240/div3 route/provider; external enable and provider/route/gate drift reject.
+First format read00 was refused before writes; documented initial00 and M5GFX
+28d47949 COLMOD55 policy support explicit selection, not accepting00 as16-bit.
+Two final RAM loads: color00->05 after one3A55 (header553A15), then clock223->2A3/
+provider58170503 unchanged/mask2/stage4, MODE1/bridge0/DPI19D0/update0/DMAquiet1.
+Four post-clock color05 and power9C reads each/errors0/restored LP controls.
+Nominal80MHz only, no measurement; provider-off/skip-format branches host-only.
+Host40/40/two ASan+UBSan fixtures/C++98/six runtime mutants/invalid profile PASS;
+runtime gate clean. Shell/SciCalc14/desktop restored, no flash/SD/parser/table edits.
+Recovery `../maia-rtos-recovery/native-dpi-clock-20261114/`, includes initial refusal.
+DBI16-bit readback is not actual wire/pixel proof; supplier ST7121P suffix unproven
+and its datatype table lists24-bit only. Working BSP/M5GFX use565; next guarded
+latch/native test pattern (noDMA) to prove pixels/compatibility before framebuffer/
+PSRAM. No full native desktop/POSIX; installed complete desktop still FreeRTOS.

@@ -23,7 +23,7 @@ static const uintptr_t dpi_extra_addresses[]={
 static const uint32_t dpi_test_masks[]={3,0x10F,0x1F,0xBF03,0x3FFF,0x1FFF,0x1FFF,0xFFF,0xFFF,0x7FFF,0x3FF,0x3FF,0x3FF,0x3FFF,0x7F,0x0FFF0FFF,0x0FFF0FFF,0x0FFF0FFF,0x0FFF0FFF};
 static const uint32_t dpi_test_values[]={0,0,0,0xBF02,720,0,0,3,60,1203,20,24,200,1280,2,0x050005F4,0x00140018,0x02D00322,0x00020028};
 static uint32_t dpi_regs[19],dpi_old[19],dpi_root;
-static unsigned dpi_drop,dpi_drift,dpi_fault_after;
+static unsigned dpi_drop,dpi_drift,dpi_fault_after,clock_writes,clock_drop,clock_drift,clock_fault;
 static maia_dsi_access_report_t report;
 static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
 static maia_dsi_reference_report_t ref;
@@ -39,9 +39,9 @@ static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;
- if (reference_mode == 7U) {
+ if (reference_mode == 7U || reference_mode == 8U) {
   for (unsigned i=0;i<19U;++i) if (address == dpi_extra_addresses[i]) {
-   assert((regs[2]&0x93U)==3 && (regs[1]&0x1000U));return dpi_regs[i];
+   assert((regs[2]&0x13U)==3 && (regs[1]&0x1000U));return dpi_regs[i];
   }
  }
  for (unsigned i=0;i<53U;++i) if (addresses[i] == address) {
@@ -94,6 +94,15 @@ int maia_ldo3_test_context(void) { return (int)context; }
 uint32_t maia_ldo3_test_read(uintptr_t address) { return maia_dsi_access_test_read(address); }
 void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
  ++writes;assert(writes<=41U);
+ if (reference_mode == 8U) {
+  ++clock_writes;assert(address == DSI_REF_DIV || address == DSI_PHY);
+  unsigned index=address == DSI_REF_DIV ? 26 : 2;
+  assert(value == (regs[index]|(index == 26 ? 0x40000000U : 0x80U)));
+  if (clock_writes != clock_drop) regs[index]=value;
+  if (clock_writes == clock_drift) regs[1]^=0x1000;
+  if (clock_writes == clock_fault) regs[49]=0x100000;
+  return;
+ }
  if (reference_mode == 7U) {
   unsigned index=writes-1;
   if (index == 0) {
@@ -250,6 +259,12 @@ static void fail_sticky(void) {
  assert(send(0,0,0,0,20) == MAIA_DSI_ACCESS_FAILED);
  assert(reads == old_reads && writes == old_writes);sticky();
 }
+static maia_dsi_dpi_clock_report_t enabled;
+static void setup_clock(unsigned provider_on) {
+ setup_dpi();if (provider_on) regs[26]|=0x40000000U;else regs[26]&=~0x40000000U;
+ assert(maia_esp32p4_dsi_dpi_stage(&timing,&staged) == MAIA_DSI_ACCESS_OK);
+ reference_mode=8;writes=reads=clock_writes=clock_drop=clock_drift=clock_fault=0;
+}
 int main(void) {
  setup_dpi();assert(maia_esp32p4_dsi_dpi_stage(NULL,&staged) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
  assert(maia_esp32p4_dsi_dpi_stage(&timing,NULL) == MAIA_DSI_ACCESS_INVALID);
@@ -277,5 +292,34 @@ int main(void) {
  setup_dpi();regs[25]|=1;assert(maia_esp32p4_dsi_dpi_stage(&timing,&staged) == MAIA_DSI_ACCESS_BUSY && !writes);
  setup_dpi();dpi_regs[3]|=0x10000;assert(maia_esp32p4_dsi_dpi_stage(&timing,&staged) == MAIA_DSI_ACCESS_BUSY && !writes);
  setup_dpi();regs[20]=0;assert(maia_esp32p4_dsi_dpi_stage(&timing,&staged) == MAIA_DSI_ACCESS_BUSY && !writes);
+ /* Real private staging claim, cached config/root and owned clock lifecycle. */
+ setup_read();assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_BUSY);
+ assert(maia_esp32p4_dsi_dpi_clock_enable(NULL) == MAIA_DSI_ACCESS_INVALID);
+ for (unsigned provider=0;provider<2;++provider) {
+  setup_clock(provider);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+  assert(enabled.completed == 4 && enabled.attempted_mask == (provider ? 2U : 3U) && clock_writes == (provider ? 1U : 2U));
+  assert((enabled.clock_after&0xFFF3U) == 0x2A3U && (enabled.provider_after&0x40000000U));
+  unsigned n=reads;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_BUSY && reads == n);
+  reference_mode=6;writes=reads=pops=read_phase=phase_polls=0;
+  assert(read_id(20) == MAIA_DSI_ACCESS_OK); /* LP still works with owned DPI gate. */
+ }
+ for (unsigned dropped=1;dropped<=2;++dropped) {
+  setup_clock(0);clock_drop=dropped;
+  assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_VERIFY && clock_writes == dropped);
+  assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_FAILED);fail_sticky();
+ }
+ setup_clock(1);context=0;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_CONTEXT && !reads && !clock_writes);
+ setup_clock(0);clock_fault=1;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_IO && clock_writes == 1);fail_sticky();
+ setup_clock(0);clock_drift=1;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_VERIFY && clock_writes == 1);fail_sticky();
+ setup_clock(1);dpi_regs[17]^=1;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_VERIFY && !clock_writes);
+ setup_clock(1);regs[2]|=0x80;assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_VERIFY && !clock_writes);
+ reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes);
+ setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+ regs[26]&=~0x40000000U;reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes);
+ setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+ regs[2]^=0x100;reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes);
+ setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+ regs[2]&=~0x80U;reference_mode=6;writes=reads=0;
+ assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes); /* Clock drift is not adopted. */
  puts("PASS: actual native DPI staging, exact80MHz route/RGB565/timing,20 dropped stores, drift/errors and sticky guarded refusal");
 }

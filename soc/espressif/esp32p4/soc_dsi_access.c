@@ -4,10 +4,10 @@
 #include <maia/soc/esp32p4_ldo3.h>
 #include "dsi_access_internal.h"
 enum { UNCLAIMED,OWNED,FAULTED };
-static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state;
+static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state,dpi_clock_state;
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
-void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED; }
+void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED;dpi_clock_state=UNCLAIMED; }
 #endif
 static int dma_quiet(void) {
     if ((dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&1U) || (dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&15U) ||
@@ -290,6 +290,12 @@ maia_dsi_access_result_t maia_esp32p4_dsi_command_config(maia_dsi_command_report
 /* Original bounded native transfer policy. Header/LP fields follow pinned SDK
  * host HAL/LL; docs/audits/native-dsi-short.md. No SDK busy-wait loop imported. */
 #include "dsi_short_packet.h"
+static int transfer_clock_valid(uint32_t phy,uint32_t divider) {
+    /* Never adopt an externally enabled DPI clock. Only this boot's checked
+     * native enable permits command traffic while the DPI gate is on. */
+    return dpi_clock_state == OWNED ?
+        (phy&0xFFF3U) == 0x2A3U && (divider&0x40000000U) : (phy&0x93U) == 3U;
+}
 static int transfer_bus_guard(const reference_guard_t *g) {
     return dsi_read(DSI_CPU) == g->cpu && dsi_read(DSI_SYS) == g->sys && dsi_read(DSI_PHY) == g->phy &&
         dsi_read(DSI_RESET) == g->reset && dsi_read(DSI_ISP) == g->isp && dsi_read(DSI_NORST) == g->norst &&
@@ -325,7 +331,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dcs_short(uint32_t vc,uint32_t command
     g.divider=dsi_read(DSI_REF_DIV);g.lp=dsi_read(DSI_LP_GATE);
     g.provider=dsi_read(DSI_REF_GATE);g.source=dsi_read(DSI_REF_SOURCE);
     if (!(g.cpu&0x2000U) || !(g.sys&0x20U) || (g.sys&0x1C00U) != 0x1000U ||
-        (g.phy&0x93U) != 3U || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
+        !transfer_clock_valid(g.phy,g.divider) || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
         ((g.divider>>16U)&255U) != 23U || (g.lp&0x0A000000U) != 0x0A000000U ||
         !(g.provider&0x100U) || (g.source&0xC0000000U) || !dma_quiet()) return MAIA_DSI_ACCESS_BUSY;
     maia_ldo3_plan_t plan;
@@ -402,7 +408,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dcs_long(uint32_t vc,const uint8_t *by
     g.divider=dsi_read(DSI_REF_DIV);g.lp=dsi_read(DSI_LP_GATE);
     g.provider=dsi_read(DSI_REF_GATE);g.source=dsi_read(DSI_REF_SOURCE);
     if (!(g.cpu&0x2000U) || !(g.sys&0x20U) || (g.sys&0x1C00U) != 0x1000U ||
-        (g.phy&0x93U) != 3U || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
+        !transfer_clock_valid(g.phy,g.divider) || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
         ((g.divider>>16U)&255U) != 23U || (g.lp&0x0A000000U) != 0x0A000000U ||
         !(g.provider&0x100U) || (g.source&0xC0000000U) || !dma_quiet()) return MAIA_DSI_ACCESS_BUSY;
     maia_ldo3_plan_t plan;
@@ -506,7 +512,7 @@ static maia_dsi_access_result_t dsi_read_fixed(uint32_t budget,maia_dsi_read_rep
     g.divider=dsi_read(DSI_REF_DIV);g.lp=dsi_read(DSI_LP_GATE);
     g.provider=dsi_read(DSI_REF_GATE);g.source=dsi_read(DSI_REF_SOURCE);
     if (!(g.cpu&0x2000U) || !(g.sys&0x20U) || (g.sys&0x1C00U) != 0x1000U ||
-        (g.phy&0x93U) != 3U || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
+        !transfer_clock_valid(g.phy,g.divider) || (g.reset&0x3C000000U) != 0x38000000U || (g.norst&0x7800U) ||
         ((g.divider>>16U)&255U) != 23U || (g.lp&0x0A000000U) != 0x0A000000U ||
         !(g.provider&0x100U) || (g.source&0xC0000000U) || !dma_quiet()) return MAIA_DSI_ACCESS_BUSY;
     maia_ldo3_plan_t plan;
@@ -600,4 +606,8 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t budget,maia_d
     return dsi_read_fixed(budget,r,READ_POWER_MRPS_HEADER,READ_POWER_DCS_HEADER);
 }
 
+maia_dsi_access_result_t maia_esp32p4_dsi_read_color_mode(uint32_t budget,maia_dsi_read_report_t *r) {
+    return dsi_read_fixed(budget,r,READ_POWER_MRPS_HEADER,READ_COLOR_DCS_HEADER);
+}
 #include "dsi_dpi_stage.h"
+#include "dsi_dpi_clock.h"

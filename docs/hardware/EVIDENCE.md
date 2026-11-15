@@ -978,3 +978,24 @@ sanitizer/C++98/five mutants/invalid profile PASS; runtime gate clean. Shell/Sci
 14/desktop recovered, no flash/SD/parser changes. Route switching branch host-only,
 no live latch/provider startup/active clock/output/pixels proof. Panel format still
 to verify before activation. No framebuffer/PSRAM/full native desktop claim.
+
+### Reported format selection and inactive DPI clock gate — 2026-11-14
+
+Primary pinnedSDKf5c3654 [commands](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/include/esp_lcd_panel_commands.h)
+0C read color/3A select; [clk_gate_ll](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_gate_ll.h)
+REF240bit30 HP+28; [DSI LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_ll.h)
+DPIgate7 HP+3C. Shared reference divider unchanged except allowed provider bit.
+Primary M5GFX28d47949 [Panel_DSI](https://github.com/m5stack/M5GFX/blob/28d47949bdc84f30881623476f555398e2194313/src/lgfx/v1/platforms/esp32p4/Panel_DSI.inl)
+RGB565 setColorDepth/init_dpi and COLMOD55 init_panel; no vendor runtime imported.
+Supplier ST7121P V1.0/2024/01 p105 corroborates DBI low3=5(16bpp), initial00;
+P suffix/wire-type applicability unproven, tablep56 listsRGB888. See audit for
+qualification; don't equate reported DBI mode with actual pixel/wire acceptance.
+
+[Audit/captures/manifest](../audits/native-dpi-clock.md): first00 read halted before
+write; final two RAM loads select3A55/00->05, verify four reads, then clock223->2A3/
+stage4/mask2/provider58170503 unchanged. MODE1/bridge0/DPI19D0/update0/DMAquiet1;
+four post-clock color05 and power9C responses each/errors0/restored controls.
+40/40 host tests/two sanitized fixtures/C++98/six mutants/invalid profile PASS,
+runtime gate clean; shell/SciCalc14/desktop recovered. No flash/SD/parser/table
+changes. Logical gates/model80MHz only, provider-off branch host-only; no measured
+frequency/live latch/pixels/DMA/framebuffer/PSRAM/full native desktop proof.

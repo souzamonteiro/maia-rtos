@@ -208,6 +208,9 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t poll_budget,maia_dsi_
  * power-state interpretation. MRPS1 remains the panel's protocol return limit
  * after success. No arbitrary command/length API or visual/state writes. */
 maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t poll_budget,maia_dsi_read_report_t *report);
+/* Fixed VC0 RDDCOLM0C/MRPS1; same contract/low-byte-only view as power_mode.
+ * Decoding/model-specific format selection belongs to the BSP, not this API. */
+maia_dsi_access_result_t maia_esp32p4_dsi_read_color_mode(uint32_t poll_budget,maia_dsi_read_report_t *report);
 #define MAIA_DSI_DPI_WORDS 19U
 typedef struct maia_dsi_dpi_timing {
     uint32_t width,height,hsync,hback,hfront,vsync,vback,vfront;
@@ -232,6 +235,25 @@ typedef struct maia_dsi_dpi_report {
  * stage until reboot, no rollback/retry. Caller must establish panel-format and
  * active clock/latch/DMA ownership separately before video. No pixels claim. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dpi_stage(const maia_dsi_dpi_timing_t *,maia_dsi_dpi_report_t *);
+typedef struct maia_dsi_dpi_clock_report {
+    uint32_t completed,attempted_mask; /*1:guarded 2:provider 3:DPI gate 4:verified*/
+    uint32_t provider_before,provider_after,clock_before,clock_after,nominal_hz;
+    maia_dsi_short_report_t observation;
+} maia_dsi_dpi_clock_report_t;
+/* Boot/core0/IRQs-off/exclusive contract as dpi_stage; require its actual private
+ * successful claim and all cached19 config/root/PHY/supply values unchanged.
+ * Require command mode, empty FIFOs, TX locked/stopped, bridge/output/pattern/
+ * frameACK off and existing inherited SPLL/XTAL logically enabled. Do not adopt
+ * external DPI gate. Set only REF240 enable(bit30 of shared divider word), then
+ * DPI gate7, checked fresh guards/readbacks. No divider/PLL retune, latch, video,
+ * HS request, DMA, IRQ or pixel writes. 80MHz report is NOMINAL, not measurement.
+ * After success, native LP transfers accept this internally owned clock-on state
+ * only with correct240/div3 route/provider. Success duplicate BUSY without I/O;
+ * partial failure sticky FAILED across clock/stage/transfers until reboot. No
+ * retry/rollback or cold source startup guarantee. Required report initialized.
+ * Caller owns panel-format validation separately before any pixel activation. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dpi_clock_enable(maia_dsi_dpi_clock_report_t *);
+
 #ifdef __cplusplus
 }
 #endif
