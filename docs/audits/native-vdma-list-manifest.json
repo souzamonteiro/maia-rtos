@@ -1,0 +1,290 @@
+{
+  "date": "2026-11-15",
+  "parent_commit": "51ffcc89441743321dbdf07fc011e88bbf6057b2",
+  "status": "HARDWARE-TESTED LIMITED; two-block SRAM list, no display output",
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-vdma-list-20261115",
+  "files": {
+    "source/CMakeLists.txt": {
+      "size": 46864,
+      "sha256": "ed263e6be3638f2c07e85a883a5285591788059468cb6ac618e031106be6e0d3"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 72632,
+      "sha256": "8e018cb053c9405a71cb95a962ec0e3b78d8321c2c3afbbee114dcf5536ee918"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 84973,
+      "sha256": "c90b6d9cbeb2aa74a62209421bca7c68ff2160518825204f5931f3a03f1595d2"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 25994,
+      "sha256": "fb32535b951f18deb04f88bb4f0079dda53753efc1827fa5919bf0444f7e5516"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 70576,
+      "sha256": "51e151dde2c4c8f477aacb7f5bf012946ec1297a0acb000bdea006358240e5e9"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 89642,
+      "sha256": "0cf4aa33c6cd2e24ee569116772cba3588a3f614d6f18562b0807c51a127d66d"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 57452,
+      "sha256": "b660ffa6e407189078341225df6deb66ae720ac394749d76fe1c55ff311a917d"
+    },
+    "source/tests/hardware/native_vdma_list_probe.c": {
+      "size": 6475,
+      "sha256": "2ac92bfe25c544f579f99614b2794347254258644aa857b818f9a83af66ed706"
+    },
+    "source/tests/hardware/vdma_list_fixture.h": {
+      "size": 2155,
+      "sha256": "423bc37ebb447f01205ee1acc2e56b0ffaa60e9c22950fb0700e6ba306e1ca68"
+    },
+    "source/tests/hardware/vdma_transfer_fixture.h": {
+      "size": 2427,
+      "sha256": "68317018bc1fbc132ab0689b5d0a24645ba964290e04e9f76f010b40a1c112d9"
+    },
+    "source/tests/hardware/native_mipi_snapshot.h": {
+      "size": 2650,
+      "sha256": "df0d91ffbe9fb5df36da8d56325902a82c7ae9ffc87c29c5003fde19daabb839"
+    },
+    "source/tests/host/vdma_list_fixture_test.c": {
+      "size": 1869,
+      "sha256": "c9d955a1be3d2a07fc214f228180b24c995e9659d0309aa4943a4facce6b5f5f"
+    },
+    "source/tests/hardware/native_vdma_memory.ld.in": {
+      "size": 636,
+      "sha256": "0069526d26f8e8afb94ab9969a240c872e48f4bae556331e26eb2a39c05d6491"
+    },
+    "source/docs/audits/native-vdma-list-first-refusal.txt": {
+      "size": 2884,
+      "sha256": "e0b7531db27ee12a5cc494f9b662a18c0bf8a0da517a32331e2df63c56cf684c"
+    },
+    "source/docs/audits/native-vdma-list.md": {
+      "size": 6352,
+      "sha256": "c25f4ef46777975f5965e5023be178e44063a11e97064cd12518d2666251418b"
+    },
+    "source/docs/audits/native-vdma-list-hardware.txt": {
+      "size": 3620,
+      "sha256": "053cbf3d622dbca7418b0edab1fd5b2b0ab49435643a0e33ef81fd10ce278501"
+    },
+    "source/docs/audits/native-vdma-list-desktop.txt": {
+      "size": 3245,
+      "sha256": "a2865c9a76de4ee73232b398ac822519e83c66601465f88f80a0522a6d54e06c"
+    },
+    "source/docs/audits/native-vdma-list-sample-refusal.txt": {
+      "size": 3636,
+      "sha256": "03729f4f2a165af1ea9ff4a199aafde41fb4588187dd69944e2d2e1c4828feda"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 9248,
+      "sha256": "c5a06dd084445025f0e314024b8cff93447da9e34ae33b09994dde2750affcc7"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 17940,
+      "sha256": "97f2ecb356a1bfca910040246f5025e96e9862b5a0c708a55eab69cf635ac1ca"
+    },
+    "build/maia_sched_probe.elf": {
+      "size": 26328,
+      "sha256": "743fdb7d2ff6f63e76f53fad6c132ef09a34dbd90110cb39bb71b3a5f98bc487"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 29540,
+      "sha256": "f469bbac6e25abd217a2c092b0aaff104e5bb0bd8624fd9b768244beec36a508"
+    },
+    "build/CMakeCache.txt": {
+      "size": 22619,
+      "sha256": "4535a78392a00105da1304eadb91df2ad563ba3e840a2677c475028165c952dd"
+    },
+    "build/vdma_transfer_linker.ld": {
+      "size": 2764,
+      "sha256": "1a313fb35935f053e99c7ea7d9d2e9278862c7c898114db2f74cb4b3b78f38be"
+    },
+    "logs/maia-vdma-list-arlen-console.log": {
+      "size": 3672,
+      "sha256": "ed381061d51a0472dc7beb505252c0e2021b5e04ef9780ab9d5c6ba337542c1a"
+    },
+    "logs/maia-vdma-list-console.log": {
+      "size": 2920,
+      "sha256": "aa4987aa2395598c9f0772276b79286717c03d79bf55aa52fc779a15fba85e61"
+    },
+    "logs/maia-vdma-list-config.log": {
+      "size": 1264,
+      "sha256": "962069519e2bf8b082dba23c609f304c576c038a0e7fad90050582e405dd9f62"
+    },
+    "logs/maia-vdma-list-build.log": {
+      "size": 1105,
+      "sha256": "f32632cb0962af23feffb8dd05f6a1b4732da3064ee72d1165edd6d6c7ed6a56"
+    },
+    "logs/maia-vdma-list-sample-console.log": {
+      "size": 3688,
+      "sha256": "7245ecd4c53809080a97b99dec90e0d987a7d382af5720fb9938d9ce05e551ac"
+    },
+    "logs/maia-vdma-list-sample-image.log": {
+      "size": 103,
+      "sha256": "bd34cdf9f9e0124191eeac1abe0a9595e32f99877b85ade52efd37ee00189dd6"
+    },
+    "logs/maia-vdma-list-hardware.log": {
+      "size": 2920,
+      "sha256": "aa4987aa2395598c9f0772276b79286717c03d79bf55aa52fc779a15fba85e61"
+    },
+    "logs/maia-vdma-list-image.log": {
+      "size": 103,
+      "sha256": "bd34cdf9f9e0124191eeac1abe0a9595e32f99877b85ade52efd37ee00189dd6"
+    },
+    "logs/maia-vdma-list-sample-hardware.log": {
+      "size": 3688,
+      "sha256": "7245ecd4c53809080a97b99dec90e0d987a7d382af5720fb9938d9ce05e551ac"
+    },
+    "logs/maia-vdma-list-sample-build.log": {
+      "size": 1105,
+      "sha256": "f32632cb0962af23feffb8dd05f6a1b4732da3064ee72d1165edd6d6c7ed6a56"
+    },
+    "logs/maia-vdma-list-desktop.log": {
+      "size": 3300,
+      "sha256": "44425e3688e8a4b500bfb57cba6e941c8632258c05bb018e4d4bac108b25dbd8"
+    },
+    "logs/maia-vdma-list-arlen-hardware.log": {
+      "size": 3672,
+      "sha256": "ed381061d51a0472dc7beb505252c0e2021b5e04ef9780ab9d5c6ba337542c1a"
+    },
+    "logs/maia-vdma-list-host-build.log": {
+      "size": 1823,
+      "sha256": "3f91d2f00b631ce71277b1efd162e432bf05ddaf84ca4116324a24cfd3b513f7"
+    },
+    "logs/maia-vdma-list-host-test.log": {
+      "size": 4748,
+      "sha256": "4afd3476d37cdeca02a4cff8871026eb3604c606f68b9a38621370731a252530"
+    },
+    "scripts/maia-document-vdma-list.py": {
+      "size": 14547,
+      "sha256": "e8d3d738e17f2f6f26b168cc1113079fd6d04934be13344ac91bb1de479bbe8e"
+    },
+    "scripts/maia-vdma-list-tested-image-sha.txt": {
+      "size": 127,
+      "sha256": "b6e5fa4417dd7cbd697e2d1b52d2001f1a3b19fcca46a3f1a18e821d21e39b55"
+    },
+    "scripts/maia-ldo3-verify-desktop.py": {
+      "size": 1190,
+      "sha256": "4fd9077aa6ee40988bc1557dc74787f875be380523c1139424cfcee2f0417bcd"
+    },
+    "refusals/maia-vdma-list-first-refusal/hardware.log": {
+      "size": 2920,
+      "sha256": "aa4987aa2395598c9f0772276b79286717c03d79bf55aa52fc779a15fba85e61"
+    },
+    "refusals/maia-vdma-list-first-refusal/maia_sched_probe_ram.bin": {
+      "size": 8944,
+      "sha256": "475654aecd3674aecc8f22ac6f113927663be20826032cf18962c216c3e38091"
+    },
+    "refusals/maia-vdma-list-first-refusal/console.log": {
+      "size": 2920,
+      "sha256": "aa4987aa2395598c9f0772276b79286717c03d79bf55aa52fc779a15fba85e61"
+    },
+    "refusals/maia-vdma-list-first-refusal/maia_sched_probe.elf": {
+      "size": 26024,
+      "sha256": "0fa695ed45fc869a7de9b3a1994343f80ef6cce2d738d4b0d74596983be8bc86"
+    },
+    "refusals/maia-vdma-list-first-refusal/CMakeCache.txt": {
+      "size": 22619,
+      "sha256": "4535a78392a00105da1304eadb91df2ad563ba3e840a2677c475028165c952dd"
+    },
+    "refusals/maia-vdma-list-first-refusal/maia_sched_probe.map": {
+      "size": 29359,
+      "sha256": "2af42c9ddf7da82ff67c39fd2ebee796fb74e60b4914d48f7a79ee3323a8a53d"
+    },
+    "refusals/maia-vdma-list-first-refusal/vdma_list_fixture.h": {
+      "size": 1596,
+      "sha256": "e4c035dc2cbbf089bc57f42f1b46cb4581512c9d5ab7eb908e7f05765d046fde"
+    },
+    "refusals/maia-vdma-list-first-refusal/native_vdma_list_probe.c": {
+      "size": 6217,
+      "sha256": "136e870fe2d9dbf0639468530d66b804c897cbd71df1624c905bb77b82b23b20"
+    },
+    "refusals/maia-vdma-list-first-refusal/maia_sched_probe_ram.elf": {
+      "size": 17636,
+      "sha256": "927bf5e1a62cc5b384d0dff7f4078170eee4e2a29a04a17d382a312165e067e1"
+    },
+    "refusals/maia-vdma-list-sample-refusal/hardware.log": {
+      "size": 3688,
+      "sha256": "7245ecd4c53809080a97b99dec90e0d987a7d382af5720fb9938d9ce05e551ac"
+    },
+    "refusals/maia-vdma-list-sample-refusal/maia_sched_probe_ram.bin": {
+      "size": 9088,
+      "sha256": "612f5d90daa074b81426d30149d0611aee71f6896faec68926a056cc2a52ab80"
+    },
+    "refusals/maia-vdma-list-sample-refusal/console.log": {
+      "size": 3688,
+      "sha256": "7245ecd4c53809080a97b99dec90e0d987a7d382af5720fb9938d9ce05e551ac"
+    },
+    "refusals/maia-vdma-list-sample-refusal/maia_sched_probe.map": {
+      "size": 29398,
+      "sha256": "4c8d24dac50f3d9c99b7b2ddbd846e75a039ade8b01e34116d2ece883d51955e"
+    },
+    "refusals/maia-vdma-list-sample-refusal/vdma_list_fixture.h": {
+      "size": 1596,
+      "sha256": "e4c035dc2cbbf089bc57f42f1b46cb4581512c9d5ab7eb908e7f05765d046fde"
+    },
+    "refusals/maia-vdma-list-sample-refusal/native_vdma_list_probe.c": {
+      "size": 6443,
+      "sha256": "73f8537ccdb9312c71931e4062143475be61fe3363ca105067333d6dbab716f0"
+    },
+    "refusals/maia-vdma-list-sample-refusal/maia_sched_probe_ram.elf": {
+      "size": 17780,
+      "sha256": "61f3884e60fb0ef5c792232e9d855005fd9469ce478b2c4357c0b9ee8580859f"
+    },
+    "reference/sdk/components/hal/esp32p4/include/hal/dw_gdma_ll.h": {
+      "size": 41859,
+      "sha256": "56be6ff8351f62027a167f166d6369ed498bfc1fb9da6bd1223971cec25c7a59"
+    },
+    "reference/sdk/components/soc/esp32p4/register/soc/dw_gdma_reg.h": {
+      "size": 325910,
+      "sha256": "441ce2f62aaab1597df1042697d3d76e7571c6384691a58ee3aa595b56f63477"
+    },
+    "reference/sdk/components/hal/include/hal/dw_gdma_types.h": {
+      "size": 3546,
+      "sha256": "ff3ef107e5c64c15652bbe99f780cb5774a707508575da18598aabbb0d7efb96"
+    },
+    "reference/sdk/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h": {
+      "size": 11136,
+      "sha256": "639fe134a7de060e22cc4c8598254c807939e1fdb5a703bbf98c4d907a197df0"
+    },
+    "reference/maia-vdma-trm.txt": {
+      "size": 94443,
+      "sha256": "81a6ed3f42ba776efc23bb9d0659ee58b5f3000f60dd7db8d49ebc86be607ff0"
+    },
+    "reference/maia-esp32p4-rev13-trm.pdf": {
+      "size": 20786220,
+      "sha256": "ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830"
+    }
+  },
+  "actual": {
+    "matched_bytes": 32768,
+    "polls": 4170,
+    "raw": "a5f",
+    "fifo": 0,
+    "status": 0,
+    "common": 0,
+    "source_kept": true,
+    "guards": true,
+    "list_writeback_exact": true,
+    "desktop": "SciCalc14/shell/desktop PASS"
+  },
+  "prior_refusal": {
+    "matched_bytes": 16832,
+    "automatic_arlen_sampling": "8 correct +24 A5 bytes per32-byte group; preserved refusal, not pass"
+  },
+  "sdk_commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "image": {
+    "entry": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 9168
+      }
+    ]
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  }
+}

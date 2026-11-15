@@ -277,3 +277,16 @@ then PSRAM/full framebuffer and native desktop/rotation-input. Diagnostic batch
 uses boot exclusivity/IRQs off, not production scheduling or a continuous stream.
 Prior counter documentation discrepancy, WT no-ACK and underrun threshold413
 limits remain open. Do not activate unused160LLIs as one bridge frame.
+
+### Fixed-source footprint and writable LLI lifecycle qualified in SRAM — 2026-11-15
+
+[List audit](../audits/native-vdma-list.md): automatic ARLEN and source-fixed64bit
+read8correct+24A5 per32byte group; explicit ARLEN_EN1/field0 yields exact8-byte
+repetition on this board. Do not assume source-fixed alone limits memory footprint.
+Earlier solid stage/image still automatic ARLEN; next display use must explicitly
+qualify this source-length field/owned span. Existing red observation remains valid,
+containing tile was owned and first many pixels red. LLI engine writes VALID0,
+per-block count/completion even with SSTAT/DSTAT fetch0; maintain writable/exclusive
+list and verify exact permitted writes before bounded rearm. General burst encoding
+and hardware revision applicability remain open. Spatial pixels/PSRAM/full native
+desktop still untested. Existing160-LLI bridge count limit unchanged.

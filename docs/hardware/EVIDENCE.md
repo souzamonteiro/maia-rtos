@@ -1118,3 +1118,16 @@ records400 finite DMA frames/399 checked rearms/92160000 items/errors0/recovery
 and four9C replies; user explicitly ready before upload and confirmed stable red.
 Single elapsed6109505us sample, not WCET/frequency/all-pixel coverage. Existing
 underrun discard threshold413 unchanged. No foreign runtime; original flash kept.
+
+## Two-block SRAM list fetch, writeback and source AXI length — 2026-11-15
+
+Pinned [DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+and [registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_reg.h),
+CFG0 LIST3/LLP64-byte/master1, CTL0 widths/source/destination increment controls,
+CTL1 ARLEN_EN bit6/ARLEN14:7; [TRM chip1.3 v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+§5.5.4.2 pp334–336 LLI update/writeback/VALID clear, register5.12 p357 burst length,
+§5.5.7 pp337–338 drain. [List audit](../audits/native-vdma-list.md) preserves automatic
+ARLEN data refusal/actual32byte groups and exact successful copy after override
+EN1/field0. SRAM LLIs receive count/status/VALID-clear writes even with peripheral
+status-fetch bits0. Exact32768-byte proof+writeback/guard checks, no display or
+universal burst-encoding inference. No SDK headers/runtime in target.

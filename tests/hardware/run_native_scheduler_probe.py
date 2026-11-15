@@ -754,6 +754,39 @@ def evaluate_dpi_pattern(output):
             positions[6]<lines.index('DPI_PATTERN_LIGHT_RESTORE verified=00000001')<positions[7] and positions[-1]<lines.index('MAIA_NATIVE_DPI_PATTERN_PASS'))
 
 
+def evaluate_vdma_list(output):
+    clean=output.replace('\r','');lines=clean.splitlines()
+    if 'FAIL' in clean or 'FATAL' in clean or lines.count('MAIA_NATIVE_VDMA_LIST_PASS')!=1:return False
+    def rows(prefix,keys,count):
+        selected=[l for l in lines if l.startswith(prefix)]
+        pattern='^'+prefix+' '+' '.join(k+'=([0-9a-f]{8})' for k in keys)+'$'
+        parsed=[re.fullmatch(pattern,l) for l in selected]
+        if len(selected)!=count or any(r is None for r in parsed):return None
+        return [dict(zip(keys,(int(v,16) for v in r.groups()))) for r in parsed]
+    memory=rows('VDMA_LIST_MEMORY','start end source destination list cache_line'.split(),1)
+    words=rows('VDMA_LIST_WORD','index before after'.split(),32)
+    copy=rows('VDMA_LIST_COPY','done polls matched expected source_kept guards list_valid raw fifo status common'.split(),1)
+    idle=rows('VDMA_LIST_IDLE','cfg channels abort preserved'.split(),1)
+    if any(r is None for r in (memory,words,copy,idle)):return False
+    m,c,z=memory[0],copy[0],idle[0];base=m['start'];src=base+128;dst=base+33152
+    if not(base%128==0 and 0x4ff00000<=base and m['end']==base+66048<=0x4ff28000 and
+           m['source']==src and m['destination']==dst and m['list']==src+16384 and m['cache_line'] in (16,32,64,128)):return False
+    expected=[0]*32
+    expected[0]=src;expected[2]=dst;expected[4]=1439;expected[6]=(src+16448)|1;expected[8]=0x1b05;expected[9]=0x80000000
+    expected[16]=src+12288;expected[18]=dst+11520;expected[20]=2655;expected[24]=0x1b15;expected[25]=0xc0000040
+    after=expected.copy();after[9]&=0x7fffffff;after[25]&=0x7fffffff
+    after[12]=1439;after[13]=0x40000000;after[28]=2655;after[29]=0xc0000000
+    if any(r!={'index':i,'before':v,'after':after[i]} for i,(r,v) in enumerate(zip(words,expected))):return False
+    samples=rows('VDMA_LIST_SAMPLE','offset word'.split(),16)
+    if samples is None or any(row!=dict(offset=i*4,word=0x84108410) for i,row in enumerate(samples)):return False
+    if not(c['done']==1 and 1<=c['polls']<=1000000 and c['matched']==c['expected']==32768 and
+           c['source_kept']==c['guards']==c['list_valid']==1 and c['raw']<=0x3fffff and c['fifo']==0 and
+           not c['status']&0x23f7fe0 and c['common']==0 and z==dict(cfg=0,channels=0,abort=0,preserved=1)):return False
+    positions=[i for i,l in enumerate(lines) if l.startswith('VDMA_LIST_')]
+    return ([lines[i].split()[0] for i in positions]==['VDMA_LIST_MEMORY']+['VDMA_LIST_SAMPLE']*16+['VDMA_LIST_WORD']*32+['VDMA_LIST_COPY','VDMA_LIST_IDLE'] and
+            positions[-1]<lines.index('MAIA_NATIVE_VDMA_LIST_PASS'))
+
+
 def evaluate_vdma_count(output):
     clean=output.replace('\r','');lines=clean.splitlines()
     found=re.findall(r'^VDMA_COUNT index=([0-9a-f]{8}) width=([0-9a-f]{8}) items=([0-9a-f]{8}) bytes=([0-9a-f]{8}) matched=([0-9a-f]{8}) raw=([0-9a-f]{8}) status=([0-9a-f]{8}) common=([0-9a-f]{8}) guards=([0-9a-f]{8}) tail=([0-9a-f]{8})$',clean,re.M)
@@ -981,6 +1014,7 @@ def main():
     parser.add_argument('--vo3-cycle', action='store_true', help='guarded VO3 disable/native acquire with host observation windows')
     parser.add_argument('--mipi-gate', action='store_true', help='verify held shared resets and boot MIPI clock gating')
     parser.add_argument('--mipi-park', action='store_true', help='verify reset-state bridge/PHY parking, no live streams')
+    parser.add_argument('--vdma-list', action='store_true', help='qualify two-block SRAM list fetch and exact pixels')
     parser.add_argument('--vdma-count', action='store_true', help='qualify completion counter using SRAM copies')
     parser.add_argument('--vdma-transfer', action='store_true', help='verify owned SRAM DMA copy and active-channel stop')
     parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
@@ -1054,6 +1088,9 @@ def main():
         if args.vdma_transfer or args.vdma_stop or args.vdma_arm_empty:
             parser.error('MIPI park excludes VDMA workloads')
         args.mipi_state = True
+    if args.vdma_list:
+        if args.vdma_count:parser.error('VDMA list excludes count profile')
+        args.vdma_transfer = True
     if args.vdma_count:
         args.vdma_transfer = True
     if args.vdma_transfer:
@@ -1202,7 +1239,7 @@ def main():
         elif args.mipi_park:
             passed = evaluate_mipi_park(output)
         elif args.vdma_transfer:
-            passed = evaluate_vdma_count(output) if args.vdma_count else evaluate_vdma_transfer(output)
+            passed = evaluate_vdma_list(output) if args.vdma_list else evaluate_vdma_count(output) if args.vdma_count else evaluate_vdma_transfer(output)
         elif args.vdma_stop:
             passed = evaluate_vdma_stop(output, args.vdma_arm_empty)
         elif args.mipi_state:
@@ -1217,7 +1254,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

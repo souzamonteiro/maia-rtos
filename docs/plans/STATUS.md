@@ -963,3 +963,24 @@ foreign runtime/parser/timing/rotation change. Diagnostic IRQs off; bounded batc
 is not a production stream. Threshold413 still limits underrun interpretation.
 Next owned finite SRAM pixel tile/source-increment spatial-color qualification;
 PSRAM/full native desktop/rotation-input still pending, installed desktop original.
+
+## Finite SRAM descriptor fetch/copy qualified — 2026-11-15
+
+Read [list audit](../audits/native-vdma-list.md). New isolated VDMA_LIST probe: two finite64-byte LLIs,
+first RGB565720x8 tile source increment11520bytes, second fixed8-byte8410 source
+21248bytes; destination32768 bytes. Initial refusal16832bytes and descriptor
+changes preserved; sampling proves8correct+24A5 per32bytes with automatic ARLEN.
+Explicit second-node ARLEN_EN1/field0 gives exact32768bytes; not a universal AXI
+encoding claim. LLI writeback clears VALID, writes per-block raw counts/status
+(first59F/40000000, tailA5F/C0000000) despite SSTAT/DSTAT fetch disabled. New
+contract requires writable exclusive descriptors, exact expected writeback; no
+arbitrary mutation mask. Guards/source/unrelated peripherals retained; global/
+channels/FIFO0, natural stop1, polls4170, runner PASS. Host43/43+ASan/UBSan PASS,
+runtime gate clean. SHA c5a06dd084445025f0e314024b8cff93447da9e34ae33b09994dde2750affcc7.
+Reset shell/SciCalc14/desktop PASS; no flash/SD/parser/panel/rotation changes.
+Recovery `../maia-rtos-recovery/native-vdma-list-20261115/`. No display pixels
+proven in this unit. Prior solid stage's automatic ARLEN does not prove claimed
+8-byte footprint: red observation holds, containing tile was owned/red, but force/
+qualify explicit source length before future fixed-source reuse. Next <=15-block
+finite spatial display diagnostic with source increment and LLI writeback handling;
+no160-LLI activation. PSRAM/full native desktop/production mapping still pending.

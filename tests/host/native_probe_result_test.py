@@ -692,3 +692,20 @@ assert not runner.evaluate_dpi_dma_frame(refreshed)
 for a,b in [('frames=00000190','frames=0000018f'),('rearms=0000018f','rearms=00000190'),('items=057e4000','items=057e3fff')]:
     assert not runner.evaluate_dpi_dma_refresh(refreshed.replace(a,b))
 print('PASS: bounded400-frame total, checked rearm count and final recovery required')
+
+# Independently constructed SRAM list capture. First node increments RGB565 data;
+# second node repeats a solid source. Missing node/data/idle failures must reject.
+base=0x4ff02000
+linked=f'VDMA_LIST_MEMORY start={base:08x} end={base+66048:08x} source={base+128:08x} destination={base+33152:08x} list={base+16512:08x} cache_line=00000040\n'
+lli=[base+128,0,base+33152,0,1439,0,(base+16576)|1,0,0x1b05,0x80000000,0,0,0,0,0,0,
+     base+12416,0,base+44672,0,2655,0,0,0,0x1b15,0xc0000040,0,0,0,0,0,0]
+for i in range(16):linked+=f'VDMA_LIST_SAMPLE offset={i*4:08x} word=84108410\n'
+observed=lli.copy();observed[9]=0;observed[25]=0x40000040
+observed[12]=1439;observed[13]=0x40000000;observed[28]=2655;observed[29]=0xc0000000
+for i,v in enumerate(lli):linked+=f'VDMA_LIST_WORD index={i:08x} before={v:08x} after={observed[i]:08x}\n'
+linked+='VDMA_LIST_COPY done=00000001 polls=00000010 matched=00008000 expected=00008000 source_kept=00000001 guards=00000001 list_valid=00000001 raw=00000a5f fifo=00000000 status=00000000 common=00000000\nVDMA_LIST_IDLE cfg=00000000 channels=00000000 abort=00000000 preserved=00000001\nMAIA_NATIVE_VDMA_LIST_PASS\n'
+assert runner.evaluate_vdma_list(linked)
+for old,new in [('matched=00008000','matched=00007fff'),('guards=00000001','guards=00000000'),('done=00000001','done=00000000'),('source_kept=00000001','source_kept=00000000'),('status=00000000','status=00002000'),('preserved=00000001','preserved=00000000'),('after=40000040','after=c0000040'),('word=84108410','word=a5a5a5a5')]:
+    assert not runner.evaluate_vdma_list(linked.replace(old,new)),(old,new)
+assert not runner.evaluate_vdma_list(linked+linked)
+assert not runner.evaluate_vdma_count(linked)
