@@ -829,7 +829,7 @@ PSRAM. No full native desktop/POSIX; installed complete desktop still FreeRTOS.
 
 Read [pattern audit](../audits/native-dpi-pattern.md). Native boot-only pattern start/stop requires private
 stage+clock ownership, full cached configuration/root/supply/PHY guards, shadow0,
-bridge/output/DMA inactive. Checked host VPG vertical bars, automatic HS request,
+bridge/output/DMA inactive. Checked SDK vertical VPG mode (owner observed horizontal bars), automatic HS request,
 video mode; exclusive transport BUSY during active pattern. Stop command/LP,
 bounded stopped/empty TX wait, exact VPG restore; partial failure sticky/reboot.
 First attempt had error-free controls but owner saw black. Final diagnostic adds
@@ -844,3 +844,10 @@ Recovery `../maia-rtos-recovery/native-dpi-pattern-20261114/`. Installed full de
 still FreeRTOS; restored shell/SciCalc14/desktop. Host pattern bypasses bridge, so
 no DMA/framebuffer/PSRAM or full native desktop proof. Next guarded bridge/DPI latch
 with output/DMA off, then owned SRAM framebuffer; POSIX remains DESIGN.
+
+Orientation clarification: the owner observed HORIZONTAL stable bars. Production
+`platforms/tab5/main/hal/hal_esp32.cpp:104` uses `LV_DISPLAY_ROTATION_90`, software
+rotation: native panel720x1280, logical desktop1280x720. The host VPG bypasses LVGL
+rotation. Preserve desktop and input-coordinate orientation when implementing
+native framebuffer presentation; verify direction with an asymmetric pattern.
+See [correction](../audits/native-dpi-pattern-orientation.md).

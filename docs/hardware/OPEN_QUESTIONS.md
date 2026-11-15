@@ -211,3 +211,8 @@ bridge; next verify guarded config latch with bridge/output/DMA inactive, then
 owned SRAM DMA-fed pixels. Backlight fixture is temporary DC HIGH, not production
 PWM. Wire RGB565 from framebuffer, PSRAM, cold clocks and full native desktop
 remain separate gates. No measured frequency/color accuracy claim.
+
+Orientation acceptance: owner saw horizontal bars. Production software selects
+LV_DISPLAY_ROTATION_90; validate physical direction and input mapping with an
+asymmetric labeled native framebuffer pattern before desktop acceptance. Do not
+replace panel720x1280 timings with logical1280x720 solely to rotate the UI.

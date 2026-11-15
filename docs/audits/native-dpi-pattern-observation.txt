@@ -10,3 +10,12 @@ Owner: Sim, barras estáveis
 
 This is the owner's visual report, not a screenshot, electrical measurement or
 proof of framebuffer/bridge/DMA pixels. Actual UART captures are separate files.
+
+Subsequent owner clarification, same session:
+“As barras estavam horizontais... lembre que em produção o display gira de90 ou
+-90 graus, não sei bem o sentido.”
+
+Corrected interpretation: stable bars were observed HORIZONTALLY. The earlier
+questions named vertical bars, but that was the agent's wording, not an independent
+orientation measurement. Actual SDK VPG mode BAR_VERTICAL/orientation bit24=0 is
+unchanged. Production source selects LV_DISPLAY_ROTATION_90 with software rotation.

@@ -1,10 +1,30 @@
 # Native DSI host color bars and command recovery — 2026-11-14
 
 **HARDWARE-TESTED, LIMITED; VISIBLE BARS CONFIRMED BY OWNER.** The isolated native
-RAM diagnostic now displays stable vertical color bars without FreeRTOS, DMA,
+RAM diagnostic displays stable color bars, observed horizontally by the owner,
+without FreeRTOS, DMA,
 framebuffer or PSRAM. It then restores command mode, LP clock control, the VPG
 word and GPIO22 configuration; four panel power responses remain9C/error-free.
 This is a host-generated test pattern, not application graphics or a native desktop.
+
+## Orientation correction — owner clarification
+
+The owner subsequently clarified: **“As barras estavam horizontais”**. This
+supersedes the visual orientation inferred from the SDK pattern name and the
+leading wording of the earlier questions. Visible stable bars were confirmed;
+their observed orientation was horizontal. VPG_ORIENTATION24=0 remains the actual
+captured configuration, named BAR_VERTICAL by the SDK. No firmware change or new
+hardware test was made for this documentation correction.
+
+The production baseline `platforms/tab5/main/hal/hal_esp32.cpp:104` explicitly calls
+`lv_display_set_rotation(lvDisp, LV_DISPLAY_ROTATION_90)` with `sw_rotate=true`.
+Keep native panel geometry720x1280 distinct from logical desktop1280x720. The
+native VPG bypasses LVGL and its software rotation. Preserve the production
+orientation and corresponding input-coordinate mapping when native framebuffer
+presentation is implemented; do not infer a clockwise/counterclockwise physical
+view or change hardware timings from the generator's enum name. Verify the final
+mapping with an asymmetric labeled pattern. No native framebuffer rotation is
+implemented by the VPG test. See [correction record](native-dpi-pattern-orientation.md).
 
 ## Evidence and source facts
 
@@ -44,7 +64,7 @@ It checks the cached19 fields/root/supply/PHY/command controls, locked/stopped T
 empty buffers, shadow controls0, bridge/output/DMA/pattern/frameACK off. No adoption
 of an externally configured generator or video stream.
 
-Start makes three individually guarded/read-back stores: fixed vertical VPG,
+Start makes three individually guarded/read-back stores: SDK vertical VPG mode,
 automatic HS clock request, then video mode. Report stages1 guarded/2 generator/
 3 HS clock/4 video, attemptmask7. The transport is reserved while active: read,
 short and long calls return BUSY. Duplicate start is BUSY without MMIO.

@@ -1020,3 +1020,13 @@ DMA, exact stopped command/LP/VPG/GPIO restoration and four9C replies. This prov
 visible native host-pattern output on this board, not bridge/DMA/framebuffer
 pixels, physical80MHz, colorimetry or cold standalone PLL startup. Host41/41 and
 negative/ASan/UBSan checks PASS; original flash firmware preserved/restored.
+
+### Pattern orientation correction — 2026-11-14
+
+Owner clarified the stable native VPG bars appeared HORIZONTAL. The previous
+“vertical” description came from the SDK enum/question wording, not a measured
+screen orientation. Captured VPG_ORIENTATION24=0 remains unchanged. Production
+[HAL at58e8f47](https://github.com/souzamonteiro/maia-rtos/blob/58e8f47/platforms/tab5/main/hal/hal_esp32.cpp#L104)
+selects `LV_DISPLAY_ROTATION_90` and software rotation. Native panel720x1280 and
+logical desktop1280x720 are separate coordinate spaces. No firmware change or
+hardware rerun; see [correction](../audits/native-dpi-pattern-orientation.md).

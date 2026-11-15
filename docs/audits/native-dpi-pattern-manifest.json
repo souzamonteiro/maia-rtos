@@ -2,7 +2,7 @@
   "date": "2026-11-14",
   "parent_commit": "e92305a7ca7fdc63b51a253596f312b720f8a620",
   "status": {
-    "native_host_pattern": "HARDWARE-TESTED LIMITED; final RAM load, stable vertical bars confirmed by owner",
+    "native_host_pattern": "HARDWARE-TESTED LIMITED; stable bars confirmed by owner, subsequently clarified as horizontal; SDK mode BAR_VERTICAL",
     "first_attempt": "black screen without explicit light setup; hash and capture retained, binary replaced",
     "format_clock": "same native RGB565 and PLL240/div3 nominal80MHz, not measured",
     "output": "host VPG only; bridge/output/latch/DMA inactive throughout",
@@ -608,5 +608,10 @@
       "size": 21902,
       "sha256": "12ac68eccd22a02176d150966672ca1a6eac927266f2936e789c91bb56fcf69b"
     }
+  },
+  "orientation_correction": {
+    "record": "docs/audits/native-dpi-pattern-orientation.md",
+    "production_rotation": "LV_DISPLAY_ROTATION_90; sw_rotate=true",
+    "snapshot_note": "source_hashes describe the original archived snapshot before this documentation correction; UART/image/build hashes unchanged"
   }
 }
