@@ -624,3 +624,21 @@ for a,b in [('after=a4000001','after=00000001'),('before=a4000000','before=a4000
     assert not runner.evaluate_dpi_bridge(bridge.replace(a,b)),(a,b)
 assert not runner.evaluate_dpi_bridge(bridge+'DPI_BRIDGE_BOGUS result=00000000\n')
 print('PASS: bridge ownership, WT publication without ACK claim, idle output/DMA and retained power replies required')
+
+tile=bridge+'\nDPI_DMA_TILE_MEMORY start=4ff10000 end=4ff15700 alias=8ff10000 source=4ff10080 list=4ff12e80 source_bytes=00002d00 count=000000a0 list_bytes=00002800 frame_bytes=001c2000 cache_line=00000040 prepared=00000001\n'
+for i in (0,80,159):
+    link=(0x4ff12e80+(i+1)*64)|1 if i<159 else 0
+    ctl1=0x80108840|(0x40000000 if i==159 else 0)
+    tile+=f'DPI_DMA_TILE_ITEM index={i:08x} source=4ff10080 destination=50105000 items=000005a0 next={link:08x} ctl0=001e1b41 ctl1={ctl1:08x} zero=00000001\n'
+a,b=runner.dpi_dma_tile_hashes(0x4ff10080,0x4ff12e80)
+tile+=f'DPI_DMA_TILE_VERIFY source_hash={a:08x} list_hash={b:08x} guards=00000001 preserved=00000001 inert=00000001 repeated_bytes=001c2000\n'
+tile+='\n'.join(l.replace('DPI_BRIDGE_REPLY','DPI_DMA_TILE_REPLY') for l in bridge.splitlines() if l.startswith('DPI_BRIDGE_REPLY '))+'\nMAIA_NATIVE_DPI_DMA_TILE_PASS\n'
+assert runner.evaluate_dpi_dma_tile(tile)
+assert not runner.evaluate_dpi_bridge(tile)
+for a,b in [('source=4ff10080','source=8ff10080'),('end=4ff15700','end=4ff28080'),('count=000000a0','count=0000009f'),
+            ('destination=50105000','destination=50100000'),('ctl0=001e1b41','ctl0=001e1b45'),('ctl1=c0108840','ctl1=80108840'),
+            ('next=00000000','next=4ff12e81'),('guards=00000001','guards=00000000'),('inert=00000001','inert=00000000'),
+            ('cache_line=00000040','cache_line=00000008'),('MAIA_NATIVE_DPI_DMA_TILE_PASS','')]:
+    assert not runner.evaluate_dpi_dma_tile(tile.replace(a,b)),(a,b)
+assert not runner.evaluate_dpi_dma_tile(tile+'DPI_DMA_TILE_BOGUS result=00000000\n')
+print('PASS: finite tile/list NC layout, independent source/list hashes and inert peripherals required')

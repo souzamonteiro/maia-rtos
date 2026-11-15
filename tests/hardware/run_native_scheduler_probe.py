@@ -553,7 +553,8 @@ def evaluate_dpi_clock(output,allow_pattern=False,allow_bridge=False):
             positions[-1]<post[0] and post[-1]<lines.index('MAIA_NATIVE_DPI_CLOCK_PASS'))
 
 
-def evaluate_dpi_bridge(output):
+def evaluate_dpi_bridge(output,allow_tile=False):
+    if not allow_tile and "DPI_DMA_TILE" in output: return False
     if not evaluate_dpi_clock(output,allow_bridge=True): return False
     clean=output.replace('\r','');lines=clean.splitlines()
     def rows(prefix,keys,n):
@@ -578,6 +579,56 @@ def evaluate_dpi_bridge(output):
     positions=[i for i,l in enumerate(lines) if l.startswith(('DPI_BRIDGE_REQUEST ','DPI_BRIDGE_IDLE ','DPI_BRIDGE_REPLY '))]
     return ([lines[i].split()[0] for i in positions]==['DPI_BRIDGE_REQUEST','DPI_BRIDGE_IDLE']+['DPI_BRIDGE_REPLY']*4 and
             lines.index('MAIA_NATIVE_DPI_CLOCK_PASS')<positions[0] and positions[-1]<lines.index('MAIA_NATIVE_DPI_BRIDGE_PASS'))
+
+
+def dpi_dma_tile_hashes(source,base):
+    import struct
+    def fnv(data):
+        h=2166136261
+        for value in data: h=((h^value)*16777619)&0xffffffff
+        return h
+    pixels=b''.join(struct.pack('<H',color)*180 for color in (0xf800,0x07e0,0x001f,0xffe0))*8
+    descriptors=[]
+    for i in range(160):
+        w=[0]*16;w[0]=source;w[2]=0x50105000;w[4]=1439
+        w[6]=(base+(i+1)*64)|1 if i<159 else 0
+        w[8]=0x1e1b41;w[9]=0x80108840|(0x40000000 if i==159 else 0)
+        descriptors.append(struct.pack('<16I',*w))
+    return fnv(pixels),fnv(b''.join(descriptors))
+
+
+def evaluate_dpi_dma_tile(output):
+    if not evaluate_dpi_bridge(output,allow_tile=True): return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    def rows(prefix,keys,n):
+        found=re.findall('^'+prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+        if len(found)!=n or sum(l.startswith(prefix+' ') for l in lines)!=n: return None
+        return [dict(zip(keys,(int(v,16) for v in a))) for a in found]
+    memory=rows('DPI_DMA_TILE_MEMORY','start end alias source list source_bytes count list_bytes frame_bytes cache_line prepared'.split(),1)
+    items=rows('DPI_DMA_TILE_ITEM','index source destination items next ctl0 ctl1 zero'.split(),3)
+    verify=rows('DPI_DMA_TILE_VERIFY','source_hash list_hash guards preserved inert repeated_bytes'.split(),1)
+    reply=rows('DPI_DMA_TILE_REPLY','index result stage headers polls word words before after restored status fifo error0 error1'.split(),4)
+    if any(a is None for a in (memory,items,verify,reply)) or lines.count('MAIA_NATIVE_DPI_DMA_TILE_PASS')!=1: return False
+    if any(l.startswith('DPI_DMA_TILE_') and l.split()[0] not in ('DPI_DMA_TILE_MEMORY','DPI_DMA_TILE_ITEM','DPI_DMA_TILE_VERIFY','DPI_DMA_TILE_REPLY') for l in lines): return False
+    m=memory[0];v=verify[0]
+    if not (0x4ff00000<=m['start']<m['end']<=0x4ff28000 and not m['start']&127 and m['end']-m['start']==22272 and
+            m['alias']==m['start']+0x40000000 and m['source']==m['start']+128 and m['list']==m['start']+11904 and
+            m['source_bytes']==11520 and m['count']==160 and m['list_bytes']==10240 and m['frame_bytes']==1843200 and
+            m['cache_line'] in (16,32,64,128) and m['prepared']==1): return False
+    for i,r in zip((0,80,159),items):
+        if not (r['index']==i and r['source']==m['source'] and r['destination']==0x50105000 and r['items']==1440 and
+                r['next']==((m['list']+(i+1)*64)|1 if i<159 else 0) and r['ctl0']==0x1e1b41 and
+                r['ctl1']==(0x80108840|(0x40000000 if i==159 else 0)) and r['zero']==1): return False
+    if not ((v['source_hash'],v['list_hash'])==dpi_dma_tile_hashes(m['source'],m['list']) and
+            v['guards']==v['preserved']==v['inert']==1 and v['repeated_bytes']==m['frame_bytes']): return False
+    for i,r in enumerate(reply):
+        if not (r['index']==i and r['result']==0 and r['stage']==10 and r['headers']==3 and 3<=r['polls']<=10000 and
+                r['words']==1 and r['word']&255==reply[0]['word']&255 and r['word']&0x14==0x14 and r['before']==r['after'] and
+                not r['before']&3 and r['restored']==5 and r['status']&0x97==0x95 and r['fifo']&0xf007f==0x50015 and
+                not r['error0']&0x1fffff and not r['error1']&0x81fff): return False
+    positions=[i for i,l in enumerate(lines) if l.startswith(('DPI_DMA_TILE_MEMORY ','DPI_DMA_TILE_ITEM ','DPI_DMA_TILE_VERIFY ','DPI_DMA_TILE_REPLY '))]
+    return ([lines[i].split()[0] for i in positions]==['DPI_DMA_TILE_MEMORY']+['DPI_DMA_TILE_ITEM']*3+['DPI_DMA_TILE_VERIFY']+['DPI_DMA_TILE_REPLY']*4 and
+            lines.index('MAIA_NATIVE_DPI_BRIDGE_PASS')<positions[0] and positions[-1]<lines.index('MAIA_NATIVE_DPI_DMA_TILE_PASS'))
 
 
 def evaluate_dpi_pattern(output):
@@ -817,6 +868,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
     parser.add_argument('--dpi-bridge', action='store_true', help='prepare bridge and publish update without pixel output/DMA')
     parser.add_argument('--dpi-pattern', action='store_true', help='cycle native host color bars without DMA, restore commands')
     parser.add_argument('--dpi-clock', action='store_true', help='verify/select panel RGB565 then enable inactive DPI clock')
@@ -861,6 +913,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dpi_dma_tile:
+        args.dpi_bridge = True
     if args.dpi_bridge:
         if args.dpi_pattern: parser.error('bridge diagnostic requires clock profile without VPG')
         args.dpi_clock = True
@@ -1001,7 +1055,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dpi_bridge:
+        if args.dpi_dma_tile:
+            passed = evaluate_dpi_dma_tile(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dpi_bridge:
             passed = evaluate_dpi_bridge(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dpi_pattern:
             passed = evaluate_dpi_pattern(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -1051,7 +1107,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

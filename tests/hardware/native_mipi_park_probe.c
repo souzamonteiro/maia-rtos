@@ -44,6 +44,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DPI_BRIDGE
 #include "native_dpi_bridge.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_TILE
+#include "native_dpi_dma_tile.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -344,6 +347,9 @@ void maia_boot_main(void) {
     dpi_clock();
 #ifdef MAIA_NATIVE_PROBE_DPI_BRIDGE
     dpi_bridge();
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_TILE
+    dpi_dma_tile();
+#endif
 #endif
 #ifdef MAIA_NATIVE_PROBE_DPI_PATTERN
     dpi_pattern();

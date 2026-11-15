@@ -1046,3 +1046,22 @@ EN0->1/stage4/mask3/request1, cached config unchanged, MODE1/LP0/DPI19D0/DMAquie
 IRQ_RAW0/PHY15BD/FIFO50015/errors0, four subsequent power9C replies with restored
 controls. Host41/41/negative/sanitizer checks PASS. No pixel/output/latch-completion
 claim; original firmware restored. No new pin/timing/rotation/PLL fact introduced.
+
+### Native SRAM tile/LLI construction, DMA inactive — 2026-11-15
+
+Pinned SDKf5c3654 [LLI layout/setters](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h),
+[register types](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_struct.h),
+[enums](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/include/hal/dw_gdma_types.h),
+[map](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/reg_base.h),
+[DPI initializer](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_panel_dpi.c):
+64-byte item layout,64-bit source/master1 increment and DSI/master0 fixed50105000,
+LLP physical/master1, count-minus1, control width/burst fields, valid/last31/30.
+Original native MIT encoder; host-only SDK types oracle confirms fields/map.
+Memory/cache ROM facts reuse TRMchip1.3v0.4 §7.3.1 pp451–454 and pinned ROM bindings
+from [earlier DMA proof](../audits/native-vdma-transfer.md); no new cache API fact.
+
+[Audit/captures/manifest](../audits/native-dpi-dma-tile.md) records one RAM load:
+22,272byte owned NOLOAD reservation and NC-only fill/readback of11,520byte tile plus
+160LLIs, hashes/guards match independent host model, peripheral snapshots unchanged,
+DMA inactive and four power9C/error-free replies. Host42/42 plus sanitizers/mutants/
+SDK oracle PASS. No engine descriptor fetch/transfer/live latch/pixel/PSRAM claim.

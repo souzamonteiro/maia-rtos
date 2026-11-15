@@ -228,3 +228,14 @@ Full720x1280 RGB565 frame1,843,200bytes exceeds the tested RAM-image window. Do 
 assume PSRAM or unverified SRAM. Consider verified region capacity or a documented
 repeating source. Preserve logical1280x720 rotation/input contract and horizontal
 bar observation. Full native desktop/cold PLL/POSIX remain pending.
+
+### Finite repeated-tile descriptors built; fetch/flow still pending — 2026-11-15
+
+[Tile/list audit](../audits/native-dpi-dma-tile.md) verifies CPU-only construction
+and readback in owned SRAM. Next stage channel/LLP/peripheral handshakes/bridge
+flow controls inactive, then actual fetch, finite stop and visible pixels. Confirm
+engine valid/LAST/LLP termination semantics despite SDK marker-helper shadow-only
+comment versus its use in DPI linked-list setup. Address destination50105000.
+No engine has accessed the tile/list; writeback/lifetime/stop/cache ownership must
+be established before enabling. Full framebuffer/PSRAM/rotation/input/native apps
+remain separate. No source/header/runtime FreeRTOS dependency introduced.

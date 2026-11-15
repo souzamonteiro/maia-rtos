@@ -934,3 +934,26 @@ and inactive staging before pixels; full frame1,843,200bytes cannot fit the test
 RAM-image window. PSRAM and full native desktop pending; installed complete desktop
 still FreeRTOS. Logical1280x720/productionLV_DISPLAY_ROTATION_90 and owner's
 horizontal visible-pattern clarification retained. POSIX remains DESIGN.
+
+## Owned SRAM tile and finite DMA descriptors, no engine activation — 2026-11-15
+
+Read [tile/list audit](audits/native-dpi-dma-tile.md). New private SoC pure plan/encoder validates bounded
+RGB565 geometry, disjoint/aligned diagnostic SRAM capacities and item indices.
+Source8rows/11,520bytes reused by160x64-byte LLIs, finite tail0/LAST only tail,
+source/list master1, DSI destination50105000/master0/fixed,64-bit/item counts.
+Host-only independent pinned SDK types/map oracle confirms constants. No target
+SDK headers/runtime/allocator imported. Opt-in22,272byte NOLOAD reservation outside
+BSS/stack, ROM cache WB/invalidate only owned range, then CPU-only NC access.
+One RAM load: reserve4FF0FC80..4FF15380, source4FF0FD00/list4FF12B00/cacheline64;
+source hashE18C2E45/listF8CAF0B9 independently match, guards/preserved/inert1.
+All160 items read back,3 samples correct; four power9C reads/errors0/restored.
+No DMA register programming or LLP publication/channel/video/pixel enable. Thus
+HARDWARE-TESTED memory construction only, not descriptor fetch/pixels/PSRAM.
+Host42/42/ASan+UBSan/C++98/six rejected mutants/invalid profile/oracle PASS; runtime
+gate clean. Image SHA dfc11fe6b6012e7411e3cfaac2175c80383ee53ca307ab9ccc18d5a85d69f57b.
+Shell/SciCalc14/desktop restored; no flash/SD/parser/table/timing/rotation changes.
+Recovery `../maia-rtos-recovery/native-dpi-dma-tile-20261115/`. Next checked inactive
+channel/list/handshake/bridge flow staging, then bounded transfer/stop/pixels.
+Full installed desktop still FreeRTOS; native diagnostic independent. Keep owner's
+horizontal-bar observation and logical1280x720/software90 rotation contract; POSIX
+DESIGN. SDK marker-helper comment ambiguity remains for future actual fetch gate.
