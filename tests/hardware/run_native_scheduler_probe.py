@@ -508,7 +508,8 @@ def evaluate_dpi_stage(output, allow_clock=False):
             positions[-1]<next(i for i,l in enumerate(lines) if l.startswith('DSI_DPI_IDLE '))<reply_at[0] and reply_at[-1]<lines.index('MAIA_NATIVE_DPI_STAGE_PASS'))
 
 
-def evaluate_dpi_clock(output):
+def evaluate_dpi_clock(output,allow_pattern=False):
+    if not allow_pattern and ("DPI_PATTERN" in output): return False
     if not evaluate_dpi_stage(output,allow_clock=True): return False
     clean=output.replace('\r','');lines=clean.splitlines()
     def row(prefix,keys,count):
@@ -549,6 +550,47 @@ def evaluate_dpi_clock(output):
     post=[i for i,l in enumerate(lines) if l.startswith('DPI_CLOCK_REPLY ')]
     return (lines.index('MAIA_NATIVE_DPI_STAGE_PASS')<positions[0] and positions[7]<selected<clock<idle_at<positions[8] and
             positions[-1]<post[0] and post[-1]<lines.index('MAIA_NATIVE_DPI_CLOCK_PASS'))
+
+
+def evaluate_dpi_pattern(output):
+    if not evaluate_dpi_clock(output,allow_pattern=True): return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    def rows(prefix,keys,n):
+        found=re.findall('^'+prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys)+'$',clean,re.M)
+        if len(found)!=n or sum(l.startswith(prefix+' ') for l in lines)!=n: return None
+        return [dict(zip(keys,(int(v,16) for v in a))) for a in found]
+    light=rows('DPI_PATTERN_LIGHT','out_before enable_before pad_before mux_before matrix_before out enable pad mux matrix'.split(),1)
+    if light is None or lines.count('DPI_PATTERN_LIGHT_RESTORE verified=00000001')!=1: return False
+    z=light[0]
+    if not (z['out']==z['out_before']|0x400000 and z['enable']==z['enable_before']|0x400000 and
+            z['pad']==z['pad_before']&~4 and z['mux']==(z['mux_before']&~0x7000)|0x1000 and
+            z['matrix']==(z['matrix_before']&~0xfff)|0x500): return False
+    keys='result stage attempted pattern mode lp shadow polls status fifo error0 error1'.split()
+    start=rows('DPI_PATTERN_START',keys,1);stop=rows('DPI_PATTERN_STOP',keys,1)
+    hold=rows('DPI_PATTERN_HOLD','index mode pattern lp status fifo error0 error1 inactive exclusive'.split(),5)
+    reply=rows('DPI_PATTERN_REPLY','index result stage headers polls word words before after restored status fifo error0 error1'.split(),4)
+    if any(a is None for a in (start,stop,hold,reply)) or lines.count('MAIA_NATIVE_DPI_PATTERN_PASS')!=1: return False
+    if any(l.startswith('DPI_PATTERN_') and l.split()[0] not in ('DPI_PATTERN_LIGHT','DPI_PATTERN_LIGHT_RESTORE','DPI_PATTERN_START','DPI_PATTERN_HOLD','DPI_PATTERN_STOP','DPI_PATTERN_REPLY') for l in lines): return False
+    a=start[0];b=stop[0]
+    def errors(r): return not (r['error0']&0x1fffff or r['error1']&0x81fff) and r['status']&1
+    if not (a['result']==0 and a['stage']==4 and a['attempted']==7 and a['pattern']&0x111ffff==0x1bf02 and
+            a['mode']==0 and a['lp']&3==3 and a['shadow']==0 and a['polls']==0 and errors(a)): return False
+    if not (b['result']==0 and b['stage']==5 and b['attempted']==7 and b['pattern']==a['pattern']&~0x1110000 and
+            b['mode']==1 and b['lp']==a['lp']&~3 and b['shadow']==0 and 1<=b['polls']<=10000 and errors(b) and
+            b['status']&0x97==0x95 and b['fifo']&0xf007f==0x50015): return False
+    for i,r in enumerate(hold):
+        if not (r['index']==i and r['mode']==a['mode'] and r['pattern']==a['pattern'] and r['lp']==a['lp'] and
+                r['inactive']==r['exclusive']==1 and errors(r)): return False
+    for i,r in enumerate(reply):
+        if not (r['index']==i and r['result']==0 and r['stage']==10 and r['headers']==3 and 3<=r['polls']<=10000 and
+                r['words']==1 and r['word']&255==reply[0]['word']&255 and r['word']&0x14==0x14 and
+                r['before']==r['after'] and not r['before']&3 and r['restored']==5 and r['status']&0x97==0x95 and
+                r['fifo']&0xf007f==0x50015 and errors(r)): return False
+    positions=[i for i,l in enumerate(lines) if l.startswith(('DPI_PATTERN_START ','DPI_PATTERN_HOLD ','DPI_PATTERN_STOP ','DPI_PATTERN_REPLY '))]
+    names=[lines[i].split()[0] for i in positions]
+    return (names==['DPI_PATTERN_START']+['DPI_PATTERN_HOLD']*5+['DPI_PATTERN_STOP']+['DPI_PATTERN_REPLY']*4 and
+            lines.index('MAIA_NATIVE_DPI_CLOCK_PASS')<next(i for i,l in enumerate(lines) if l.startswith('DPI_PATTERN_LIGHT '))<positions[0] and
+            positions[6]<lines.index('DPI_PATTERN_LIGHT_RESTORE verified=00000001')<positions[7] and positions[-1]<lines.index('MAIA_NATIVE_DPI_PATTERN_PASS'))
 
 
 def evaluate_vdma_transfer(output):
@@ -747,6 +789,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--dpi-pattern', action='store_true', help='cycle native host color bars without DMA, restore commands')
     parser.add_argument('--dpi-clock', action='store_true', help='verify/select panel RGB565 then enable inactive DPI clock')
     parser.add_argument('--dpi-stage', action='store_true', help='stage inactive RGB565 DPI format/clock/timing and retain panel reads')
     parser.add_argument('--panel-power', action='store_true', help='bounded RDDPM before/after native ST7121 startup')
@@ -789,6 +832,8 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.dpi_pattern:
+        args.dpi_clock = True
     if args.dpi_clock:
         args.dpi_stage = True
     if args.dpi_stage:
@@ -924,7 +969,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dpi_clock:
+        if args.dpi_pattern:
+            passed = evaluate_dpi_pattern(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
+        elif args.dpi_clock:
             passed = evaluate_dpi_clock(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
         elif args.dpi_stage:
             passed = evaluate_dpi_stage(output) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -970,7 +1017,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

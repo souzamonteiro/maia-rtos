@@ -884,3 +884,23 @@ DBI16-bit readback is not actual wire/pixel proof; supplier ST7121P suffix unpro
 and its datatype table lists24-bit only. Working BSP/M5GFX use565; next guarded
 latch/native test pattern (noDMA) to prove pixels/compatibility before framebuffer/
 PSRAM. No full native desktop/POSIX; installed complete desktop still FreeRTOS.
+
+## Native host color bars visible; bounded return to commands — 2026-11-14
+
+Read [pattern audit](audits/native-dpi-pattern.md). Native boot-only pattern start/stop requires private
+stage+clock ownership, full cached configuration/root/supply/PHY guards, shadow0,
+bridge/output/DMA inactive. Checked host VPG vertical bars, automatic HS request,
+video mode; exclusive transport BUSY during active pattern. Stop command/LP,
+bounded stopped/empty TX wait, exact VPG restore; partial failure sticky/reboot.
+First attempt had error-free controls but owner saw black. Final diagnostic adds
+private saved/restored GPIO22 DC HIGH lighting (Tab5 PDF p12 G22/LEDA, pinned GPIO
+fields); owner confirmed stable bars. Final native RAM SHA22fa5cedf860437a2f1ec529
+1119654cecab8008a6d0d452e3f8c1a84e4a91b2. VID1BF02/MODE0/LP3 for5 samples,
+PHY1529/15B9/errors0; stop VIDBF02/MODE1/LP0 in1 poll, GPIO restored,4 power9C
+responses/errors0/controls restored. Bridge/update/output/DMA stayed inactive.
+Host41/41, two ASan+UBSan fixtures, C++98, six rejected runtime mutants and invalid
+profile PASS; native runtime gate clean. No flash/SD/parser/table/timing changes.
+Recovery `../maia-rtos-recovery/native-dpi-pattern-20261114/`. Installed full desktop
+still FreeRTOS; restored shell/SciCalc14/desktop. Host pattern bypasses bridge, so
+no DMA/framebuffer/PSRAM or full native desktop proof. Next guarded bridge/DPI latch
+with output/DMA off, then owned SRAM framebuffer; POSIX remains DESIGN.

@@ -1,5 +1,5 @@
 /* Boot MIPI/DSI diagnostics: default reset parking; opt-in supply/PHY setup and
- * LP NOP packet framing. No video, framebuffer or PSRAM initialization. */
+ * LP packets and opt-in host color bars. No framebuffer or PSRAM initialization. */
 #include <maia/console.h>
 #include <maia/drivers/serial_rx.h>
 #include <maia/soc/esp32p4_mipi_park.h>
@@ -37,6 +37,9 @@ static void halt(const char *reason) {
 #endif
 #ifdef MAIA_NATIVE_PROBE_DPI_CLOCK
 #include "native_dpi_clock.h"
+#endif
+#ifdef MAIA_NATIVE_PROBE_DPI_PATTERN
+#include "native_dpi_pattern.h"
 #endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
@@ -336,6 +339,9 @@ void maia_boot_main(void) {
     dpi_stage();
 #ifdef MAIA_NATIVE_PROBE_DPI_CLOCK
     dpi_clock();
+#ifdef MAIA_NATIVE_PROBE_DPI_PATTERN
+    dpi_pattern();
+#endif
 #endif
 #endif
 #endif

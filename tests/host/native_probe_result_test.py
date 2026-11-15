@@ -589,3 +589,26 @@ initial_zero=clocked
 for i in range(4): initial_zero=initial_zero.replace(dpi_color_row(0,i,7),dpi_color_row(0,i,0))
 initial_zero=initial_zero.replace('DPI_COLOR_SELECT before=00000007','DPI_COLOR_SELECT before=00000000')
 assert runner.evaluate_dpi_clock(initial_zero)
+
+# Synthetic schema fixtures only; never hardware evidence.
+patterned=clocked+'\nDPI_PATTERN_LIGHT out_before=00000000 enable_before=00000000 pad_before=00000004 mux_before=00007200 matrix_before=0000007f out=00400000 enable=00400000 pad=00000000 mux=00001200 matrix=00000500\n'+('DPI_PATTERN_START result=00000000 stage=00000004 attempted=00000007 pattern=0001bf02 mode=00000000 lp=00000003 shadow=00000000 polls=00000000 status=00001591 fifo=00050015 error0=00000000 error1=00000000\n')
+for i in range(5):
+    patterned+=f'DPI_PATTERN_HOLD index={i:08x} mode=00000000 pattern=0001bf02 lp=00000003 status=00001591 fifo=00050015 error0=00000000 error1=00000000 inactive=00000001 exclusive=00000001\n'
+patterned+='DPI_PATTERN_STOP result=00000000 stage=00000005 attempted=00000007 pattern=0000bf02 mode=00000001 lp=00000000 shadow=00000000 polls=00000002 status=00001595 fifo=00050015 error0=00000000 error1=00000000\n'
+patterned+='DPI_PATTERN_LIGHT_RESTORE verified=00000001\n'
+patterned+='\n'.join(l.replace('DPI_CLOCK_REPLY','DPI_PATTERN_REPLY') for l in clocked.splitlines() if l.startswith('DPI_CLOCK_REPLY '))+'\nMAIA_NATIVE_DPI_PATTERN_PASS\n'
+assert runner.evaluate_dpi_pattern(patterned)
+assert not runner.evaluate_dpi_clock(patterned)
+for a,b in [('pattern=0001bf02','pattern=0011bf02'),('lp=00000003','lp=00000001'),
+            ('inactive=00000001','inactive=00000000'),('exclusive=00000001','exclusive=00000000'),
+            ('shadow=00000000','shadow=00000001'),('polls=00000002 status=00001595','polls=00000000 status=00001595'),
+            ('DPI_PATTERN_STOP result=00000000','DPI_PATTERN_STOP result=00000001'),
+            ('DPI_PATTERN_HOLD index=00000003','DPI_PATTERN_HOLD index=00000004'),
+            ('MAIA_NATIVE_DPI_PATTERN_PASS',''),('DPI_PATTERN_START result=00000000','DPI_PATTERN_START result=00000000 error0=00000000')]:
+    assert not runner.evaluate_dpi_pattern(patterned.replace(a,b)),(a,b)
+assert not runner.evaluate_dpi_pattern(patterned.replace('DPI_PATTERN_HOLD index=00000003 mode=00000000','DPI_PATTERN_HOLD index=00000003 mode=00000001'))
+assert not runner.evaluate_dpi_pattern(patterned+'DPI_PATTERN_BOGUS result=00000000\n')
+print('PASS: native VPG start/hold/stop/reply order, exclusive transport, inactive DMA and restored LP required')
+
+for a,b in [('out=00400000','out=00400001'),('matrix=00000500','matrix=00000100'),('mux=00001200','mux=00007200'),('DPI_PATTERN_LIGHT_RESTORE verified=00000001','')]:
+    assert not runner.evaluate_dpi_pattern(patterned.replace(a,b))

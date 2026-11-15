@@ -999,3 +999,24 @@ four post-clock color05 and power9C responses each/errors0/restored controls.
 runtime gate clean; shell/SciCalc14/desktop recovered. No flash/SD/parser/table
 changes. Logical gates/model80MHz only, provider-off branch host-only; no measured
 frequency/live latch/pixels/DMA/framebuffer/PSRAM/full native desktop proof.
+
+### Native host VPG, illumination and command recovery — 2026-11-14
+
+Primary pinned SDKf5c3654 [DSI host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h)
+`dpi_set_pattern_type`, `set_clock_lane_state`, `enable_video_mode` and
+[host register definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_host_reg.h):
+VPG16/mode20/orientation24 at+38, AUTOclockbits1:0 at+94, command/video0 at+34,
+shadow controls+100. [SDK pattern selector](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_panel_dpi.c)
+uses host VPG with bridge DPI output off. [Tab5 PDF](https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/static/pdf/static/en/core/Tab5.pdf)
+update2026-11-05 p12 G22/LEDA, preserved BSPe92305a DC HIGH100%; pinned
+[GPIO fields](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/gpio_reg.h)
+output256/OEN10/invert9,11/OD2 and [mux](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/io_mux_reg.h)
+MCU_SEL14:12=1. New native transition/light code original MIT, parameter facts only.
+
+[Audit/captures/owner observation/manifest](../audits/native-dpi-pattern.md) record
+first black screen and final stable bars confirmed by owner after temporary native
+GPIO22 illumination. Final one RAM load, five samples/errors0, no bridge/update/
+DMA, exact stopped command/LP/VPG/GPIO restoration and four9C replies. This proves
+visible native host-pattern output on this board, not bridge/DMA/framebuffer
+pixels, physical80MHz, colorimetry or cold standalone PLL startup. Host41/41 and
+negative/ASan/UBSan checks PASS; original flash firmware preserved/restored.

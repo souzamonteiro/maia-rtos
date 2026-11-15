@@ -24,6 +24,9 @@ static const uint32_t dpi_test_masks[]={3,0x10F,0x1F,0xBF03,0x3FFF,0x1FFF,0x1FFF
 static const uint32_t dpi_test_values[]={0,0,0,0xBF02,720,0,0,3,60,1203,20,24,200,1280,2,0x050005F4,0x00140018,0x02D00322,0x00020028};
 static uint32_t dpi_regs[19],dpi_old[19],dpi_root;
 static unsigned dpi_drop,dpi_drift,dpi_fault_after,clock_writes,clock_drop,clock_drift,clock_fault;
+static unsigned pattern_writes,pattern_drop,pattern_drift,pattern_fault,pattern_idle_reads,pattern_timeout;
+static uint32_t pattern_shadow;
+static maia_dsi_command_report_t command_report;
 static maia_dsi_access_report_t report;
 static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
 static maia_dsi_reference_report_t ref;
@@ -39,7 +42,13 @@ static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;
- if (reference_mode == 7U || reference_mode == 8U) {
+ if (reference_mode == 9U && address == MAIA_ESP32P4_DSI_HOST_BASE+0x100U) return pattern_shadow;
+ if (reference_mode == 9U && address == MAIA_ESP32P4_DSI_HOST_BASE+0xB0U) {
+  if (!(regs[34]&1U) || (regs[31]&3U)) return 0x1591;
+  if (pattern_writes>=5U && (pattern_timeout || pattern_idle_reads++<2U)) return 0x1591;
+  return 0x1595;
+ }
+ if (reference_mode == 7U || reference_mode == 8U || reference_mode == 9U) {
   for (unsigned i=0;i<19U;++i) if (address == dpi_extra_addresses[i]) {
    assert((regs[2]&0x13U)==3 && (regs[1]&0x1000U));return dpi_regs[i];
   }
@@ -94,6 +103,25 @@ int maia_ldo3_test_context(void) { return (int)context; }
 uint32_t maia_ldo3_test_read(uintptr_t address) { return maia_dsi_access_test_read(address); }
 void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
  ++writes;assert(writes<=41U);
+ if (reference_mode == 9U) {
+  static const uintptr_t order[]={MAIA_ESP32P4_DSI_HOST_BASE+0x38U,MAIA_ESP32P4_DSI_HOST_BASE+0x94U,
+   MAIA_ESP32P4_DSI_HOST_BASE+0x34U,MAIA_ESP32P4_DSI_HOST_BASE+0x34U,
+   MAIA_ESP32P4_DSI_HOST_BASE+0x94U,MAIA_ESP32P4_DSI_HOST_BASE+0x38U};
+  uint32_t expected[]={ (dpi_old[3]&~0x1110000U)|0x10000U,values[13]|3U,
+   values[0]&~1U,values[0],values[13],dpi_old[3] };
+  unsigned n=pattern_writes++;assert(n<6 && address == order[n]);
+  /* Full upper bits of inherited LP/mode values are preserved. */
+  uint32_t mode=command_report.after[0],lp=command_report.after[13];
+  expected[1]=lp|3U;expected[2]=mode&~1U;expected[3]=mode;expected[4]=lp;
+  assert(value == expected[n]);
+  if (pattern_writes != pattern_drop) {
+   if (n == 0U || n == 5U) dpi_regs[3]=value;
+   else regs[n == 1U || n == 4U ? 31U : 34U]=value;
+  }
+  if (pattern_writes == pattern_drift) regs[1]^=0x1000U;
+  if (pattern_writes == pattern_fault) regs[49]=0x20U;
+  return;
+ }
  if (reference_mode == 8U) {
   ++clock_writes;assert(address == DSI_REF_DIV || address == DSI_PHY);
   unsigned index=address == DSI_REF_DIV ? 26 : 2;
@@ -207,7 +235,6 @@ static void setup_phy(void) {
  regs[30]=0xABCD1200;regs[31]=0x40000000;regs[32]=0x40000001;regs[33]=0x8000EE00;
 }
 static maia_dsi_access_result_t phy(unsigned budget) { return maia_esp32p4_dsi_phy960(budget,&phy_report); }
-static maia_dsi_command_report_t command_report;
 static void setup_command(int matching) {
  setup_phy();assert(phy(8) == MAIA_DSI_ACCESS_OK);
  reference_mode=4;reads=writes=0;
@@ -265,6 +292,19 @@ static void setup_clock(unsigned provider_on) {
  assert(maia_esp32p4_dsi_dpi_stage(&timing,&staged) == MAIA_DSI_ACCESS_OK);
  reference_mode=8;writes=reads=clock_writes=clock_drop=clock_drift=clock_fault=0;
 }
+static maia_dsi_dpi_pattern_report_t patterned;
+static void setup_pattern(void) {
+ setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+ reference_mode=9;reads=writes=pattern_writes=pattern_drop=pattern_drift=pattern_fault=pattern_idle_reads=pattern_timeout=0;
+ pattern_shadow=0;dpi_old[3]=dpi_regs[3];
+}
+static maia_dsi_access_result_t pattern_start(void) { return maia_esp32p4_dsi_dpi_pattern_start(&patterned); }
+static maia_dsi_access_result_t pattern_stop(unsigned n) { return maia_esp32p4_dsi_dpi_pattern_stop(n,&patterned); }
+static void pattern_failed(void) {
+ unsigned a=reads,b=writes;
+ assert(pattern_start() == MAIA_DSI_ACCESS_FAILED && pattern_stop(20) == MAIA_DSI_ACCESS_FAILED);
+ fail_sticky();assert(a == reads && b == writes);
+}
 int main(void) {
  setup_dpi();assert(maia_esp32p4_dsi_dpi_stage(NULL,&staged) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
  assert(maia_esp32p4_dsi_dpi_stage(&timing,NULL) == MAIA_DSI_ACCESS_INVALID);
@@ -321,5 +361,43 @@ int main(void) {
  setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
  regs[2]&=~0x80U;reference_mode=6;writes=reads=0;
  assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && !writes); /* Clock drift is not adopted. */
+ /* Actual driver VPG cycle, start/stop ordering, six dropped stores, exclusive
+  * transport, shadow/config/source failures, bounded stop and restored reads. */
+ setup_clock(1);assert(pattern_start() == MAIA_DSI_ACCESS_BUSY);
+ setup_pattern();assert(maia_esp32p4_dsi_dpi_pattern_start(NULL) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
+ assert(pattern_stop(0) == MAIA_DSI_ACCESS_INVALID && !reads);
+ assert(maia_esp32p4_dsi_dpi_pattern_stop(1,NULL) == MAIA_DSI_ACCESS_INVALID);
+ context=0;assert(pattern_start() == MAIA_DSI_ACCESS_CONTEXT && !reads);
+ setup_pattern();assert(pattern_start() == MAIA_DSI_ACCESS_OK && patterned.completed == 4 && patterned.attempted_mask == 7);
+ assert(patterned.pattern == ((dpi_old[3]&~0x1110000U)|0x10000U) && !(patterned.mode&1U) && (patterned.lp_clock&3U) == 3U);
+ saved=reads;assert(pattern_start() == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ assert(send(0,0,0,0,20) == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ assert(pattern_stop(100001) == MAIA_DSI_ACCESS_INVALID && reads == saved);
+ assert(pattern_stop(10) == MAIA_DSI_ACCESS_OK && patterned.completed == 5 && patterned.attempted_mask == 7 && patterned.observation.polls == 2);
+ assert(patterned.pattern == dpi_old[3] && patterned.mode == command_report.after[0] && patterned.lp_clock == command_report.after[13]);
+ saved=reads;assert(pattern_stop(10) == MAIA_DSI_ACCESS_BUSY && pattern_start() == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ reference_mode=6;writes=reads=pops=read_phase=phase_polls=0;assert(read_id(20) == MAIA_DSI_ACCESS_OK);
+ for (unsigned n=1;n<=6;++n) {
+  setup_pattern();pattern_drop=n;
+  if (n<=3) assert(pattern_start() == MAIA_DSI_ACCESS_VERIFY);
+  else { assert(pattern_start() == MAIA_DSI_ACCESS_OK);assert(pattern_stop(10) == MAIA_DSI_ACCESS_VERIFY); }
+  assert(pattern_writes == n);pattern_failed();
+ }
+ setup_pattern();pattern_shadow=1;assert(pattern_start() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_pattern();dpi_regs[10]^=1;assert(pattern_start() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_pattern();regs[26]&=~0x40000000U;assert(pattern_start() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_pattern();regs[49]=0x20;assert(pattern_start() == MAIA_DSI_ACCESS_IO && !writes);pattern_failed();
+ for (unsigned n=1;n<=6;++n) {
+  setup_pattern();pattern_drift=n;
+  if (n<=3) assert(pattern_start() == MAIA_DSI_ACCESS_VERIFY);
+  else { assert(pattern_start() == MAIA_DSI_ACCESS_OK);assert(pattern_stop(10) == MAIA_DSI_ACCESS_VERIFY); }
+  assert(pattern_writes == n);pattern_failed();
+ }
+ setup_pattern();assert(pattern_start() == MAIA_DSI_ACCESS_OK);pattern_timeout=1;
+ assert(pattern_stop(2) == MAIA_DSI_ACCESS_TIMEOUT && patterned.observation.polls == 2 && pattern_writes == 5);pattern_failed();
+ setup_pattern();assert(pattern_start() == MAIA_DSI_ACCESS_OK);dpi_regs[4]^=1;
+ assert(pattern_stop(10) == MAIA_DSI_ACCESS_VERIFY && pattern_writes == 3);pattern_failed();
+ setup_pattern();pattern_fault=3;assert(pattern_start() == MAIA_DSI_ACCESS_IO);pattern_failed();
  puts("PASS: actual native DPI staging, exact80MHz route/RGB565/timing,20 dropped stores, drift/errors and sticky guarded refusal");
 }

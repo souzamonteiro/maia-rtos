@@ -254,6 +254,25 @@ typedef struct maia_dsi_dpi_clock_report {
  * Caller owns panel-format validation separately before any pixel activation. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dpi_clock_enable(maia_dsi_dpi_clock_report_t *);
 
+typedef struct maia_dsi_dpi_pattern_report {
+    uint32_t completed,attempted_mask,pattern,mode,lp_clock,shadow;
+    maia_dsi_short_report_t observation;
+} maia_dsi_dpi_pattern_report_t;
+/* Boot/core0/IRQs-off/exclusive, after actual native stage+clock ownership and
+ * BSP panel format validation. Start fixed vertical color bars from host VPG;
+ * require shadow controls zero, cached config/root/supply, idle locked PHY,
+ * bridge/output/DMA off. Three checked stores: VPG enable (mode/orientation0),
+ * automatic HS clock request, video mode. No bridge latch/output, DMA, IRQ or
+ * framebuffer writes. Owns transport exclusively until stop; transfers BUSY.
+ * Stop requires successful start, exact private active snapshot and locked PHY;
+ * command mode, LP clock, bounded wait for stopped/empty TX, restore VPG word.
+ * Budget1..100000 shared stop polls; finite work, no timing/WCET guarantee.
+ * Single cycle per boot; duplicate start/stop BUSY without I/O. Partial failure
+ * sticky FAILED, requires reboot; no retry/rollback. No physical pixel proof.
+ * Required reports initialized. Start failure before writes can be rechecked. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dpi_pattern_start(maia_dsi_dpi_pattern_report_t *);
+maia_dsi_access_result_t maia_esp32p4_dsi_dpi_pattern_stop(uint32_t poll_budget,maia_dsi_dpi_pattern_report_t *);
+
 #ifdef __cplusplus
 }
 #endif

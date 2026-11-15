@@ -4,10 +4,10 @@
 #include <maia/soc/esp32p4_ldo3.h>
 #include "dsi_access_internal.h"
 enum { UNCLAIMED,OWNED,FAULTED };
-static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state,dpi_clock_state;
+static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state,dpi_clock_state,dpi_pattern_state;
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
-void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED;dpi_clock_state=UNCLAIMED; }
+void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED;dpi_clock_state=UNCLAIMED;dpi_pattern_state=UNCLAIMED; }
 #endif
 static int dma_quiet(void) {
     if ((dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&1U) || (dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&15U) ||
@@ -611,3 +611,4 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_color_mode(uint32_t budget,maia_d
 }
 #include "dsi_dpi_stage.h"
 #include "dsi_dpi_clock.h"
+#include "dsi_dpi_pattern.h"

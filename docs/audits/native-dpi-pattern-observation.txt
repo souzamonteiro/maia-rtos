@@ -1,0 +1,12 @@
+Owner visual observations in this session, 2026-11-14 (not automated captures):
+
+Initial diagnostic, no explicit GPIO22 light configuration:
+Question: No teste que acabou de rodar, você viu barras verticais de cor na tela do Tab5?
+Owner: A tela ficou preta ou sem barras
+
+Final diagnostic, GPIO22 temporarily configured HIGH and restored:
+Question: Nesta segunda execução, com a iluminação do LCD ligada pelo teste, apareceram barras verticais de cor?
+Owner: Sim, barras estáveis
+
+This is the owner's visual report, not a screenshot, electrical measurement or
+proof of framebuffer/bridge/DMA pixels. Actual UART captures are separate files.

@@ -201,3 +201,13 @@ or cold PLL startup. Actual provider240 was alreadyon; enable-off branch host-on
   supplierP datatype table lists24-bit, while working BSP/M5GFX useRGB565.
 - [ ] Establish latch/output/ACK strategy while DMA inactive, then memory/cache/
   framebuffer/PSRAM. No register-only visual claim. Full desktop remains legacy.
+
+### Host-generated bars visible; bridge path remains unproven — 2026-11-14
+
+Owner confirmed stable vertical bars after the native RAM test explicitly drove
+GPIO22 HIGH. First attempt without illumination was black despite correct host
+controls. See [pattern audit](../audits/native-dpi-pattern.md). Host VPG bypasses
+bridge; next verify guarded config latch with bridge/output/DMA inactive, then
+owned SRAM DMA-fed pixels. Backlight fixture is temporary DC HIGH, not production
+PWM. Wire RGB565 from framebuffer, PSRAM, cold clocks and full native desktop
+remain separate gates. No measured frequency/color accuracy claim.
