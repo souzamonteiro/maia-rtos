@@ -290,3 +290,16 @@ per-block count/completion even with SSTAT/DSTAT fetch0; maintain writable/exclu
 list and verify exact permitted writes before bounded rearm. General burst encoding
 and hardware revision applicability remain open. Spatial pixels/PSRAM/full native
 desktop still untested. Existing160-LLI bridge count limit unchanged.
+
+### Five-block display accepted; incremental strip visual proof pending — 2026-11-15
+
+[Spatial audit](../audits/native-dpi-dma-spatial.md) confirms400 finite frames,
+five exact writable LLI completion records/rawE0FF/drain, no recorded errors,
+source/tail/guards/recovery intact. Owner saw four large stable bands, did not
+identify the narrow strip at the native display edge. Do not infer all incremental
+pixels were visible. Next move marker toward center and increase thickness within
+checked owned SRAM, preserving timing/native geometry/production rotation, then
+fresh readiness/visual test. PSRAM/full framebuffer/native desktop and production
+scheduler acceptance remain separate. Automatic-ARLEN legacy source footprint,
+threshold413/WT no-ACK and counter documentation discrepancy remain open; spatial
+profile explicitly constrains source ARLEN and uses only five finite descriptors.

@@ -1,0 +1,401 @@
+{
+  "date": "2026-11-15",
+  "parent_commit": "fd5f5836a3a0d527186c77f998c8ae9fa6cadde1",
+  "status": "HARDWARE-TESTED LIMITED; four stable large bands visually confirmed; narrow incremental strip unconfirmed",
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-dpi-spatial-20261115",
+  "files": {
+    "source/CMakeLists.txt": {
+      "size": 47694,
+      "sha256": "1626c38b80f8a968ba5307ba9f71b64ef231fcd6da5de7af894ea6b2b2c8d165"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 74576,
+      "sha256": "e1fe5a145d41b00b312158079bba3c3e06a1193800bdcabe668896da68b2ad81"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 86328,
+      "sha256": "39d2d39da12beb85ab69f963044dbd32237ecf676baa9aade2574ad82fa8e0fa"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 26890,
+      "sha256": "f4bf861c15c63fea3e086670ae19b8d00a88c4acfe4e70f5a7bc5c7c263959bf"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 72523,
+      "sha256": "7d4ef59775731879ccd4ef75033ead1364c3170e7479b9c59a1931804c5254e4"
+    },
+    "source/soc/espressif/esp32p4/dsi_dma_frame.h": {
+      "size": 15367,
+      "sha256": "cabb515f5297cdd4d63bb3770c9d0ed086313c79c66d276ec7925ebc44c27741"
+    },
+    "source/soc/espressif/esp32p4/dsi_dma_stage.h": {
+      "size": 5744,
+      "sha256": "d12492ad68987361e92be7c10180c31897f30f4d5f5858486dd7acc76ed65f95"
+    },
+    "source/soc/espressif/esp32p4/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "source/tests/hardware/native_mipi_park_probe.c": {
+      "size": 25846,
+      "sha256": "f9c164b8b97657b7070a48d5cd274390865cbcb9aba861b3c92cb39717fb5fe5"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 94101,
+      "sha256": "51b6bfdba33228e1653c7fa49f79330162e3aad9db60cbb3dd1766cead9ae637"
+    },
+    "source/tests/host/dsi_dpi_test.c": {
+      "size": 45777,
+      "sha256": "3e7b68fc4f66d42c243c92fbab86ad811b30b5e486a09bc33369d909055fccaf"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 59625,
+      "sha256": "b739726df65cd47fecb489378a228df8fcf2719bb93da5ad9bace4a2639eff0b"
+    },
+    "source/docs/audits/native-dpi-dma-spatial-desktop.txt": {
+      "size": 3245,
+      "sha256": "50b5922916555e5b3e1b7aee65398f70b3fad38bd7839473cc92e98bd8f1b737"
+    },
+    "source/docs/audits/native-dpi-dma-spatial-hardware.txt": {
+      "size": 35368,
+      "sha256": "97280f103e59e863be250536b009d9d0a1e737bd0cbcafc732033968dbbf9275"
+    },
+    "source/docs/audits/native-dpi-dma-spatial-observation.txt": {
+      "size": 595,
+      "sha256": "1e539f4a07f23f7b6cb0ce316778f50be2d55d9776e25bf6dd2c5bd6a6e782e1"
+    },
+    "source/docs/audits/native-dpi-dma-spatial.md": {
+      "size": 10206,
+      "sha256": "41ef2b11fe376520be6463ebc0acd79a0816beb5baa50dad0ee922eb2727523e"
+    },
+    "source/soc/espressif/esp32p4/dsi_dma_spatial_probe.h": {
+      "size": 2483,
+      "sha256": "c45154ec0c9bb1f7a861b6d32d34dddb34023aef7940526afd98246d8354ff8b"
+    },
+    "source/tests/hardware/native_dpi_dma_spatial.h": {
+      "size": 5782,
+      "sha256": "62a38b1e104e208ce8061e1decf03d52299001eb4bae3b3222b4d91acf907cbd"
+    },
+    "source/tests/host/dsi_spatial_plan_test.c": {
+      "size": 1519,
+      "sha256": "f1657f4c5cca911b6cb3d85c3cbc9e32e3e4685cc0e9fb18fd304259ba6e881b"
+    },
+    "source/include/maia/soc/esp32p4_dsi_access.h": {
+      "size": 25311,
+      "sha256": "b6b679b7bbb880fb5d0ac7d16e977eacf5f846ce1eb94032c73bb28462b08f64"
+    },
+    "source/soc/espressif/esp32p4/dsi_access_internal.h": {
+      "size": 1430,
+      "sha256": "100fbcf083fa1aebdda9e8b0903eb47fd9fc897af6923df17cbc14be8fd23c04"
+    },
+    "source/tests/hardware/native_dpi_dma_tile.h": {
+      "size": 5639,
+      "sha256": "dc99dced59b5b3cfa5a034a92be65b12e5edfb92858d924c2dc9af9ba5c46833"
+    },
+    "source/tests/hardware/native_dpi_dma_memory.ld.in": {
+      "size": 600,
+      "sha256": "400c136441701aeb9b5577d4c741aeb9ae8be9c62bdad2d28c684c7ce4843382"
+    },
+    "source/tests/hardware/dpi_backlight_fixture.h": {
+      "size": 2986,
+      "sha256": "42797e13f0ded36e8446fec7838edfb584e595b2fe1a96d7c0b19b917fbba7a3"
+    },
+    "source/boards/m5stack/tab5/linker.ld": {
+      "size": 2127,
+      "sha256": "d94afd9cd91e06c6976638c4f968c70afcc1754ba502748c98afb1cb8701ec87"
+    },
+    "build/maia_sched_probe.elf": {
+      "size": 89120,
+      "sha256": "ceb1c5113413e613baa1bc7f30cacedd5a270a432c30211a637cad34e8f435d6"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 80732,
+      "sha256": "30a973b78e8c55b9c45f5cbe979e08ca6e1999592cb3dd3ef78318b8508fcc46"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 66352,
+      "sha256": "b2ae7a91e8f42a93283d39349cd639ca58df4b76db58a6f810b415f3e83a7648"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 58844,
+      "sha256": "23eb28f03c71830cd1144d8b7b28a49e3dfc1bbc9c3ec1e15f0c3cf24d4b3b1d"
+    },
+    "build/CMakeCache.txt": {
+      "size": 22701,
+      "sha256": "52b629a979cf862be474bb2a11cfc3c3a36234b62b5956decc31b71f66a1e8e6"
+    },
+    "build/vdma_transfer_linker.ld": {
+      "size": 2728,
+      "sha256": "f9148dffd35b97e33b77f4f420038695e99ec7f340dafc6574255c0d15c49121"
+    },
+    "logs/maia-dpi-spatial-checks.log": {
+      "size": 256,
+      "sha256": "c372178d31e6c4a836f1aeee948143b85dc1a343faf33ab1a9bfad269cb9238d"
+    },
+    "logs/maia-dpi-spatial-console.log": {
+      "size": 35640,
+      "sha256": "35a1a47a3b887f7bc23248490a5de12d735804c97c97b73ed97b89000b785449"
+    },
+    "logs/maia-dpi-spatial-host-build.log": {
+      "size": 2908,
+      "sha256": "d428f53c15f62e94676dd9aa96381e1202ae10ef14584c69f83d6a20b5077960"
+    },
+    "logs/maia-dpi-spatial-build.log": {
+      "size": 1108,
+      "sha256": "b15079a1221af3ade20342dafb80309187baf2236e0206e9039afb2a4f80d5bc"
+    },
+    "logs/maia-dpi-spatial-hardware.log": {
+      "size": 35640,
+      "sha256": "35a1a47a3b887f7bc23248490a5de12d735804c97c97b73ed97b89000b785449"
+    },
+    "logs/maia-dpi-spatial-desktop.log": {
+      "size": 3300,
+      "sha256": "faaafac7cfe75305580442a33db8ada592432526520f93431e5a79efac544840"
+    },
+    "logs/maia-dpi-spatial-host-test.log": {
+      "size": 4858,
+      "sha256": "5bffdec3bf52e11caecaf1db498945b48e1825db5692f59316a253876e77892c"
+    },
+    "logs/maia-dpi-spatial-image.log": {
+      "size": 103,
+      "sha256": "bd34cdf9f9e0124191eeac1abe0a9595e32f99877b85ade52efd37ee00189dd6"
+    },
+    "logs/maia-dpi-spatial-config.log": {
+      "size": 1266,
+      "sha256": "8204ee1d5afdc039edf380936b1d7518250dd15f1fb6eec1bbeb2862a049908d"
+    },
+    "scripts/maia-implement-dma-spatial.py": {
+      "size": 8074,
+      "sha256": "5e567ec98bf3207ac655be61236e4cb4ad9615d864215e3f144dd5dafa221861"
+    },
+    "scripts/maia-spatial-tests.py": {
+      "size": 5403,
+      "sha256": "8dfbde8d51003cbd80c1ad04c101871350fb6bca0577e8c43fc7f55fbd8584cc"
+    },
+    "scripts/maia-dpi-spatial-checks.py": {
+      "size": 2220,
+      "sha256": "cb746b589eedc817aaca33e664f68079793573d7a74778905b6df1ed1b6cac63"
+    },
+    "scripts/maia-dpi-spatial-tested-image-sha.txt": {
+      "size": 65,
+      "sha256": "d1c4bd89aa1ffc4d850225c53bf11ff7b6438e8b3e3ae76fad51dd2b6112462a"
+    },
+    "scripts/maia-document-dpi-spatial.py": {
+      "size": 13726,
+      "sha256": "e401e79dda0af264390206a6bae2eed427bc07cf46b29967ac693e20eb56c046"
+    },
+    "scripts/maia-ldo3-verify-desktop.py": {
+      "size": 1190,
+      "sha256": "4fd9077aa6ee40988bc1557dc74787f875be380523c1139424cfcee2f0417bcd"
+    },
+    "checks/header.cpp": {
+      "size": 119,
+      "sha256": "38301b5b80147e28b8f95c686f419bcbe71e147c62360bdb7cf3e41d9fd2344a"
+    },
+    "checks/invalid.log": {
+      "size": 1252,
+      "sha256": "07cd3177a8bccaf0c1b89e503f75c6d816141214321db4c11454c018379e0074"
+    },
+    "checks/positive/test": {
+      "size": 646504,
+      "sha256": "cf15519ea67bd1b8bac66698670336becb69344adf5172013f83558cb57813ac"
+    },
+    "checks/positive/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "checks/positive/dsi_dma_frame.h": {
+      "size": 15367,
+      "sha256": "cabb515f5297cdd4d63bb3770c9d0ed086313c79c66d276ec7925ebc44c27741"
+    },
+    "checks/positive/result.log": {
+      "size": 123,
+      "sha256": "adc8854621d6c4ec37ed23f46b3ab649639aea8c579fc9f0f1aa08121988f303"
+    },
+    "checks/ignore-done-writeback/test": {
+      "size": 646504,
+      "sha256": "0179d048c0168538bb7e12761c03056cc2f298637cf515c8ebc9362de8296f95"
+    },
+    "checks/ignore-done-writeback/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "checks/ignore-done-writeback/dsi_dma_frame.h": {
+      "size": 15351,
+      "sha256": "759797ed9fe947672405aff1e2a8c91b7b57c422a0b4ac4e8128b11cdcc43f57"
+    },
+    "checks/ignore-done-writeback/result.log": {
+      "size": 218,
+      "sha256": "0d70d0acc469e5db40602730f65381dd4c59b6ca0f3d1d2c2be12622cf3fdb27"
+    },
+    "checks/invalid/CMakeCache.txt": {
+      "size": 18772,
+      "sha256": "2c61c315ab142fbd7ab7fb506bf82c3fe52a92afdaa4da5083e66a4e7f584d21"
+    },
+    "checks/allow-bad-rearm/test": {
+      "size": 646504,
+      "sha256": "86ae4727f59754f01011dd230301514df5deaff3b580c4d99a5d1da0627ddb81"
+    },
+    "checks/allow-bad-rearm/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "checks/allow-bad-rearm/dsi_dma_frame.h": {
+      "size": 15379,
+      "sha256": "bbcc7407ed17811d722064c9c3fdf5b0245efe4823ce4f640bffafbfbe5dc120"
+    },
+    "checks/allow-bad-rearm/result.log": {
+      "size": 188,
+      "sha256": "9b59f73407be6ced4c1543513d33fc1b08114b0b8e2089ff6aea89477d48097d"
+    },
+    "checks/no-LLI-rearm/test": {
+      "size": 646504,
+      "sha256": "96801044dd4b37e39ed09b15f36c3e312391058de7fe280e4b7423e47d25e5b2"
+    },
+    "checks/no-LLI-rearm/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "checks/no-LLI-rearm/dsi_dma_frame.h": {
+      "size": 15333,
+      "sha256": "6be7700b9e6b6127d21bac2ed8d724b6dfee3dfe09cf3e3fa305eaf72a6ee7bf"
+    },
+    "checks/no-LLI-rearm/result.log": {
+      "size": 325,
+      "sha256": "09596c82793e2ffa45e855863992bfe2ff6be9fdc8ff04415cdd4c8e244a639a"
+    },
+    "checks/exceed-batch-bound/test": {
+      "size": 646504,
+      "sha256": "eef04fdc4570233c3563a8eb1ed006c89cab99aeedce49ebddc730478b25cca5"
+    },
+    "checks/exceed-batch-bound/soc_dsi_access.c": {
+      "size": 40836,
+      "sha256": "50df2eb056bb4aca0b2f9931d4cd846d93f737f4b40494ea79305f00391f134b"
+    },
+    "checks/exceed-batch-bound/dsi_dma_frame.h": {
+      "size": 15369,
+      "sha256": "edecc256f8a9f2a842902ad67f5e370d72910c7ae04ed42be0641d93064a32e0"
+    },
+    "checks/exceed-batch-bound/result.log": {
+      "size": 152,
+      "sha256": "127b00afda31653023c109dccc07198704506ac2367196b6a897f4227b3be77f"
+    },
+    "checks/invalid/CMakeFiles/cmake.check_cache": {
+      "size": 85,
+      "sha256": "a26189e394421da57f45706a07713c5720acd200a41711b0c0c590c3c63371c4"
+    },
+    "checks/invalid/CMakeFiles/CMakeConfigureLog.yaml": {
+      "size": 133451,
+      "sha256": "641484db9b93ad39c1348e7f7e4fef237284ff7afc3d83e597df3e02891e828d"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_CXX.bin": {
+      "size": 2700,
+      "sha256": "7d85158ff9cc2d327231016e179fbc91ab9ab5a89da6681b63cf1351ed59ccf2"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_C.bin": {
+      "size": 2664,
+      "sha256": "af8b87fa15e59d809c6ee59f2997509d170623c9639437cf4893196bca351b99"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCXXCompiler.cmake": {
+      "size": 7587,
+      "sha256": "8c52f323c968ebdcefd0ab77d57b96e1025a5406dadeff931886f05e4ddcd569"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCCompiler.cmake": {
+      "size": 3949,
+      "sha256": "d0f72f32b12a8881db9ffd55b2043c2d295be6496c8352a05fdc5421385c2bb4"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeSystem.cmake": {
+      "size": 455,
+      "sha256": "a300eb901942ade38040c8d0d710ac32d2b939d39c0e88a0b9d3d1525a4e5e10"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeASMCompiler.cmake": {
+      "size": 1859,
+      "sha256": "cc1370f45f1c9e67d348266e19e49999b3ae196a21e9f269ba6f0b3fec5a5202"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/CMakeCCompilerId.c": {
+      "size": 29029,
+      "sha256": "6ccdb729a0b1d02ba3d9b57e617d311fbac288d9c0d32416c048ef044157f041"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/a.out": {
+      "size": 92548,
+      "sha256": "097ceb1fe6dfbbc599bde5272c1c5e8dce90af223ff11e9c94964fd5117f1fa5"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/a.out": {
+      "size": 92608,
+      "sha256": "29775cc1d1c12df753c7e6ba00aa338af97d5fdb3530fca42ccccd47b6d3ce8c"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/CMakeCXXCompilerId.cpp": {
+      "size": 29651,
+      "sha256": "5b0cbdb2a0d0a5b91a89026321eb0202fdecb22328eb5c668566ce5cb17e3cd2"
+    },
+    "reference/sdk/components/hal/esp32p4/include/hal/dw_gdma_ll.h": {
+      "size": 41859,
+      "sha256": "56be6ff8351f62027a167f166d6369ed498bfc1fb9da6bd1223971cec25c7a59"
+    },
+    "reference/sdk/components/soc/esp32p4/register/soc/dw_gdma_reg.h": {
+      "size": 325910,
+      "sha256": "441ce2f62aaab1597df1042697d3d76e7571c6384691a58ee3aa595b56f63477"
+    },
+    "reference/sdk/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h": {
+      "size": 11136,
+      "sha256": "639fe134a7de060e22cc4c8598254c807939e1fdb5a703bbf98c4d907a197df0"
+    },
+    "reference/sdk/components/soc/esp32p4/register/soc/mipi_dsi_bridge_reg.h": {
+      "size": 37371,
+      "sha256": "1f9547324538ff6d0d66d8156a6188d4537899ffa663ceb1db709ace38962c7c"
+    },
+    "reference/maia-vdma-trm.txt": {
+      "size": 94443,
+      "sha256": "81a6ed3f42ba776efc23bb9d0659ee58b5f3000f60dd7db8d49ebc86be607ff0"
+    },
+    "reference/maia-esp32p4-rev13-trm.pdf": {
+      "size": 20786220,
+      "sha256": "ae1fa2a411776760e03329adc3f9a7c13e98c440168cab208f06e3b2d5818830"
+    }
+  },
+  "actual": {
+    "frames": 400,
+    "nodes": 5,
+    "rearms": 399,
+    "polls": 414370,
+    "items": 92160000,
+    "elapsed_us": 6109911,
+    "terminal_raw": "e0ff",
+    "channel_status": "12",
+    "source": "4ff12b80",
+    "list": "4ff15980",
+    "source_hash": "e18c2e45",
+    "errors": 0,
+    "guard_source_tail_preserved": true,
+    "recovered": true,
+    "visual": "Quatro faixas grandes est\u00e1veis; n\u00e3o identifiquei a faixa estreita",
+    "readiness": "Pode iniciar agora; estou olhando",
+    "desktop": "shell/SciCalc14/desktop PASS"
+  },
+  "invocation_note": "capture45 rejected before serial access; one actual RAM upload with capture30, same image",
+  "sdk_revision": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "limits": [
+    "boot/core0/exclusive/IRQs off",
+    "narrow incremental-source strip not visually confirmed",
+    "not full framebuffer/PSRAM/native desktop",
+    "WT no readable ACK; underrun threshold413 unchanged",
+    "legacy automatic ARLEN API footprint limitation remains separate"
+  ],
+  "image": {
+    "entry": "0x4ff00100",
+    "segments": [
+      {
+        "address": "0x4ff00000",
+        "size": 66272
+      }
+    ]
+  },
+  "lineage": {
+    "prepared_manifest_sha256": "c38f690f7af6ee7931a036801fff59f61f719d3365648e18c9dd54a3e17194f4",
+    "list_qualification_manifest_sha256": "4f11f27e11625c449ee8e6bbb4290872c7071514d1f8a167ccaad59b0ded79dd"
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  }
+}

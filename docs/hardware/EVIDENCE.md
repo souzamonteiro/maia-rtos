@@ -1131,3 +1131,18 @@ ARLEN data refusal/actual32byte groups and exact successful copy after override
 EN1/field0. SRAM LLIs receive count/status/VALID-clear writes even with peripheral
 status-fetch bits0. Exact32768-byte proof+writeback/guard checks, no display or
 universal burst-encoding inference. No SDK headers/runtime in target.
+
+## Native five-node spatial display chain — 2026-11-15
+
+Pinned SDKf5c3654 [bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h)
+`set_multi_block_number`, [bridge registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_bridge_reg.h):
+count5 at+88[7:4]/DMAC flow and multi-block+6C[28].
+[DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+LLI/LIST3 and fixed/increment/source burst controls; [TRM chip1.3 v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+§5.5.4.2 pp334–336 LLI writeback/VALID clear/completion and §5.5.7 pp337–338 drain;
+register5.12 p357 ARLEN. [Spatial audit](../audits/native-dpi-dma-spatial.md) records
+400 finite five-block frames, exact per-node count/status writeback, rawE0FF,
+guards/preserved source/tail/restored GPIO/commands and four9C replies. User
+confirmed four stable large color bands after readiness; narrow eight-row strip
+not identified. No all-pixel visual acceptance. No new runtime/header dependency,
+no timing/rotation/flash/SD changes; elapsed6109911us is one diagnostic sample.

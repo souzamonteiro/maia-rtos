@@ -1,0 +1,7 @@
+2026-11-15 — readiness and qualitative visual evidence
+User: "Pode iniciar agora; estou olhando".
+First command rejected capture-seconds45 before serial access; no device test in that invocation.
+Immediately retried same prepared image with accepted capture-seconds30. Exactly one RAM upload.
+After native completion asked what was seen; user: "Quatro faixas grandes estáveis; não identifiquei a faixa estreita".
+Accept large-band visual result only. Eight-row incremental-source strip NOT visually confirmed; no negative black-screen finding.
+No repeat visual test without fresh readiness.

@@ -10,6 +10,20 @@ static int frame_roots(void){
         !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&0xEU) && !dsi_read(MAIA_ESP32P4_GDMA_BASE+0x1CU) &&
         !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x58U)&1U) && !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&~1U);
 }
+#ifdef MAIA_DSI_SPATIAL_PROBE
+static int spatial_live(unsigned i){
+    uint32_t v=dsi_read(dma_stage_address(i));
+    if(i==0U)return v>=dma_staged_source&&v<=dma_staged_source+DSI_SPATIAL_SOURCE_BYTES;
+    if(i==5U)return (v&dma_stage_masks[i])==0x001C1B41U||(v&dma_stage_masks[i])==0x001C1B51U;
+    if(i==6U)return (v&0x07FFFFFFU)==0x000F8040U;
+    if(i==9U){
+        if(v<=1U)return 1;
+        for(unsigned n=0;n<5U;++n)if(v==((dma_staged_list+n*64U)|1U))return 1;
+        return 0;
+    }
+    return ((v^dma_staged_words[i])&dma_stage_masks[i])==0;
+}
+#endif
 static int frame_guard(uint32_t mode,uint32_t lp,uint32_t dpi,uint32_t cfg){
     if(!frame_roots()||dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)!=cfg)return 0;
     if(dsi_read(MAIA_ESP32P4_DSI_HOST_BASE+4U)!=dpi_staged_phy[0] ||
@@ -25,6 +39,9 @@ static int frame_guard(uint32_t mode,uint32_t lp,uint32_t dpi,uint32_t cfg){
     for(unsigned i=0;i<MAIA_DSI_DPI_WORDS;++i)if(dsi_read(dpi_address(i))!=dpi_staged_words[i])return 0;
     for(unsigned i=0;i<MAIA_DSI_DMA_STAGE_WORDS;++i){
         if(i==4U)continue; /* live block-progress observation is separate */
+#ifdef MAIA_DSI_SPATIAL_PROBE
+        if(dma_staged_list){if(!spatial_live(i))return 0;continue;}
+#endif
         if((dsi_read(dma_stage_address(i))^dma_staged_words[i])&dma_stage_masks[i])return 0;
     }
     for(unsigned c=1;c<4U;++c)if(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x134U+c*0x100U)&0x7FFFU)return 0;
@@ -79,7 +96,7 @@ static maia_dsi_access_result_t frame_cleanup(uint32_t budget,maia_dsi_dma_frame
     if(!idle)return MAIA_DSI_ACCESS_TIMEOUT;
     r->recovered=1;return MAIA_DSI_ACCESS_OK;
 }
-maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t budget,maia_dsi_dma_frame_report_t *r){
+static maia_dsi_access_result_t frame_run(uint32_t budget,maia_dsi_dma_frame_report_t *r){
     if(!r)return MAIA_DSI_ACCESS_INVALID;
     volatile unsigned char *zero=(volatile unsigned char *)r;for(unsigned i=0;i<sizeof *r;++i)zero[i]=0;
     if(!budget||budget>100000U)return MAIA_DSI_ACCESS_INVALID;
@@ -87,6 +104,10 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t budget,maia_d
     if(dpi_frame_state==FAULTED||transfer_state==FAULTED||dpi_dma_state==FAULTED)return MAIA_DSI_ACCESS_FAILED;
     if(dpi_frame_state!=UNCLAIMED||dpi_dma_state!=OWNED||transfer_state!=UNCLAIMED)return MAIA_DSI_ACCESS_BUSY;
     if(dma_staged_words[0]!=dma_staged_source)return MAIA_DSI_ACCESS_VERIFY;
+    uint32_t terminal_raw=dma_staged_words[4]&0x3FFFFFU;
+#ifdef MAIA_DSI_SPATIAL_PROBE
+    if(dma_staged_list){if(!spatial_memory(0))return MAIA_DSI_ACCESS_VERIFY;terminal_raw=57599U;}
+#endif
     uint32_t mode=saved_command_table[0],lp=dpi_staged_phy[3],dpi=dpi_staged_phy[4],cfg=0;
     maia_dsi_dma_stage_report_t stage;
     for(unsigned i=0;i<sizeof stage;++i)((volatile unsigned char *)&stage)[i]=0;
@@ -118,8 +139,16 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t budget,maia_d
         if(!(channels&1U)){
             /* Completion can race the preceding sequential status/count reads. */
             result=frame_observe(r);if(result!=MAIA_DSI_ACCESS_OK)break;
-            if(r->count_raw>(dma_staged_words[4]&0x3FFFFFU)){result=MAIA_DSI_ACCESS_VERIFY;break;}
-            if(r->count_raw==(dma_staged_words[4]&0x3FFFFFU) && (r->channel_status&2U) && !r->dma_fifo&&!r->bridge_fifo){r->items=(dma_staged_words[4]&0x3FFFFFU)+1U;r->done=1;r->completed=8;break;}
+            if(r->count_raw>terminal_raw){result=MAIA_DSI_ACCESS_VERIFY;break;}
+            unsigned completion_flag=!!(r->channel_status&2U);
+#ifdef MAIA_DSI_SPATIAL_PROBE
+            /* Qualified SRAM LLIs publish done in descriptor writeback while
+             * channel CPU status can be0. Require all five exact done records;
+             * standalone contiguous frame still requires its channel DONE bit. */
+            if(dma_staged_list)completion_flag=spatial_memory(1);
+#endif
+            if(r->count_raw==terminal_raw && completion_flag && !r->dma_fifo&&!r->bridge_fifo){
+                r->items=(dma_staged_words[4]&0x3FFFFFU)+1U;r->done=1;r->completed=8;break;}
         }
         result=MAIA_DSI_ACCESS_TIMEOUT;
     }
@@ -132,6 +161,16 @@ recover:
     r->completed=9;dpi_frame_state=3U;transfer_state=UNCLAIMED;return MAIA_DSI_ACCESS_OK;
 }
 
+maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t budget,maia_dsi_dma_frame_report_t *r){
+#ifdef MAIA_DSI_SPATIAL_PROBE
+    if(dma_staged_list){
+        if(!r)return MAIA_DSI_ACCESS_INVALID;
+        for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
+        return MAIA_DSI_ACCESS_BUSY;
+    }
+#endif
+    return frame_run(budget,r);
+}
 maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_refresh(uint32_t frames,uint32_t budget,maia_dsi_dma_refresh_report_t *r){
     if(!r)return MAIA_DSI_ACCESS_INVALID;
     for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
@@ -160,3 +199,46 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_refresh(uint32_t frames,uint
 refused:
     dpi_frame_state=transfer_state=FAULTED;return MAIA_DSI_ACCESS_VERIFY;
 }
+
+#ifdef MAIA_DSI_SPATIAL_PROBE
+/* Private diagnostic, same exclusive lifetime as native boot probes. No callers
+ * can rearm a consumed claim; only exact completed writable LLIs are rebuilt. */
+maia_dsi_access_result_t maia_dsi_spatial_probe(uint32_t source,uint32_t list,uint32_t frames,uint32_t budget,maia_dsi_spatial_probe_report_t *r){
+    if(!r)return MAIA_DSI_ACCESS_INVALID;
+    for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
+    if(!dsi_spatial_layout(source,list)||!frames||frames>400U||!budget||budget>100000U)return MAIA_DSI_ACCESS_INVALID;
+    if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
+    if(dpi_refresh_state==FAULTED||dpi_frame_state==FAULTED||transfer_state==FAULTED)return MAIA_DSI_ACCESS_FAILED;
+    if(dpi_refresh_state!=UNCLAIMED||dpi_frame_state!=UNCLAIMED)return MAIA_DSI_ACCESS_BUSY;
+    maia_dsi_access_result_t result=dma_stage_body(source,list,&r->stage);
+    if(result!=MAIA_DSI_ACCESS_OK)return result;
+    dpi_refresh_state=FAULTED;
+    for(unsigned n=0;n<frames;++n){
+        if(n){
+            if(dpi_frame_state!=3U||!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet()||
+                (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU)||!spatial_memory(1))goto refused_spatial;
+            uint32_t status=dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U);
+            if(status&~0x4000001BU)goto refused_spatial;
+            ++r->refresh.rearm_writes;dsi_write(MAIA_ESP32P4_GDMA_BASE+0x198U,0x4000001BU);
+            if(!frame_roots()||dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U)||dsi_read(MAIA_ESP32P4_GDMA_BASE+0x50U)||
+                (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x58U)&1U))goto refused_spatial;
+            for(unsigned node=0;node<5U;++node)for(unsigned w=0;w<16U;++w)
+                dsi_write((uintptr_t)list+0x40000000U+node*64U+w*4U,dsi_spatial_word(source,list,node,w));
+            if(!frame_roots()||!dma_quiet()||!spatial_memory(0))goto refused_spatial;
+            /* Rebuild fetched channel registers only while verified idle. */
+            for(unsigned i=0;i<MAIA_DSI_DMA_STAGE_WORDS;++i){
+                if(!frame_roots()||!dma_quiet())goto refused_spatial;
+                dsi_write(dma_stage_address(i),dma_staged_words[i]);
+                if(dsi_read(dma_stage_address(i))!=dma_staged_words[i])goto refused_spatial;
+            }
+            dpi_frame_state=UNCLAIMED;
+        }
+        result=frame_run(budget,&r->refresh.last);r->refresh.polls+=r->refresh.last.polls;
+        if(result!=MAIA_DSI_ACCESS_OK){dpi_frame_state=transfer_state=FAULTED;return result;}
+        ++r->refresh.frames_completed;r->refresh.items+=r->refresh.last.items;
+    }
+    dpi_refresh_state=OWNED;return MAIA_DSI_ACCESS_OK;
+refused_spatial:
+    dpi_frame_state=transfer_state=FAULTED;return MAIA_DSI_ACCESS_VERIFY;
+}
+#endif

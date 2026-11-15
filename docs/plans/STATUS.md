@@ -984,3 +984,29 @@ proven in this unit. Prior solid stage's automatic ARLEN does not prove claimed
 qualify explicit source length before future fixed-source reuse. Next <=15-block
 finite spatial display diagnostic with source increment and LLI writeback handling;
 no160-LLI activation. PSRAM/full native desktop/production mapping still pending.
+
+## Five-node native display chain; four stable bands confirmed — 2026-11-15
+
+Read [spatial audit](../audits/native-dpi-dma-spatial.md). New opt-in private boot diagnostic, actual source tile
+and writable five-LLI list, no160-LLI activation. Source increment for8 native rows,
+then four solid bands312/320/320/320 rows; count5 fits bridge. Explicit ARLEN_EN1/
+field0, source64-bit, finite LAST/terminal0, all exact LLI writeback checked. Existing
+contiguous-frame completion contract unchanged; spatial path accepts only all five
+writeback completion records/final DMA-done plus natural disable/rawE0FF/drain.
+400 individually completed/recovered frames,399 checked rearms/414370 polls/
+92160000 items/6109911us sample; stage18/frame9/maskFFF/status12/errors0/FIFOs0.
+All80 descriptor words/source hashE18C2E45/unused tail/guards retained as specified.
+Output/global/channel/command/LP/light restored; four9C replies; runner PASS.
+Fresh readiness then one RAM upload. User confirmed four large stable bands but
+DID NOT identify narrow strip: no complete incremental-pixel visual acceptance.
+Initial capture45 command rejected before serial; actual capture30, same image.
+Host44/44, ASan/UBSan, C++98/four rejected runtime mutants/invalid profile/runtime
+gate PASS. SHA b2ae7a91e8f42a93283d39349cd639ca58df4b76db58a6f810b415f3e83a7648.
+Reset shell/SciCalc14/desktop PASS. Recovery
+`../maia-rtos-recovery/native-dpi-spatial-20261115/`. No flash/SD/parser/panel timing/
+rotation change. Diagnostic boot IRQs off; not production streaming/desktop.
+Next make incremental-source marker thicker/central within owned SRAM bounds,
+then fresh visual readiness/test. Threshold413/WT no-ACK/counter-doc limitations
+remain. PSRAM/full native framebuffer/desktop/production rotation-input pending;
+installed desktop still original runtime. Prior solid API auto-ARLEN footprint
+limitation remains documented in SRAM-list audit; new spatial path forces length.

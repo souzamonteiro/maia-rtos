@@ -709,3 +709,19 @@ for old,new in [('matched=00008000','matched=00007fff'),('guards=00000001','guar
     assert not runner.evaluate_vdma_list(linked.replace(old,new)),(old,new)
 assert not runner.evaluate_vdma_list(linked+linked)
 assert not runner.evaluate_vdma_count(linked)
+
+spatial_capture=tile+'DPI_SPATIAL_MEMORY source=4ff10080 list=4ff12e80 nodes=00000005 source_bytes=00002d00 list_bytes=00000140 frame_bytes=001c2000\n'
+spatial_capture+='DPI_SPATIAL result=00000000 stage=00000012 frame_stage=00000009 attempted=00000fff frames=00000190 polls=00061a80 items=057e4000 rearms=0000018f active=00000001 done=00000001 count_raw=0000e0ff status=00000012 common=00000000 underrun=00000000 dma_fifo=00000000 bridge_fifo=00000000 dsi_status=000015bd dsi_fifo=00050015 error0=00000000 error1=00000000 transfer=00000000 recovery=00000000 recovered=00000001 elapsed_us=00600000\n'
+for n,count in enumerate((1440,56160,57600,57600,57600)):
+    before=[0]*16;before[0]=0x4ff10080+(360*(n-1) if n else 0);before[2]=0x50105000;before[4]=count-1
+    before[6]=(0x4ff12e80+64*(n+1))|1 if n<4 else 0;before[8]=0x1c1b41 if n==0 else 0x1c1b51;before[9]=0xc00f8040 if n==4 else 0x800f8040
+    after=before.copy();after[9]&=0x7fffffff;after[12]=count-1;after[13]=0xc0000000 if n==4 else 0x40000000
+    for w in range(16):spatial_capture+=f'DPI_SPATIAL_WORD index={n*16+w:08x} before={before[w]:08x} after={after[w]:08x}\n'
+spatial_capture+='DPI_SPATIAL_RESTORE light=00000001 mode=00000001 lp=00000000 dpi=000019d0 cfg=00000000 channels=00000000 abort=00000000 source_hash=e18c2e45 source_kept=00000001 tail_kept=00000001 guards=00000001 preserved=00000001 duplicate_busy=00000001\n'
+spatial_capture+='\n'.join(l.replace('DPI_DMA_TILE_REPLY','DPI_SPATIAL_REPLY') for l in tile.splitlines() if l.startswith('DPI_DMA_TILE_REPLY '))+'\nMAIA_NATIVE_DPI_SPATIAL_PASS\n'
+assert runner.evaluate_dpi_spatial(spatial_capture)
+assert not runner.evaluate_dpi_dma_tile(spatial_capture)
+for old,new in [('frames=00000190','frames=0000018f'),('after=400f8040','after=c00f8040'),('count_raw=0000e0ff','count_raw=0000e100'),('tail_kept=00000001','tail_kept=00000000'),('underrun=00000000','underrun=00000001'),('guards=00000001','guards=00000000'),('items=057e4000','items=057abc00')]:
+    assert old in spatial_capture
+    assert not runner.evaluate_dpi_spatial(spatial_capture.replace(old,new)),(old,new)
+assert not runner.evaluate_dpi_spatial(spatial_capture+spatial_capture)
