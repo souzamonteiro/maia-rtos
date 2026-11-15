@@ -784,3 +784,37 @@ for a,b in [('value=00000d30','value=00005aa5'),('restored=00000001','restored=0
 assert not runner.evaluate_psram_identity(identity+identity)
 
 assert not runner.evaluate_psram_identity(psram_capture(False)+identity[len(psram_capture(True)):])
+
+# Clock qualification requires real warm profile, calibrated powered VO2 and
+# complete before/after clock words, not just identity or a PASS marker.
+clock_roots=[0xE6DFB7FF,0xD00C,0x38000040,0,0x40200180,0x76800000,0x7B054313,0x3A184DEA,0]
+clock_state=[]
+for line in identity[:identity.index('PSRAM_ID index=')].splitlines():
+    if line.startswith('PSRAM_ROOT '):
+        row=dict(item.split('=') for item in line.split()[1:]);v=clock_roots[int(row['index'],16)]
+        line=line[:line.index(' before=')]+f' before={v:08x} after={v:08x}'
+    elif line.startswith('PSRAM_WORD '):
+        row=dict(item.split('=') for item in line.split()[1:]);i=int(row['index'],16)
+        v=0 if i in (0,2,16) else 0x30103 if i in (7,20) else i
+        line=line[:line.index(' before=')]+f' before={v:08x} after={v:08x}'
+    clock_state.append(line)
+def clock_phase(phase):
+    text=f'PSRAM_CLOCK phase={phase:08x} result=00000000 stage=00000005 attempts=0000001f restored={phase:08x}\n'
+    for i,b in enumerate((0xd00c,0x30103,0x30103)):
+        a=b if phase else (0xc00c,0x10001,0x10001)[i]
+        text+=f'PSRAM_CLOCK_WORD phase={phase:08x} index={i:08x} before={b:08x} after={a:08x}\n'
+    return text
+clock_capture='MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n'+'\n'.join(clock_state)+'\n'+clock_phase(0)+identity[identity.index('PSRAM_ID index='):]+clock_phase(1)
+clock_capture+='PSRAM_CLOCK_FINAL result=00000000 roots=00000001 words=00000001\nMAIA_NATIVE_PSRAM_CLOCK_PASS\n'
+assert runner.evaluate_psram_clock(clock_capture)
+assert not runner.evaluate_psram_clock(identity)
+assert not runner.evaluate_psram_identity(clock_capture)
+assert not runner.evaluate_psram_state(clock_capture)
+for a,b in [('after=0000c00c','after=0000d00c'),('attempts=0000001f','attempts=0000000f'),
+            ('before=76800000 after=76800000','before=66800000 after=66800000'),
+            ('before=40200180 after=40200180','before=40200080 after=40200080'),
+            ('after=00010001','after=00030103'),('PSRAM_CLOCK_FINAL result=00000000 roots=00000001 words=00000001','PSRAM_CLOCK_FINAL result=00000000 roots=00000001 words=00000000')]:
+    assert a in clock_capture
+    assert not runner.evaluate_psram_clock(clock_capture.replace(a,b)),(a,b)
+assert not runner.evaluate_psram_clock(clock_capture+clock_capture)
+assert not runner.evaluate_psram_clock(clock_capture.replace('MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n',''))

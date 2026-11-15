@@ -337,3 +337,15 @@ DQS/DLL/tuning, cache/MMU and owned memory tests before full framebuffer. ROM SP
 configuration helper reference has unbounded idle wait/mutable callback; native
 path avoids it. Same-value config-store/restore ACK and a busy edge are not claimed.
 LCD continuous service and touch coordinates/events remain delivery targets.
+
+### Warm XTAL PSRAM clock qualified, array/cold startup open — 2026-11-15
+
+[Clock audit](../audits/native-psram-clock.md) confirms repeated identity at
+nominal20MHz with native clock change/restoration; no array or cold-init claim.
+VO2 XPD is bit8, bit7 software-owner; earlier description corrected, actual
+old40200180 was powered. Need native VO2 supply startup, device modes, DQS/DLL/
+tuning and bounds-checked reserved physical array test. Nonzero calibration
+matching is not voltage measurement; no independent clock-edge/settling/bandwidth
+measurement.20MHz diagnostic does not qualify full framebuffer throughput.
+Cold power-up delay/reset protocol and missing-calibration fallback still require
+primary evidence. Preserve known modes; do not invent reset opcodes or delays.

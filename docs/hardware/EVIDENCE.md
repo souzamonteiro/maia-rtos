@@ -1188,3 +1188,35 @@ AP/density7/32MiB/gen4/KGD6/X16 and exact controller/root restoration PASS. Busy
 edge unobserved; poisoned receive value changed to valid repeatable device data.
 No cold init/array/mapping/frequency or timing proof. Host48/48 and failure checks
 PASS; original firmware recovered. No SDK runtime imported or device-mode writes.
+
+## PSRAM warm XTAL clock qualification and VO2 bit correction — 2026-11-15
+
+Primary register sources, pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[psram_ctrlr_ll](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h),
+`_select_clk_source` XTAL0/MPLL1, `_set_core_clock_div` divide-minus1,
+`_enable_core_clock`, `set_bus_clock` N/H/L encoding;
+[hp_sys_clkrst_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h),
+PERI_CLK_CTRL00+30 source[13:12]/core-enable15/core-divider[23:16];
+[spi_mem_s_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi_mem_s_reg.h), SRAM_CLK+50,
+and [spi1_mem_s_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi1_mem_s_reg.h), CLOCK+14:
+divide2=10001, divide4=30103. Native policy gates core before changing source,
+selects XTAL with existing divide4, enables core, then sets both divide2. Restore
+both divide4 before gating/restoring original source. This is native policy,
+not a vendor guarantee about unmeasured clock transitions. Controller state is
+not accessed while core gated. Qualified Tab5 ROM esptool XTAL40MHz supplies
+nominal20MHz interpretation; no physical frequency measurement is claimed.
+
+[ldo_ll](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/ldo_ll.h),
+voltage_to_dref_mul unit1/1900 override, set_owner and adjust_voltage;
+[pmu_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/pmu_reg.h),
+EXT_LDO_P1_0P1A+1D0 / ANA+1D4;
+[efuse_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/efuse_reg.h),
+MAC_SYS2 VO2 DREF[31:28], MAC_SYS3 MUL[5:3]. **Correction:** VO2 software owner
+bit7 is not XPD; XPD is bit8. Earlier identity code/audit described bit7 as power.
+Actual previous target control40200180 had both enabled, so prior observed reads
+remain valid. Native mode guard now checks XPD8; host negative rejects owner-only80.
+Clock profile additionally requires owner1, select0, bypass0, nonzero calibration
+pair matching analog DREF/MUL and qualified rev1.3/eFuse schema/error checks.
+No VO2 programming, voltage measurement, cold power-up, PSRAM mode writes or
+array/MMU/cache readiness are inferred. Source/mask oracle is host-only;
+native build imports no vendor headers or runtime.

@@ -50,6 +50,24 @@ typedef struct maia_psram_mode_report {
  * vendor response returns IO after guarded restore, remains sticky. Successful
  * fully restored calls may repeat. No deadline, cold-init or memory-ready claim. */
 maia_psram_result_t maia_esp32p4_psram_read_mode(uint32_t reg,uint32_t poll_budget,maia_psram_mode_report_t *);
+typedef struct maia_psram_clock_report {
+    uint32_t stage,attempts,restored,before[3],after[3];
+} maia_psram_clock_report_t;
+/* Boot/core0/IRQs-off/exclusive, internal SRAM only, no external-memory clients.
+ * Qualified Tab5 40MHz XTAL precondition; nominal20MHz, not a frequency reading.
+ * Warm powered HEX profile only: calibrated VO2 already enabled, AXI off, both
+ * FSMs idle, MPLL/core-div1 and both bus-div4 words30103. No PLL programming,
+ * voltage/device-mode/array/cache/MMU/reset writes. Private ownership survives
+ * successful start; stop requires exact unchanged roots/controllers (temporary
+ * read_mode calls must have fully restored). Core gate off before mux change;
+ * bus divisors changed after XTAL selected. Stop restores bus divisors before
+ * original mux. No controller reads while core gated. Unrelated RCC bits kept.
+ * Start duplicate/stop without claim BUSY, invalid/context/prior FAILED no MMIO.
+ * Any post-claim failure sticky until reboot: no retry or uncertain rollback.
+ * Successful stop releases claim for another cycle. Caller reports never tokens.
+ * No cold-init, array/coherency or continuous-display capability is established. */
+maia_psram_result_t maia_esp32p4_psram_xtal20_start(maia_psram_clock_report_t *);
+maia_psram_result_t maia_esp32p4_psram_xtal20_stop(maia_psram_clock_report_t *);
 #ifdef __cplusplus
 }
 #endif

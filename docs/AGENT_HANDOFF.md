@@ -1137,3 +1137,23 @@ Recovery `../maia-rtos-recovery/native-psram-identity-20261115/`. No native cold
 PSRAM/array/capability/mapping/framebuffer claim. Next checked native power/clock/
 mode startup + owned memory, then cache/MMU/display. LCD+touch remain priority,
 other drivers then MaiaScript; delivery checklist updated without claiming cold init.
+
+## Native warm PSRAM clock qualification and VO2 guard fix — 2026-11-15
+
+Read [clock audit](audits/native-psram-clock.md). Boot/core0/IRQs-off private native start/stop switches
+warm HEX from MPLL/core-div1/bus-div4 to XTAL/core-div1/bus-div2, nominal20MHz
+with ROM-reported40MHz XTAL. Core gated before mux; no controller accesses while
+gated. Idle/AXIoff/calibrated1900-field VO2 preconditions, checked writes/roots/
+controller ownership, sticky failures; exact stop restores original profile.
+VO2 old identity guard corrected: XPDbit8, ownerbit7. Earlier actual40200180
+had both so old observed responses remain valid. Host49/49+ASan/UBSan/C++98,
+six clock mutants+old-mode-bit7 mutant/invalid profile/SDK oracle PASS. First
+capture lost initial line: strict FAIL preserved, no reconstruction. Final adds
+bounded host-readyC; actual eight mode reads8D30/A0DF/20/4B twice, start/stop
+stage5/mask1F and nine roots/27 words restored; runner PASS. SHA
+561588ba9a1301294c8c252f2c218224bea52f88fd1462ec1dc3daa5940114e2,
+RAM13152bytes/entry4FF00100. Reset shell/SciCalc14/desktop PASS; no flash/SD/parser
+writes. Recovery `../maia-rtos-recovery/native-psram-clock-20261115/`. No physical
+frequency/voltage/clock-edge measurement or cold-init/array/MMU/framebuffer
+claim. Next native VO2/mode setup and reserved array test, then cache/full LCD.
+Touch events/runtime bus ownership still pending; installed full desktop original.

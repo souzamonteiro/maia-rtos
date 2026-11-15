@@ -36,7 +36,7 @@ maia_psram_result_t maia_esp32p4_psram_read_mode(uint32_t reg,uint32_t budget,ma
     if(mode_faulted)return MAIA_PSRAM_FAILED;
     maia_psram_snapshot_t s;maia_psram_result_t result=maia_esp32p4_psram_snapshot(&s);
     if(result!=MAIA_PSRAM_OK)return result;
-    if(s.before[0]||s.before[16]||(s.before[2]&1U)||!(s.roots[4]&0x80U)||
+    if(s.before[0]||s.before[16]||(s.before[2]&1U)||!(s.roots[4]&0x100U)||
        (s.before[17]&0x01904100U)||(s.before[24]&0x0020000EU))return MAIA_PSRAM_BUSY;
     uint32_t current[PSRAM_MODE_WORDS];
     for(unsigned i=0;i<PSRAM_MODE_WORDS;++i)r->before[i]=r->after[i]=current[i]=psram_read(psram_mode_address(i));

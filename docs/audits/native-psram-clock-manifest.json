@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-15",
+  "scope": "boot/core0/IRQs-off warm HEX XTAL nominal20MHz qualification; no cold init or array access",
+  "image_sha256": "561588ba9a1301294c8c252f2c218224bea52f88fd1462ec1dc3daa5940114e2",
+  "intermediate_pass_image_sha256": "3a168acec8a6d9a055b64df83de9f87e50a6a9f067298bc0144616f1b001371f",
+  "first_capture_image_sha256": "2d77851895748048dc4cbd7dd6255d54b25026a0260c8671266eaa2ef0eeffbd",
+  "entry": "0x4ff00100",
+  "load_address": "0x4ff00000",
+  "segment_bytes": 13152,
+  "chip": "ESP32-P4 rev1.3",
+  "crystal_reported_mhz": 40,
+  "port": "/dev/cu.usbmodem1301",
+  "mac": "e8:f6:0a:e2:fd:4c",
+  "sdk": {
+    "revision": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+    "files": {
+      "components/hal/esp32p4/include/hal/psram_ctrlr_ll.h": "206b9aeea07acdf7e8a7b327f15ad8ffc2eb22b8648fc3b51dae021786b87d1b",
+      "components/hal/esp32p4/include/hal/ldo_ll.h": "b0dde231a26a013371d1750b38d3ec196007cbd412ce62d4decdd88aae440159",
+      "components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h": "7ed2b000f4a757ac4016020165cc9370195db8ebab34121d6fb42b9b9dfe0572",
+      "components/soc/esp32p4/register/soc/spi_mem_s_reg.h": "b4c046f2e2d897b37f30a6d2873728e426113a0756fbcfe1d0b50c64e02cda5c",
+      "components/soc/esp32p4/register/soc/spi1_mem_s_reg.h": "2e99654b830e417b552e09268b0a43b13bb75f10e58ddf001460a089d19ee38c",
+      "components/soc/esp32p4/register/soc/pmu_reg.h": "112ca7c71da10819174dfe24d54064474991086a4ddf9f46ad8b9522975f9d8b",
+      "components/soc/esp32p4/register/soc/efuse_reg.h": "62090bd9b049e751f80aed34192f195376e4a5cdf86a49c94d8a37008e05d7d4",
+      "components/esp_psram/device/esp_psram_impl_ap_hex.c": "3c2f7bdd3224bf33e08d8fb65729c9b08e02f8e086f4c091c7e1e3f033cca1ac"
+    }
+  },
+  "logs": {
+    "native-psram-clock-capture-refusal.txt": "6bc4762e6360b8204282b4e34e616dbd82dca15bed68e851372279db3e25900d",
+    "native-psram-clock-hardware.txt": "64930cd42de55fe3ae7f3e9c315876075c72b7e48617be18406edafe0ec7d06d",
+    "native-psram-clock-desktop.txt": "911643c926721e5fc2b2a134cbbe737bbc2e4c6218da0ad14e7c0f249ba69265"
+  },
+  "baseline": {
+    "bin_sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "elf_sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c",
+    "flash_writes": false,
+    "sd_writes": false
+  },
+  "sources": {
+    "CMakeLists.txt": "ba372babaa541a8d10226b07f9f541bee53510d2fa35429f1cce7670186e339e",
+    "include/maia/soc/esp32p4_psram.h": "ba0028a791d891f79d4ac0b621c169a42a96e6f5644440d38df48fc726ea5a07",
+    "soc/espressif/esp32p4/psram_internal.h": "ed5c059cc1322bb28d9ac97be99b4a996ee7c8896c35ff1e7af9fa5e8a568993",
+    "soc/espressif/esp32p4/soc_psram_snapshot.c": "a86e5983b87057cd53c678f5769a7c33756fe1d743e8b3018f822151a3b88420",
+    "soc/espressif/esp32p4/soc_psram_mode.c": "23bca3320135ded8b335941651c5da9d9f39b8a4e42f7230e9bdcd7fffc2c1d3",
+    "soc/espressif/esp32p4/soc_psram_clock.c": "e4df36137b396cc1a937d5956a6a9a4eeba29f63a84ced8c06aad872afdb1799",
+    "tests/host/psram_clock_test.c": "ee05c5948fb070b4db3cfa7afb0f22715e6936c9dfdde8b68afdb3582178f456",
+    "tests/host/psram_mode_test.c": "3083b0efa3503f7a1b9d49a7a5b7abc46e859280e75c9af93f6c7c7a125d0783",
+    "tests/host/native_probe_result_test.py": "40e28a5ece3140bc6484a580ee99e8af6a95dcacf209209cc008e0498cc43463",
+    "tests/hardware/native_psram_state_probe.c": "da7d9ba58ff0bc79cc77ff8d20b09b04fbef221448f31833b6cba1d51d8ff271",
+    "tests/hardware/native_psram_identity.h": "b43d5fbf147c471832e8f6c67763e7f7563aee7a33c7bc5c40ace1021a6305c5",
+    "tests/hardware/native_psram_clock.h": "6a8926c7b05138cbc126293e19b97eab772dd75200143c19dd4cf57f0ea6788f",
+    "tests/hardware/run_native_scheduler_probe.py": "0c83b472636cf7560c0a8ef9a4ff3fdaab3dcb8eb66c3773223ebdbbcb3db58d"
+  }
+}

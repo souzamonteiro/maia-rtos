@@ -53,6 +53,7 @@ int main(void){
     assert(maia_esp32p4_psram_read_mode(0,0,&r)==MAIA_PSRAM_INVALID&&!reads&&!writes);
     context=0;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_CONTEXT&&!reads&&!writes);
     setup();words[2]|=1;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes);
+    setup();roots[4]=0x80U;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes); /* SW select is not XPD */
     setup();roots[0]=0;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_GATED&&!writes);
     unsigned regs[]={0,2,4,8};uint32_t expected[]={0x0D30,0x20DF,0x20,0x4B};
     setup();for(unsigned i=0;i<4U;++i){writes=polled=0;assert(maia_esp32p4_psram_read_mode(regs[i],20,&r)==MAIA_PSRAM_OK&&r.stage==5&&r.restored&&r.value==expected[i]&&r.setup_attempts==0x3FFU&&r.restore_attempts==0x3FFU&&r.triggered&&r.polls==3&&r.saw_busy);unchanged();}
