@@ -253,3 +253,16 @@ plan is one full-frame contiguous block with fixed8-byte source, no LLP. Do not
 activate160LLIs directly. Next design guarded activation/update/underrun/completion
 and early stop with source lifetime, then prove solid color pixels. PSRAM, bandwidth,
 full framebuffer and production rotation/input remain independent gates.
+
+### DMA frame complete; visual refresh and counter documentation open — 2026-11-15
+
+[Frame audit](../audits/native-dpi-dma-frame.md): independent byte-verified8/64-bit
+SRAM copies show raw completion counterN-1 on this board despite TRM/SDK count
+wording. Explain revision/documentation applicability before generalizing. Display
+accepts only activity + natural disable + DMA-done + exact qualified raw count +
+FIFO drain/no latched errors; exposes normalized items separately. Single frame
+completed/recovered, visible red unconfirmed. Next bounded refresh/color/underrun
+qualification (existing discard threshold413 masks some startup-line reporting),
+then full framebuffer/PSRAM and rotation/input acceptance. WT publication has no
+ACK; dropped off-update/already-off disable may be unobservable. Source remains
+immutable and one-shot claim consumed; continuous streaming not implemented.

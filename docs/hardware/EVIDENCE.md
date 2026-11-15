@@ -1085,3 +1085,24 @@ fetch/writeback off), strict AWLEN16 refusal/read15 and final stage18/maskD975
 with source4FF10E80/CTL01C1B51/CTL1F8000/CFG1A020001/globalCFG0/channel0/outputoff,
 unchanged memory/peripherals and four9C/error-free replies. Host42/42, sanitizers,
 seven runtime mutants PASS. No activation/transfer/pixels or physical burst claim.
+
+### Finite DSI DMA completion and qualified raw counter — 2026-11-15
+
+Pinned SDKf5c3654 [DPI init](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_panel_dpi.c),
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h),
+[DMA LL/registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h),
+[TRMchip1.3v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+§5.5.7 pp337–338/§5.7.4 and reg5.27 p375: activation/disable/drain and documented
+item-count interpretation. Actual independent SRAM byte-copy proof at widths8/64
+and counts8/256/4096 yields rawN-1, contradicting literal wording; scope qualified
+on this board, root cause open. No universal counter convention assumed.
+
+[Frame audit/captures/manifest](../audits/native-dpi-dma-frame.md) preserves initial
+count refusal and qualification's HOST FAIL (later byte-proof reevaluation), then
+final active/natural-done/raw383FF/items38400, FIFO0/latched errors0, restored
+command/LP/output/global/channel/GPIO and four9C replies.967 polls/13550us is one
+diagnostic sample, not WCET/frequency. DMA-done still required for display. Raw
+underrun at existing413-line discard threshold and no independent visual-red
+confirmation: no all-pixel/continuous-refresh acceptance. Host42/42 + sanitizers/
+negative checks PASS; no FreeRTOS runtime imported; original flash preserved.

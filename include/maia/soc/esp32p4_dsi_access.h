@@ -309,6 +309,29 @@ typedef struct maia_dsi_dma_stage_report {
  * transfers until reboot, no retry/rollback. Required report initialized. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_stage(uint32_t source,maia_dsi_dma_stage_report_t *);
 
+typedef struct maia_dsi_dma_frame_report {
+    uint32_t completed,attempted_mask,polls,recovery_polls,saw_active,done,count_raw,items;
+    uint32_t channel_status,common_status,bridge_status,dma_fifo,bridge_fifo,recovered;
+    int32_t transfer_result,recovery_result;
+    maia_dsi_short_report_t observation;
+} maia_dsi_dma_frame_report_t;
+/* Boot/core0/IRQs-off/exclusive, actual private solid-stage claim and immutable
+ * cache-prepared owned8-byte source required. One finite contiguous frame only;
+ * no list/heap/IRQ or source writes. Budget1..100000 for completion/drain, and
+ * a separate budget for DMA shutdown plus another for restored LP/PHY idle.
+ * Checks roots/config/latched errors; enables controller(no IRQ)/channel0,
+ * command->video/auto HS/DPI output and publishes WT update (no ACK).
+ * Requires observed active channel, natural disable, calibrated rawN-1 count,
+ * and records normalized items only after matching expected frame size; requires
+ * transfer-done flag and drained bridge. Best-effort guarded cleanup runs even
+ * after error: channel0/global disable, bounded FIFO idle, output off/update,
+ * command/LP restore. Report transfer/recovery separately; errors remain latched.
+ * Lost root/ownership can prevent cleanup, requiring reboot. Partial failure
+ * sticky FAILED; no retry. Success consumes claim, duplicate BUSY/no MMIO.
+ * No visible pixel, bandwidth, continuous stream or hard-WCET guarantee.
+ * Required report initialized. CPU calls block with interrupts off by contract. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t poll_budget,maia_dsi_dma_frame_report_t *);
+
 #ifdef __cplusplus
 }
 #endif

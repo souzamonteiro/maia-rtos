@@ -50,6 +50,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_STAGE
 #include "native_dpi_dma_stage.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_FRAME
+#include "native_dpi_dma_frame.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -354,6 +357,9 @@ void maia_boot_main(void) {
     dpi_dma_tile();
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_STAGE
     dpi_dma_stage();
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_FRAME
+    dpi_dma_frame();
+#endif
 #endif
 #endif
 #endif

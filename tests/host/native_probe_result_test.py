@@ -660,3 +660,28 @@ for a,b in [('attempted=0000ffff','attempted=0000fffe'),('channel_status=0000000
     changed=stage.replace(a,b);assert changed!=stage,(a,b)
     assert not runner.evaluate_dpi_dma_stage(changed),(a,b)
 print('PASS: inactive fixed-source single-block channel/bridge fields, masks and memory preservation required')
+
+frame=stage+'\nDPI_DMA_FRAME_LIGHT out=00400000 enable=00400d40 pad=00000000 mux=00001800 matrix=00000500\n'
+frame+='DPI_DMA_FRAME result=00000000 stage=00000009 attempted=00000fff polls=00000005 recovery_polls=00000002 active=00000001 done=00000001 count_raw=000383ff items=00038400 channel_status=0000001b common_status=00000000 bridge_status=00000000 dma_fifo=00000000 bridge_fifo=00000000 recovered=00000001 transfer_result=00000000 recovery_result=00000000 dsi_status=000015bd dsi_fifo=00050015 error0=00000000 error1=00000000 elapsed_us=00004000\n'
+a,b=runner.dpi_dma_tile_hashes(0x4ff10080,0x4ff12e80)
+frame+=f'DPI_DMA_FRAME_RESTORE light=00000001 mode=00000001 lp=00000000 dpi=000019d0 cfg=00000000 channels=00000000 abort=00000000 source_hash={a:08x} list_hash={b:08x} preserved=00000001 duplicate_busy=00000001\n'
+frame+='\n'.join(l.replace('DPI_DMA_STAGE_REPLY','DPI_DMA_FRAME_REPLY') for l in stage.splitlines() if l.startswith('DPI_DMA_STAGE_REPLY '))+'\nMAIA_NATIVE_DPI_DMA_FRAME_PASS\n'
+assert runner.evaluate_dpi_dma_frame(frame)
+assert not runner.evaluate_dpi_dma_stage(frame)
+for a,b in [('items=00038400','items=000383ff'),('channel_status=0000001b','channel_status=00000019'),('bridge_status=00000000','bridge_status=00000001'),
+            ('active=00000001 done=00000001','active=00000000 done=00000001'),('recovered=00000001','recovered=00000000'),('attempted=00000fff','attempted=00000ffe'),
+            ('cfg=00000000 channels=00000000','cfg=00000001 channels=00000000'),('DPI_DMA_FRAME_REPLY index=00000002','DPI_DMA_FRAME_REPLY index=00000003'),
+            ('MAIA_NATIVE_DPI_DMA_FRAME_PASS','')]:
+    changed=frame.replace(a,b);assert changed!=frame,(a,b)
+    assert not runner.evaluate_dpi_dma_frame(changed),(a,b)
+print('PASS: actual full item count/done/active observations, no errors, idle recovery and retained replies required')
+
+calibration=''
+for i,(width,count) in enumerate(zip((8,64,8,64),(8,8,256,4096))):
+    b=count*(width//8)
+    calibration+=f'VDMA_COUNT index={i:08x} width={width:08x} items={count:08x} bytes={b:08x} matched={b:08x} raw={count-1:08x} status=00000000 common=00000000 guards=00000001 tail=00000001\n'
+calibration+='VDMA_COUNT_IDLE cfg=00000000 channels=00000000 preserved=00000001\nMAIA_NATIVE_VDMA_COUNT_PASS\n'
+assert runner.evaluate_vdma_count(calibration)
+assert not runner.evaluate_vdma_count(calibration.replace('matched=00008000','matched=00007fff'))
+assert not runner.evaluate_vdma_count(calibration.replace('tail=00000001','tail=00000000'))
+print('PASS: counter qualification requires actual byte-copy proof; raw count remains an observation')

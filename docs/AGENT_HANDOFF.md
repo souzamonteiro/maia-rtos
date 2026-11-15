@@ -981,3 +981,27 @@ proof yet. Next bounded solid single-frame activation/completion/stop and visual
 color with temporary light; do not enable160-LLI plan. Optional-register fault and
 AWLEN normalization root causes open. Native full desktop/PSRAM/rotation-input
 acceptance pending; prior bars observed horizontal; POSIX DESIGN.
+
+## One finite DMA frame completed/recovered; visual red unconfirmed — 2026-11-15
+
+Read [frame audit](audits/native-dpi-dma-frame.md). New boot-only API consumes private solid-stage claim:
+globalCFG1(no IRQ), channel101, MODE0/LP3/output1/WT, bounded completion/drain and
+guarded cleanup channel100/global0/output0/WT/MODE1/LP0. Transfer/recovery results
+separate; errors retained; lost ownership can prevent cleanup. Single use/BUSY,
+partial failure sticky. Active guards allow live progress; source immutable8bytes.
+Initial frame DMA-done/FIFOempty but raw count383FF was refused against38400.
+Separate SRAM copies verify actual8/64/256/32768bytes with rawN-1 for8/64-bit data.
+Expose raw/normalized separately: only done+natural-disable+expectedraw confirms
+38400items. Qualification first HOST FAIL was an unnecessary done-bit requirement
+(M2M target status0 with exact bytes); corrected byte-proof evaluator revalidated
+the exact rows, preserving original raw FAIL. No display done requirement relaxed.
+Final frame PASS: stage9/maskFFF/active1/done1/raw383FF/items38400/status12/errors0,
+967 completion/2 recovery polls/13550us sample, all enables0/commands restored,
+GPIO restored/hashes unchanged/four power9C replies. Visible red NOT CONFIRMED.
+Host42/42/ASan+UBSan/C++98/six rejected mutants/invalid profile PASS; runtime gates
+clean. Final SHAde826aeeb87f82a3a43d2e3e17bf4856b0d470525ffaebae56083924e2cc2e03.
+Shell/SciCalc14/desktop restored; no flash/SD/parser/table/timing/rotation changes.
+Recovery `../maia-rtos-recovery/native-dpi-dma-frame-20261115/`. Bridge raw0 is at
+existing discard threshold413, not an all-pixel quality proof. Next bounded visual
+refresh/color/underrun qualification, then framebuffer/PSRAM. Native full desktop
+pending; installed complete desktop FreeRTOS; prior bars horizontal; POSIX DESIGN.
