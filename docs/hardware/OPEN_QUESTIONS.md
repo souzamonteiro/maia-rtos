@@ -326,3 +326,14 @@ AXI requests off/read-write command0. Do not access assumed48100000, infer live
 VO2 calibration/ownership, clock/mode/DQS/DLL/tuning and MMU/cache/owned memory
 proof. No cold PSRAM/full framebuffer acceptance. [LCD/touch delivery plan](../plans/LCD_TOUCH_NATIVE.md)
 is current priority; touch coordinates/events and shared-bus task ownership pending.
+
+### Native HEX mode-register identity established, initialization still open — 2026-11-15
+
+[Identity audit](../audits/native-psram-identity.md) reads inherited configured device
+AP/32MiB/X16 with direct bounded4040 command-port reads and exact restore. Raw
+MR0/1 8D30, MR2/3 A0DF, MR4 20, MR8 4B repeated. No cold/default-latency, PSRAM
+array ownership or usable-memory inference. Need checked native VO2/clock/mode/
+DQS/DLL/tuning, cache/MMU and owned memory tests before full framebuffer. ROM SPI
+configuration helper reference has unbounded idle wait/mutable callback; native
+path avoids it. Same-value config-store/restore ACK and a busy edge are not claimed.
+LCD continuous service and touch coordinates/events remain delivery targets.

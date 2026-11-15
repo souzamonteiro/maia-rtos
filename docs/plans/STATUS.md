@@ -1057,3 +1057,23 @@ no flash/SD/parser/display changes. Recovery
 restore, native power/clock/mode/MMU/cache and owned memory before framebuffer.
 Touch coordinates/events/runtime bus ownership still pending. Native full desktop
 not integrated; preserved complete installed firmware still original runtime.
+
+## Native HEX mode-register identity and restore — 2026-11-15
+
+Read [identity audit](../audits/native-psram-identity.md). New boot-only direct PSRAM command-port read, no SPI
+ROM helpers (reference helper has unbounded wait/mutable callback). Source facts
+SDKf5c3654 HEX s_get_psram_mode_reg + P4 registers. Inherited powered/timed device,
+AXI off; temp OPI_DTR/4040/cmd16/address32/dummy12/CS1/receive poison, bounded poll,
+guarded ten-word restore; no device mode/array/clock/LDO/MMU write. Failure sticky,
+no active cleanup/abort/retry. Actual one RAM run: MR0/1=8D30, MR2/3=A0DF, MR4=20,
+MR8=4B twice; vendorD/density7/32MiB/device3(gen4)/KGD6/X16 confirmed. Every read
+stage5/result0/setup+restore3FF/polls1/busy0/idle/restored1; busy edge not sampled,
+response proof is poison replacement and repeatable device fields. Roots/27 words
+unchanged after all eight reads, runner PASS. Host48/48 + ASan/UBSan/C++98/six
+runtime mutants/invalid profile/SDK mask oracle PASS. SHA
+95cec29d4b5fbd6ff0b635c2bf420a9eafc37be8e3c6509ae0f0c3421f8d8471,
+RAM10448bytes/entry4FF00100. Reset shell/SciCalc14/desktop PASS, no flash/SD writes.
+Recovery `../maia-rtos-recovery/native-psram-identity-20261115/`. No native cold
+PSRAM/array/capability/mapping/framebuffer claim. Next checked native power/clock/
+mode startup + owned memory, then cache/MMU/display. LCD+touch remain priority,
+other drivers then MaiaScript; delivery checklist updated without claiming cold init.

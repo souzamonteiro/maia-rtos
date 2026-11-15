@@ -768,3 +768,19 @@ for old,new in [('after=80002000','after=00002000'),('samples=00000036','samples
     assert not runner.evaluate_psram_state(psram_capture(True).replace(old,new))
 assert not runner.evaluate_psram_state(psram_capture(False).replace('result=fffffffd','result=00000000'))
 assert not runner.evaluate_psram_state(psram_capture(True)+psram_capture(True))
+
+identity=psram_capture(True)
+for n in range(8):
+    reg=(0,2,4,8)[n%4];bits=16 if reg<4 else 8;value=(0x0d30,0x20df,0x20,0x4b)[n%4]
+    identity+=f'PSRAM_ID index={n:08x} reg={reg:08x} result=00000000 stage=00000005 bits={bits:08x} setup=000003ff restore=000003ff triggered=00000001 polls=00000003 busy=00000001 command=00000000 value={value:08x} restored=00000001\n'
+    original=(0x2ca00c,0x80000000,0x5c000007,0x70000000,0,0,2,0,0x20,0x0d30)
+    configured=(0x2ca27c,0xf0000000,0x7c00000b,0xf0004040,reg,bits-1,1,2,0x21,0xa55a5aa5)
+    for i,(b,c) in enumerate(zip(original,configured)):identity+=f'PSRAM_ID_WORD read={n:08x} index={i:08x} before={b:08x} configured={c:08x}\n'
+identity+='PSRAM_ID_RESTORE result=00000000 roots=00000001 words=00000001 vendor=0000000d density=00000007 device=00000003 kgd=00000006 x16=00000001\nMAIA_NATIVE_PSRAM_ID_PASS\n'
+assert runner.evaluate_psram_identity(identity)
+assert not runner.evaluate_psram_state(identity)
+for a,b in [('value=00000d30','value=00005aa5'),('restored=00000001','restored=00000000'),('configured=f0004040','configured=f000c0c0'),('command=00000000','command=00040000'),('value=000020df','value=000020dd'),('x16=00000001','x16=00000000')]:
+    assert not runner.evaluate_psram_identity(identity.replace(a,b)),(a,b)
+assert not runner.evaluate_psram_identity(identity+identity)
+
+assert not runner.evaluate_psram_identity(psram_capture(False)+identity[len(psram_capture(True)):])

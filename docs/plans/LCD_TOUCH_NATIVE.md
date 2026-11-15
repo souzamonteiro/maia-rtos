@@ -9,7 +9,9 @@ MaiaCC ownership. Each completed verified unit gets separate commit/push.
   confirmed stable colored central32-row incremental-source marker. This is a
   boot diagnostic with IRQs off, not a production graphics service.
 - [x] PSRAM route audited as HEX/X16, read-only native controller state sampled.
-- [ ] Independent PSRAM mode-register identity, VO2/clock/mode startup, conservative
+- [x] Native inherited HEX mode-register identity and exact command-port restore;
+  two stable series confirm AP/32MiB/X16. Cold startup is not inferred.
+- [ ] Independent VO2/clock/mode startup, conservative
   speed qualification and bounds-checked owned read/write memory test.
 - [ ] Cache/MMU/DMA ownership and full RGB565 framebuffer1843200bytes, then actual
   full-frame readout; no arbitrary PSRAM address or inherited SDK allocation.

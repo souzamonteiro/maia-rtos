@@ -1174,3 +1174,17 @@ all36 addresses/gate masks to unchanged pinned headers. Working boot says HEX/X1
 not Octal. Native read-only54 observations stable, inherited AXI_REQ_EN0; no array,
 MR identity or cold initialization proof. No SDK headers/runtime in target. Host47/
 47, sanitizers and failure guards PASS; original desktop recovered after RAM test.
+
+## Native inherited HEX device identity — 2026-11-15
+
+[Identity audit](../audits/native-psram-identity.md), SDKf5c3654
+[HEX source s_get_psram_mode_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c),
+[P4 command-port registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi1_mem_s_reg.h),
+[controller LL common transaction](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h):
+4040/16bit command/32bit MR address/read16 or8bits/dummy12 for preserved200M mode,
+OPI_DTR/CS1. Native code bounded direct reads, no ROM driver call. SDK data-macro
+oracle checks all ten addresses/masks/startbit. Actual8D30/A0DF/20/4B repeated,
+AP/density7/32MiB/gen4/KGD6/X16 and exact controller/root restoration PASS. Busy
+edge unobserved; poisoned receive value changed to valid repeatable device data.
+No cold init/array/mapping/frequency or timing proof. Host48/48 and failure checks
+PASS; original firmware recovered. No SDK runtime imported or device-mode writes.

@@ -1,0 +1,382 @@
+{
+  "date": "2026-11-15",
+  "parent_commit": "b477777d31894a732caec6a896212d7ad4c345ae",
+  "status": "HARDWARE-TESTED LIMITED; inherited HEX mode identity, not cold init/array readiness",
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-psram-identity-20261115",
+  "files": {
+    "source/CMakeLists.txt": {
+      "size": 51593,
+      "sha256": "ed094a3345560392167d1d80c5f6c7758fabf7337b99a751a5344e9b7ac23bb9"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 79515,
+      "sha256": "3401b299ed8dcc59cc088b0e448364410100386e575504d8e661f86cc57ace3a"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 89844,
+      "sha256": "572b57197b0f623af53018431289d2048c90b6df332cc758bbd80092d83583ee"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 29195,
+      "sha256": "8028cdaf99e9ec1acdae85a4e9bcdb50f1063bea307bcf9fd9c8923c16bee783"
+    },
+    "source/docs/plans/LCD_TOUCH_NATIVE.md": {
+      "size": 2262,
+      "sha256": "8d621c2c4a355dd0c7d66ef816298791c5bebf0f7a6d6065cf86094279393ff1"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 77465,
+      "sha256": "9c653c52a8c85d20935c6289498698ac580428dd27f4aa20ec1c514a62d47286"
+    },
+    "source/include/maia/soc/esp32p4_psram.h": {
+      "size": 3387,
+      "sha256": "62f07f72723420a784698fe35164371b8fdee60b6f59c058eb05436d945e80ad"
+    },
+    "source/soc/espressif/esp32p4/psram_internal.h": {
+      "size": 1984,
+      "sha256": "ed5c059cc1322bb28d9ac97be99b4a996ee7c8896c35ff1e7af9fa5e8a568993"
+    },
+    "source/tests/hardware/native_psram_state_probe.c": {
+      "size": 1545,
+      "sha256": "ff50b22d7581fa18f115bcfc361dd11d609543112424f66d46108a1fc2d0bfc3"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 102339,
+      "sha256": "11b51424df92744b11f70de78b7494b3ea1a2af457ccf6fc97ad5c49a2d64a48"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 64992,
+      "sha256": "bbcaec61fe721a09d36f7cb6f2780a6b033f79a543cdcf510fa7fbf05b58a627"
+    },
+    "source/docs/audits/native-psram-identity-desktop.txt": {
+      "size": 3339,
+      "sha256": "c89644e4ac49986e8a34e97c879038ba89fff46a1c3cb5d8e75c140cb80760b0"
+    },
+    "source/docs/audits/native-psram-identity-hardware.txt": {
+      "size": 11451,
+      "sha256": "5c7ee471a8ece6eb6b71e65bd3ea1dc3ad3624a94b3f92eb5b0ea61cd7bb7ad6"
+    },
+    "source/docs/audits/native-psram-identity.md": {
+      "size": 7691,
+      "sha256": "c1e29099b991d08bc5f133dc620e01a0c4db9c3c70447036a81ac768a7f5c2d9"
+    },
+    "source/soc/espressif/esp32p4/psram_mode_internal.h": {
+      "size": 1044,
+      "sha256": "8feb566d562fb1511d37ad72593bb16ee58596abd9bd4d8048cd95dc552c7853"
+    },
+    "source/soc/espressif/esp32p4/soc_psram_mode.c": {
+      "size": 4626,
+      "sha256": "44f5609312c51745cc6d16a268ba1d02643d7c186a9ae7850a4a10c7407b6d22"
+    },
+    "source/tests/hardware/native_psram_identity.h": {
+      "size": 2169,
+      "sha256": "b43d5fbf147c471832e8f6c67763e7f7563aee7a33c7bc5c40ace1021a6305c5"
+    },
+    "source/tests/host/psram_mode_test.c": {
+      "size": 5109,
+      "sha256": "c24a39522272a8af07697c6ad29bd05ee133de321b788658e4d185786781bbb3"
+    },
+    "source/soc/espressif/esp32p4/soc_psram_snapshot.c": {
+      "size": 1546,
+      "sha256": "a86e5983b87057cd53c678f5769a7c33756fe1d743e8b3018f822151a3b88420"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 12546,
+      "sha256": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9"
+    },
+    "source/boards/m5stack/tab5/linker.ld": {
+      "size": 2127,
+      "sha256": "d94afd9cd91e06c6976638c4f968c70afcc1754ba502748c98afb1cb8701ec87"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 10528,
+      "sha256": "95cec29d4b5fbd6ff0b635c2bf420a9eafc37be8e3c6509ae0f0c3421f8d8471"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 19224,
+      "sha256": "0edf15034225d3ba1e8198ed5f91647f32fe2baab1c1cffa03ed7c4b6827e929"
+    },
+    "build/maia_sched_probe.elf": {
+      "size": 27612,
+      "sha256": "2d27019deac66c3959c58f54965e90b5767abc6d183f7161d8c28ac81868a267"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 30063,
+      "sha256": "e287aa8117443bd8ec1641f52a655b19953ddff1ab79919441ea024ca586bc51"
+    },
+    "build/CMakeCache.txt": {
+      "size": 22978,
+      "sha256": "6932b81d14054ced558677464a15d881cc210cc5ce536ac215c69a5fb7a25bcc"
+    },
+    "logs/maia-psram-id-console.log": {
+      "size": 11579,
+      "sha256": "4615574f73b376a5f55bec98ccb7e18c71da5296ee6145e3aedb4c6530ffee17"
+    },
+    "logs/maia-psram-id-host-build.log": {
+      "size": 2164,
+      "sha256": "fb9479f479b427d983d966601a20f6dce82c4090d1066725703916dd0ac9ca84"
+    },
+    "logs/maia-psram-id-build.log": {
+      "size": 1317,
+      "sha256": "b8cd7971468fbc7bdd74b1de7080d43cf8488a1a0f5742d44b768016a4cc32ba"
+    },
+    "logs/maia-psram-id-config.log": {
+      "size": 1263,
+      "sha256": "ed2e7358ffdb4aa538db2755a63eb3c60ebffadb5c93568176ea4aa5ff6956dc"
+    },
+    "logs/maia-psram-id-checks.log": {
+      "size": 374,
+      "sha256": "12a29c39dc2e5626926ee8dd98decded08525f4b38a3c1c83b5b2d6fac6c4e72"
+    },
+    "logs/maia-psram-id-image.log": {
+      "size": 103,
+      "sha256": "bd34cdf9f9e0124191eeac1abe0a9595e32f99877b85ade52efd37ee00189dd6"
+    },
+    "logs/maia-psram-id-desktop.log": {
+      "size": 3394,
+      "sha256": "5567b71f09a7a29f9ee49a76b54a6d34bc0b832c41bd1862335f2526a95c0550"
+    },
+    "logs/maia-psram-id-hardware.log": {
+      "size": 11579,
+      "sha256": "4615574f73b376a5f55bec98ccb7e18c71da5296ee6145e3aedb4c6530ffee17"
+    },
+    "logs/maia-psram-id-host-test.log": {
+      "size": 5283,
+      "sha256": "835873b95424b57a72a6f954d6cade7acf11b5f812d25ef469b08761f87936d9"
+    },
+    "scripts/maia-document-psram-id.py": {
+      "size": 16193,
+      "sha256": "ffdebdfcc9bea3f5a9903f74363f32940f469779026c9160d838f6d45777e6d6"
+    },
+    "scripts/maia-psram-id-checks.py": {
+      "size": 4418,
+      "sha256": "de7f295e02b129c31c30ade4c47ed6de499d762de8933a4f43cf9ff70f3c9e3d"
+    },
+    "scripts/maia-psram-id-runner.py": {
+      "size": 5596,
+      "sha256": "ea3eecd6d17dd55e6ddd653b2912947f79e91775b9d3582dd4bb76f5cf02a0da"
+    },
+    "scripts/maia-psram-id-tested-image-sha.txt": {
+      "size": 65,
+      "sha256": "60c30f003c14376bfceb30572fcfbdde814c0675edd67b7aebedf17fa81432e9"
+    },
+    "scripts/maia-ldo3-verify-desktop.py": {
+      "size": 1190,
+      "sha256": "4fd9077aa6ee40988bc1557dc74787f875be380523c1139424cfcee2f0417bcd"
+    },
+    "checks/sdk.json": {
+      "size": 714,
+      "sha256": "b74734146092fc0cef4b1a90106e5d2a7380b0cafd64a1ed90af6ce120b37893"
+    },
+    "checks/header.cpp": {
+      "size": 97,
+      "sha256": "ecede44d4d0bde41b5bcad1b5f3dbdf1e2174d0cba24eb0e5c7c86ff038cab22"
+    },
+    "checks/invalid.log": {
+      "size": 1223,
+      "sha256": "8503b8ef35509359a9efcb52fe81c69fbc873375742fd7422b4d88301d61b746"
+    },
+    "checks/oracle": {
+      "size": 33720,
+      "sha256": "c62c6b8ead331955fb63fd7ab9fd051edf18f597d0c85fcfea8d045395ae0eac"
+    },
+    "checks/oracle.c": {
+      "size": 1250,
+      "sha256": "f2e198517fdec4a1067375f37cdce3005da0c60ce8d4fe1d297996fc4a42dd68"
+    },
+    "checks/positive/mode.c": {
+      "size": 4626,
+      "sha256": "44f5609312c51745cc6d16a268ba1d02643d7c186a9ae7850a4a10c7407b6d22"
+    },
+    "checks/positive/test": {
+      "size": 110040,
+      "sha256": "698756a8cf037883c8d431fe705a88e2e18e713dec54dd41b0442240efc68f20"
+    },
+    "checks/positive/result.log": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "checks/ignore-AXI-owner/mode.c": {
+      "size": 4632,
+      "sha256": "5fff0cdd2841e5f1812af351c30e0f7e67a139a6d8e76dea4dae4e7b13ff04df"
+    },
+    "checks/ignore-AXI-owner/test": {
+      "size": 110040,
+      "sha256": "3562ce1282de2f7de8fabd397dc22cd5b0db9ed6689700236250c51217b4663d"
+    },
+    "checks/ignore-AXI-owner/result.log": {
+      "size": 133,
+      "sha256": "d7f95f6bba3cf13f6a0d1c1bb329d14bc40b6b80688666db18a10b8dc9da87bc"
+    },
+    "checks/ignore-timeout/mode.c": {
+      "size": 4630,
+      "sha256": "c6553d05e7d1ed72edc152a6943189c91f0a541a138dd5e86da308d3c668280d"
+    },
+    "checks/ignore-timeout/test": {
+      "size": 110040,
+      "sha256": "3bb15a8015cb278a9944cd52dbda1370edcb60edfa6bb4954b02ed07817677ca"
+    },
+    "checks/ignore-timeout/result.log": {
+      "size": 172,
+      "sha256": "89d83cf57a9089f0b0415f86357302f7ccde5187834ea99b2c414e963ac7bbe1"
+    },
+    "checks/invalid/CMakeCache.txt": {
+      "size": 18579,
+      "sha256": "826b9a6fc3567de40a31cf1b393b7debe68721811fbbb013df30a2b7b7cff6ec"
+    },
+    "checks/omit-restore/mode.c": {
+      "size": 4624,
+      "sha256": "5a86d061f89fcf63276176927b8f3e248997f2f03aa8e807cc521aff91e43101"
+    },
+    "checks/omit-restore/test": {
+      "size": 110040,
+      "sha256": "2dd622e7921aae55ce5fe6543652a8899cf1f43e11b6018d7fdccad83c2a3076"
+    },
+    "checks/omit-restore/result.log": {
+      "size": 265,
+      "sha256": "62cfbb36a60ab209716685c8630a683af5726e70172be11fa2f4efe782ce5073"
+    },
+    "checks/ignore-response/mode.c": {
+      "size": 4538,
+      "sha256": "e96936f7501c8fd7581c60f0dbfc066f813ec7562b6ccd86fbe4f1a5d7477ede"
+    },
+    "checks/ignore-response/test": {
+      "size": 110040,
+      "sha256": "9dfc193f0e924af054545be42cdc5f3b1d657dc5828541874b5c26ca86e5325a"
+    },
+    "checks/ignore-response/result.log": {
+      "size": 152,
+      "sha256": "7df21e1f9d2de3f6cee738bc3f247edfa7adb939b160f1068f87bc3d19663e10"
+    },
+    "checks/omit-start/mode.c": {
+      "size": 4600,
+      "sha256": "d3832e0dd16476560bb64a733dc6fc2b3742647e23e754964be347f31986dee5"
+    },
+    "checks/omit-start/test": {
+      "size": 110040,
+      "sha256": "570489ef554a21abd569bb0d89abfa5c577e0fc5815dd148402037608d79c681"
+    },
+    "checks/omit-start/result.log": {
+      "size": 265,
+      "sha256": "62cfbb36a60ab209716685c8630a683af5726e70172be11fa2f4efe782ce5073"
+    },
+    "checks/retry-after-failure/mode.c": {
+      "size": 4630,
+      "sha256": "13a8535a10cc5d60ac4234e0d62c5d470ea70d00953e833b99dcf01cc5bc830a"
+    },
+    "checks/retry-after-failure/test": {
+      "size": 110040,
+      "sha256": "67d9b1bfca60af43ce619222db316c7dd651606ca5daa31c9909db93d3d65782"
+    },
+    "checks/retry-after-failure/result.log": {
+      "size": 98,
+      "sha256": "2943d189fd9642c3a8767ed1f1469f15e62a52e2887b71ce2c882adecc75865c"
+    },
+    "checks/invalid/CMakeFiles/cmake.check_cache": {
+      "size": 85,
+      "sha256": "a26189e394421da57f45706a07713c5720acd200a41711b0c0c590c3c63371c4"
+    },
+    "checks/invalid/CMakeFiles/CMakeConfigureLog.yaml": {
+      "size": 133421,
+      "sha256": "4ea02aa272ec00b101d8934c03fcb8c57087bc9bb27896f3af7ed87ecee2e7ff"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_CXX.bin": {
+      "size": 2700,
+      "sha256": "7d85158ff9cc2d327231016e179fbc91ab9ab5a89da6681b63cf1351ed59ccf2"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_C.bin": {
+      "size": 2664,
+      "sha256": "af8b87fa15e59d809c6ee59f2997509d170623c9639437cf4893196bca351b99"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCXXCompiler.cmake": {
+      "size": 7587,
+      "sha256": "8c52f323c968ebdcefd0ab77d57b96e1025a5406dadeff931886f05e4ddcd569"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCCompiler.cmake": {
+      "size": 3949,
+      "sha256": "d0f72f32b12a8881db9ffd55b2043c2d295be6496c8352a05fdc5421385c2bb4"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeSystem.cmake": {
+      "size": 455,
+      "sha256": "a300eb901942ade38040c8d0d710ac32d2b939d39c0e88a0b9d3d1525a4e5e10"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeASMCompiler.cmake": {
+      "size": 1859,
+      "sha256": "cc1370f45f1c9e67d348266e19e49999b3ae196a21e9f269ba6f0b3fec5a5202"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/CMakeCCompilerId.c": {
+      "size": 29029,
+      "sha256": "6ccdb729a0b1d02ba3d9b57e617d311fbac288d9c0d32416c048ef044157f041"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/a.out": {
+      "size": 92548,
+      "sha256": "097ceb1fe6dfbbc599bde5272c1c5e8dce90af223ff11e9c94964fd5117f1fa5"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/a.out": {
+      "size": 92608,
+      "sha256": "29775cc1d1c12df753c7e6ba00aa338af97d5fdb3530fca42ccccd47b6d3ce8c"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/CMakeCXXCompilerId.cpp": {
+      "size": 29651,
+      "sha256": "5b0cbdb2a0d0a5b91a89026321eb0202fdecb22328eb5c668566ce5cb17e3cd2"
+    },
+    "reference/sdk/components/soc/esp32p4/register/soc/spi1_mem_s_reg.h": {
+      "size": 69486,
+      "sha256": "2e99654b830e417b552e09268b0a43b13bb75f10e58ddf001460a089d19ee38c"
+    },
+    "reference/sdk/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h": {
+      "size": 22496,
+      "sha256": "206b9aeea07acdf7e8a7b327f15ad8ffc2eb22b8648fc3b51dae021786b87d1b"
+    },
+    "reference/sdk/components/esp_psram/device/esp_psram_impl_ap_hex.c": {
+      "size": 17870,
+      "sha256": "3c2f7bdd3224bf33e08d8fb65729c9b08e02f8e086f4c091c7e1e3f033cca1ac"
+    },
+    "reference/sdk/components/esp_rom/esp32p4/ld/esp32p4.rom.ld": {
+      "size": 19281,
+      "sha256": "06f823cb69a26718852a09e37086fc585ddb464cbdf5df8bd533e9f43a71ed47"
+    },
+    "reference/sdk/components/esp_rom/esp32p4/include/esp32p4/rom/opi_flash.h": {
+      "size": 11221,
+      "sha256": "a06a737905b556dd7f2f06f39cf467bb84b333bc42d89b01dd1f7534bc84d99b"
+    },
+    "reference/rom-inspection/maia-psram-rom-opmode.txt": {
+      "size": 8110,
+      "sha256": "312eb46e6eb1fd22297f1819754220ca274f95947fb00814e79545d152b92202"
+    },
+    "reference/rom-inspection/maia-psram-rom-command-config.txt": {
+      "size": 12604,
+      "sha256": "ad98f5af4e06b5ada2cc88fad17157bd1b068cc0af862d64df3c6d506f58a0a6"
+    }
+  },
+  "actual": {
+    "mode_words": [
+      "8d30",
+      "a0df",
+      "20",
+      "4b"
+    ],
+    "series": 2,
+    "polls_per_read": 1,
+    "busy_edge_seen": false,
+    "vendor": 13,
+    "density": 7,
+    "capacity_interpretation_bytes": 33554432,
+    "device_field": 3,
+    "kgd": 6,
+    "x16": 1,
+    "root_controller_restore": true,
+    "desktop": "shell/SciCalc14/desktop PASS"
+  },
+  "sdk_revision": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+  "rom_elf_reference_only": {
+    "path": "/Users/roberto/.espressif/tools/esp-rom-elfs/20241011/esp32p4_rev0_rom.elf",
+    "sha256": "948f2c7d108d04a9c3a982f9c1c498fb17f2c4a68abc51f87782592034d7ce44",
+    "not_board_revision_proof": true,
+    "not_linked_or_copied_into_native": true
+  },
+  "preserved_original": {
+    "platforms/tab5/build/m5stack_tab5.bin": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+    "platforms/tab5/build/m5stack_tab5.elf": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c"
+  }
+}

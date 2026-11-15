@@ -22,12 +22,15 @@ static inline int psram_accessible(const uint32_t roots[MAIA_PSRAM_ROOT_WORDS]){
 #ifdef MAIA_PSRAM_TEST
 int maia_psram_test_context(void);
 uint32_t maia_psram_test_read(uintptr_t);
+void maia_psram_test_write(uintptr_t,uint32_t);
 #define psram_context maia_psram_test_context
 #define psram_read maia_psram_test_read
+#define psram_write maia_psram_test_write
 #else
 static inline int psram_context(void){
     uint32_t hart,status;__asm__ volatile("csrr %0,mhartid":"=r"(hart));__asm__ volatile("csrr %0,mstatus":"=r"(status));return !hart&&!(status&8U);
 }
 static inline uint32_t psram_read(uintptr_t p){return MAIA_MMIO32(p);}
+static inline void psram_write(uintptr_t p,uint32_t v){MAIA_MMIO32(p)=v;__asm__ volatile("fence iorw, iorw" ::: "memory");}
 #endif
 #endif
