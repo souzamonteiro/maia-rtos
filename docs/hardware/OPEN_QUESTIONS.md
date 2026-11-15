@@ -239,3 +239,17 @@ comment versus its use in DPI linked-list setup. Address destination50105000.
 No engine has accessed the tile/list; writeback/lifetime/stop/cache ownership must
 be established before enabling. Full framebuffer/PSRAM/rotation/input/native apps
 remain separate. No source/header/runtime FreeRTOS dependency introduced.
+
+### Channel staging verified; solid transfer and optional-register behavior open — 2026-11-15
+
+[Stage audit](../audits/native-dpi-dma-stage.md): reading50081148 optional destination
+status address causes load fault on this device; source/destination status-address
+registers excluded and fetch/writeback disabled. Explain SDK RW versus silicon
+behavior separately; no need to access these unused optional registers now.
+AWLEN requested16 reads15; final explicit15 verified, root cause/actual bus beats
+unmeasured. Earlier tile LLI encoding with field16 is not an executed transfer.
+Bridge count4bits cannot encode160 by SDK direct-count contract: initial channel
+plan is one full-frame contiguous block with fixed8-byte source, no LLP. Do not
+activate160LLIs directly. Next design guarded activation/update/underrun/completion
+and early stop with source lifetime, then prove solid color pixels. PSRAM, bandwidth,
+full framebuffer and production rotation/input remain independent gates.

@@ -28,6 +28,12 @@ static unsigned pattern_writes,pattern_drop,pattern_drift,pattern_fault,pattern_
 static uint32_t pattern_shadow,bridge_irq_enable,bridge_irq_raw;
 static unsigned bridge_writes,bridge_drop,bridge_drift,bridge_fault,bridge_underflow,bridge_update_reads;
 static maia_dsi_command_report_t command_report;
+static const unsigned channel_offsets[16]={0,4,8,12,0x10,0x18,0x1C,0x20,0x24,0x28,0x2C,0x90,0x88,0x6C,0x8C,8};
+static const uint32_t channel_masks[16]={0xFFFFFFFFU,0xFFFFFFFFU,0xFFFFFFFFU,0xFFFFFFFFU,0x3FFFFF,0x7FFFFF55,0xC7FFFFFF,15,0x7F8E319F,0xFFFFFFC1,0xFFFFFFFFU,0xF83F7FFB,0xF1,0x10000000,0x7FF,0xFFF};
+static const uint32_t channel_values[16]={0x4FF10000,0,0x50105000,0,230399,0x1C1B51,0xf8000,0,0xA020001,0,0,0,0x10,0,768,256};
+static uint32_t channel_words[16],channel_old[16],channel_status,common_status;
+static unsigned channel_writes,channel_drop,channel_drift,channel_error,channel_bus_error;
+static uintptr_t channel_addr(unsigned i){return(i<12?MAIA_ESP32P4_GDMA_BASE+0x100:MAIA_ESP32P4_DSI_BRG_BASE)+channel_offsets[i];}
 static maia_dsi_access_report_t report;
 static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
 static maia_dsi_reference_report_t ref;
@@ -43,7 +49,15 @@ static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;
- if(reference_mode == 10U) {
+ if(reference_mode == 11U){
+  assert(address<MAIA_ESP32P4_GDMA_BASE+0x140U || address>MAIA_ESP32P4_GDMA_BASE+0x14CU);
+  for(unsigned i=0;i<16;++i)if(address==channel_addr(i)){
+   assert((regs[0]&0x2000U)&&(regs[1]&0x20U)&&(regs[1]&0x1000U));return channel_words[i];
+  }
+  if(address==MAIA_ESP32P4_GDMA_BASE+0x188U)return channel_status;
+  if(address==MAIA_ESP32P4_GDMA_BASE+0x50U)return common_status;
+ }
+ if(reference_mode == 10U || reference_mode == 11U) {
   assert((regs[1]&0x1000U) || address == DSI_CPU || address == DSI_SYS || address == DSI_PHY || address == DSI_RESET || address == DSI_ISP || address == DSI_NORST || address == DSI_REF_DIV || address == DSI_LP_GATE || address == DSI_REF_GATE || address == DSI_REF_SOURCE);
   if(address == MAIA_ESP32P4_DSI_HOST_BASE+0x100U)return pattern_shadow;
   if(address == MAIA_ESP32P4_DSI_BRG_BASE+0x50U)return bridge_irq_enable;
@@ -56,7 +70,7 @@ uint32_t maia_dsi_access_test_read(uintptr_t address) {
   if (pattern_writes>=5U && (pattern_timeout || pattern_idle_reads++<2U)) return 0x1591;
   return 0x1595;
  }
- if (reference_mode == 7U || reference_mode == 8U || reference_mode == 9U || reference_mode == 10U) {
+ if (reference_mode == 7U || reference_mode == 8U || reference_mode == 9U || reference_mode == 10U || reference_mode == 11U) {
   for (unsigned i=0;i<19U;++i) if (address == dpi_extra_addresses[i]) {
    assert((regs[2]&0x13U)==3 && (regs[1]&0x1000U));return dpi_regs[i];
   }
@@ -111,6 +125,16 @@ int maia_ldo3_test_context(void) { return (int)context; }
 uint32_t maia_ldo3_test_read(uintptr_t address) { return maia_dsi_access_test_read(address); }
 void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
  ++writes;assert(writes<=41U);
+ if(reference_mode == 11U){
+  unsigned i=channel_writes++;assert(i<16 && address==channel_addr(i));
+  assert(value==((channel_old[i]&~channel_masks[i])|channel_values[i]));
+  if(channel_writes!=channel_drop)channel_words[i]=value;
+  if(channel_writes==channel_drift)regs[1]^=0x1000U;
+  if(channel_writes==channel_error)regs[49]=0x20;
+  if(channel_writes==channel_bus_error)channel_status=0x80;
+  return;
+ }
+
  if(reference_mode == 10U) {
   ++bridge_writes;
   if(bridge_writes == 1U) {
@@ -339,6 +363,14 @@ static void bridge_failed(void) {
  assert(prepare_bridge() == MAIA_DSI_ACCESS_FAILED && pattern_start() == MAIA_DSI_ACCESS_FAILED);
  fail_sticky();assert(a == reads && b == writes);
 }
+static maia_dsi_dma_stage_report_t channel_report;
+static void setup_channel(void){
+ setup_bridge();assert(prepare_bridge()==MAIA_DSI_ACCESS_OK);reference_mode=11;
+ reads=writes=channel_writes=channel_drop=channel_drift=channel_error=channel_bus_error=channel_status=common_status=0;
+ for(unsigned i=0;i<16;++i)channel_words[i]=channel_old[i]=0xA4000000U|((~channel_values[i])&channel_masks[i]);
+}
+static maia_dsi_access_result_t channel_stage(void){return maia_esp32p4_dsi_dma_solid_stage(0x4FF10000,&channel_report);}
+static void channel_failed(void){unsigned a=reads,b=writes;assert(channel_stage()==MAIA_DSI_ACCESS_FAILED);bridge_failed();assert(a==reads&&b==writes);}
 int main(void) {
  setup_dpi();assert(maia_esp32p4_dsi_dpi_stage(NULL,&staged) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
  assert(maia_esp32p4_dsi_dpi_stage(&timing,NULL) == MAIA_DSI_ACCESS_INVALID);
@@ -459,5 +491,25 @@ int main(void) {
  setup_bridge();regs[22]&=~0x94U;assert(prepare_bridge() == MAIA_DSI_ACCESS_BUSY && !writes);
  setup_bridge();assert(prepare_bridge() == MAIA_DSI_ACCESS_OK);regs[23]&=~1U;
  reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();assert(channel_stage()==MAIA_DSI_ACCESS_BUSY);
+ setup_channel();assert(maia_esp32p4_dsi_dma_solid_stage(0x4FF10000,NULL)==MAIA_DSI_ACCESS_INVALID&&!reads);
+ assert(maia_esp32p4_dsi_dma_solid_stage(0x8FF10000,&channel_report)==MAIA_DSI_ACCESS_INVALID&&!reads);
+ assert(maia_esp32p4_dsi_dma_solid_stage(0x4FF10008,&channel_report)==MAIA_DSI_ACCESS_INVALID&&!reads);
+ context=0;assert(channel_stage()==MAIA_DSI_ACCESS_CONTEXT&&!reads);
+ setup_channel();assert(channel_stage()==MAIA_DSI_ACCESS_OK&&channel_report.completed==18&&channel_report.attempted_mask==0xFFFF&&channel_writes==16&&channel_report.frame_bytes==1843200);
+ for(unsigned i=0;i<16;++i)assert(channel_report.after[i]==((channel_old[i]&~channel_masks[i])|channel_values[i]));
+ saved=reads;assert(channel_stage()==MAIA_DSI_ACCESS_BUSY&&reads==saved);
+ reference_mode=6;writes=reads=pops=read_phase=phase_polls=0;assert(read_id(20)==MAIA_DSI_ACCESS_OK);
+ setup_channel();for(unsigned i=0;i<16;++i)channel_words[i]=(channel_words[i]&~channel_masks[i])|channel_values[i];
+ assert(channel_stage()==MAIA_DSI_ACCESS_OK&&!channel_writes&&!channel_report.attempted_mask);
+ for(unsigned i=1;i<=16;++i){
+  setup_channel();channel_drop=i;assert(channel_stage()==MAIA_DSI_ACCESS_VERIFY&&channel_writes==i);channel_failed();
+  setup_channel();channel_drift=i;assert(channel_stage()==MAIA_DSI_ACCESS_VERIFY&&channel_writes==i);channel_failed();
+ }
+ setup_channel();channel_error=7;assert(channel_stage()==MAIA_DSI_ACCESS_IO);channel_failed();
+ setup_channel();channel_bus_error=9;assert(channel_stage()==MAIA_DSI_ACCESS_IO);channel_failed();
+ setup_channel();channel_status=0x80;assert(channel_stage()==MAIA_DSI_ACCESS_IO&&!writes);channel_failed();
+ setup_channel();regs[6]=1;assert(channel_stage()!=MAIA_DSI_ACCESS_OK&&!writes);
+ setup_channel();regs[23]&=~1U;assert(channel_stage()==MAIA_DSI_ACCESS_VERIFY&&!writes);
  puts("PASS: actual native DPI staging, exact80MHz route/RGB565/timing,20 dropped stores, drift/errors and sticky guarded refusal");
 }

@@ -290,6 +290,25 @@ typedef struct maia_dsi_dpi_bridge_report {
  * initialized. Bridge remains enabled with output and DMA inactive on success. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dpi_bridge_prepare(maia_dsi_dpi_bridge_report_t *);
 
+#define MAIA_DSI_DMA_STAGE_WORDS 16U
+typedef struct maia_dsi_dma_stage_report {
+    uint32_t completed,attempted_mask,source,frame_bytes,channel_status,common_status;
+    uint32_t before[MAIA_DSI_DMA_STAGE_WORDS],after[MAIA_DSI_DMA_STAGE_WORDS];
+    maia_dsi_short_report_t observation;
+} maia_dsi_dma_stage_report_t;
+/* Boot/core0/IRQs-off/exclusive, actual native bridge/stage/clock claims required.
+ * Caller owns at least8 bytes at aligned128 physical SRAM source within the tested
+ * 4FF00000..4FF28000 window, has completed cache handoff and keeps source alive
+ * until reboot/future documented completion. Numeric range is not ownership proof.
+ * Stage channel0 contiguous single-frame M2P: fixed64-bit source/destination DSI,
+ * single source burst, HW DSI handshake, DMAC flow, no list/IRQ/status writeback.
+ * Guarded masked RMW/readback16 words; bridge single-block/threshold/burst staged.
+ * All channels/controller/output/video remain OFF; no global/channel enable,
+ * WT trigger, status-clear, cache/memory, PLL or IRQ-enable stores. No pixels or
+ * transfer claim. Duplicate BUSY/no MMIO; partial failure sticky FAILED across
+ * transfers until reboot, no retry/rollback. Required report initialized. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_stage(uint32_t source,maia_dsi_dma_stage_report_t *);
+
 #ifdef __cplusplus
 }
 #endif

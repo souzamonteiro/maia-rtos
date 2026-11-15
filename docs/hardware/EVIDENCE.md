@@ -1065,3 +1065,23 @@ from [earlier DMA proof](../audits/native-vdma-transfer.md); no new cache API fa
 160LLIs, hashes/guards match independent host model, peripheral snapshots unchanged,
 DMA inactive and four power9C/error-free replies. Host42/42 plus sanitizers/mutants/
 SDK oracle PASS. No engine descriptor fetch/transfer/live latch/pixel/PSRAM claim.
+
+### Inactive solid channel/bridge staging and silicon observations — 2026-11-15
+
+Pinned SDKf5c3654 [DMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+channel flow/handshake/burst/priority/outstanding setters, [register types](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_struct.h),
+[bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h),
+[bridge registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_bridge_reg.h):
+contiguous fixed-source64-bit/M2P/DMAC/HW DSI0 config and bridge count7:4=1,
+controller0, multiblock28off, threshold768/burst256. A4-bit direct count cannot
+encode160; do not activate the earlier tile list without a verified new contract.
+[Chip1.3 TRMv0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+register5.12 pp357–358 describes AWLEN range; final field15 verified. Exact cause
+of16->15 readback is open. Host SDK types oracle checks register encoding only.
+
+[Audit/captures/manifest](../audits/native-dpi-dma-stage.md) preserve a read fault
+at optional status-fetch address50081148 despite SDK RW description (excluded now,
+fetch/writeback off), strict AWLEN16 refusal/read15 and final stage18/maskD975
+with source4FF10E80/CTL01C1B51/CTL1F8000/CFG1A020001/globalCFG0/channel0/outputoff,
+unchanged memory/peripherals and four9C/error-free replies. Host42/42, sanitizers,
+seven runtime mutants PASS. No activation/transfer/pixels or physical burst claim.

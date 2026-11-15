@@ -957,3 +957,27 @@ channel/list/handshake/bridge flow staging, then bounded transfer/stop/pixels.
 Full installed desktop still FreeRTOS; native diagnostic independent. Keep owner's
 horizontal-bar observation and logical1280x720/software90 rotation contract; POSIX
 DESIGN. SDK marker-helper comment ambiguity remains for future actual fetch gate.
+
+## Inactive single-block channel0 and DSI flow staging — 2026-11-15
+
+Read [DMA stage audit](audits/native-dpi-dma-stage.md). New boot-only native solid-source API requires
+actual bridge/stage/clock claims and full idle/root/config guards. Bridge frame
+count field4bits cannot directly encode160; prior tile/list remains CPU-only and
+unused. Stage contiguous single frame230400x64-bit, fixed8-byte source and fixed
+DSI50105000, no LLP, DMAC flow/HW DSI0 handshake, priority1/outstanding5,2. Source
+single-item/no ARLEN override, destination256items/AWLENfield15. Sixteen masked
+words checked, reserved bits preserved; no enable/IRQ/WT/status-clear writes.
+First optional status-address read50081148 trapped before configuration stores;
+all four optional status-fetch addresses now excluded/writeback disabled. AWLEN16
+read15; strict refusal retained, final explicit15 verified. Refusal images/logs
+preserved; one failed diagnostic rebuild repeated prior image, not new evidence.
+Final RAM PASS stage18/maskD975/source4FF10E80/CTL1F8000/CFG1A020001/globalCFG0/
+channels0/DPIoff, hashes unchanged and four power9C replies/errors0. Host42/42,
+ASan+UBSan/C++98/seven rejected mutants/invalid profile/SDK oracle PASS; runtime
+gate clean. Final SHA20fe0dcdba0dc61ee1fbaf34163fc039a45a6788d408ff021795696a11d19287.
+Shell/SciCalc14/desktop restored; no flash/SD/parser/table/timing/rotation changes.
+Recovery `../maia-rtos-recovery/native-dpi-dma-stage-20261115/`. No transfer/pixels
+proof yet. Next bounded solid single-frame activation/completion/stop and visual
+color with temporary light; do not enable160-LLI plan. Optional-register fault and
+AWLEN normalization root causes open. Native full desktop/PSRAM/rotation-input
+acceptance pending; prior bars observed horizontal; POSIX DESIGN.

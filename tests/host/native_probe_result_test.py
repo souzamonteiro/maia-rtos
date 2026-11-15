@@ -642,3 +642,21 @@ for a,b in [('source=4ff10080','source=8ff10080'),('end=4ff15700','end=4ff28080'
     assert not runner.evaluate_dpi_dma_tile(tile.replace(a,b)),(a,b)
 assert not runner.evaluate_dpi_dma_tile(tile+'DPI_DMA_TILE_BOGUS result=00000000\n')
 print('PASS: finite tile/list NC layout, independent source/list hashes and inert peripherals required')
+
+stage=tile+'\nDPI_DMA_STAGE result=00000000 stage=00000012 attempted=0000ffff source=4ff10080 frame_bytes=001c2000 channel_status=00000000 common_status=00000000 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+stage_masks=[0xffffffff]*4+[0x3fffff,0x7fffff55,0xc7ffffff,15,0x7f8e319f,0xffffffc1]+[0xffffffff]+[0xf83f7ffb,0xf1,0x10000000,0x7ff,0xfff]
+stage_values=[0x4ff10080,0,0x50105000,0,230399,0x1c1b51,0xf8000,0,0xa020001]+[0]*3+[0x10,0,768,256]
+for i,(mask,value) in enumerate(zip(stage_masks,stage_values)):
+    before=0xa4000000|(~value&mask);after=(before&~mask)|value
+    stage+=f'DPI_DMA_STAGE_WORD index={i:08x} before={before:08x} after={after:08x}\n'
+a,b=runner.dpi_dma_tile_hashes(0x4ff10080,0x4ff12e80)
+stage+=f'DPI_DMA_STAGE_IDLE mode=00000001 lp=00000000 dpi=000019d0 cfg=00000000 channels=00000000 abort=00000000 source_hash={a:08x} list_hash={b:08x} preserved=00000001 duplicate_busy=00000001\n'
+stage+='\n'.join(l.replace('DPI_DMA_TILE_REPLY','DPI_DMA_STAGE_REPLY') for l in tile.splitlines() if l.startswith('DPI_DMA_TILE_REPLY '))+'\nMAIA_NATIVE_DPI_DMA_STAGE_PASS\n'
+assert runner.evaluate_dpi_dma_stage(stage)
+assert not runner.evaluate_dpi_dma_tile(stage)
+for a,b in [('attempted=0000ffff','attempted=0000fffe'),('channel_status=00000000','channel_status=00000080'),('after=801c1b51','after=801e1b41'),
+            ('after=8a020001','after=8a020011'),('cfg=00000000 channels=00000000','cfg=00000001 channels=00000000'),
+            ('DPI_DMA_STAGE_WORD index=0000000f','DPI_DMA_STAGE_WORD index=0000000e'),('MAIA_NATIVE_DPI_DMA_STAGE_PASS','')]:
+    changed=stage.replace(a,b);assert changed!=stage,(a,b)
+    assert not runner.evaluate_dpi_dma_stage(changed),(a,b)
+print('PASS: inactive fixed-source single-block channel/bridge fields, masks and memory preservation required')
