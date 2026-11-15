@@ -612,3 +612,15 @@ print('PASS: native VPG start/hold/stop/reply order, exclusive transport, inacti
 
 for a,b in [('out=00400000','out=00400001'),('matrix=00000500','matrix=00000100'),('mux=00001200','mux=00007200'),('DPI_PATTERN_LIGHT_RESTORE verified=00000001','')]:
     assert not runner.evaluate_dpi_pattern(patterned.replace(a,b))
+
+bridge=clocked+'\nDPI_BRIDGE_REQUEST result=00000000 stage=00000004 attempted=00000003 before=a4000000 after=a4000001 update_value=00000001 irq_raw=00000000 status=000015bd fifo=00050015 error0=00000000 error1=00000000\nDPI_BRIDGE_IDLE bridge=a4000001 dpi=000019d0 mode=00000001 lp=00000000 dma_quiet=00000001 preserved=00000001 duplicate_busy=00000001 vpg_busy=00000001 latch_verified=00000000\n'
+bridge+='\n'.join(l.replace('DPI_CLOCK_REPLY','DPI_BRIDGE_REPLY') for l in clocked.splitlines() if l.startswith('DPI_CLOCK_REPLY '))+'\nMAIA_NATIVE_DPI_BRIDGE_PASS\n'
+assert runner.evaluate_dpi_bridge(bridge)
+assert not runner.evaluate_dpi_clock(bridge)
+for a,b in [('after=a4000001','after=00000001'),('before=a4000000','before=a4000001'),('update_value=00000001','update_value=00000000'),
+            ('irq_raw=00000000','irq_raw=00000001'),('dpi=000019d0','dpi=000019d1'),('mode=00000001 lp=00000000','mode=00000000 lp=00000003'),
+            ('duplicate_busy=00000001 vpg_busy=00000001','duplicate_busy=00000000 vpg_busy=00000001'),('latch_verified=00000000','latch_verified=00000001'),
+            ('DPI_BRIDGE_REPLY index=00000002','DPI_BRIDGE_REPLY index=00000003'),('MAIA_NATIVE_DPI_BRIDGE_PASS','')]:
+    assert not runner.evaluate_dpi_bridge(bridge.replace(a,b)),(a,b)
+assert not runner.evaluate_dpi_bridge(bridge+'DPI_BRIDGE_BOGUS result=00000000\n')
+print('PASS: bridge ownership, WT publication without ACK claim, idle output/DMA and retained power replies required')

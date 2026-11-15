@@ -273,6 +273,23 @@ typedef struct maia_dsi_dpi_pattern_report {
 maia_dsi_access_result_t maia_esp32p4_dsi_dpi_pattern_start(maia_dsi_dpi_pattern_report_t *);
 maia_dsi_access_result_t maia_esp32p4_dsi_dpi_pattern_stop(uint32_t poll_budget,maia_dsi_dpi_pattern_report_t *);
 
+typedef struct maia_dsi_dpi_bridge_report {
+    uint32_t completed,attempted_mask,bridge_before,bridge_after,update_value,irq_raw;
+    maia_dsi_short_report_t observation;
+} maia_dsi_dpi_bridge_report_t;
+/* Boot/core0/IRQs-off/exclusive; actual native DPI stage+clock claims required.
+ * Require unchanged cached timing/root/supply/PHY, command mode/LP/stopped TX,
+ * empty FIFOs, no VPG/frameACK/shadow controls/bridge IRQ enables or underrun.
+ * Enable only bridge EN0 with checked RMW, then publish literal1 to DPI_UPDATE
+ * (+44, write-trigger); no readback/ACK or completion guarantee exists for that
+ * trigger. Final guards prove unchanged configuration/idle output, not live latch.
+ * No pixel output/video/HS/DMA/IRQ/reset/PLL writes or framebuffer association.
+ * Native commands accept bridge-on only after this private verified transition;
+ * duplicate BUSY/no MMIO. Partial failure sticky FAILED across transfers until
+ * reboot; no retry/rollback. VPG start refuses bridge ownership. Required report
+ * initialized. Bridge remains enabled with output and DMA inactive on success. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dpi_bridge_prepare(maia_dsi_dpi_bridge_report_t *);
+
 #ifdef __cplusplus
 }
 #endif

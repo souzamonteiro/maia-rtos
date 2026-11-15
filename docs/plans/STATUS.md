@@ -851,3 +851,26 @@ rotation: native panel720x1280, logical desktop1280x720. The host VPG bypasses L
 rotation. Preserve desktop and input-coordinate orientation when implementing
 native framebuffer presentation; verify direction with an asymmetric pattern.
 See [correction](../audits/native-dpi-pattern-orientation.md).
+
+## Native inactive bridge enable and update publication — 2026-11-14
+
+Read [bridge audit](../audits/native-dpi-bridge.md). New native boot/core0/exclusive API requires real
+stage+clock claims and cached19/root/supply/PHY/LP-command guards, stopped/empty TX,
+bridge/output/DMA/VPG/shadow/frameACK/IRQ enables off. Checked bridge EN0->1,
+then literal1 to DPI_UPDATE+44. Register is WT, no ACK: no read/poll/RMW/retry;
+latch_verified0, dropped publication explicitly unobservable in host fixture.
+Private expected bridge bit permits LP traffic only after checked native enable;
+external adoption/loss refuses. Original reference-acquisition bridge-off guard
+preserved. Duplicate BUSY/no I/O; partial failure sticky/reboot, VPG refused once
+bridge owned. Final native RAM load PASS stage4/mask3/EN1/DPI19D0/MODE1/LP0/
+DMAquiet1/IRQ_RAW0/errors0 and four power9C words/errors0/restored controls. Earlier
+candidate also passed, images/captures separate. Final SHA213a32b2288b58ebe4ea8363
+d267a3b38c5d4cfbfc15a29ee5ac6999b476e10d. Host41/41/ASan+UBSan/C++98/six rejected
+runtime mutants/invalid profile PASS; native runtime gate clean. Shell/SciCalc14/
+desktop restored; no flash/SD/parser/table/timing/production rotation changes.
+Recovery `../maia-rtos-recovery/native-dpi-bridge-20261114/`. No live latch or
+DMA/framebuffer pixels claim. Next owned SRAM DMA/bridge flow/descriptor contract
+and inactive staging before pixels; full frame1,843,200bytes cannot fit the tested
+RAM-image window. PSRAM and full native desktop pending; installed complete desktop
+still FreeRTOS. Logical1280x720/productionLV_DISPLAY_ROTATION_90 and owner's
+horizontal visible-pattern clarification retained. POSIX remains DESIGN.

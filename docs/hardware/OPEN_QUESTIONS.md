@@ -216,3 +216,15 @@ Orientation acceptance: owner saw horizontal bars. Production software selects
 LV_DISPLAY_ROTATION_90; validate physical direction and input mapping with an
 asymmetric labeled native framebuffer pattern before desktop acceptance. Do not
 replace panel720x1280 timings with logical1280x720 solely to rotate the UI.
+
+### Bridge update requested; live application and DMA-fed pixels pending — 2026-11-14
+
+[Native bridge preparation](../audits/native-dpi-bridge.md) verifies EN1 with
+output/DMA off and continuing power9C replies. DPI_UPDATE+44 is WT: publication has
+no readable completion ACK and a dropped trigger cannot be detected here. Verify
+live timing/pixel path by actual transfer later. First specify source memory,
+cache/DMA ownership, descriptors and bridge flow controls; stage inactive first.
+Full720x1280 RGB565 frame1,843,200bytes exceeds the tested RAM-image window. Do not
+assume PSRAM or unverified SRAM. Consider verified region capacity or a documented
+repeating source. Preserve logical1280x720 rotation/input contract and horizontal
+bar observation. Full native desktop/cold PLL/POSIX remain pending.

@@ -50,7 +50,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_dpi_pattern_start(maia_dsi_dpi_pattern
     pattern_report(r);
     if (!dsi_context()) return MAIA_DSI_ACCESS_CONTEXT;
     if (dpi_pattern_state == FAULTED || transfer_state == FAULTED || dpi_clock_state == FAULTED) return MAIA_DSI_ACCESS_FAILED;
-    if (dpi_pattern_state != UNCLAIMED || transfer_state != UNCLAIMED || dpi_clock_state != OWNED || dpi_state != OWNED) return MAIA_DSI_ACCESS_BUSY;
+    if (dpi_bridge_expected || dpi_pattern_state != UNCLAIMED || transfer_state != UNCLAIMED || dpi_clock_state != OWNED || dpi_state != OWNED) return MAIA_DSI_ACCESS_BUSY;
     dpi_pattern_word=dpi_staged_words[3];dpi_pattern_mode=saved_command_table[0];dpi_pattern_lp=dpi_staged_phy[3];
     if ((dpi_pattern_mode&1U) != 1U || (dpi_pattern_lp&3U) || (dpi_pattern_word&0x14000U)) return MAIA_DSI_ACCESS_VERIFY;
     maia_dsi_access_result_t result=pattern_check(r);

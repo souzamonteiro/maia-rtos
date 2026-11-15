@@ -1030,3 +1030,19 @@ screen orientation. Captured VPG_ORIENTATION24=0 remains unchanged. Production
 selects `LV_DISPLAY_ROTATION_90` and software rotation. Native panel720x1280 and
 logical desktop1280x720 are separate coordinate spaces. No firmware change or
 hardware rerun; see [correction](../audits/native-dpi-pattern-orientation.md).
+
+### Native bridge enable and WT update publication — 2026-11-14
+
+Pinned SDKf5c3654 [bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h)
+`enable/update_dpi_config` and [register definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/mipi_dsi_bridge_reg.h):
+EN+04 bit0 R/W, DPI_UPDATE+44 bit0 WT (write1 updates DPI_*), output+40 bit0,
+INT_ENA+50/INT_RAW+58 underrun0. [DPI setup](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_lcd/dsi/esp_lcd_panel_dpi.c)
+enables bridge before update. Native original MIT guarded policy uses these facts,
+no runtime imports. No completion ACK exists in the cited WT interface; a read0
+or an issued store is not proof the live latch applied. No trigger read/RMW/poll.
+
+[Bridge audit/captures/manifest](../audits/native-dpi-bridge.md) records final RAM
+EN0->1/stage4/mask3/request1, cached config unchanged, MODE1/LP0/DPI19D0/DMAquiet,
+IRQ_RAW0/PHY15BD/FIFO50015/errors0, four subsequent power9C replies with restored
+controls. Host41/41/negative/sanitizer checks PASS. No pixel/output/latch-completion
+claim; original firmware restored. No new pin/timing/rotation/PLL fact introduced.

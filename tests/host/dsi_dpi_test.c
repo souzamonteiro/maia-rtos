@@ -25,7 +25,8 @@ static const uint32_t dpi_test_values[]={0,0,0,0xBF02,720,0,0,3,60,1203,20,24,20
 static uint32_t dpi_regs[19],dpi_old[19],dpi_root;
 static unsigned dpi_drop,dpi_drift,dpi_fault_after,clock_writes,clock_drop,clock_drift,clock_fault;
 static unsigned pattern_writes,pattern_drop,pattern_drift,pattern_fault,pattern_idle_reads,pattern_timeout;
-static uint32_t pattern_shadow;
+static uint32_t pattern_shadow,bridge_irq_enable,bridge_irq_raw;
+static unsigned bridge_writes,bridge_drop,bridge_drift,bridge_fault,bridge_underflow,bridge_update_reads;
 static maia_dsi_command_report_t command_report;
 static maia_dsi_access_report_t report;
 static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
@@ -42,13 +43,20 @@ static const uint32_t values[14]={1,0x0C07,0x00320068,0x002E0080,0x19,0,0,0,0,0,
 int maia_dsi_access_test_context(void) { return (int)context; }
 uint32_t maia_dsi_access_test_read(uintptr_t address) {
  ++reads;
+ if(reference_mode == 10U) {
+  assert((regs[1]&0x1000U) || address == DSI_CPU || address == DSI_SYS || address == DSI_PHY || address == DSI_RESET || address == DSI_ISP || address == DSI_NORST || address == DSI_REF_DIV || address == DSI_LP_GATE || address == DSI_REF_GATE || address == DSI_REF_SOURCE);
+  if(address == MAIA_ESP32P4_DSI_HOST_BASE+0x100U)return pattern_shadow;
+  if(address == MAIA_ESP32P4_DSI_BRG_BASE+0x50U)return bridge_irq_enable;
+  if(address == MAIA_ESP32P4_DSI_BRG_BASE+0x58U)return bridge_irq_raw;
+  if(address == MAIA_ESP32P4_DSI_BRG_BASE+0x44U){++bridge_update_reads;assert(!"WT is never read as acknowledgment");}
+ }
  if (reference_mode == 9U && address == MAIA_ESP32P4_DSI_HOST_BASE+0x100U) return pattern_shadow;
  if (reference_mode == 9U && address == MAIA_ESP32P4_DSI_HOST_BASE+0xB0U) {
   if (!(regs[34]&1U) || (regs[31]&3U)) return 0x1591;
   if (pattern_writes>=5U && (pattern_timeout || pattern_idle_reads++<2U)) return 0x1591;
   return 0x1595;
  }
- if (reference_mode == 7U || reference_mode == 8U || reference_mode == 9U) {
+ if (reference_mode == 7U || reference_mode == 8U || reference_mode == 9U || reference_mode == 10U) {
   for (unsigned i=0;i<19U;++i) if (address == dpi_extra_addresses[i]) {
    assert((regs[2]&0x13U)==3 && (regs[1]&0x1000U));return dpi_regs[i];
   }
@@ -103,6 +111,20 @@ int maia_ldo3_test_context(void) { return (int)context; }
 uint32_t maia_ldo3_test_read(uintptr_t address) { return maia_dsi_access_test_read(address); }
 void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
  ++writes;assert(writes<=41U);
+ if(reference_mode == 10U) {
+  ++bridge_writes;
+  if(bridge_writes == 1U) {
+   assert(address == MAIA_ESP32P4_DSI_BRG_BASE+4U && value == (regs[23]|1U));
+   if(bridge_writes != bridge_drop)regs[23]=value;
+  } else {
+   assert(bridge_writes == 2U && address == MAIA_ESP32P4_DSI_BRG_BASE+0x44U && value == 1U);
+   /* A dropped WT publication has no readable ACK. Its nondetection is explicit. */
+  }
+  if(bridge_writes == bridge_drift)regs[1]^=0x1000U;
+  if(bridge_writes == bridge_fault)regs[49]=0x20U;
+  if(bridge_writes == bridge_underflow)bridge_irq_raw|=1U;
+  return;
+ }
  if (reference_mode == 9U) {
   static const uintptr_t order[]={MAIA_ESP32P4_DSI_HOST_BASE+0x38U,MAIA_ESP32P4_DSI_HOST_BASE+0x94U,
    MAIA_ESP32P4_DSI_HOST_BASE+0x34U,MAIA_ESP32P4_DSI_HOST_BASE+0x34U,
@@ -305,6 +327,18 @@ static void pattern_failed(void) {
  assert(pattern_start() == MAIA_DSI_ACCESS_FAILED && pattern_stop(20) == MAIA_DSI_ACCESS_FAILED);
  fail_sticky();assert(a == reads && b == writes);
 }
+static maia_dsi_dpi_bridge_report_t prepared;
+static void setup_bridge(void) {
+ setup_clock(1);assert(maia_esp32p4_dsi_dpi_clock_enable(&enabled) == MAIA_DSI_ACCESS_OK);
+ reference_mode=10;reads=writes=bridge_writes=bridge_drop=bridge_drift=bridge_fault=bridge_underflow=bridge_update_reads=0;
+ bridge_irq_enable=bridge_irq_raw=pattern_shadow=0;regs[23]=0xA4000000;
+}
+static maia_dsi_access_result_t prepare_bridge(void) { return maia_esp32p4_dsi_dpi_bridge_prepare(&prepared); }
+static void bridge_failed(void) {
+ unsigned a=reads,b=writes;
+ assert(prepare_bridge() == MAIA_DSI_ACCESS_FAILED && pattern_start() == MAIA_DSI_ACCESS_FAILED);
+ fail_sticky();assert(a == reads && b == writes);
+}
 int main(void) {
  setup_dpi();assert(maia_esp32p4_dsi_dpi_stage(NULL,&staged) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
  assert(maia_esp32p4_dsi_dpi_stage(&timing,NULL) == MAIA_DSI_ACCESS_INVALID);
@@ -373,6 +407,7 @@ int main(void) {
  saved=reads;assert(pattern_start() == MAIA_DSI_ACCESS_BUSY && reads == saved);
  assert(read_id(20) == MAIA_DSI_ACCESS_BUSY && reads == saved);
  assert(send(0,0,0,0,20) == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ assert(prepare_bridge() == MAIA_DSI_ACCESS_BUSY && reads == saved);
  assert(pattern_stop(100001) == MAIA_DSI_ACCESS_INVALID && reads == saved);
  assert(pattern_stop(10) == MAIA_DSI_ACCESS_OK && patterned.completed == 5 && patterned.attempted_mask == 7 && patterned.observation.polls == 2);
  assert(patterned.pattern == dpi_old[3] && patterned.mode == command_report.after[0] && patterned.lp_clock == command_report.after[13]);
@@ -399,5 +434,30 @@ int main(void) {
  setup_pattern();assert(pattern_start() == MAIA_DSI_ACCESS_OK);dpi_regs[4]^=1;
  assert(pattern_stop(10) == MAIA_DSI_ACCESS_VERIFY && pattern_writes == 3);pattern_failed();
  setup_pattern();pattern_fault=3;assert(pattern_start() == MAIA_DSI_ACCESS_IO);pattern_failed();
+ /* Actual native bridge enable and write-trigger publication. */
+ setup_clock(1);assert(prepare_bridge() == MAIA_DSI_ACCESS_BUSY);
+ setup_bridge();assert(maia_esp32p4_dsi_dpi_bridge_prepare(NULL) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
+ context=0;assert(prepare_bridge() == MAIA_DSI_ACCESS_CONTEXT && !reads);
+ setup_bridge();assert(prepare_bridge() == MAIA_DSI_ACCESS_OK);
+ assert(prepared.completed == 4 && prepared.attempted_mask == 3 && prepared.bridge_before == 0xA4000000 && prepared.bridge_after == 0xA4000001 && prepared.update_value == 1 && bridge_writes == 2 && !bridge_update_reads);
+ saved=reads;assert(prepare_bridge() == MAIA_DSI_ACCESS_BUSY && pattern_start() == MAIA_DSI_ACCESS_BUSY && reads == saved);
+ reference_mode=6;writes=reads=pops=read_phase=phase_polls=0;assert(read_id(20) == MAIA_DSI_ACCESS_OK);
+ setup_bridge();bridge_drop=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && bridge_writes == 1);bridge_failed();
+ setup_bridge();bridge_drop=2;assert(prepare_bridge() == MAIA_DSI_ACCESS_OK && prepared.update_value == 1 && !bridge_update_reads);
+ for(unsigned n=1;n<=2;++n){
+  setup_bridge();bridge_drift=n;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && bridge_writes == n);bridge_failed();
+  setup_bridge();bridge_fault=n;assert(prepare_bridge() == MAIA_DSI_ACCESS_IO && bridge_writes == n);bridge_failed();
+  setup_bridge();bridge_underflow=n;assert(prepare_bridge() == MAIA_DSI_ACCESS_IO && bridge_writes == n);bridge_failed();
+ }
+ setup_bridge();regs[23]|=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();pattern_shadow=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();bridge_irq_enable=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();bridge_irq_raw=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_IO && !writes);bridge_failed();
+ setup_bridge();dpi_regs[17]^=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();regs[24]|=1;assert(prepare_bridge() == MAIA_DSI_ACCESS_VERIFY && !writes);
+ setup_bridge();regs[22]&=~0x94U;assert(prepare_bridge() == MAIA_DSI_ACCESS_BUSY && !writes);
+ setup_bridge();assert(prepare_bridge() == MAIA_DSI_ACCESS_OK);regs[23]&=~1U;
+ reference_mode=6;writes=0;assert(read_id(20) == MAIA_DSI_ACCESS_VERIFY && !writes);
  puts("PASS: actual native DPI staging, exact80MHz route/RGB565/timing,20 dropped stores, drift/errors and sticky guarded refusal");
 }
