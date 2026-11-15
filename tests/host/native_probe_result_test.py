@@ -750,3 +750,21 @@ for old,new in [('source_bytes=0000b400','source_bytes=00002d00'),('span=0000b70
     assert old in center,(old,new)
     assert not runner.evaluate_dpi_spatial(center.replace(old,new),center=True),(old,new)
 assert not runner.evaluate_dpi_spatial(center+center,center=True)
+
+# Read-only PSRAM snapshot success means observation, not available memory.
+root_addresses=(0x500e6014,0x500e6030,0x500e60c0,0x500e60cc,0x501151d0,0x501151d4,0x5012d04c,0x5012d050,0x5012d1c0)
+def psram_capture(accessible):
+    out=f'PSRAM_STATE result={0 if accessible else 0xfffffffd:08x} roots_valid=00000001 samples={54 if accessible else 0:08x}\n'
+    for i,address in enumerate(root_addresses):
+        v=(0x80002000 if i==0 else 0xc100 if i==1 else 0) if accessible else 0
+        out+=f'PSRAM_ROOT index={i:08x} address={address:08x} before={v:08x} after={v:08x}\n'
+    if accessible:
+        offsets=(0,8,12,64,68,72,76,80,216,384,388,392,396,400,512,304,0,8,12,16,20,24,28,32,212,384,512)
+        for i,offset in enumerate(offsets):out+=f'PSRAM_WORD index={i:08x} address={(0x5008e000 if i<16 else 0x5008f000)+offset:08x} before={i:08x} after={i:08x}\n'
+    return out+'MAIA_NATIVE_PSRAM_STATE_OBSERVED\n'
+assert runner.evaluate_psram_state(psram_capture(True))
+assert runner.evaluate_psram_state(psram_capture(False))
+for old,new in [('after=80002000','after=00002000'),('samples=00000036','samples=00000035'),('address=5008e000','address=5008c000'),('roots_valid=00000001','roots_valid=00000000')]:
+    assert not runner.evaluate_psram_state(psram_capture(True).replace(old,new))
+assert not runner.evaluate_psram_state(psram_capture(False).replace('result=fffffffd','result=00000000'))
+assert not runner.evaluate_psram_state(psram_capture(True)+psram_capture(True))

@@ -1161,3 +1161,16 @@ drain/errors0/recovery/preserved source4B6A57C5/guards/power9C PASS. Owner clari
 initial fault/other answer: stable aligned colored segments in center, as intended;
 same image/run, no repaired-defect or repeat-test claim. Per-pixel/PSRAM/native
 desktop not accepted. Elapsed6109902us sample only. No foreign runtime imported.
+
+## P4 HEX/X16 PSRAM route and read-only controller state — 2026-11-15
+
+[PSRAM audit](../audits/native-psram-state.md) pins SDKf5c3654
+[HEX implementation](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c),
+[P4 Kconfig](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/esp32p4/Kconfig.spiram),
+[controller LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h),
+register files reg_base/hp_sys_clkrst/spi_mem_s/spi1_mem_s/pmu/efuse and ldo_ll
+unit mapping. Named register sections/fields detailed in audit; host oracle compares
+all36 addresses/gate masks to unchanged pinned headers. Working boot says HEX/X16,
+not Octal. Native read-only54 observations stable, inherited AXI_REQ_EN0; no array,
+MR identity or cold initialization proof. No SDK headers/runtime in target. Host47/
+47, sanitizers and failure guards PASS; original desktop recovered after RAM test.

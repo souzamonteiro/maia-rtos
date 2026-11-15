@@ -315,3 +315,14 @@ production rotation-input acceptance. Next audit native PSRAM initialization and
 cache/DMA ownership for full framebuffer before any register writes. Actual full
 framebuffer/PSRAM/native desktop remain pending. Existing WT no-ACK/threshold413/
 counter-doc and legacy solid automatic-ARLEN footprint limitations remain.
+
+### PSRAM route correction and next initialization gate — 2026-11-15
+
+Supersedes Octal shorthand in UQ-001/UQ-007: current preserved sdkconfig and actual
+boot select P4 HEX/X16, not S3 Octal. [Native state](../audits/native-psram-state.md)
+observes stable RCC/VO2/27 whitelisted controller words, access gates on/CMD0 but
+AXI requests off/read-write command0. Do not access assumed48100000, infer live
+200MHz or reuse inherited allocation. Need native bounded HEX mode-register ID,
+VO2 calibration/ownership, clock/mode/DQS/DLL/tuning and MMU/cache/owned memory
+proof. No cold PSRAM/full framebuffer acceptance. [LCD/touch delivery plan](../plans/LCD_TOUCH_NATIVE.md)
+is current priority; touch coordinates/events and shared-bus task ownership pending.

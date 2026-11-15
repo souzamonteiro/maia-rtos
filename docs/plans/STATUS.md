@@ -1036,3 +1036,24 @@ PSRAM initialization/cache/DMA ownership and full-framebuffer memory budget.
 Native production streaming/desktop and rotation-input acceptance still pending;
 installed desktop original runtime. WT no-ACK/threshold413/counter-doc/legacy
 solid auto-ARLEN footprint limitations remain; new spatial path constrains length.
+
+## LCD/touch priority; native HEX PSRAM state observed — 2026-11-15
+
+Owner prioritizes finishing native LCD+touch, remaining drivers, then MaiaScript.
+See [delivery plan](LCD_TOUCH_NATIVE.md) and [PSRAM audit](../audits/native-psram-state.md). Correct earlier Octal shorthand:
+working P4 SDK config/actual boot use HEX/X16/AP vendor0D/gen4/density7/32MB;
+not S3 Octal driver. SDK startup reference: MPLL, VO2, dedicatedMSPI2/3, mode regs,
+DQS/DLL/tuning, cache/MMU; these dependencies must be ported, not linked.
+New boot-only read-only snapshot/isolated probe, nine roots/27 controller words,
+conservative gated policy and fresh RCC comparison before every read; no array/
+cache/MMU/power/clock writes. Host47/47+sanitizers+C++98/four runtime mutants/SDK
+36-address oracle/invalid profile PASS. Actual result0/54samples stable: RCC
+E6DFB7FF/D00C/38000040/norst0, VO2 40200180/76800000, bothCMD0/CLK30103;
+MSPI0 AXI_REQ_EN0/read-write cmd0. Access is NOT memory readiness/init proof.
+SHA a059fe491269d2cec18e4402a2edb45f441dcf32dd30f16d47744c7929bc29e1,
+RAM4FF00000/6608bytes/entry4FF00100. Reset shell/SciCalc14/desktop PASS;
+no flash/SD/parser/display changes. Recovery
+`../maia-rtos-recovery/native-psram-state-20261115/`. Next bounded HEX MR identity/
+restore, native power/clock/mode/MMU/cache and owned memory before framebuffer.
+Touch coordinates/events/runtime bus ownership still pending. Native full desktop
+not integrated; preserved complete installed firmware still original runtime.
