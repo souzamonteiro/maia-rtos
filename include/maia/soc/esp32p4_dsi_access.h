@@ -208,6 +208,30 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t poll_budget,maia_dsi_
  * power-state interpretation. MRPS1 remains the panel's protocol return limit
  * after success. No arbitrary command/length API or visual/state writes. */
 maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t poll_budget,maia_dsi_read_report_t *report);
+#define MAIA_DSI_DPI_WORDS 19U
+typedef struct maia_dsi_dpi_timing {
+    uint32_t width,height,hsync,hback,hfront,vsync,vback,vfront;
+} maia_dsi_dpi_timing_t;
+typedef struct maia_dsi_dpi_report {
+    uint32_t completed,attempted_mask; /*1:guarded 2:clock route 3..21:words 22:verified*/
+    uint32_t clock_before,clock_after,nominal_hz;
+    maia_dsi_short_report_t observation;
+    uint32_t before[MAIA_DSI_DPI_WORDS],after[MAIA_DSI_DPI_WORDS];
+} maia_dsi_dpi_report_t;
+/* Stage inactive RGB565/VC0/burst+LP timing at fixed nominal240MHz/div3=80MHz,
+ * PHY960Mbps/two lanes. Geometry comes from BSP, in pixels/lines. Same exclusive
+ * chip1.3/core0/IRQs-off boot ownership and native command claim. Required args
+ * immutable/nonaliasing. Range/overflow validation before I/O. Initial all FIFOs
+ * idle, locked/stopped TX PHY, bridge/DPI off, DPI clock gated, TE/ACK/BTA/pattern
+ * off. Checks fresh cached command/root/supply/VDMA settings around every step.
+ * Routes clock while gated; does NOT enable it/provider/PLL or measure frequency.
+ * Writes19 host/bridge config words with masked RMW/readback; no bridge update
+ * latch, output/video-mode/HS/DMA/framebuffer/IRQ or panel command writes. Frame
+ * BTA ACK stays off (activation policy pending). Success reserves stage until
+ * reboot; duplicate BUSY without I/O. Failure after guards poisons transfers and
+ * stage until reboot, no rollback/retry. Caller must establish panel-format and
+ * active clock/latch/DMA ownership separately before video. No pixels claim. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dpi_stage(const maia_dsi_dpi_timing_t *,maia_dsi_dpi_report_t *);
 #ifdef __cplusplus
 }
 #endif

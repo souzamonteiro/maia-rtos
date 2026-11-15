@@ -32,6 +32,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_PANEL_POWER
 #include "native_panel_power.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_STAGE
+#include "native_dpi_stage.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -326,6 +329,9 @@ void maia_boot_main(void) {
     field(" sleep_out=",(power_after>>4U)&1U);field(" display_on=",(power_after>>2U)&1U);maia_console_puts("\n");
     if ((power_before&0x14U) || (power_after&0x14U) != 0x14U) halt("panel-power-transition");
     maia_console_puts("MAIA_NATIVE_PANEL_POWER_PASS\n");
+#ifdef MAIA_NATIVE_PROBE_DPI_STAGE
+    dpi_stage();
+#endif
 #endif
 #endif
 #endif

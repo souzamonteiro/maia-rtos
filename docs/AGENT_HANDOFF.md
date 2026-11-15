@@ -839,3 +839,25 @@ desktop recovered, no flash/SD writes. Recovery
 `../maia-rtos-recovery/native-panel-power-20261114/`. Next native DPI format/clock/
 timing with DMA inactive and matched panel format, then video/framebuffer/PSRAM.
 Complete installed desktop still FreeRTOS-based; no pixels/POSIX claim.
+
+## Inactive native DPI format/clock-route/timing stage — 2026-11-14
+
+Read [DPI staging audit](audits/native-dpi-stage.md). New generic SoC timing API stages19 words,
+RGB565/VC0/burst+LP, nominalPLL240/div3=80MHz for existingPHY960. Geometry fromBSP
+fixture720x1280/H2,40,40/V20,24,200; no resolution in generic kernel. Working BSP
+requests70MHz but pinned integer divider produces80; report modeled only, gateoff.
+Native exact RMW/readback/root/supply/VDMA/command/PHY/FIFO guards; frameACK/pattern
+mustoff. No bridge update/output/video/HS/DMA/framebuffer/IRQ/provider/PLL writes.
+Partial failure poisons stage+transfers until reboot; duplicate BUSY without I/O;
+post-stage command reads work. Host40/40/ASan+UBSan/C++98/five runtime mutants/
+invalid profile PASS, including20 dropped stores, clock-loss readback protection,
+no-op profile and invalid geometry. Native runtime gate clean.
+Two final RAM loads PASS stage22/maskFFF30(14stores), route223->223,19 words checked,
+MODE1/bridge0/DPI19D0/clock223 gateoff/update0/DMAquiet1/preserved1/duplicateBUSY1;
+four post-stage power words9C each/stage10/errors0/restored controls. Nonmatching
+route-write branch HOST-TESTED only; live timing latch/actual frequency not proven.
+Original shell/SciCalc14/desktop restored; no flash/SD/parser/default changes.
+Recovery `../maia-rtos-recovery/native-dpi-stage-20261114/`. Next panel-format
+verification and native clock source/provider/enable with output inactive, then
+latch/video/framebuffer/PSRAM. No pixels/full native desktop/POSIX; installed
+working desktop still FreeRTOS-based.

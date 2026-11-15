@@ -178,3 +178,15 @@ No register writes added by this read diagnostic, no assumed exact silicon suffi
 Color format/vendor-register/image output still unverified. Next audit matched
 panel/DPI format, clock/timing and inactive DMA before video/framebuffer/PSRAM.
 Cold power/full native desktop remain pending. No exact RX framing/length proof.
+
+Follow-up UQ-014/UQ-015/UQ-016: [inactive DPI stage](../audits/native-dpi-stage.md)
+now verifies19 host/bridge format/timing words with DMA/output/clock inactive on
+two loads, retaining bounded panel-power reads. BSPrequest70MHz produces modeled
+80MHz via pinnedPLL240/div3; use actual divider arithmetic when computing timing.
+This is not running-clock or active-video proof. Pending before activation:
+- [ ] Verify panel-format/readback contract against working host RGB565; do not
+  infer transport format from lcd_dev_config.bits_per_pixel24 alone.
+- [ ] Verify PLL240 source/provider readiness and enable DPI clock under inactive
+  bridge/output/DMA; current route223 was already matching (switch host-only).
+- [ ] Establish configuration update/latch, active video/ACK policy, DMA/memory/
+  cache/framebuffer/PSRAM and actual pixels; do not treat staged readback as output.

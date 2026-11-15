@@ -4,10 +4,10 @@
 #include <maia/soc/esp32p4_ldo3.h>
 #include "dsi_access_internal.h"
 enum { UNCLAIMED,OWNED,FAULTED };
-static unsigned state,reference_state,phy_state,command_state,transfer_state;
+static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state;
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
-void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED; }
+void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED; }
 #endif
 static int dma_quiet(void) {
     if ((dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&1U) || (dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&15U) ||
@@ -599,3 +599,5 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_id(uint32_t budget,maia_dsi_read_
 maia_dsi_access_result_t maia_esp32p4_dsi_read_power_mode(uint32_t budget,maia_dsi_read_report_t *r) {
     return dsi_read_fixed(budget,r,READ_POWER_MRPS_HEADER,READ_POWER_DCS_HEADER);
 }
+
+#include "dsi_dpi_stage.h"

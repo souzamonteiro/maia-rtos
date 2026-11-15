@@ -532,3 +532,26 @@ other_bits=power.replace(power_before,power_before.replace('00000008','00000000'
     power_after,power_after.replace('0000009c','00000094')).replace(
     'PANEL_POWER_SUMMARY before=00000008 after=0000009c','PANEL_POWER_SUMMARY before=00000000 after=00000094')
 assert runner.evaluate_panel_power(other_bits)
+dpi_values=[0,0,0,0xbf02,720,0,0,3,60,1203,20,24,200,1280,2,0x050005f4,0x00140018,0x02d00322,0x00020028]
+attempted=sum(1<<(i+1) for i,v in enumerate(dpi_values) if v)
+dpi_stage=power+f'DSI_DPI_STAGE result=00000000 stage=00000016 attempted={attempted:08x} clock_before=00000223 clock_after=00000223 nominal_hz=04c4b400 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+for i,value in enumerate(dpi_values):
+    dpi_stage+=f'DSI_DPI_WORD index={i:08x} before=00000000 after={value:08x}\n'
+dpi_stage+='DSI_DPI_IDLE mode=00000001 bridge=00000000 dpi=000019d0 clock=00000223 update=00000000 dma_quiet=00000001 preserved=00000001 duplicate_busy=00000001\n'
+for i in range(4):
+    dpi_stage+=f'DSI_DPI_REPLY index={i:08x} result=00000000 stage=0000000a headers=00000003 polls=00000006 word=0000009c words=00000001 before=000b0000 after=000b0000 restored=00000005 status=000015bd fifo=00050015 error0=00000000 error1=00000000\n'
+dpi_stage+='MAIA_NATIVE_DPI_STAGE_PASS\n'
+assert runner.evaluate_dpi_stage(dpi_stage)
+assert not runner.evaluate_panel_power(dpi_stage)
+for old,new in [('clock_after=00000223','clock_after=000002a3'),('nominal_hz=04c4b400','nominal_hz=042c1d80'),
+                ('mode=00000001 bridge=00000000 dpi=','mode=00000000 bridge=00000000 dpi='),
+                ('dma_quiet=00000001 preserved=00000001','dma_quiet=00000000 preserved=00000001'),
+                ('dpi=000019d0 clock=','dpi=000019d1 clock='),('update=00000000 dma_quiet=','update=00000001 dma_quiet='),
+                ('index=00000009 before=00000000 after=000004b3','index=00000009 before=00000000 after=000004b2'),
+                ('index=0000000e before=00000000 after=00000002','index=0000000e before=00000000 after=00000000'),
+                ('duplicate_busy=00000001\nDSI_DPI_REPLY','duplicate_busy=00000000\nDSI_DPI_REPLY')]:
+    assert old in dpi_stage and not runner.evaluate_dpi_stage(dpi_stage.replace(old,new,1))
+assert not runner.evaluate_dpi_stage(power)
+assert not runner.evaluate_dpi_stage(dpi_stage.replace('MAIA_NATIVE_DPI_STAGE_PASS',''))
+assert not runner.evaluate_dpi_stage(dpi_stage+dpi_stage)
+print('PASS: staged RGB565/80MHz route/timing requires exact fields, idle output/DMA and retained power responses')

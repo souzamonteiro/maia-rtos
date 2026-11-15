@@ -952,3 +952,29 @@ power-state transition, not pixels/color format/all vendor registers. Host39/39,
 ASan+UBSan/C++98/five mutants/invalid profile PASS, runtime gate clean.
 Original shell/SciCalc14/desktop recovered; no flash/SD/parser/table/foreign-runtime
 changes. Next DPI format/timing/clock before video/framebuffer/PSRAM/full desktop.
+
+### Inactive native DPI register staging — 2026-11-14
+
+Primary pinned SDKf5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[clock enums](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/clk_tree_defs.h)
+DPIdefaultPLL240;
+[HAL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mipi_dsi_hal.c)
+integer divider and per-duration lane-byte conversion;
+[bus LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_ll.h)
+HP+3C sourcebits6:5/divbits15:8/gate7;
+[host LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_host_ll.h),
+[bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h)
+and matching register headers define masks/encoding. Working BSPc046903 ST7121
+usesRGB565/720x1280/H2,40,40/V20,24,200/request70MHz =>240/div3=modeled80MHz;
+PHY960/8=120MHz ->ratio3/2. No measured pixel frequency; clock stays gated.
+Apache-2.0 attribution retained for adapted layout, no SDK runtime imported.
+
+[Audit/captures/manifest](../audits/native-dpi-stage.md): two actual RAM loads pass
+stage22/attemptFFF30(14stores),19 checked host/bridge config words, route223 retained;
+HSA3/HBP60/HLINE1203/V20,24,200,1280; bridge totals802/1524/rawRGB5652.
+MODE1/bridge0/DPI19D0/clockgateoff/update0/DMAquiet1/preserved1/duplicateBUSY1.
+Four subsequent power9C reads each/error0=error1=0/controls restored. Host40/40/
+sanitizer/C++98/five mutants/invalid profile PASS; runtime gate clean. Shell/SciCalc
+14/desktop recovered, no flash/SD/parser changes. Route switching branch host-only,
+no live latch/provider startup/active clock/output/pixels proof. Panel format still
+to verify before activation. No framebuffer/PSRAM/full native desktop claim.
