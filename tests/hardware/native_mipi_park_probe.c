@@ -53,6 +53,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_FRAME
 #include "native_dpi_dma_frame.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_CENTER
+#include "native_dpi_center_buffer.h"
+#endif
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL
 #include "native_dpi_dma_spatial.h"
 #endif
@@ -356,6 +359,10 @@ void maia_boot_main(void) {
     dpi_clock();
 #ifdef MAIA_NATIVE_PROBE_DPI_BRIDGE
     dpi_bridge();
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_CENTER
+    dpi_center_buffer();
+    dpi_dma_spatial();
+#endif
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_TILE
     dpi_dma_tile();
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL

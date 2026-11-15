@@ -1,0 +1,12 @@
+    /* Private diagnostic source tile/list; never initialized through cached BSS. */
+    .maia_dpi_dma_probe (NOLOAD) : ALIGN(128)
+    {
+        __maia_dpi_dma_start = ABSOLUTE(.);
+        KEEP(*(.maia_dpi_dma_probe))
+        . = ALIGN(128);
+        __maia_dpi_dma_end = ABSOLUTE(.);
+    } > L2MEM_LOW
+    ASSERT(__maia_dpi_dma_end - __maia_dpi_dma_start == 46848, "unexpected DPI central tile/list reservation")
+    ASSERT(__bss_end <= __maia_dpi_dma_start, "DPI central tile/list overlaps BSS")
+    PROVIDE(maia_probe_cache_writeback_invalidate = 0x4FC003FC);
+    PROVIDE(maia_probe_cache_line_size = 0x4FC003C8);

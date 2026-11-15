@@ -725,3 +725,28 @@ for old,new in [('frames=00000190','frames=0000018f'),('after=400f8040','after=c
     assert old in spatial_capture
     assert not runner.evaluate_dpi_spatial(spatial_capture.replace(old,new)),(old,new)
 assert not runner.evaluate_dpi_spatial(spatial_capture+spatial_capture)
+
+# Independent central32-row profile; no legacy tile construction/160-node list.
+import struct
+center_hash=2166136261
+for _ in range(32):
+    for color in (0xf800,0x07e0,0x001f,0xffe0):
+        for value in struct.pack('<H',color)*180:center_hash=((center_hash^value)*16777619)&0xffffffff
+center=bridge+'DPI_CENTER_BUFFER start=4ff08000 end=4ff13700 alias=8ff08000 source=4ff08080 list=4ff13500 source_bytes=0000b400 list_capacity=00000180 span=0000b700 cache_line=00000040 prepared=00000001\n'
+center+=f'DPI_CENTER_BUFFER_VERIFY source_hash={center_hash:08x} guards=00000001 preserved=00000001 inert=00000001\nMAIA_NATIVE_DPI_CENTER_BUFFER_PASS\n'
+center+='DPI_CENTER_MEMORY source=4ff08080 list=4ff13500 nodes=00000005 source_bytes=0000b400 list_bytes=00000140 frame_bytes=001c2000\n'
+center+=next(l for l in spatial_capture.splitlines() if l.startswith('DPI_SPATIAL ')).replace('DPI_SPATIAL','DPI_CENTER')+'\n'
+for n,count in enumerate((57600,54720,5760,54720,57600)):
+    before=[0]*16;before[0]=0x4ff08080+(0,360,0,720,1080)[n];before[2]=0x50105000;before[4]=count-1
+    before[6]=(0x4ff13500+(n+1)*64)|1 if n<4 else 0;before[8]=0x1c1b41 if n==2 else 0x1c1b51;before[9]=0xc00f8040 if n==4 else 0x800f8040
+    after=before.copy();after[9]&=0x7fffffff;after[12]=count-1;after[13]=0xc0000000 if n==4 else 0x40000000
+    for w in range(16):center+=f'DPI_CENTER_WORD index={n*16+w:08x} before={before[w]:08x} after={after[w]:08x}\n'
+center+=next(l for l in spatial_capture.splitlines() if l.startswith('DPI_SPATIAL_RESTORE ')).replace('DPI_SPATIAL','DPI_CENTER').replace('e18c2e45',f'{center_hash:08x}')+'\n'
+center+='\n'.join(l.replace('DPI_SPATIAL_REPLY','DPI_CENTER_REPLY') for l in spatial_capture.splitlines() if l.startswith('DPI_SPATIAL_REPLY '))+'\nMAIA_NATIVE_DPI_CENTER_PASS\n'
+assert runner.evaluate_dpi_spatial(center,center=True)
+assert not runner.evaluate_dpi_spatial(center)
+assert not runner.evaluate_dpi_spatial(spatial_capture,center=True)
+for old,new in [('source_bytes=0000b400','source_bytes=00002d00'),('span=0000b700','span=00005700'),('source=4ff08080','source=4ff13500'),('before=0000167f','before=0000059f'),('before=001c1b41','before=001c1b51'),('after=400f8040','after=c00f8040'),('source_kept=00000001','source_kept=00000000')]:
+    assert old in center,(old,new)
+    assert not runner.evaluate_dpi_spatial(center.replace(old,new),center=True),(old,new)
+assert not runner.evaluate_dpi_spatial(center+center,center=True)

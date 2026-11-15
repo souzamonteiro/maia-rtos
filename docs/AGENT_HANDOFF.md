@@ -1070,3 +1070,29 @@ then fresh visual readiness/test. Threshold413/WT no-ACK/counter-doc limitations
 remain. PSRAM/full native framebuffer/desktop/production rotation-input pending;
 installed desktop still original runtime. Prior solid API auto-ARLEN footprint
 limitation remains documented in SRAM-list audit; new spatial path forces length.
+
+## Central32-row native tile: stable aligned segments confirmed — 2026-11-15
+
+Read [central audit](audits/native-dpi-dma-center.md). Separate opt-in CENTER profile/reservation46848bytes,
+source46080/list320used+64unused; legacy eight-row profile remains available.
+Five nodes: fixed red320rows, green304, incrementing tile32rows at native624–655,
+blue304, yellow320. Full frame unchanged1843200bytes, native720x1280/rotation90
+untouched. Guarded source span grows; actual descriptor/cleanup protocol unchanged.
+RAM PASS:400frames/399rearms/414268polls/92160000items/6109902us sample, last rawE0FF/
+status12/errors0/FIFOs0, all80 LLI words exact, source hash4B6A57C5/tail/guards kept,
+GPIO/output/global/channel/command/LP restored, four power9C replies. Buffer:
+4FF12580..4FF1DC80; source4FF12600/list4FF1DA80;16KiB stack ends4FF21C80<4FF28000.
+Host46/46+ASan/UBSan/central C++98/four rejected runtime mutants/invalid profile/
+runtime gate PASS; prior actual eight-row capture still validates as legacy only.
+SHA834ce950de16f5a39b6aca27bf0c7c136ee7d6f554621b00549bff1e16e02435.
+Fresh readiness, ONE RAM upload. User initially selected visual fault/other, then
+said small colored pieces at center; after expected32x180segment explanation,
+confirmed “Sim, estáveis e alinhados no centro”. Preserve original answer and
+clarification, not a bug fix/retest. Accept qualitative central marker, no all-pixel/
+tear-free/full framebuffer acceptance. Reset shell/SciCalc14/desktop PASS.
+Recovery `../maia-rtos-recovery/native-dpi-center-20261115/`, original digests intact.
+No flash/SD/parser/panel timing/rotation changes. Next primary-source audit of native
+PSRAM initialization/cache/DMA ownership and full-framebuffer memory budget.
+Native production streaming/desktop and rotation-input acceptance still pending;
+installed desktop original runtime. WT no-ACK/threshold413/counter-doc/legacy
+solid auto-ARLEN footprint limitations remain; new spatial path constrains length.

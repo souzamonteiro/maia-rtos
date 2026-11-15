@@ -303,3 +303,15 @@ fresh readiness/visual test. PSRAM/full framebuffer/native desktop and productio
 scheduler acceptance remain separate. Automatic-ARLEN legacy source footprint,
 threshold413/WT no-ACK and counter documentation discrepancy remain open; spatial
 profile explicitly constrains source ARLEN and uses only five finite descriptors.
+
+### Central marker visually confirmed after clarification — 2026-11-15
+
+[Central audit](../audits/native-dpi-dma-center.md): wider32-row marker at624–655,
+400 finite frames, source/tail/guards/LLIs/cleanup all PASS. Owner first chose fault/
+other and described small pieces; after explaining expected32x180colored segments,
+confirmed stable/aligned center. Preserve both answers, not a repaired defect.
+Qualitative incremental marker accepted; no instrumented all-pixel/tear-free/
+production rotation-input acceptance. Next audit native PSRAM initialization and
+cache/DMA ownership for full framebuffer before any register writes. Actual full
+framebuffer/PSRAM/native desktop remain pending. Existing WT no-ACK/threshold413/
+counter-doc and legacy solid automatic-ARLEN footprint limitations remain.

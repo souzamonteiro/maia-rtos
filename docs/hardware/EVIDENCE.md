@@ -1146,3 +1146,18 @@ guards/preserved source/tail/restored GPIO/commands and four9C replies. User
 confirmed four stable large color bands after readiness; narrow eight-row strip
 not identified. No all-pixel visual acceptance. No new runtime/header dependency,
 no timing/rotation/flash/SD changes; elapsed6109911us is one diagnostic sample.
+
+## Central32-row incremental-source tile — 2026-11-15
+
+[Central audit](../audits/native-dpi-dma-center.md) records separate46848-byte NC
+reservation, source720x32/list5, marker native rows624–655. Geometry/software-only
+change uses previous [spatial primary sources](../audits/native-dpi-dma-spatial.md):
+[SDKf5c3654 DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h),
+[bridge LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mipi_dsi_brg_ll.h),
+[TRM chip1.3 v0.4](https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_technical_reference_manual_en.pdf)
+§5.5.4.2 pp334–336, §5.5.7 pp337–338, reg5.12 p357, §7.3.1 pp451–454.
+No new MMIO/timing fact. Actual400 frames/complete five-node writeback/rawE0FF/
+drain/errors0/recovery/preserved source4B6A57C5/guards/power9C PASS. Owner clarified
+initial fault/other answer: stable aligned colored segments in center, as intended;
+same image/run, no repaired-defect or repeat-test claim. Per-pixel/PSRAM/native
+desktop not accepted. Elapsed6109902us sample only. No foreign runtime imported.

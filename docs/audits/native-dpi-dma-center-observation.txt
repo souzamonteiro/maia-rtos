@@ -1,0 +1,8 @@
+2026-11-15 — owner readiness and visual report, one RAM upload
+Readiness: "Pode iniciar agora; estou olhando".
+Initial answer: "A faixa central apareceu com falhas ou outro resultado".
+Asked for description: "Pedaços bem pequenos de faixas, uma de dada cor, no centro."
+Explained that the planned marker comprises four32x180pixel native segments.
+Asked whether these four pieces were stable/aligned and formed a thin central strip.
+Owner: "Sim, estáveis e alinhados no centro".
+Accept qualitative stable central segmented marker, after clarification. Do not erase initial answer or claim a defect was fixed between these observations. Same image, no code change or second visual test. No instrumented all-pixel/tear-free/WCET claim.

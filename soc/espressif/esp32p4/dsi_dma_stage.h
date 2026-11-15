@@ -66,7 +66,7 @@ static maia_dsi_access_result_t dma_stage_body(uint32_t source,uint32_t list,mai
         if(width!=720U||height!=1280U)return MAIA_DSI_ACCESS_VERIFY;
         dma_staged_source=source;dma_staged_list=list;
         if(!spatial_memory(0)){dma_staged_list=0;return MAIA_DSI_ACCESS_VERIFY;}
-        values[5]=0x001C1B41U;values[6]=0x000F8040U;values[7]=15U;values[9]=list|1U;
+        values[5]=dsi_spatial_word(source,list,0,8);values[6]=0x000F8040U;values[7]=15U;values[9]=list|1U;
         values[12]=0x50U;values[13]=0x10000000U;
     }else dma_staged_list=0;
 #endif
