@@ -9,7 +9,13 @@ static void dpi_dma_frame(void){
     mipi_snapshot_t before,after;if(!mipi_snapshot(&before,rd))halt("dma-frame-before");
     uint64_t began=maia_soc_time_us();
     maia_dsi_dma_frame_report_t r,again;
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_REFRESH
+    maia_dsi_dma_refresh_report_t refresh;
+    maia_dsi_access_result_t result=maia_esp32p4_dsi_dma_solid_refresh(400,100000,&refresh);
+    r=refresh.last;
+#else
     maia_dsi_access_result_t result=maia_esp32p4_dsi_dma_solid_frame(100000,&r);
+#endif
     uint32_t elapsed=(uint32_t)(maia_soc_time_us()-began);
     field("DPI_DMA_FRAME result=",(uint32_t)result);field(" stage=",r.completed);field(" attempted=",r.attempted_mask);
     field(" polls=",r.polls);field(" recovery_polls=",r.recovery_polls);field(" active=",r.saw_active);field(" done=",r.done);
@@ -18,6 +24,10 @@ static void dpi_dma_frame(void){
     field(" transfer_result=",(uint32_t)r.transfer_result);field(" recovery_result=",(uint32_t)r.recovery_result);
     field(" dsi_status=",r.observation.status);field(" dsi_fifo=",r.observation.fifo);field(" error0=",r.observation.error0);field(" error1=",r.observation.error1);
     field(" elapsed_us=",elapsed);maia_console_puts("\n");
+#ifdef MAIA_NATIVE_PROBE_DPI_DMA_REFRESH
+    field("DPI_DMA_REFRESH frames=",refresh.frames_completed);field(" polls=",refresh.polls);
+    field(" items=",refresh.items);field(" rearms=",refresh.rearm_writes);maia_console_puts("\n");
+#endif
     if(!r.recovered)halt("dma-frame-unrecovered");
     if(!dpi_bl_restore(rd,wr,&light))halt("dma-frame-light-restore");
     int duplicate=maia_esp32p4_dsi_dma_solid_frame(1,&again)==MAIA_DSI_ACCESS_BUSY;

@@ -1,0 +1,359 @@
+{
+  "date": "2026-11-15",
+  "parent_commit": "5950a9f4603c17a8184d16e8f2ad6e2a4706266a",
+  "status": "HARDWARE-TESTED LIMITED; bounded solid native DMA; stable red confirmed by user",
+  "recovery_directory": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-dpi-dma-refresh-20261115",
+  "files": {
+    "source/CMakeLists.txt": {
+      "size": 46086,
+      "sha256": "aec019cf54e6b0ccdec3059ad29e76e46714094389e494717c4bb0549efac2e3"
+    },
+    "source/docs/AGENT_HANDOFF.md": {
+      "size": 71092,
+      "sha256": "b40ae1a4bd03636e45d770f2edea9ff7fa632bcb40bcc86aba69ff71cfe64dfe"
+    },
+    "source/docs/hardware/EVIDENCE.md": {
+      "size": 83869,
+      "sha256": "7bf23bdbefcbee38a4d947e3df2555f1957f4f08a9b28d09c38659738d81fe30"
+    },
+    "source/docs/hardware/OPEN_QUESTIONS.md": {
+      "size": 25091,
+      "sha256": "e1aac26e50c89e4c81b28633b85b0ddfc0d65b4dd7c4ec12ed2f541ce120ca4f"
+    },
+    "source/docs/plans/STATUS.md": {
+      "size": 69033,
+      "sha256": "dd9fb32c882ccbbaadc51a34ee22182741b1d549c8892afb1b6b91ad389dc4e5"
+    },
+    "source/include/maia/soc/esp32p4_dsi_access.h": {
+      "size": 25311,
+      "sha256": "b6b679b7bbb880fb5d0ac7d16e977eacf5f846ce1eb94032c73bb28462b08f64"
+    },
+    "source/soc/espressif/esp32p4/dsi_dma_frame.h": {
+      "size": 10952,
+      "sha256": "3763903a431679c747ed410a07c191819b91e81eac2880e70935a59f55da6e2b"
+    },
+    "source/soc/espressif/esp32p4/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "source/tests/hardware/native_dpi_dma_frame.h": {
+      "size": 4668,
+      "sha256": "b9749d86ead950273e9cbeee023babd4f37e9b357a899d55c772c1dacafc8f6b"
+    },
+    "source/tests/hardware/run_native_scheduler_probe.py": {
+      "size": 86655,
+      "sha256": "6b78bc6300ab2db6c97c8c248e4869fdfa27c365f61701bcb596704c0e6201e6"
+    },
+    "source/tests/host/dsi_dpi_test.c": {
+      "size": 41571,
+      "sha256": "09ad3bbb274b31d6578e2caf7cc376251614bb2f7789295ce9a2c4164346f8d1"
+    },
+    "source/tests/host/native_probe_result_test.py": {
+      "size": 55763,
+      "sha256": "b9effe83b03128aac84ce3e6979a9dbd896c7f970dba083bbd4713bbbf25a037"
+    },
+    "source/docs/audits/native-dpi-dma-refresh.md": {
+      "size": 4465,
+      "sha256": "5305ac142516f8ed4efb92203b00b7bfbbb76e22673dc63dcd609b5f3aeab517"
+    },
+    "source/docs/audits/native-dpi-dma-refresh-hardware.txt": {
+      "size": 32774,
+      "sha256": "732752f7388c7b48a34f79a4da3061bc07af73a7211ebcb01b9891e40e32cecf"
+    },
+    "source/docs/audits/native-dpi-dma-refresh-desktop.txt": {
+      "size": 3245,
+      "sha256": "4e05d4e442185158e6345fe6803871f0c8e3ac23ad71c13f114bfd6ac4d74205"
+    },
+    "source/docs/audits/native-dpi-dma-refresh-observation.txt": {
+      "size": 457,
+      "sha256": "45aaa3657bba5172faeb79b86603a8add7d1da71f1fd5c8b5ab05850b0772b93"
+    },
+    "build/maia_sched_probe.elf": {
+      "size": 88096,
+      "sha256": "4f915f1804fbbf3dfb0e5dd87ea80671ead93d804265869646784c696fbd87a5"
+    },
+    "build/maia_sched_probe_ram.elf": {
+      "size": 79708,
+      "sha256": "a1a5c02a3d41615af20b98460ae6bfbcf1004333f1da7f2eabc0e7681fde91b5"
+    },
+    "build/maia_sched_probe_ram.bin": {
+      "size": 65392,
+      "sha256": "48ff157bbb7e68df5a2b65c32468d829371628ae251ae750c0df864b0d561650"
+    },
+    "build/maia_sched_probe.map": {
+      "size": 57565,
+      "sha256": "6357f56f8c7167411fb9d0664dd5a71b77be6ce501abb1ce38287433d55920b5"
+    },
+    "build/CMakeCache.txt": {
+      "size": 22534,
+      "sha256": "2599d159868b127a80e63485fcd36af311cf12b1f5f81fd3e7b434cd747ed139"
+    },
+    "build/vdma_transfer_linker.ld": {
+      "size": 2728,
+      "sha256": "f9148dffd35b97e33b77f4f420038695e99ec7f340dafc6574255c0d15c49121"
+    },
+    "logs/maia-dpi-dma-refresh-desktop.log": {
+      "size": 3300,
+      "sha256": "0eff166a7b14b6eb6492e7179f84c45094aa97b601b36325f7013839637368ff"
+    },
+    "logs/maia-dpi-dma-refresh-host-test.log": {
+      "size": 4637,
+      "sha256": "720b208491365826cd82ad4eb396d6511801cfe513724223d4d0b514068e8e73"
+    },
+    "logs/maia-dpi-dma-refresh-image.log": {
+      "size": 103,
+      "sha256": "bd34cdf9f9e0124191eeac1abe0a9595e32f99877b85ade52efd37ee00189dd6"
+    },
+    "logs/maia-dpi-dma-refresh-config.log": {
+      "size": 1270,
+      "sha256": "2c989fc2a451b22275ecd574b6f5fffb45b17a829bae3842ba140285844389f4"
+    },
+    "logs/maia-dpi-dma-refresh-checks.log": {
+      "size": 310,
+      "sha256": "e48b825d5acc476cb1a9446ec9a6414e944694c2a1a406d915c251ec3a559f30"
+    },
+    "logs/maia-dpi-dma-refresh-build.log": {
+      "size": 3266,
+      "sha256": "fae81fd5324421f16879d2502d375887e31ffabe8148987a0ab83168ef7a4738"
+    },
+    "logs/maia-dpi-dma-refresh-console.log": {
+      "size": 32990,
+      "sha256": "31a8441300fb90486afc834187bf093e0173e6e808d7034be492b469c9f0907b"
+    },
+    "logs/maia-dpi-dma-refresh-hardware.log": {
+      "size": 32990,
+      "sha256": "31a8441300fb90486afc834187bf093e0173e6e808d7034be492b469c9f0907b"
+    },
+    "logs/maia-dpi-dma-refresh-host-build.log": {
+      "size": 1750,
+      "sha256": "9f099e6eba54c970b3e47674bcb0594a0fbf8ff21e4d36acd0efa60a4da5eb73"
+    },
+    "scripts/maia-document-dma-refresh.py": {
+      "size": 11823,
+      "sha256": "3948f7b42447122245027d2c93273410817b63c816e467d433589971f1524500"
+    },
+    "scripts/maia-implement-dma-refresh.py": {
+      "size": 5516,
+      "sha256": "e930dd799a3db2eeb491522bcf78a769dd2944fd66f9b496252954a9d364c14c"
+    },
+    "scripts/maia-dpi-dma-refresh-checks.py": {
+      "size": 2398,
+      "sha256": "33d19f5c661a69b1cf370b78e774109d74039c1827a8390e4362de951e8c4803"
+    },
+    "scripts/maia-ldo3-verify-desktop.py": {
+      "size": 1190,
+      "sha256": "4fd9077aa6ee40988bc1557dc74787f875be380523c1139424cfcee2f0417bcd"
+    },
+    "scripts/maia-dpi-dma-refresh-tested-image-sha.txt": {
+      "size": 65,
+      "sha256": "f6b8c7b87722c7b55132d64cf5e9af7b519f4aea4e2bc7aec1f6ad8e78d4a130"
+    },
+    "checks/header.cpp": {
+      "size": 115,
+      "sha256": "ca57f6aadf1a573d6812d18835a4449bce4e709bbab90c4fac9b2098dbb67d89"
+    },
+    "checks/invalid.log": {
+      "size": 1231,
+      "sha256": "38ca378b99ec628f569fdd95af32aa5d10946df25f582ae432d4688ab52198ce"
+    },
+    "checks/positive/test": {
+      "size": 610280,
+      "sha256": "ab205f372a540ebfa3d9badc899cf2e1d0f41e048c7b0969d4b89b326cd55418"
+    },
+    "checks/positive/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/positive/dsi_dma_frame.h": {
+      "size": 10952,
+      "sha256": "3763903a431679c747ed410a07c191819b91e81eac2880e70935a59f55da6e2b"
+    },
+    "checks/positive/result.log": {
+      "size": 123,
+      "sha256": "adc8854621d6c4ec37ed23f46b3ab649639aea8c579fc9f0f1aa08121988f303"
+    },
+    "checks/no-completion-clear/test": {
+      "size": 610280,
+      "sha256": "57d0b00cf1f55137bb8b536686bbc41fe57dd88a58709e456d7de68ad02e522f"
+    },
+    "checks/no-completion-clear/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/no-completion-clear/dsi_dma_frame.h": {
+      "size": 10943,
+      "sha256": "52b34c46188f995860dc0fcb2da15873abedc80fc79fe5d7ed0483af539addf3"
+    },
+    "checks/no-completion-clear/result.log": {
+      "size": 108,
+      "sha256": "c57e627e0bc990a801daba61678dc5da06757005461668b26b9ff8c7a306db2a"
+    },
+    "checks/invalid/CMakeCache.txt": {
+      "size": 18698,
+      "sha256": "f83b13bdc7e59876c9b1a3639051100f6298d399e09fa31a2cefcdef5a4b50a7"
+    },
+    "checks/adopt-consumed-frame/test": {
+      "size": 610280,
+      "sha256": "4558443de9c4992dce217251976b2a55bd09466954454d13ff4e813d20a5a9b8"
+    },
+    "checks/adopt-consumed-frame/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/adopt-consumed-frame/dsi_dma_frame.h": {
+      "size": 10924,
+      "sha256": "38edce4f4a75eaf39c95463aabd551b395f00c49557fdea0e283533f85c8ce00"
+    },
+    "checks/adopt-consumed-frame/result.log": {
+      "size": 117,
+      "sha256": "a78fe466ad269b740f23bf51d441d954e9723e179aefc776ce4f7c7716101434"
+    },
+    "checks/retry-failed-frame/test": {
+      "size": 610280,
+      "sha256": "48f6d2e30efbb5027822856703a7b9500b2fb89d7961e5ca7a3175cc655011aa"
+    },
+    "checks/retry-failed-frame/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/retry-failed-frame/dsi_dma_frame.h": {
+      "size": 10962,
+      "sha256": "dd1d65470a81cb8fcc1521c74a743c6872a01052e9ed1a671ffdd59c45b5664b"
+    },
+    "checks/retry-failed-frame/result.log": {
+      "size": 193,
+      "sha256": "0979ea3e7733e9b7650782e3a66d65d9eafe9c16ce52f4a07f53f481492ce6b7"
+    },
+    "checks/unbounded-count/test": {
+      "size": 610280,
+      "sha256": "a73120479e66a7eaa265729aa077d5054cf8119801353090638abd485090690b"
+    },
+    "checks/unbounded-count/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/unbounded-count/dsi_dma_frame.h": {
+      "size": 10953,
+      "sha256": "07770d5f9ce46b1cd8ba96d67277ad7a8c0f163b0e22145d0066798f55d8fe96"
+    },
+    "checks/unbounded-count/result.log": {
+      "size": 152,
+      "sha256": "80e3bb961838aa0762fa7a4b115740efe2fb0eec0c8b530e6127e48aa36c3014"
+    },
+    "checks/ignore-clear-readback/test": {
+      "size": 610280,
+      "sha256": "24af730744a46eef05b80e941f042edfc1470076ec6c05a15d0cbfbeec6aa426"
+    },
+    "checks/ignore-clear-readback/soc_dsi_access.c": {
+      "size": 40708,
+      "sha256": "dd10707bb91eca812a8cf3614e5268231bbe0c52b8245c63cda4cf073d002689"
+    },
+    "checks/ignore-clear-readback/dsi_dma_frame.h": {
+      "size": 10960,
+      "sha256": "7e570b77650645e37222e3beebbbb45fb83e1677ae8f748ce58d9a1cf7e65924"
+    },
+    "checks/ignore-clear-readback/result.log": {
+      "size": 195,
+      "sha256": "b87679ee0ea680104e4b2b8bb4f5070f336f1b97b831372e5004480a58a1f45d"
+    },
+    "checks/invalid/CMakeFiles/cmake.check_cache": {
+      "size": 85,
+      "sha256": "a26189e394421da57f45706a07713c5720acd200a41711b0c0c590c3c63371c4"
+    },
+    "checks/invalid/CMakeFiles/CMakeConfigureLog.yaml": {
+      "size": 133491,
+      "sha256": "25b5fdc30b89e03d0ae6866751cf7555a8fc8442a0d413c683bcbb74b41fcdea"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_CXX.bin": {
+      "size": 2700,
+      "sha256": "7d85158ff9cc2d327231016e179fbc91ab9ab5a89da6681b63cf1351ed59ccf2"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeDetermineCompilerABI_C.bin": {
+      "size": 2664,
+      "sha256": "af8b87fa15e59d809c6ee59f2997509d170623c9639437cf4893196bca351b99"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCXXCompiler.cmake": {
+      "size": 7587,
+      "sha256": "8c52f323c968ebdcefd0ab77d57b96e1025a5406dadeff931886f05e4ddcd569"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeCCompiler.cmake": {
+      "size": 3949,
+      "sha256": "d0f72f32b12a8881db9ffd55b2043c2d295be6496c8352a05fdc5421385c2bb4"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeSystem.cmake": {
+      "size": 455,
+      "sha256": "a300eb901942ade38040c8d0d710ac32d2b939d39c0e88a0b9d3d1525a4e5e10"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CMakeASMCompiler.cmake": {
+      "size": 1859,
+      "sha256": "cc1370f45f1c9e67d348266e19e49999b3ae196a21e9f269ba6f0b3fec5a5202"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/CMakeCCompilerId.c": {
+      "size": 29029,
+      "sha256": "6ccdb729a0b1d02ba3d9b57e617d311fbac288d9c0d32416c048ef044157f041"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdC/a.out": {
+      "size": 92548,
+      "sha256": "097ceb1fe6dfbbc599bde5272c1c5e8dce90af223ff11e9c94964fd5117f1fa5"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/a.out": {
+      "size": 92608,
+      "sha256": "29775cc1d1c12df753c7e6ba00aa338af97d5fdb3530fca42ccccd47b6d3ce8c"
+    },
+    "checks/invalid/CMakeFiles/4.4.4/CompilerIdCXX/CMakeCXXCompilerId.cpp": {
+      "size": 29651,
+      "sha256": "5b0cbdb2a0d0a5b91a89026321eb0202fdecb22328eb5c668566ce5cb17e3cd2"
+    },
+    "source/include/maia/soc/esp32p4_regs.h": {
+      "size": 12546,
+      "sha256": "5365507e652a6daf2f0e28f715b75b008e074a910bc412720a1fbf28b08d33b9"
+    },
+    "source/soc/espressif/esp32p4/dsi_access_internal.h": {
+      "size": 1430,
+      "sha256": "100fbcf083fa1aebdda9e8b0903eb47fd9fc897af6923df17cbc14be8fd23c04"
+    },
+    "source/soc/espressif/esp32p4/dsi_dma_stage.h": {
+      "size": 4605,
+      "sha256": "c7e0c69feaaf3a18ef1704d94c65692a5d7277acd684a108e5f8666ff54c4b16"
+    },
+    "source/tests/hardware/dpi_backlight_fixture.h": {
+      "size": 2986,
+      "sha256": "42797e13f0ded36e8446fec7838edfb584e595b2fe1a96d7c0b19b917fbba7a3"
+    },
+    "source/boards/m5stack/tab5/linker.ld": {
+      "size": 2127,
+      "sha256": "d94afd9cd91e06c6976638c4f968c70afcc1754ba502748c98afb1cb8701ec87"
+    },
+    "reference/dw_gdma_reg.h": {
+      "size": 325910,
+      "sha256": "441ce2f62aaab1597df1042697d3d76e7571c6384691a58ee3aa595b56f63477"
+    }
+  },
+  "observation": {
+    "frames": 400,
+    "rearms": 399,
+    "polls": 436369,
+    "items": 92160000,
+    "elapsed_us": 6109505,
+    "last_raw": "383ff",
+    "last_items": 230400,
+    "last_status": "12",
+    "last_polls": 1091,
+    "last_recovery_polls": 2,
+    "visible": "user: Sim, vermelho est\u00e1vel",
+    "readiness": "user: Pode iniciar agora; uploaded after answer",
+    "desktop": "shell responsive; SciCalc 14; desktop active"
+  },
+  "limits": [
+    "boot/core0/exclusive/IRQs off",
+    "not continuous streaming",
+    "no framebuffer/PSRAM/native desktop acceptance",
+    "underrun threshold413 unchanged"
+  ],
+  "lineage": {
+    "recovery": "../native-dpi-dma-frame-20261115",
+    "manifest_sha256": "fd76ebcadb94f5f5001a9a32c3605c81f183bb93c116321557e340a319ba7494",
+    "note": "prior frame/counter qualification and pinned references retained there; prior values are not current refresh observations"
+  },
+  "sdk_revision": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0"
+}

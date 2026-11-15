@@ -1,0 +1,6 @@
+2026-11-15 — user readiness and visual evidence
+Earlier single-frame attempt: user was not in front of device; no negative visual finding.
+Prepared bounded400-frame image; asked for fresh readiness before uploading.
+User: "Pode iniciar agora". Uploaded once after this answer.
+After capture asked whether red appeared; user: "Sim, vermelho estável".
+No additional visual test run. Visual report is qualitative, not instrumented pixel coverage or timing.

@@ -1005,3 +1005,21 @@ Recovery `../maia-rtos-recovery/native-dpi-dma-frame-20261115/`. Bridge raw0 is 
 existing discard threshold413, not an all-pixel quality proof. Next bounded visual
 refresh/color/underrun qualification, then framebuffer/PSRAM. Native full desktop
 pending; installed complete desktop FreeRTOS; prior bars horizontal; POSIX DESIGN.
+
+## Bounded native DMA refresh: stable red confirmed — 2026-11-15
+
+Read [refresh audit](audits/native-dpi-dma-refresh.md). Boot-only exclusive immutable-source batch1..400,
+per-frame completion/recovery and fresh idle guards before status-clear/rearm;
+only completion/disabled mask4000001B cleared, failures sticky/no retry. Old
+standalone frame stays one-shot. RAM opt-in400 frames after explicit user readiness:
+HOST PASS, 399 rearms/436369 polls/92160000 items/6109505us sample, last active/done1,
+raw383FF/items38400/status12/errors0/FIFO0, recovered and four power9C replies.
+User: “Sim, vermelho estável”. Previous short test had no valid visual observation
+because user was not in front. Source/list hashes unchanged, light restored;
+reset shell/SciCalc14/desktop PASS. Host42/42, sanitizers/C++98/five rejected
+mutants/invalid profile/runtime gate PASS. SHA48ff157bbb7e68df5a2b65c32468d829371628ae251ae750c0df864b0d561650.
+Recovery `../maia-rtos-recovery/native-dpi-dma-refresh-20261115/`. No flash/SD writes,
+foreign runtime/parser/timing/rotation change. Diagnostic IRQs off; bounded batch
+is not a production stream. Threshold413 still limits underrun interpretation.
+Next owned finite SRAM pixel tile/source-increment spatial-color qualification;
+PSRAM/full native desktop/rotation-input still pending, installed desktop original.

@@ -131,3 +131,32 @@ recover:
         r->observation.error0&0x1FFFFFU ||r->observation.error1&0x81FFFU){transfer_state=FAULTED;return result==MAIA_DSI_ACCESS_OK?MAIA_DSI_ACCESS_IO:result;}
     r->completed=9;dpi_frame_state=3U;transfer_state=UNCLAIMED;return MAIA_DSI_ACCESS_OK;
 }
+
+maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_refresh(uint32_t frames,uint32_t budget,maia_dsi_dma_refresh_report_t *r){
+    if(!r)return MAIA_DSI_ACCESS_INVALID;
+    for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
+    if(!frames||frames>400U||!budget||budget>100000U)return MAIA_DSI_ACCESS_INVALID;
+    if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
+    if(dpi_refresh_state==FAULTED||dpi_frame_state==FAULTED||transfer_state==FAULTED)return MAIA_DSI_ACCESS_FAILED;
+    if(dpi_refresh_state!=UNCLAIMED||dpi_frame_state!=UNCLAIMED||dpi_dma_state!=OWNED||transfer_state!=UNCLAIMED)return MAIA_DSI_ACCESS_BUSY;
+    dpi_refresh_state=FAULTED;
+    for(unsigned n=0;n<frames;++n){
+        if(n){
+            if(dpi_frame_state!=3U || !frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0) ||
+                !dma_quiet() || (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x14U)&0x3FFFU))goto refused;
+            uint32_t pending=dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U);
+            if(pending&~0x4000001BU)goto refused;
+            ++r->rearm_writes;dsi_write(MAIA_ESP32P4_GDMA_BASE+0x198U,0x4000001BU);
+            if(!frame_roots() || dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U) ||
+                dsi_read(MAIA_ESP32P4_GDMA_BASE+0x50U) || (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+0x58U)&1U))goto refused;
+            dpi_frame_state=UNCLAIMED; /* only this checked sequence may rearm */
+        }
+        maia_dsi_access_result_t result=maia_esp32p4_dsi_dma_solid_frame(budget,&r->last);
+        r->polls+=r->last.polls;
+        if(result!=MAIA_DSI_ACCESS_OK){dpi_frame_state=transfer_state=FAULTED;return result;}
+        ++r->frames_completed;r->items+=r->last.items;
+    }
+    dpi_refresh_state=OWNED;return MAIA_DSI_ACCESS_OK;
+refused:
+    dpi_frame_state=transfer_state=FAULTED;return MAIA_DSI_ACCESS_VERIFY;
+}

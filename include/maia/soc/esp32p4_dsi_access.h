@@ -332,6 +332,21 @@ typedef struct maia_dsi_dma_frame_report {
  * Required report initialized. CPU calls block with interrupts off by contract. */
 maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_frame(uint32_t poll_budget,maia_dsi_dma_frame_report_t *);
 
+typedef struct maia_dsi_dma_refresh_report {
+    uint32_t frames_completed,polls,items,rearm_writes;
+    maia_dsi_dma_frame_report_t last;
+} maia_dsi_dma_refresh_report_t;
+/* Boot/exclusive immutable source contract of solid_frame. Bounded sequence of
+ * 1..400 individually completed/recovered frames, same source, no IRQ or list.
+ * Between successes, verify owned idle configuration, clear only documented
+ * channel0 completion/disabled events(4000001B), require status0, then privately
+ * rearm. Never retry a failed frame/cleanup. Aggregate reports retain last frame.
+ * One sequence per boot; standalone solid_frame remains one-shot, and cannot be
+ * rearmed by caller reports. Failure sticky/reboot. No fixed duration/WCET or
+ * continuous stream/visual guarantee; caller controls temporary light separately.
+ * Required report initialized; frames/poll budgets validated before MMIO. */
+maia_dsi_access_result_t maia_esp32p4_dsi_dma_solid_refresh(uint32_t frames,uint32_t poll_budget,maia_dsi_dma_refresh_report_t *);
+
 #ifdef __cplusplus
 }
 #endif

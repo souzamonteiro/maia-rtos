@@ -1106,3 +1106,15 @@ diagnostic sample, not WCET/frequency. DMA-done still required for display. Raw
 underrun at existing413-line discard threshold and no independent visual-red
 confirmation: no all-pixel/continuous-refresh acceptance. Host42/42 + sanitizers/
 negative checks PASS; no FreeRTOS runtime imported; original flash preserved.
+
+## Bounded native DMA refresh and completion rearm — 2026-11-15
+
+Pinned SDKf5c3654 [DW-GDMA registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_reg.h),
+DMAC_CH1_INTCLEAR0_REG +198, WO completion/disabled bits0,1,3,4,30;
+mask4000001B excludes errors. DSI/timing/counter sources unchanged from
+[finite-frame audit](../audits/native-dpi-dma-frame.md), chip1.3 TRM v0.4
+§5.5.7 pp337–338 and §5.27 p375. [Refresh audit](../audits/native-dpi-dma-refresh.md)
+records400 finite DMA frames/399 checked rearms/92160000 items/errors0/recovery
+and four9C replies; user explicitly ready before upload and confirmed stable red.
+Single elapsed6109505us sample, not WCET/frequency/all-pixel coverage. Existing
+underrun discard threshold413 unchanged. No foreign runtime; original flash kept.

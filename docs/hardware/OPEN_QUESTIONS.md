@@ -266,3 +266,14 @@ qualification (existing discard threshold413 masks some startup-line reporting),
 then full framebuffer/PSRAM and rotation/input acceptance. WT publication has no
 ACK; dropped off-update/already-off disable may be unobservable. Source remains
 immutable and one-shot claim consumed; continuous streaming not implemented.
+
+### Solid red confirmed; spatial framebuffer acceptance next — 2026-11-15
+
+[Bounded refresh](../audits/native-dpi-dma-refresh.md) now confirms stable red
+visually after readiness handshake and400 individually completed/recovered frames.
+No negative visual conclusion from the earlier brief test: user was not in front.
+Remaining: owned finite SRAM pixel tile with source increment/spatial-color check,
+then PSRAM/full framebuffer and native desktop/rotation-input. Diagnostic batch
+uses boot exclusivity/IRQs off, not production scheduling or a continuous stream.
+Prior counter documentation discrepancy, WT no-ACK and underrun threshold413
+limits remain open. Do not activate unused160LLIs as one bridge frame.

@@ -685,3 +685,10 @@ assert runner.evaluate_vdma_count(calibration)
 assert not runner.evaluate_vdma_count(calibration.replace('matched=00008000','matched=00007fff'))
 assert not runner.evaluate_vdma_count(calibration.replace('tail=00000001','tail=00000000'))
 print('PASS: counter qualification requires actual byte-copy proof; raw count remains an observation')
+
+refreshed=frame.replace('DPI_DMA_FRAME_RESTORE light=', 'DPI_DMA_REFRESH frames=00000190 polls=000186a0 items=057e4000 rearms=0000018f\nDPI_DMA_FRAME_RESTORE light=')
+assert runner.evaluate_dpi_dma_refresh(refreshed)
+assert not runner.evaluate_dpi_dma_frame(refreshed)
+for a,b in [('frames=00000190','frames=0000018f'),('rearms=0000018f','rearms=00000190'),('items=057e4000','items=057e3fff')]:
+    assert not runner.evaluate_dpi_dma_refresh(refreshed.replace(a,b))
+print('PASS: bounded400-frame total, checked rearm count and final recovery required')
