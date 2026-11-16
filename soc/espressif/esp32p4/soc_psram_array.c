@@ -16,7 +16,7 @@ void maia_psram_array_test_reset(void){array_fault=mode_claim=0;}
 static uintptr_t address(unsigned i){return i<9U?psram_mode_address(i):i==9U?PSRAM_MSPI1+0x24U:PSRAM_MSPI1+0x58U+(i-10U)*4U;}
 static int roots(const maia_psram_snapshot_t *s){for(unsigned i=0;i<9U;++i)if(psram_read(psram_roots[i])!=s->roots[i])return 0;return 1;}
 static int owned(const maia_psram_snapshot_t *s,const uint32_t *v,unsigned fifo){
-    if(!roots(s))return 0;
+    if(!roots(s)||!psram_axi_quiet())return 0;
     for(unsigned i=0;i<16U;++i){uint32_t x=psram_read(psram_address(i));if(i?x!=s->before[i]:!!(x&~255U))return 0;}
     const unsigned fixed[]={18,19,20,25,26};
     for(unsigned i=0;i<5U;++i)if(psram_read(psram_address(fixed[i]))!=s->before[fixed[i]])return 0;
@@ -28,7 +28,7 @@ static maia_psram_result_t chunk(uint32_t offset,uint8_t *data,unsigned len,unsi
     unsigned budget,maia_psram_transfer_report_t *r){
     maia_psram_snapshot_t s;maia_psram_result_t result=maia_esp32p4_psram_snapshot(&s);
     if(result!=MAIA_PSRAM_OK)return result;
-    if(s.before[0]||s.before[16]||(s.before[2]&1U)||!(s.roots[4]&0x100U)||
+    if(s.before[0]||s.before[16]||!psram_axi_quiet()||(s.before[2]&1U)||!(s.roots[4]&0x100U)||
        (s.roots[1]&0xFFB000U)!=0x8000U||s.before[7]!=0x10001U||s.before[20]!=0x10001U||
        (s.before[17]&0x01904100U)||(s.before[24]&0x0020000EU))return MAIA_PSRAM_BUSY;
     uint32_t saved[26],current[26],desired[26];uint8_t received[64];

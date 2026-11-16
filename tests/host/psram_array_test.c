@@ -56,6 +56,7 @@ static void setup(void){
     reads=writes=active=stuck=drop=loss=commands=bad_profile=stuck_after=0;
     memset(root,0,sizeof root);memset(reg,0,sizeof reg);
     root[0]=0x80000000;root[1]=0xC00C;root[4]=0x180;
+    reg[0][0x3C/4]=0x80000000U;
     reg[0][0x50/4]=reg[1][0x14/4]=0x10001;
     reg[1][8/4]=0x2CA00C;reg[1][0x18/4]=0x80000000;reg[1][0x1C/4]=0x5C000007;
     reg[1][0x20/4]=0x70000000;reg[1][0x34/4]=2;reg[1][0xD4/4]=0x20;

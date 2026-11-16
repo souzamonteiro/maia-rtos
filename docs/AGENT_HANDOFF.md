@@ -1180,3 +1180,17 @@ LCD or touch claim. Next adapt controller AXI/cache/MMU startup/mapping, then
 framebuffer. Owner requests grouping functional deliveries/autonomous electronic
 tests, existing licensed driver reuse; AGENTS and four-gate delivery plan updated.
 Installed complete desktop remains original runtime; native port imports none.
+
+## AXI exclusion guard corrected before mapped-memory activation — 2026-11-15
+
+[AXI correction](audits/native-psram-axi.md): previous CTRL1+0Cbit0 guard was clock mode, not AXI.
+Use actual CACHE_FCTRL5008E03C AXI_REQ_EN0/CLOSE_AXI_INF_EN1 shared helper in mode,
+clock and array initial/ownership checks; never read while core gated. Caller
+boot exclusivity remains required. Historical AXI-off inference corrected, actual
+previous data observations retained. Host50/50/sanitizers/mutants/C++98/SDKoffset
+oraclePASS; actual whole X8 array/data/mode/clock test repeated with AXI C0000000
+before/after, four exact4KiB patterns, full recovery and runnerPASS. SHA
+4d96fb7a71a3b79ba2f20e5d4c1dc8a055a1212da255545d03edd71b9a5567a2,
+18592bytes/entry4FF00100. Reset shell/SciCalc14/desktopPASS. No flash/SD/parser
+writes or mapped-memory activation. Recovery `../maia-rtos-recovery/native-psram-axi-20261115/`.
+Next controller/cache/MMU mapping port, then framebuffer; no cold/LCD/touch completion.

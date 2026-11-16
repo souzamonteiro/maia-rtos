@@ -18,6 +18,7 @@ static int roots_match(void){
 static int guarded(void){
     if(!roots_match())return 0;
     if(!(current.roots[1]&CLOCK_CORE_ENABLE))return 1; /* no controller access */
+    if(!psram_axi_quiet())return 0;
     maia_psram_snapshot_t s;
     if(maia_esp32p4_psram_snapshot(&s)!=MAIA_PSRAM_OK)return 0;
     for(unsigned i=0;i<9U;++i)if(s.roots[i]!=current.roots[i])return 0;
@@ -59,7 +60,7 @@ maia_psram_result_t maia_esp32p4_psram_xtal20_start(maia_psram_clock_report_t *r
     maia_psram_result_t result=initialize_report(r);if(result!=MAIA_PSRAM_OK)return result;
     if(clock_state!=CLOCK_FREE)return MAIA_PSRAM_BUSY;
     maia_psram_snapshot_t s;result=maia_esp32p4_psram_snapshot(&s);if(result!=MAIA_PSRAM_OK)return result;
-    if(s.before[0]||s.before[16]||(s.before[2]&1U)||!calibrated_supply(&s)||
+    if(s.before[0]||s.before[16]||!psram_axi_quiet()||(s.before[2]&1U)||!calibrated_supply(&s)||
        (s.roots[1]&CLOCK_SELECT_DIV)!=0x1000U||s.before[7]!=0x30103U||s.before[20]!=0x30103U)return MAIA_PSRAM_BUSY;
     original=current=s;evidence(r);if(!guarded())return MAIA_PSRAM_CHANGED;
     clock_state=CLOCK_FAULTED;

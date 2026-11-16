@@ -838,7 +838,7 @@ def evaluate_psram_state(output,allow_identity=False,allow_clock=False,allow_arr
     if any(w['index']!=i or w['address']!=(0x5008e000 if i<16 else 0x5008f000)+offsets[i] or w['before']!=w['after'] for i,w in enumerate(words)):return False
     allowed={'PSRAM_STATE','PSRAM_ROOT','PSRAM_WORD'}
     extra={'PSRAM_ID','PSRAM_ID_WORD','PSRAM_ID_RESTORE'} if allow_identity else set()
-    if allow_clock:extra|={'PSRAM_CLOCK','PSRAM_CLOCK_WORD','PSRAM_CLOCK_FINAL'}
+    if allow_clock:extra|={'PSRAM_CLOCK','PSRAM_CLOCK_WORD','PSRAM_CLOCK_FINAL','PSRAM_AXI','PSRAM_AXI_FINAL'}
     if allow_array:extra|={'PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_PATTERN','PSRAM_ARRAY_RESTORE','PSRAM_ARRAY_MODE'}
     if any(l.startswith('PSRAM_') and l.split()[0] not in allowed|extra for l in lines):return False
     positions=[i for i,l in enumerate(lines) if l.split() and l.split()[0] in allowed]
@@ -885,6 +885,8 @@ def evaluate_psram_clock(output,allow_array=False):
         parsed=[re.fullmatch(prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),l) for l in selected]
         if len(parsed)!=n or any(r is None for r in parsed):return None
         return [dict(zip(keys,(int(v,16) for v in r.groups()))) for r in parsed]
+    axi=rows('PSRAM_AXI',['control'],1);axi_final=rows('PSRAM_AXI_FINAL',['control'],1)
+    if axi is None or axi_final is None or axi!=axi_final or axi[0]['control']&0x80000001!=0x80000000:return False
     phases=rows('PSRAM_CLOCK','phase result stage attempts restored'.split(),2)
     words=rows('PSRAM_CLOCK_WORD','phase index before after'.split(),6)
     final=rows('PSRAM_CLOCK_FINAL','result roots words'.split(),1)

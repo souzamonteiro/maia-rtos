@@ -3,6 +3,7 @@
 #include "psram_internal.h"
 void maia_psram_clock_test_reset(void);
 static uint32_t roots[9],words[27],saved_roots[9],saved_words[27];
+static uint32_t axi_control;
 static unsigned reads,writes,context,drop,loss,mutation;
 int maia_psram_test_context(void){return (int)context;}
 uint32_t maia_psram_test_read(uintptr_t p){
@@ -10,6 +11,7 @@ uint32_t maia_psram_test_read(uintptr_t p){
     for(unsigned i=0;i<9U;++i)if(p==psram_roots[i])return roots[i];
     assert((roots[1]&0xC000U)==0xC000U); /* no access while gated */
     assert((roots[0]&0x80000000U)&&!(roots[2]&0x02800000U));
+    if(p==PSRAM_MSPI0+0x3CU)return axi_control;
     for(unsigned i=0;i<27U;++i)if(p==psram_address(i))return words[i];
     assert(!"unexpected read");return 0;
 }
@@ -31,7 +33,7 @@ void maia_psram_test_write(uintptr_t p,uint32_t v){
     if(writes==mutation)words[3]^=1U;
 }
 static void setup(void){
-    maia_psram_clock_test_reset();reads=writes=drop=loss=mutation=0;context=1;
+    maia_psram_clock_test_reset();reads=writes=drop=loss=mutation=0;context=1;axi_control=0x80000000U;
     memset(roots,0,sizeof roots);memset(words,0,sizeof words);
     roots[0]=0xE6DFB7FF;roots[1]=0xD00C;roots[2]=0x38000040;
     roots[4]=0x40200180;roots[5]=0x76800000;roots[6]=0x7B054313;roots[7]=0x3A184DEA;
@@ -51,6 +53,8 @@ int main(void){
     assert(maia_esp32p4_psram_xtal20_stop(&r)==MAIA_PSRAM_BUSY&&!reads&&!writes);
     context=0;assert(maia_esp32p4_psram_xtal20_start(&r)==MAIA_PSRAM_CONTEXT&&!reads&&!writes);
     setup();roots[0]=0;assert(maia_esp32p4_psram_xtal20_start(&r)==MAIA_PSRAM_GATED&&!writes);
+    setup();axi_control=0x80000001U;assert(maia_esp32p4_psram_xtal20_start(&r)==MAIA_PSRAM_BUSY&&!writes);
+    setup();axi_control=0U;assert(maia_esp32p4_psram_xtal20_start(&r)==MAIA_PSRAM_BUSY&&!writes);
     for(unsigned variant=0;variant<13U;++variant){
         setup();
         switch(variant){

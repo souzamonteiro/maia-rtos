@@ -2,9 +2,9 @@
 #include <string.h>
 #include "psram_mode_internal.h"
 void maia_psram_mode_test_reset(void);
-static uint32_t roots[9],words[27],extra[5],initial[27],initial_extra[5];
+static uint32_t roots[9],words[27],extra[6],initial[27],initial_extra[6];
 static unsigned context,reads,writes,drop,trigger_drop,active,polled,finish,stuck,bad_reply,clock_loss;
-static const uintptr_t extras[5]={PSRAM_MSPI1+4U,PSRAM_MSPI1+0x28U,PSRAM_MSPI1+0x34U,PSRAM_MSPI1+0x3CU,PSRAM_MSPI1+0x58U};
+static const uintptr_t extras[6]={PSRAM_MSPI1+4U,PSRAM_MSPI1+0x28U,PSRAM_MSPI1+0x34U,PSRAM_MSPI1+0x3CU,PSRAM_MSPI1+0x58U,PSRAM_MSPI0+0x3CU};
 int maia_psram_test_context(void){return (int)context;}
 uint32_t maia_psram_test_read(uintptr_t p){
     ++reads;for(unsigned i=0;i<9U;++i)if(p==psram_roots[i])return roots[i]^(i==0U&&active&&clock_loss?0x80000000U:0U);
@@ -16,7 +16,7 @@ uint32_t maia_psram_test_read(uintptr_t p){
         }
     }
     for(unsigned i=0;i<27U;++i)if(p==psram_address(i))return words[i];
-    for(unsigned i=0;i<5U;++i)if(p==extras[i])return extra[i];
+    for(unsigned i=0;i<6U;++i)if(p==extras[i])return extra[i];
     assert(!"non-whitelisted read");return 0;
 }
 void maia_psram_test_write(uintptr_t p,uint32_t v){
@@ -32,7 +32,7 @@ void maia_psram_test_write(uintptr_t p,uint32_t v){
     assert(!active);if(writes==drop)return;
     unsigned found=0;for(unsigned i=0;i<10U;++i)if(p==psram_mode_address(i))found=1;assert(found);
     for(unsigned i=0;i<27U;++i)if(p==psram_address(i)){words[i]=v;return;}
-    for(unsigned i=0;i<5U;++i)if(p==extras[i]){extra[i]=v;return;}
+    for(unsigned i=0;i<6U;++i)if(p==extras[i]){extra[i]=v;return;}
     assert(!"non-whitelisted write");
 }
 static void setup(void){
@@ -41,8 +41,8 @@ static void setup(void){
     roots[0]=0x80002000;roots[1]=0xD000;roots[4]=0x180;
     for(unsigned i=0;i<27U;++i)words[i]=0;
     words[1]=0x802C200C;words[2]=0x28E00000;words[17]=0x2CA00C;words[21]=0x80000000;words[22]=0x5C000007;words[23]=0x70000000;words[24]=0x20;
-    for(unsigned i=0;i<5U;++i)extra[i]=0;
-    extra[2]=2;extra[4]=0x0D30U; /* stale plausible ID must never pass a dropped trigger */
+    for(unsigned i=0;i<6U;++i)extra[i]=0;
+    extra[5]=0x80000000U;extra[2]=2;extra[4]=0x0D30U; /* stale plausible ID must never pass a dropped trigger */
     memcpy(initial,words,sizeof words);memcpy(initial_extra,extra,sizeof extra);
 }
 static void unchanged(void){assert(!memcmp(words,initial,sizeof words)&&!memcmp(extra,initial_extra,sizeof extra)&&!active);}
@@ -54,6 +54,8 @@ int main(void){
     context=0;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_CONTEXT&&!reads&&!writes);
     setup();words[2]|=1;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes);
     setup();roots[4]=0x80U;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes); /* SW select is not XPD */
+    setup();extra[5]=0x80000001U;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes);
+    setup();extra[5]=0U;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_BUSY&&!writes);
     setup();roots[0]=0;assert(maia_esp32p4_psram_read_mode(0,20,&r)==MAIA_PSRAM_GATED&&!writes);
     unsigned regs[]={0,2,4,8};uint32_t expected[]={0x0D30,0x20DF,0x20,0x4B};
     setup();for(unsigned i=0;i<4U;++i){writes=polled=0;assert(maia_esp32p4_psram_read_mode(regs[i],20,&r)==MAIA_PSRAM_OK&&r.stage==5&&r.restored&&r.value==expected[i]&&r.setup_attempts==0x3FFU&&r.restore_attempts==0x3FFU&&r.triggered&&r.polls==3&&r.saw_busy);unchanged();}

@@ -804,8 +804,8 @@ def clock_phase(phase):
         a=b if phase else (0xc00c,0x10001,0x10001)[i]
         text+=f'PSRAM_CLOCK_WORD phase={phase:08x} index={i:08x} before={b:08x} after={a:08x}\n'
     return text
-clock_capture='MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n'+'\n'.join(clock_state)+'\n'+clock_phase(0)+identity[identity.index('PSRAM_ID index='):]+clock_phase(1)
-clock_capture+='PSRAM_CLOCK_FINAL result=00000000 roots=00000001 words=00000001\nMAIA_NATIVE_PSRAM_CLOCK_PASS\n'
+clock_capture='MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n'+'\n'.join(clock_state)+'\n'+'PSRAM_AXI control=80000000\n'+clock_phase(0)+identity[identity.index('PSRAM_ID index='):]+clock_phase(1)
+clock_capture+='PSRAM_CLOCK_FINAL result=00000000 roots=00000001 words=00000001\nPSRAM_AXI_FINAL control=80000000\nMAIA_NATIVE_PSRAM_CLOCK_PASS\n'
 assert runner.evaluate_psram_clock(clock_capture)
 assert not runner.evaluate_psram_clock(identity)
 assert not runner.evaluate_psram_identity(clock_capture)
@@ -841,3 +841,5 @@ for a,b in [('completed=00001000','completed=00000040'),('chunks=00000040','chun
 assert not runner.evaluate_psram_array(array_capture+array_capture)
 
 assert not runner.evaluate_psram_array(array_capture.replace("before=0000004b after=0000000b","before=0000004b after=0000004b"))
+
+assert not runner.evaluate_psram_array(array_capture.replace("control=80000000","control=80000001"))

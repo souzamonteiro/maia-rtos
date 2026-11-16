@@ -1262,3 +1262,21 @@ Initial raw-offset tests do not prove a contiguous4KiB physical aperture or save
 contents restoration; they failed before restore and were reset. All PSRAM was
 boot-exclusive, no live external-memory clients/flash/SD writes. Successful X8
 mode+data+restore acceptance must come from subsequent actual device capture.
+
+## PSRAM AXI guard register correction — 2026-11-15
+
+Pinned [spi_mem_s_reg.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi_mem_s_reg.h),
+CACHE_FCTRL+3C: AXI_REQ_ENbit0 / CLOSE_AXI_INF_ENbit31. Companion
+[spi_mem_s_struct.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi_mem_s_struct.h)
+mem_cache_fctrl offset3C vs mem_ctrl1 offset0C. Previous native mode/clock/array
+code incorrectly used CTRL1bit0 as an AXI exclusion guard. Earlier documented
+AXI-off inference was therefore not register-verified; actual byte tests remain
+valid evidence, with caller-enforced boot-exclusive/no-live-client preconditions.
+Current helper reads actual5008E03C and requires(mask80000001)==80000000, both
+initially and during ownership checks, only with accessible clocks. Old CTRL1
+bit0 restriction remains an additional warm-profile clock-mode restriction,
+not an AXI claim. Snapshot's27 words unchanged; dedicated AXI before/final records
+provide extra evidence. New actual full X8 pattern/mode/clock recovery run reports
+C0000000 before/after and hostPASS; this validates actual closure for this run,
+not a retroactive measurement of old captures. Host SDK address/offsetof/mask
+oracle and negative actualAXI-enabled/open fixtures prevent repeating the mistake.

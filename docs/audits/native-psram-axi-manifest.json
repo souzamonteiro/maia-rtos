@@ -1,0 +1,30 @@
+{
+  "image_sha256": "4d96fb7a71a3b79ba2f20e5d4c1dc8a055a1212da255545d03edd71b9a5567a2",
+  "segment_bytes": 18592,
+  "entry": "4ff00100",
+  "sources": {
+    "CMakeLists.txt": "9c6ee0546fd25ce7e7c29fe97d991f0c32ed6cce1b6f2e8549c533e9d2ef9329",
+    "include/maia/soc/esp32p4_psram.h": "d183a847760a1a1de1e3710b359c530f48dab67e84886a0a6f4eebd839868309",
+    "soc/espressif/esp32p4/psram_internal.h": "91ebf018093a9a1ced940e6111052edd5d009548a8f1eea1a1dac632b7c157ad",
+    "soc/espressif/esp32p4/psram_mode_internal.h": "8feb566d562fb1511d37ad72593bb16ee58596abd9bd4d8048cd95dc552c7853",
+    "soc/espressif/esp32p4/soc_psram_snapshot.c": "a86e5983b87057cd53c678f5769a7c33756fe1d743e8b3018f822151a3b88420",
+    "soc/espressif/esp32p4/soc_psram_mode.c": "d2078acfafda7b94c3d76e11848928f6d4a549c5ee0073cb74fd7cbcc70e276c",
+    "soc/espressif/esp32p4/soc_psram_clock.c": "1d4bfa958231803c13572720c8e561c8aa0e0af660f16d2febb33143ccde97c4",
+    "soc/espressif/esp32p4/soc_psram_array.c": "1242014a197a33bedd04d73e980f41e924fbbc9a7a3feb21ef6455868a110c75",
+    "tests/host/psram_array_test.c": "78506aa30982b0dc08bd48b2be8a1afd3314ac220a7dedcd7e88a7e7aac4d094",
+    "tests/host/native_probe_result_test.py": "2a37088a89336be5255e1a1a35c95dc790d552adfaa59f952177282e1a988d6f",
+    "tests/hardware/native_psram_state_probe.c": "a8af45cc18056f0fadf08418190c9eb8938f2fbe7eb42fb3f6773df0615d8f7b",
+    "tests/hardware/native_psram_identity.h": "b43d5fbf147c471832e8f6c67763e7f7563aee7a33c7bc5c40ace1021a6305c5",
+    "tests/hardware/native_psram_clock.h": "124f5788e971454899d3dd58053d768a516bcdc2258c27e0609366feb3288231",
+    "tests/hardware/native_psram_array.h": "ad4fc14cd39691c291a3c25ca2b63b79e565c08b69fbb233eba48177e5836e99",
+    "tests/hardware/run_native_scheduler_probe.py": "b16bb73c19377d9aa154536435ab39e2b4c3b8ae1bb04d319a7d3cb603aefd8b",
+    "tests/host/psram_mode_test.c": "ff7563e65ee18cafdbf8f0328adac2c21df216159acad2ba39cec2046bdbba38",
+    "tests/host/psram_clock_test.c": "6d4b6c91956186cd406b76b17c9cc72375f21e1d5a0f7255a7765aec902d2122"
+  },
+  "actual_axi_control": "C0000000",
+  "scope": "actual AXI-closed guard + repeated whole X8 array/mode/clock recovery",
+  "logs": {
+    "native-psram-axi-hardware.txt": "46b3858ac1b691b1be5373f712571a2409c7769b5cf77cfabcacabd65b0fd169",
+    "native-psram-axi-desktop.txt": "bf7395f1502f072c4d827ad3f554f5e1e597b59df62bb124ad9804585bb74886"
+  }
+}
