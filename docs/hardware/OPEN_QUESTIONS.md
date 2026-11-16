@@ -380,3 +380,11 @@ the pending physical interaction/interruptible-report question for this warm
 single-finger device. Additional clients, physical bus fault/recovery, cold state,
 teardown, multi-master/SMP and full production integration remain open. See
 [native touch acceptance](../audits/native-touch-input.md).
+
+
+Native MPLL checkpoint2026-11-16: powered circuit native disable/enable/configure
+now observes END0->END1 and passes subsequentPSRAM200MHz/DMA/LCD/input cycles.
+[Evidence and two retained calibration refusals](../audits/native-mpll-initialize.md).
+This removes reliance on an already-calibrated MPLL circuit, but supply/LDO2 and
+PSRAM device modes remain warm prerequisites. Native PSRAM mode configuration,
+cold supply/device boot, full capacity/margins and shared-clock clients remain open.

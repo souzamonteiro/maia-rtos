@@ -1379,3 +1379,22 @@ already calibrated MPLL, fixed boot cache/reservation. Next grouped work is nati
 PSRAM device/clock cold-start ownership/acceptance from pinned vendor algorithms;
 never relax warm guards to simulate cold support. Keep full fallback and continue
 under existing authorization, coordinating presence only for actual visual tests.
+
+## Native MPLL power/configuration/calibration — 2026-11-16
+
+[Initializer audit](audits/native-mpll-initialize.md): native boot-only MPLL circuit power cycle, DHREF/RSTB/
+divider400MHz programming and observed END0->END1, with PSRAM on genuineXTAL20;
+LDO2 supply untouched, other MPLL/F25/F50 clients quiescent. No foreign runtime.
+Actual before/after3=50->70,div99,cal34C, four analog writes/29polls/routing restored.
+Then nativePSRAM200MHz/fullimage/guards/9byte-exact4KiB DMA cases/102LCDframes and
+three input lifecycle cycles pass, errors0. Final desktop shell/SciCalc14/exit0
+restored. Two prior END0 refusals retained; no acceptance guard relaxed. Image
+f27fcb3fae416f5ca07a0b68625047a260e128a017c4d78cd34d159b47973da1/97776bytes.
+Host67/67, initializer ASan+UBSan/five rejected mutants/C++98/official-header oracle/
+six pinned sources/runtimegate PASS. MPLL-only diagnostic task stacks6KiB fit
+unchanged low-SRAM boundary; context/stack checks pass. Recovery
+`../maia-rtos-recovery/native-mpll-initialize-20261116/`. No flash/SD/parser writes.
+HARDWARE-TESTED LIMITED powered-domain native PLL startup; PSRAM supply/device
+modes still inherited, not cold board/full32MiB/margins/SMP/native desktop acceptance.
+Next grouped work: native MR0/MR4/MR8 timing/interface configuration and supply/
+device startup from primary documented defaults; preserve warm guards/fallback.

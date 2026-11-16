@@ -20,8 +20,10 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
    Native DMA reads now pass all nine4KiB address/burst cases, including a page
    crossing. Operational200MHz clock/DQS/both DLL paths now pass2MiB CPU and
    all45 training/final DMA copies;4KiB16-item samples22–23us. This removes the
-   measured slow-clock limitation for the next full-image diagnostic; sustained
-   PSRAM-to-DSI throughput is still to qualify.
+   measured slow-clock limitation; sustained full-image DMA now runs in later
+   gates. Native powered-domain MPLL400 restart/programming with observed END0->1
+   and downstreamPSRAM200/LCD also passes. PSRAM supply/device-mode cold entry,
+   full capacity and operating margins remain open.
 2. **Full-frame image — HARDWARE-TESTED, LIMITED.** Complete1843200B RGB565
    framebuffer in owned200MHz PSRAM, cache/lifetime claim, direct single-block
    DMA toDSI. Electronic4frames and fresh-ready visual1000frames pass with source
@@ -61,7 +63,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: native PSRAM device/clock cold-start ownership, with the
+Next implementation: native PSRAM mode/latency/interface and supply/device
+cold-start ownership (powered MPLL restart now qualified), with the
 remaining brightness/concurrency acceptance gates. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
@@ -79,4 +82,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [image publication/warm reuse/visual acceptance](../audits/native-lcd-lifecycle.md),
 [touch identification](../audits/native-touch-identify.md),
 [touch physical qualification](../audits/native-touch-input.md),
-[input lifecycle/startup dependency inventory](../audits/native-input-lifecycle.md).
+[input lifecycle/startup dependency inventory](../audits/native-input-lifecycle.md),
+[native MPLL startup](../audits/native-mpll-initialize.md).

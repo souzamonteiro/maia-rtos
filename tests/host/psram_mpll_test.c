@@ -23,6 +23,8 @@ void maia_psram_test_write(uintptr_t p,uint32_t v){
     else{assert(p==MPLL_CONF1||p==MPLL_CONF2);if(writes!=drop)*ptr(p)=v;}
     if(writes==loss)root[0]=0;
 }
+unsigned maia_psram_clock_mhz(void){return 0;}
+maia_psram_result_t maia_esp32p4_psram_snapshot(maia_psram_snapshot_t *r){(void)r;return MAIA_PSRAM_BUSY;}
 static void setup(void){
     maia_psram_mpll_test_reset();context=1;reads=writes=commands=drop=stuck=loss=mismatch=delay=0;
     root[0]=0x8000000U;root[1]=0;root[2]=0x1000000U;root[3]=0x10000000U;root[4]=0x300U;

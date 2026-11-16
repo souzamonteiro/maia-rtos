@@ -597,6 +597,14 @@ def dpi_dma_tile_hashes(source,base):
     return fnv(pixels),fnv(b''.join(descriptors))
 
 
+def evaluate_mpll_initialize(output):
+    if not evaluate_lcd_stream(output,touch=True,input_lifecycle=True):return False
+    rows=re.findall(r'^MPLL_BOOT result=([0-9a-f]{8}) stage=([0-9a-f]{8}) writes=([0-9a-f]{8}) polls=([0-9a-f]{8}) routing=([0-9a-f]{8}) saw_low=([0-9a-f]{8}) cal_before=([0-9a-f]{8}) cal_after=([0-9a-f]{8}) before1=([0-9a-f]{8}) after1=([0-9a-f]{8}) before2=([0-9a-f]{8}) after2=([0-9a-f]{8}) before3=([0-9a-f]{8}) after3=([0-9a-f]{8}) mhz=([0-9a-f]{8})$',output.replace('\r',''),re.M)
+    if len(rows)!=1 or sum(l.startswith('MPLL_BOOT ') for l in output.replace('\r','').splitlines())!=1:return False
+    v=[int(x,16) for x in rows[0]]
+    return bool(v[0]==0 and v[1]==5 and v[2]==4 and v[3]>0 and v[4]==v[5]==1 and v[6]&0x200 and v[7]&0x300==0x300 and not((v[6]^v[7])&~0x100) and v[9]&0x20 and v[10]==v[11]==0x99 and v[13]&0x30==0x30 and v[14]==400)
+
+
 def evaluate_lcd_stream(output,visual=False,lifecycle=False,touch=False,input_lifecycle=False):
     if not evaluate_dpi_bridge(output):return False
     clean=output.replace('\r','');lines=clean.splitlines()
@@ -1463,6 +1471,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--mpll-initialize', action='store_true', help='verify native powered400MHz MPLL programming and calibration')
     parser.add_argument('--input-lifecycle', action='store_true', help='three native touch/bus stop/restart cycles with LCD active')
     parser.add_argument('--touch-lcd', action='store_true', help='native touch contacts with scheduled LCD feedback')
     parser.add_argument('--lcd-lifecycle', action='store_true', help='three native LCD restart sessions and six full image publications')
@@ -1515,6 +1524,7 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.mpll_initialize:args.input_lifecycle=True
     if args.input_lifecycle:
         if args.framebuffer_visual:parser.error('input lifecycle is electronic only')
         args.touch_lcd=True
@@ -1707,6 +1717,8 @@ def main():
             if args.input_lifecycle:
                 rows=[l for l in output.replace('\r','').splitlines() if l.startswith('TOUCH_LIFECYCLE ')]
                 passed=passed and rows==['TOUCH_LIFECYCLE cycles=00000003 stops=00000004 restarts=00000003 stopped=00000001 closed=00000001 refused=00000003 sequence=00000003 bus_refused=00000003']
+            if args.mpll_initialize:passed=passed and evaluate_mpll_initialize(output)
+
         elif args.dpi_framebuffer:
             passed = evaluate_dpi_framebuffer(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2 and len(stimulus.holds)==2
         elif args.dpi_dma_spatial:

@@ -6,7 +6,11 @@
 #include <maia/arch/irq.h>
 #include "../../soc/espressif/esp32p4/lcd_async.h"
 #include "../../soc/espressif/esp32p4/dw_dma_irq.h"
+#ifdef MAIA_NATIVE_PROBE_MPLL_INITIALIZE
+static uint8_t ti_big[2][6144] __attribute__((aligned(16)));
+#else
 static uint8_t ti_big[2][8192] __attribute__((aligned(16)));
+#endif
 static uint8_t ti_touch_stack[4096] __attribute__((aligned(16)));
 static uint8_t ti_small[2][2048] __attribute__((aligned(16)));
 static maia_task_id_t ti_ids[5];

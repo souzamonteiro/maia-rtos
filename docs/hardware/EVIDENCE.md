@@ -1563,3 +1563,29 @@ implied. [Audit, inherited startup inventory and primary algorithm comparison](.
 mode configuration and tuning beyond the existing native warm-qualified subset.
 Native cold startup remains open; these facts do not authorize guessed register
 values, warm-guard relaxation or SDK runtime/header linkage.
+
+
+## Native MPLL programming and power cycle — 2026-11-16
+
+Primary SDK revision f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[rtc_clk.c MPLL configure](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/port/esp32p4/rtc_clk.c#L597)
+starts calibration, applies config, waits for end, stops calibration.
+[clk_tree_ll MPLL power/config](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_tree_ll.h#L154):
+PMU_MSPI_PHY_XPD bit24 at PMU_RF_PWC5011515C powers the MPLL circuit; LP HP MPLL
+gate bit28 at50111040. Disable/enable circuit is distinct from PSRAM LDO2 supply.
+Same file lines445–459: slave63/reg3 DHREF bits5:4 OR3, reg1 RSTB bit5 low/high,
+reg2 divisor (div<<3)|refdiv, fixed400MHz/40MHz gives99.
+[regi2c_mpll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/regi2c_mpll.h)
+confirms fields; [regi2c_ctrl_ll calibration](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/regi2c_ctrl_ll.h#L81)
+uses HP_SYS_CLKRST+BC CAL_STOP9/CAL_END8. Native waits are bounded rather than
+vendor unbounded loops. [Analog patch](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_rom/patches/esp_rom_regi2c_esp32p4.c#L157)
+encodes slave7:0/address15:8/data23:16/WR24/BUSY25, matched by native readback.
+[Clock definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/clk_tree_defs.h)
+identify MPLL PSRAM/F25/F50 consumers: all must be quiescent during the boot port;
+this does not provide a runtime shared-clock manager. Native DSI uses qualified
+SPLL-derived20MHz reference, not F25, in this diagnostic.
+Apache2 source attribution retained. Independent official-header oracle verifies
+addresses/masks; source byte hashes pinned in recovery. [Actual calibration,
+refusals and downstream PSRAM/DMA/LCD evidence](../audits/native-mpll-initialize.md).
+This qualifies native powered-domain circuit restart/programming, not cold
+PSRAM supply/device startup or a measured clock waveform.

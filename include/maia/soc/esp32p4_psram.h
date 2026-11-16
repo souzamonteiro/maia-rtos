@@ -71,6 +71,22 @@ maia_psram_result_t maia_esp32p4_psram_xtal20_stop(maia_psram_clock_report_t *);
 typedef struct maia_psram_mpll_report {
     uint32_t stage,polls,restored,div,repeat,mhz,power,clock,calibration;
 } maia_psram_mpll_report_t;
+typedef struct maia_psram_mpll_init_report {
+    uint32_t stage,polls,writes,route_restored,saw_not_done,cal_before,cal_after;
+    uint32_t before[3],after[3],mhz;
+} maia_psram_mpll_init_report_t;
+/* Exclusive boot/core0/IRQs-off/internal SRAM, all analog/MPLL clients stopped.
+ * Requires genuine native XTAL20 claim, closed AXI/idle PSRAM and powered MPLL/
+ * supply/analog clock (not power-on from an unpowered domain). Programs fixed
+ *400MHz from40MHz XTAL using pinned vendor DHREF/RSTB/divisor/calibration order.
+ * Cycles the MPLL circuit power bit only (PSRAM supply stays on), then
+ * recalibrates rather than relying on inherited CAL_END; requires observed END0
+ * then END1 and readback. Keeps calibrated analog configuration; restores analog
+ * routing, MPLL power and CAL_STOP. No supply voltage/device-mode changes; not full cold
+ * PSRAM startup or clock waveform proof. budget1..100000 bounds individual waits.
+ * Invalid/context/BUSY before claim do not store; post-claim failure sticky until
+ * reset, no unsafe rollback. OK alone does not qualify PSRAM data/DMA margins. */
+maia_psram_result_t maia_esp32p4_psram_mpll_initialize400(uint32_t,maia_psram_mpll_init_report_t *);
 typedef struct maia_psram_fast_report {
     maia_psram_mpll_report_t mpll;
     maia_psram_clock_report_t clock;

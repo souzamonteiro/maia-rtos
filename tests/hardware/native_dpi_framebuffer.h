@@ -61,6 +61,14 @@ static void dpi_framebuffer(void){
     if(maia_esp32p4_psram_snapshot(&before)!=MAIA_PSRAM_OK)halt("fb-snapshot");
     maia_psram_clock_report_t clock;
     if(maia_esp32p4_psram_xtal20_start(&clock)!=MAIA_PSRAM_OK)halt("fb-xtal");
+#ifdef MAIA_NATIVE_PROBE_MPLL_INITIALIZE
+    maia_psram_mpll_init_report_t initialized;
+    maia_psram_result_t programmed=maia_esp32p4_psram_mpll_initialize400(10000,&initialized);
+    field("MPLL_BOOT result=",(uint32_t)programmed);field(" stage=",initialized.stage);field(" writes=",initialized.writes);field(" polls=",initialized.polls);field(" routing=",initialized.route_restored);field(" saw_low=",initialized.saw_not_done);field(" cal_before=",initialized.cal_before);field(" cal_after=",initialized.cal_after);
+    for(unsigned i=0;i<3U;++i){field(i==0U?" before1=":i==1U?" before2=":" before3=",initialized.before[i]);field(i==0U?" after1=":i==1U?" after2=":" after3=",initialized.after[i]);}
+    field(" mhz=",initialized.mhz);maia_console_puts("\n");
+    if(programmed!=MAIA_PSRAM_OK)halt("fb-mpll-initialize");
+#endif
     maia_psram_mode_switch_report_t mode;
     if(maia_esp32p4_psram_x8_mode(0,10000,&mode)!=MAIA_PSRAM_OK||!fb_raw(0,fb_saved,0))halt("fb-mode");
     maia_psram_fast_report_t fast;result=maia_esp32p4_psram_fast_start(200,10000,&fast);

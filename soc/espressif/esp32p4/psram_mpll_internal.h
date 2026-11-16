@@ -1,5 +1,5 @@
 /* Register facts from ESP-IDF f5c3654, analog-I2C patch/clk_tree_ll/reg_base.
- * Fixed read-only MPLL register2 transaction; no generic analog writer. */
+ * Fixed divider read / powered400MHz calibration; no public generic writer. */
 #ifndef MAIA_PSRAM_MPLL_INTERNAL_H
 #define MAIA_PSRAM_MPLL_INTERNAL_H
 #include "psram_internal.h"
