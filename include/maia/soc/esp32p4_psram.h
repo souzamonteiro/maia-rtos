@@ -98,6 +98,33 @@ maia_psram_result_t maia_esp32p4_psram_x8_mode(unsigned restore,uint32_t budget,
  * This does not establish cold initialization, mapping or framebuffer bandwidth. */
 maia_psram_result_t maia_esp32p4_psram_boot_transfer(uint32_t offset,void *data,
     uint32_t length,unsigned write,uint32_t budget,maia_psram_transfer_report_t *);
+#define MAIA_PSRAM_WINDOW_BYTES 0x200000U
+#define MAIA_PSRAM_WINDOW_VADDR 0x4B800000U
+typedef struct maia_psram_cache_report {uint32_t stage,size,line,ways;} maia_psram_cache_report_t;
+typedef struct maia_psram_window_report {
+    uint32_t stage,vaddr,bytes,physical,restored,polls,mmu_before[32],mmu_after[32];
+} maia_psram_window_report_t;
+/* Boot/core0/IRQs-off, exclusive ALL cache/external memory clients, code/data in
+ * qualified low internal SRAM/ROM only. Cache boot uses documented immutable ROM
+ * boot/cache-enable APIs as SDK RAM-app startup does, no vendor runtime/header.
+ * Global cache/flash-MMU initialization is a boot-lifetime ownership change,
+ * not reversible by window_stop. ROM internal waits have no measured WCET.
+ * Reject encryption, invalid context/duplicates/failed initialization. */
+maia_psram_result_t maia_esp32p4_psram_cache_boot(maia_psram_cache_report_t *);
+/* Same boot exclusivity; cache_boot/xtal20_start/x8_mode(0) claims required.
+ * Fixed reserved physical[0,2MiB) -> VADDR[4B800000,4BA00000),32x64KiB pages.
+ * All clients must stop using returned address before sync/stop, no ISR/task/SMP
+ * use yet. No allocator/full-capacity/cold-init/bandwidth claim. Window setup
+ * ports SDK controller/pads/CS/MMU config, enables AXI only after guarded staging.
+ * sync writes back/invalidates ONLY owned window and bounds drain polls.
+ * stop syncs, closes AXI, restores saved PSRAM config/pads/MMU/index; it does NOT
+ * restore overwritten array bytes or global cache boot state. Caller owns data
+ * preservation. Invalid/context/prior FAILED and duplicate requests no MMIO;
+ * any post-claim error sticky/reboot, no unsafe automatic rollback/retry.
+ * MMIO loops bounded; ROM cache internal wait bounds are not established. */
+maia_psram_result_t maia_esp32p4_psram_window_start(uint32_t budget,maia_psram_window_report_t *);
+maia_psram_result_t maia_esp32p4_psram_window_sync(uint32_t budget,maia_psram_window_report_t *);
+maia_psram_result_t maia_esp32p4_psram_window_stop(uint32_t budget,maia_psram_window_report_t *);
 #ifdef __cplusplus
 }
 #endif

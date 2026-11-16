@@ -843,3 +843,24 @@ assert not runner.evaluate_psram_array(array_capture+array_capture)
 assert not runner.evaluate_psram_array(array_capture.replace("before=0000004b after=0000000b","before=0000004b after=0000004b"))
 
 assert not runner.evaluate_psram_array(array_capture.replace("control=80000000","control=80000001"))
+
+window_records='PSRAM_WINDOW_MODE phase=00000000 result=00000000 stage=00000003 before=0000004b after=0000000b\n'
+window_records+='PSRAM_WINDOW_RAW phase=00000000 result=00000000 write=00000000 completed=00001000 chunks=00000040 restored=00000001\n'
+for phase in range(3):
+    stage=(4,5,6)[phase]
+    window_records+=f'PSRAM_WINDOW phase={phase:08x} result=00000000 stage={stage:08x} vaddr=4b800000 bytes=00200000 physical=00000000 restored={int(phase==2):08x} polls=00000002\n'
+    for i in range(32):window_records+=f'PSRAM_WINDOW_MMU phase={phase:08x} index={i:08x} before=00000000 after={0 if phase==2 else 0xc00+i:08x}\n'
+    if phase==1:window_records+='PSRAM_WINDOW_DATA words=00080000 matched=00080000 expected=2e4e04fe actual=2e4e04fe\n'
+window_records+='PSRAM_WINDOW_RAW phase=00000001 result=00000000 write=00000000 completed=00001000 chunks=00000040 restored=00000001\nPSRAM_WINDOW_DIRECT matched=00001000\n'
+window_records+='PSRAM_WINDOW_RAW phase=00000002 result=00000000 write=00000001 completed=00001000 chunks=00000040 restored=00000001\n'
+window_records+='PSRAM_WINDOW_RAW phase=00000003 result=00000000 write=00000000 completed=00001000 chunks=00000040 restored=00000001\n'
+window_records+='PSRAM_WINDOW_RESTORE matched=00001000\nPSRAM_WINDOW_MODE phase=00000001 result=00000000 stage=00000003 before=0000000b after=0000004b\nMAIA_NATIVE_PSRAM_WINDOW_PASS\n'
+window_capture=array_capture.replace('PSRAM_STATE result=', 'PSRAM_CACHE_BOOT_START\nPSRAM_CACHE_BOOT result=00000000 stage=00000003 size=00020000 line=00000080 ways=00000008\nPSRAM_STATE result=',1)
+window_capture=window_capture.replace('PSRAM_CLOCK phase=00000001',window_records+'PSRAM_CLOCK phase=00000001')
+assert runner.evaluate_psram_window(window_capture)
+assert not runner.evaluate_psram_array(window_capture)
+assert not runner.evaluate_psram_window(array_capture)
+for a,b in [('vaddr=4b800000','vaddr=48100000'),('bytes=00200000','bytes=00001000'),('actual=2e4e04fe','actual=2e4e04ff'),('PSRAM_WINDOW_DIRECT matched=00001000','PSRAM_WINDOW_DIRECT matched=00000fff'),('after=00000c01','after=00000c00'),('stage=00000006','stage=00000005')]:
+    assert a in window_capture
+    assert not runner.evaluate_psram_window(window_capture.replace(a,b)),(a,b)
+assert not runner.evaluate_psram_window(window_capture+window_capture)

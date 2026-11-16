@@ -6,6 +6,7 @@
 #define CLOCK_CORE_ENABLE 0x8000U
 enum { CLOCK_FREE,CLOCK_OWNED,CLOCK_FAULTED };
 static unsigned clock_state;
+int maia_psram_clock_claimed(void){return clock_state==CLOCK_OWNED;}
 static maia_psram_snapshot_t original,current;
 #ifdef MAIA_PSRAM_TEST
 void maia_psram_clock_test_reset(void);

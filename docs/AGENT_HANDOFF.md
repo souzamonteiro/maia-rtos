@@ -1194,3 +1194,20 @@ before/after, four exact4KiB patterns, full recovery and runnerPASS. SHA
 18592bytes/entry4FF00100. Reset shell/SciCalc14/desktopPASS. No flash/SD/parser
 writes or mapped-memory activation. Recovery `../maia-rtos-recovery/native-psram-axi-20261115/`.
 Next controller/cache/MMU mapping port, then framebuffer; no cold/LCD/touch completion.
+
+## Native 2MiB mapped PSRAM data qualified — 2026-11-15
+
+[Window audit](audits/native-psram-window.md): native Apache-2.0 port of SDK HEX
+controller/pad/MMU/cache algorithms, no foreign runtime/header. Actual one RAM
+upload23c512c93d72fc111a417829246eb73b3b6dc511e733bbaeebbcf10a408253cf/24304bytes:
+CPU524288/524288words over2MiB, hash2E4E04FE; post-sync direct SPI4096/4096bytes
+confirms device visibility. MMU32entries/pads/controller/AXI/mode4B/clocks restored;
+first4KiB saved data restored, rest2MiB intentionally volatile/overwritten. Global
+ROM cache/flash-MMU bootstrap owned until reset, not undone by window stop. Host
+51/51, ASan/UBSan/six rejected mutants/C++98/SDK oracle/invalid profile/runtime gate
+PASS; additional host-only negatives rerun after target, native image unchanged.
+Reset shell/SciCalc14/desktopPASS; no flash/SD/parser writes. Recovery
+`../maia-rtos-recovery/native-psram-window-20261115/`. CPU window fits one full
+RGB565frame; DMA/throughput/cold startup/production concurrency still unqualified.
+Continue clock/burst/DMA/full-image integration autonomously, then continuous LCD/
+touch. Existing full installed desktop still original runtime.

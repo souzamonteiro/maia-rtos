@@ -1,0 +1,43 @@
+{
+  "image_sha256": "23c512c93d72fc111a417829246eb73b3b6dc511e733bbaeebbcf10a408253cf",
+  "segment_bytes": 24304,
+  "entry": "4ff00100",
+  "sources": {
+    "CMakeLists.txt": "74bb3d7839d31fefe41468f2ef35ddbdca73560873e42583bde42e419ab454e1",
+    "include/maia/soc/esp32p4_psram.h": "39f57a2a4a3fa4227d61364d79a27490342bc0cf0935e77d32afcfb02ec7e1ca",
+    "soc/espressif/esp32p4/psram_internal.h": "0eef04a8636fd4d0dc7896d5012e3d402b38f4a6753fcf947bd641738952b88d",
+    "soc/espressif/esp32p4/psram_mode_internal.h": "8feb566d562fb1511d37ad72593bb16ee58596abd9bd4d8048cd95dc552c7853",
+    "soc/espressif/esp32p4/soc_psram_snapshot.c": "a86e5983b87057cd53c678f5769a7c33756fe1d743e8b3018f822151a3b88420",
+    "soc/espressif/esp32p4/soc_psram_mode.c": "d2078acfafda7b94c3d76e11848928f6d4a549c5ee0073cb74fd7cbcc70e276c",
+    "soc/espressif/esp32p4/soc_psram_clock.c": "1c1c989c9515192998d689590d65e1e92daa896a70e9c254438f7b35161b0f4c",
+    "soc/espressif/esp32p4/soc_psram_array.c": "49ddd64d4735dc1e71642d3815c7917bc4337ce7d3415d6a80a508f81cf7d611",
+    "tests/host/psram_array_test.c": "78506aa30982b0dc08bd48b2be8a1afd3314ac220a7dedcd7e88a7e7aac4d094",
+    "tests/host/native_probe_result_test.py": "b37c990d8625e6e6328fe0b7d66a342631989d0d21cb89e825443a4e4a6bfe16",
+    "tests/hardware/native_psram_state_probe.c": "fb595cdfdd9353662ec697b85ccc386324e32490c8b7e67c05e8b7794a1f2ac0",
+    "tests/hardware/native_psram_identity.h": "b43d5fbf147c471832e8f6c67763e7f7563aee7a33c7bc5c40ace1021a6305c5",
+    "tests/hardware/native_psram_clock.h": "c84828d89b9c4bca4faa6cce4623d6bcf6c8370d3d88987ed65d8a399bab8dda",
+    "tests/hardware/native_psram_array.h": "ad4fc14cd39691c291a3c25ca2b63b79e565c08b69fbb233eba48177e5836e99",
+    "tests/hardware/run_native_scheduler_probe.py": "9a352a639e920ebe32f442358ccd232ebd4db937370d7f54abf6c7bbc4f14d61",
+    "tests/host/psram_mode_test.c": "ff7563e65ee18cafdbf8f0328adac2c21df216159acad2ba39cec2046bdbba38",
+    "tests/host/psram_clock_test.c": "6d4b6c91956186cd406b76b17c9cc72375f21e1d5a0f7255a7765aec902d2122",
+    "soc/espressif/esp32p4/soc_psram_window.c": "4bfe7ac9c00b52240f69e65a87af36b8a8e8d1b5ef6a24fc1d52d4d991f978c9",
+    "soc/espressif/esp32p4/psram_window_internal.h": "812c34dd0d21929e5d6d7fbf15707c84e7bdfdc281651a914432e052126fb49d",
+    "tests/host/psram_window_test.c": "2ee6224c43992c635004cde953411df3485fca5d356f41ee6486de0ceaae2f9b",
+    "tests/hardware/native_psram_window.h": "c67b6e812550f42a4b51ff26621e72cca1f2f26d627652ce0645e264acd9725b"
+  },
+  "host_only_source_changed_after_target": [
+    "tests/host/psram_window_test.c"
+  ],
+  "logs": {
+    "native-psram-window-hardware.txt": "e04cfac3a926d7e23b50131835d74804cd264e144fd24ba7dcb463f5731101e4",
+    "native-psram-window-desktop.txt": "6401959eee5a2b9f135af3fe2772048d4d217cc45e4a6de97053b91b6d233d08"
+  },
+  "window": {
+    "virtual": "4B800000",
+    "physical": "0",
+    "bytes": 2097152,
+    "words_matched": 524288,
+    "fnv32": "2E4E04FE"
+  },
+  "recovery": "/Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-psram-window-20261115"
+}

@@ -9,6 +9,7 @@
 #include "psram_mode_internal.h"
 static unsigned array_fault;
 static unsigned mode_claim;
+int maia_psram_x8_claimed(void){return mode_claim==1U&&!array_fault;}
 #ifdef MAIA_PSRAM_TEST
 void maia_psram_array_test_reset(void);
 void maia_psram_array_test_reset(void){array_fault=mode_claim=0;}

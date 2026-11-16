@@ -13,6 +13,9 @@ static void field(const char *k,uint32_t n){char b[9];const char *d="0123456789a
 #ifdef MAIA_NATIVE_PROBE_PSRAM_CLOCK
 #ifdef MAIA_NATIVE_PROBE_PSRAM_ARRAY
 #include "native_psram_array.h"
+#ifdef MAIA_NATIVE_PROBE_PSRAM_WINDOW
+#include "native_psram_window.h"
+#endif
 #endif
 #include "native_psram_clock.h"
 #endif
@@ -22,6 +25,9 @@ void maia_boot_main(void){
     for(unsigned i=0;i<10000000U;++i)if(maia_serial_rx_read(NULL)=='C'){ready=1;break;}
     if(!ready){maia_console_puts("MAIA_NATIVE_PSRAM_CLOCK_FAIL host-timeout\n");for(;;)__asm__ volatile("wfi");}
     maia_console_puts("MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n");
+#ifdef MAIA_NATIVE_PROBE_PSRAM_WINDOW
+    if(!window_cache_boot()){maia_console_puts("MAIA_NATIVE_PSRAM_WINDOW_FAIL cache-boot\n");for(;;)__asm__ volatile("wfi");}
+#endif
 #endif
     maia_psram_snapshot_t r;maia_psram_result_t result=maia_esp32p4_psram_snapshot(&r);
     field("PSRAM_STATE result=",(uint32_t)result);field(" roots_valid=",r.roots_valid);field(" samples=",r.controller_samples);maia_console_puts("\n");

@@ -36,4 +36,6 @@ static inline void psram_write(uintptr_t p,uint32_t v){MAIA_MMIO32(p)=v;__asm__ 
 /* CACHE_FCTRL+3C, not CTRL1+0C: AXI_REQ_EN0 and CLOSE_AXI_INF_EN1.
  * Caller must establish accessible controller clocks before this read. */
 static inline int psram_axi_quiet(void){return (psram_read(PSRAM_MSPI0+0x3CU)&0x80000001U)==0x80000000U;}
+int maia_psram_x8_claimed(void);
+int maia_psram_clock_claimed(void);
 #endif

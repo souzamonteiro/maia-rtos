@@ -1280,3 +1280,55 @@ provide extra evidence. New actual full X8 pattern/mode/clock recovery run repor
 C0000000 before/after and hostPASS; this validates actual closure for this run,
 not a retroactive measurement of old captures. Host SDK address/offsetof/mask
 oracle and negative actualAXI-enabled/open fixtures prevent repeating the mistake.
+
+## Native PSRAM CPU-window port prerequisites — 2026-11-15
+
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[HEX config](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c),
+s_config_mspi_for_psram/s_set_psram_cs_timing; [controller LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h):
+command16/addr32, read26/write12 dummy for known200M latency mode, DDR/variable
+dummy/no swap, OCT command/address/data, HEX data disabled for X8, AXI and splice;
+CS setup4/hold4/ECC4/hold-delay3 (stored-minus1). [MSPI timing LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mspi_timing_tuning_ll.h)
+pin_drv_set2 and enable_dqs true: twenty PSRAM pads only, no flash pads. Companion
+[iomux_mspi_pin_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/iomux_mspi_pin_reg.h)
+base500E1200, regular drive[13:12], DQS drive[16:15]/XPD0, phase/delay preserved.
+[spi_mem_s_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi_mem_s_reg.h)
+CTRL1+0C splice25/26, CACHE_SCTRL+40 lengths/phases, SRAM_CMD+44 OCT/HEX/dummy,
+commands+48/+4C, DDR+D8, SMEM_AC+1A0, real CACHE_FCTRL+3C AXI enable/close.
+FIFO+178 all six empty flags[31:26] must reachFC000000 under bounded polls.
+PMS attrs+130..13C require RW3/ECC0, default PMS0 base0/+140 and size4096/+150;
+SDK ECC source documents default region0..256MB. ECC_CTRL+174 address conversion
+bit20 must be0. No unit guessed from register names; only exact qualified default.
+
+[MMU HAL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/mmu_hal.c)
+map-region algorithm and [MMU LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mmu_ll.h),
+[ext_mem_defs](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/ext_mem_defs.h):
+64KiB pages, per-PSRAM table INDEX5008E380/CONTENT5008E37C, value physical-page |
+PSRAM-valid bit11 | access-PSRAM bit10. Proposed fixed native reservation physical
+[0,2MiB) maps VADDR4B800000..4BA00000 via slots896..927; this geometry is native
+policy, not an inherited SDK heap address. [eFuse](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/efuse_reg.h)
+REPEAT_DATA1+34 SPI_BOOT_CRYPT_CNT[20:18], odd popcount enabled per efuse_ll/MMU LL;
+unimplemented encrypted path refused, no sensitive-bit mapping assumption.
+
+[MMU/cache HAL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/cache_hal.c),
+[ROM cache declarations](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_rom/esp32p4/include/esp32p4/rom/cache.h)
+and [ROM bindings](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_rom/esp32p4/ld/esp32p4.rom.ld):
+ROM_Boot_Cache_Init4FC003DC as RAM-app mmu_hal_init does; L1D enable4FC004F4 and
+L2 enable4FC00504, autoload0, Get_Mode4FC003D0. Get_Mode struct size/line/ways/type
+layout and cache-type5 query checked from header. WB+invalidate4FC003FC and
+invalidate4FC003E4 use map30 (L1D bit4/L2 bit5) on ONLY owned window. These are
+immutable chip ROM services, not SDK/FreeRTOS runtime; no ROM SPI helpers/callback
+interfaces. Global cache/flash-MMU bootstrap is a boot-lifetime ownership change,
+not undone by window_stop; no flash storage write. ROM internal wait WCET is not
+established; CPU bus faults/stalls need actual target diagnostics/reset recovery.
+[SDK linker layout](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/ld/esp32p4/memory.ld.in)
+keeps lowSRAM4FF00000..4FF2CBD0 independent of cache size, ROM reserve below
+4FF40000, high SRAM ends4FFC0000 minus cache size. Thus supported128/256/512KiB
+L2 cache layouts exclude the qualified native low160KiB window; do not infer
+S3-style cache allocation at lowSRAM start. No extension of RAM-load window.
+
+Controller/MMU/cache integration is now HARDWARE-TESTED in the exclusive warm
+boot profile: all524288words over2MiB matched FNV2E4E04FE; direct SPI read
+after cache sync independently matched4096bytes. See [window audit](../audits/native-psram-window.md)
+for exact restoration boundaries, actual capture and remaining startup/speed gates.
+No generic nocache alias for PSRAM inferred from L2MEM-only cache_ll macros.

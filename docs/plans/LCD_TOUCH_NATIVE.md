@@ -13,8 +13,10 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
    Espressif's FIFO read/write algorithm plus checked X8 mode switching now passes
    four byte-exact patterns over reserved4KiB on Tab5 and restores saved contents,
    X16 mode and clocks. This is a warm boot-exclusive command path. Own remaining
-   supply/device startup, AXI mapping/cache, capacity and operational-speed
-   qualification before calling PSRAM usable by ordinary native clients.
+   supply/device startup, full capacity and operational-speed
+   qualification before calling PSRAM ready for production clients. A native
+   controller/pad/MMU/cache port now passes2MiB CPU write/read and independent
+   post-sync direct-device checks. This provides space for one complete frame.
 2. **Full-frame image — PENDING.** Reserve/map a complete RGB565 framebuffer
    (1843200bytes), define cache/DMA ownership, present actual full-frame data and
    verify native720x1280 vs logical1280x720/software90 orientation.
@@ -39,8 +41,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: adapt the SDK PSRAM controller/memory mapping startup for
-ordinary native memory clients, then full framebuffer. Continue through internal
+Next implementation: qualify operational clock/DMA bursts and use the mapped
+window for a full framebuffer. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
 acceptance remain separate gates; no schedule/percentage follows checkbox counts.
@@ -49,4 +51,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [PSRAM identity](../audits/native-psram-identity.md),
 [warm clock](../audits/native-psram-clock.md),
 [ported data path](../audits/native-psram-array.md),
+[mapped2MiB window](../audits/native-psram-window.md),
 [touch identification](../audits/native-touch-identify.md).
