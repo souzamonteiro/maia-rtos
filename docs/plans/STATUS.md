@@ -1167,3 +1167,23 @@ gatePASS. Reset shell/SciCalc14/desktopPASS, no flash/SD/parserwrites. Recovery
 No nativePLLchange/fullLCD/touch/coldstartup acceptance yet. Existing fullfirmware
 remains originalruntime; native tests use none. Continue internally under existing
 authorization; coordinate owner presence only for prepared visual/touch checks.
+
+## Native200MHz PSRAM/DMA qualification — 2026-11-16
+
+[Operational-clock audit](../audits/native-psram-fast.md): native bounded analogMPLLread
+(two99 =>400MHz, powered/calibrated), no PLLretuning; checked200MHz clock switch,
+20pad/DQS setup, **both MSPI0+180/+190 DLLbit5** enable/exactrestore. Four-phase
+readonly DMA search all9/9each, maskF/selected0; no zero-pass fallback. Final
+CPU524288words/2MiB hash2E4E04FE,9x4KiB DMA allbytes/guards correct, directSPI
+read/saved4KiB/mode4B/clocks/AXI/MMU/config restored.45 DMAcopies/184320matchedbytes
+including training;16-item4KiB samples22–23us vs20MHz170–171us, not sustainedDSI
+rate guarantee. Final85168103973a0ca39828eb8ee955289e11f1b8ece72139ab72370fab3c845af1/33056bytes.
+Four refused earlier images/captures retained (DQS order, burstbits, samples, phase
+mask0 beforeDLL enable), no acceptance relaxation. Host53/53/sanitizers/six rejected
+mutants/SDKoracle/C++98/runtimegatePASS. Desktop shell/SciCalc14/exit0 restored.
+No flash/SD/parser/rotation changes. Recovery
+`../maia-rtos-recovery/native-psram-fast200-20261116/`.100MHz HOST-only. Stillwarm
+boot-exclusive, not coldstartup/31point delayline/temp-margin/SMP acceptance.
+Next fullframePSRAM->DSI grouped integration/visual test; then continuousLCD/touch.
+Continue under existing authorization; no per-substep approval stops. Installed
+full desktop still originalruntime; native tests import none.

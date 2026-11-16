@@ -18,7 +18,10 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
    controller/pad/MMU/cache port now passes2MiB CPU write/read and independent
    post-sync direct-device checks. This provides space for one complete frame.
    Native DMA reads now pass all nine4KiB address/burst cases, including a page
-   crossing;20MHz throughput still needs operational-clock qualification.
+   crossing. Operational200MHz clock/DQS/both DLL paths now pass2MiB CPU and
+   all45 training/final DMA copies;4KiB16-item samples22–23us. This removes the
+   measured slow-clock limitation for the next full-image diagnostic; sustained
+   PSRAM-to-DSI throughput is still to qualify.
 2. **Full-frame image — PENDING.** Reserve/map a complete RGB565 framebuffer
    (1843200bytes), define cache/DMA ownership, present actual full-frame data and
    verify native720x1280 vs logical1280x720/software90 orientation.
@@ -43,8 +46,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: qualify operational clock/DMA bursts and use the mapped
-window for a full framebuffer. Continue through internal
+Next implementation: use the qualified200MHz mapped window for a full RGB565
+framebuffer and directPSRAM-to-DSI transfer. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
 acceptance remain separate gates; no schedule/percentage follows checkbox counts.
@@ -55,4 +58,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [ported data path](../audits/native-psram-array.md),
 [mapped2MiB window](../audits/native-psram-window.md),
 [PSRAM DMA](../audits/native-psram-dma.md),
+[operational200MHz](../audits/native-psram-fast.md),
 [touch identification](../audits/native-touch-identify.md).

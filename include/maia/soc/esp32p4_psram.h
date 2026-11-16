@@ -68,6 +68,32 @@ typedef struct maia_psram_clock_report {
  * No cold-init, array/coherency or continuous-display capability is established. */
 maia_psram_result_t maia_esp32p4_psram_xtal20_start(maia_psram_clock_report_t *);
 maia_psram_result_t maia_esp32p4_psram_xtal20_stop(maia_psram_clock_report_t *);
+typedef struct maia_psram_mpll_report {
+    uint32_t stage,polls,restored,div,repeat,mhz,power,clock,calibration;
+} maia_psram_mpll_report_t;
+typedef struct maia_psram_fast_report {
+    maia_psram_mpll_report_t mpll;
+    maia_psram_clock_report_t clock;
+    uint32_t mhz;
+} maia_psram_fast_report_t;
+/* Same exclusive boot context as xtal20, plus no analog-I2C/calibration clients.
+ * Start requires genuine native XTAL20 and X8 claims (known200M device latency),
+ * AXI closed/controller restored. Reads existing powered/calibrated MPLL divisor
+ * twice through bounded native analog-I2C port, restoring routing. Accepts only
+ * MPLL400MHz; stages PSRAM pad drive2/DQS enable before raising clock, restores
+ * all20 pads on stop after returning to XTAL. Enables/restores both controller
+ * DLL timing-calibration bits as vendor startup does. Selects nominal PSRAM100 or200MHz
+ * via divider4 or2, no PLL/power/
+ * device timing writes. These are calculated rates, not measured clock signals.
+ * Caller must qualify actual data/DQS at the selected rate before using memory.
+ * Stop requires all clients stopped/window closed and restores XTAL20. Then
+ * xtal20_stop may restore original firmware clocks. Duplicate/no claim BUSY;
+ * invalid/context/prior fault no MMIO. Any post-claim failure sticky until reset,
+ * no unsafe rollback or retries. Reports are observations, never ownership keys.
+ * Analog command port progress is not restored; no analog register write occurs.
+ * Bounded polls are not a bus-stall or hard latency guarantee. */
+maia_psram_result_t maia_esp32p4_psram_fast_start(uint32_t mhz,uint32_t budget,maia_psram_fast_report_t *);
+maia_psram_result_t maia_esp32p4_psram_fast_stop(maia_psram_clock_report_t *);
 typedef struct maia_psram_transfer_report {
     uint32_t completed,chunks,polls,command,restored,write_attempted;
 } maia_psram_transfer_report_t;

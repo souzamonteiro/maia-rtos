@@ -23,9 +23,18 @@ static void window_report(unsigned phase,maia_psram_result_t result,const maia_p
 }
 #ifdef MAIA_NATIVE_PROBE_PSRAM_DMA
 #include "native_psram_dma.h"
+#ifdef MAIA_NATIVE_PROBE_PSRAM_FAST
+#include "native_psram_tune.h"
+#endif
 #endif
 static int psram_window(void){
     if(!window_mode(0)||!window_raw(0,array_memory.original,0))return 0;
+#ifdef MAIA_NATIVE_PROBE_PSRAM_FAST
+    if(!fast_reference())return 0;
+    maia_psram_fast_report_t fast;maia_psram_result_t fast_result=maia_esp32p4_psram_fast_start(MAIA_NATIVE_PROBE_PSRAM_FAST,10000,&fast);
+    field("PSRAM_FAST_START result=",(uint32_t)fast_result);field(" rate=",fast.mhz);field(" stage=",fast.clock.stage);field(" attempts=",fast.clock.attempts);field(" polls=",fast.mpll.polls);field(" mpll=",fast.mpll.mhz);field(" div=",fast.mpll.div);field(" repeat=",fast.mpll.repeat);field(" restored=",fast.mpll.restored);field(" power=",fast.mpll.power);field(" clock=",fast.mpll.clock);field(" cal=",fast.mpll.calibration);field(" peri=",fast.clock.after[0]);field(" bus0=",fast.clock.after[1]);field(" bus1=",fast.clock.after[2]);field(" dll0=",psram_read(PSRAM_MSPI0+0x180U));field(" dll1=",psram_read(PSRAM_MSPI0+0x190U));maia_console_puts("\n");
+    if(fast_result!=MAIA_PSRAM_OK||!fast_tune())return 0;
+#endif
     maia_psram_window_report_t r;maia_psram_result_t result=maia_esp32p4_psram_window_start(10000,&r);window_report(0,result,&r);
     if(result!=MAIA_PSRAM_OK)return 0;
     volatile uint32_t *memory=(volatile uint32_t *)(uintptr_t)r.vaddr;
@@ -37,9 +46,14 @@ static int psram_window(void){
         for(unsigned j=0;j<4U;++j){expected=(expected^((want>>(j*8U))&255U))*16777619U;actual=(actual^((value>>(j*8U))&255U))*16777619U;}}
     field("PSRAM_WINDOW_DATA words=",MAIA_PSRAM_WINDOW_BYTES/4U);field(" matched=",matched);field(" expected=",expected);field(" actual=",actual);maia_console_puts("\n");
 #ifdef MAIA_NATIVE_PROBE_PSRAM_DMA
-    if(!psram_dma())return 0;
+    if(psram_dma(0)!=1)return 0;
 #endif
     result=maia_esp32p4_psram_window_stop(10000,&r);window_report(2,result,&r);if(result!=MAIA_PSRAM_OK)return 0;
+#ifdef MAIA_NATIVE_PROBE_PSRAM_FAST
+    maia_psram_clock_report_t slow;fast_result=maia_esp32p4_psram_fast_stop(&slow);
+    field("PSRAM_FAST_STOP result=",(uint32_t)fast_result);field(" stage=",slow.stage);field(" attempts=",slow.attempts);field(" restored=",slow.restored);field(" peri=",slow.after[0]);field(" bus0=",slow.after[1]);field(" bus1=",slow.after[2]);field(" dll0=",psram_read(PSRAM_MSPI0+0x180U));field(" dll1=",psram_read(PSRAM_MSPI0+0x190U));maia_console_puts("\n");
+    if(fast_result!=MAIA_PSRAM_OK)return 0;
+#endif
     if(!window_raw(1,array_memory.readback,0))return 0;
     unsigned direct=0;for(unsigned i=0;i<4096U;++i)if(array_memory.readback[i]==(uint8_t)(window_value(i/4U)>>((i%4U)*8U)))++direct;
     field("PSRAM_WINDOW_DIRECT matched=",direct);maia_console_puts("\n");

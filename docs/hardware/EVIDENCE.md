@@ -1354,3 +1354,66 @@ Boot-only/all clients stopped, no IRQ/task/SMP integration. Actual9x4096B target
 copies all matched, including page crossing/tail; fields0/3/15 with MSIZE1/4/16
 are now qualified for these memory transfers. See [DMA audit](../audits/native-psram-dma.md)
 for capture, restoration and performance limits.
+
+## Native operational PSRAM clock port — 2026-11-16
+
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[analog-I2C patch](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_rom/patches/esp_rom_regi2c_esp32p4.c)
+regi2c_enable_block/read_impl, Apache2 port: analogmaster0, slave63/address2,
+WR_CNTL24=0/read, BUSY25, data[23:16]; routing conf1/2 masks00FFFFFF, selectMSPIbit9.
+Native driver requires existing clock/resetidle, saves/restores both routing words,
+checks both mastersidle, bounded waits/two repeated reads, no analog write command.
+[regi2c_mpll.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/regi2c_mpll.h)
+DIV[7:3]/REFDIV[2:0]; [clock LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_tree_ll.h)
+clk_ll_mpll_get_freq_mhz formula40*(div+1)/(refdiv+1), only reliable powered.
+Power check PMU_RF_PWC+15C MSPI_PHY_XPD24, LP_CLKRST_HP_CLK_CTRL+40 MPLL_EN28;
+HP_SYS_CLKRST_ANA_PLL_CTRL0+BC MSPI_CAL_END8/STOP9 required, never programmed.
+[register map](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/reg_base.h)
+LPAON50110000, LPPERIPH50120000; analogI2C50124000, conf1+1C/conf2+20;
+LPPERIclock+0 I2CMST27/reset+8 I2CMST26, PMU50115000, LP_CLKRST50111000.
+
+[PSRAM controller LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h)
+_select_clk_source MPLL=1/XTAL=0, corediv storedminus1, busclock div2=10001 /
+div4=30103. Native policy: genuineXTAL20/X8claim and closedAXI; accept only existing
+MPLL400, use corediv1 and busdiv4=100MHz or2=200MHz. Gatecoreoff before mux; slower
+source before lowering divisor on return. No PLLpower/config/calibration or flash
+clock changes. These are calculated nominalrates, not measuredclock frequencies.
+[HEX device setup](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c)
+200M latency profile readLC14/regLC7/writeLC7 already validated by privateX8claim;
+window port retains DQS/padphase inherited from warmdevice. Actual CPU/cache/raw
+and DMA data qualification required at newrate; no cold/DQS-tuning claim yet.
+
+Operational-clock qualification found two retained refusals: DQS pads must be
+prepared before clock selection (SDK order), then phase0 at200MHz still produced
+persistent wrong bits during16-item DMA, despite fullCPUdata match. Samples show
+bit1/2 differences with correctCPUreads, not merely late destination visibility.
+Now adapt [DQS phase algorithm](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/mspi_timing_by_dqs.c)
+get_psram_tuning_phases/select_best_tuning_phase and
+[LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/mspi_timing_tuning_ll.h):
+four phases67.5/78.75/90/101.25degrees encoded0..3, both DQS pinsPHASE[2:1].
+Native sweep initializes/verifies reference2MiB at20MHz first, then read-onlyDMA
+9address/burst cases at each phase, requires safe completion/config/windowrestore
+before moving to next candidate. Byte mismatch is training evidence only; control/
+guard/stop errors remain fatal. Select first phase of longest passing consecutive
+run, no zero-pass fallback. Final fullCPUwrite/read/DMA/raw recovery must pass.
+This is phase qualification, not full SDK31-point delayline calibration, coldboot,
+temperature/voltage margin or productionconcurrency acceptance. PrivateX8claim
+already validates profile at20MHz; fast mapping uses that exclusive claim rather
+than issuing mode commands at deliberately unqualified training phases.
+
+Four-phase sweep initially found no complete passing phase (all6/9copies).
+Review of psram_ctrlr_ll_enable_dll revealed another required SDK startup step:
+MSPI2 AXI uses SPIMEM2.smem_timing_cali+190bit5; MSPI3 command DLL uses
+SPIMEM2.mem_timing_cali+180bit5, **not** only MSPI3 ownD4 register. Both actual
+warm+180/+190 words were1 (DLL disabled), so padphase changes alone were not full
+sampling setup. Fast clock ownership now enables both bit5 and restores exact
+saved words after XTAL return. Snapshot model updated only after guarded readback;
+window saves/restores the enabled DLL profile, then clock stop restores originals.
+Independent pinned SDK struct-offset/bit oracle and dropped-store tests cover both.
+No guessed wait/lock bit, PLL adjustment or PSRAM mode write added.
+
+Final actual200MHz qualification now PASS: bothDLLwords1->21->1, MPLL99 twice/
+400MHz, four phasecandidates each9/9copies, final2MiB CPU hash2E4E04FE and9/9DMA
+copies. All45copies byte-exact, guarded cleanup/mode/clocks/window restored and
+desktop verified. See [operational audit](../audits/native-psram-fast.md) for
+four retained refusals, source hashes, full capture and remaining warm-only limits.

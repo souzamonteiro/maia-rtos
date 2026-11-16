@@ -877,3 +877,17 @@ assert not runner.evaluate_psram_window(dma_capture)
 for a,b in [('burst=00000010','burst=0000000f'),('matched=00001000','matched=00000fff'),('guards=00000001','guards=00000000'),('status=00000000','status=00000020'),('raw=000001ff','raw=00000200'),('polls=00000001','polls=00000000'),('restored=00000001 preserved=','restored=00000000 preserved='),('offset=0000ff80','offset=00010000')]:
     assert not runner.evaluate_psram_dma(dma_capture.replace(a,b)),(a,b)
 assert not runner.evaluate_psram_dma(dma_capture+dma_records)
+
+# Operational clock proof includes read-only four-phase DMA qualification.
+for rate in (100,200):
+    tune_reference='PSRAM_TUNE_REFERENCE result=00000000 matched=00080000 restored=00000001\n'
+    fast_start=f'PSRAM_FAST_START result=00000000 rate={rate:08x} stage=00000005 attempts=0000001f polls=00000004 mpll=00000190 div=00000099 repeat=00000099 restored=00000001 power=01000000 clock=10000000 cal=00000300 peri=0000d00c bus0={0x30103 if rate==100 else 0x10001:08x} bus1={0x30103 if rate==100 else 0x10001:08x} dll0=00000021 dll1=00000021\n'
+    phases=''.join(f'PSRAM_TUNE_PHASE phase={i:08x} result=00000000 copies={9 if i else 7:08x} matched={36864 if i else 36000:08x} restored=00000001\n' for i in range(4))+'PSRAM_TUNE_SELECT mask=0000000e best=00000001\n'
+    fast_stop='PSRAM_FAST_STOP result=00000000 stage=00000005 attempts=0000001f restored=00000001 peri=0000c00c bus0=00010001 bus1=00010001 dll0=00000001 dll1=00000001\n'
+    fast_capture=dma_capture.replace('PSRAM_WINDOW phase=00000000',tune_reference+fast_start+phases+'PSRAM_WINDOW phase=00000000').replace('PSRAM_WINDOW_RAW phase=00000001',fast_stop+'PSRAM_WINDOW_RAW phase=00000001')
+    assert runner.evaluate_psram_fast(fast_capture,rate)
+    assert not runner.evaluate_psram_fast(dma_capture,rate)
+    assert not runner.evaluate_psram_dma(fast_capture)
+    for a,b in [('mpll=00000190','mpll=00000168'),('repeat=00000099','repeat=00000091'),('cal=00000300','cal=00000200'),('peri=0000d00c','peri=0000c00c'),('attempts=0000001f','attempts=0000000f'),('restored=00000001','restored=00000000'),('matched=00001000','matched=00000fff'),('mask=0000000e best=00000001','mask=0000000e best=00000002')]:
+        assert not runner.evaluate_psram_fast(fast_capture.replace(a,b),rate),(a,b)
+    assert not runner.evaluate_psram_fast(fast_capture+fast_start,rate)

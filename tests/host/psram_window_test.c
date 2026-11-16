@@ -6,9 +6,11 @@ void maia_psram_mode_test_reset(void);
 static uint32_t root[9],reg[2][256],pins[20],mmu[1024],initial_mmu[1024],initial_reg[2][256],initial_pins[20],index_word;
 static unsigned reads,writes,context,claims,active,rom_calls,rom_fail,drop_mmu,drop_reg,loss_reg,busy,sync_busy;
 static uint32_t crypt_word;
+static unsigned clock_rate;
 int maia_psram_test_context(void){return (int)context;}
 int maia_psram_x8_claimed(void){return (int)claims;}
 int maia_psram_clock_claimed(void){return (int)claims;}
+unsigned maia_psram_clock_mhz(void){return claims?clock_rate:0U;}
 static uint32_t *pointer(uintptr_t p){
     for(unsigned i=0;i<9U;++i)if(p==psram_roots[i])return &root[i];
     if(p==WINDOW_CRYPT)return &crypt_word;
@@ -46,7 +48,7 @@ int maia_psram_window_test_rom(unsigned op,void *arg){
 }
 static void setup(void){
     maia_psram_window_test_reset();maia_psram_mode_test_reset();
-    reads=writes=active=rom_calls=busy=sync_busy=0;context=claims=1;
+    reads=writes=active=rom_calls=busy=sync_busy=0;context=claims=1;clock_rate=20;
     drop_mmu=drop_reg=loss_reg=rom_fail=~0U;index_word=7;crypt_word=0;
     memset(root,0,sizeof root);memset(reg,0,sizeof reg);
     root[0]=0x80000000;root[1]=0xC00C;root[4]=0x180;
@@ -94,5 +96,13 @@ int main(void){
     setup();cache_ready();assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK);drop_reg=27;
     assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_VERIFY&&(reg[0][0x3C/4]&1U));sticky();
     setup();cache_ready();claims=0;n=reads;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_BUSY&&reads==n);
+    for(unsigned rate=100;rate<=200;rate+=100){
+        setup();clock_rate=rate;root[1]=0xD00CU;reg[0][0x50/4]=reg[1][0x14/4]=rate==100U?0x30103U:0x10001U;
+        memcpy(initial_reg,reg,sizeof reg);cache_ready();
+        assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK);
+        assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_OK);unchanged();
+    }
+    setup();cache_ready();clock_rate=200;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_BUSY);
+    setup();cache_ready();clock_rate=80;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_BUSY);
     return 0;
 }

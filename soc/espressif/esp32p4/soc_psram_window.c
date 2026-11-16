@@ -103,12 +103,20 @@ maia_psram_result_t maia_esp32p4_psram_window_start(uint32_t budget,maia_psram_w
     if(window_state!=FREE)return MAIA_PSRAM_BUSY;
     if(cache_state==FAULTED)return MAIA_PSRAM_FAILED;
     if(cache_state!=OWNED||!maia_psram_x8_claimed()||!maia_psram_clock_claimed())return MAIA_PSRAM_BUSY;
-    maia_psram_mode_report_t mode;result=maia_esp32p4_psram_read_mode(8,budget,&mode);
-    if(result!=MAIA_PSRAM_OK)return result;
-    if(mode.value!=0x0BU)return MAIA_PSRAM_BUSY;
+    /* Genuine X8 claim already checked the device profile at safe XTAL20. Fast
+     * training may deliberately test a failing DQS phase; do not issue a mode
+     * command there and poison the command engine before read-only qualification.
+     * Exclusive owner must not modify device mode outside the native API. */
+    if(maia_psram_clock_mhz()==20U){
+        maia_psram_mode_report_t mode;result=maia_esp32p4_psram_read_mode(8,budget,&mode);
+        if(result!=MAIA_PSRAM_OK)return result;
+        if(mode.value!=0x0BU)return MAIA_PSRAM_BUSY;
+    }
     result=maia_esp32p4_psram_snapshot(&reference);if(result!=MAIA_PSRAM_OK)return result;
-    if(!psram_axi_quiet()||reference.before[0]||reference.before[16]||reference.before[7]!=0x10001U||
-       reference.before[20]!=0x10001U||(reference.roots[1]&0xFFB000U)!=0x8000U||(reference.before[3]&6U)||
+    unsigned mhz=maia_psram_clock_mhz();
+    uint32_t bus=mhz==100U?0x30103U:0x10001U,root=mhz==20U?0x8000U:0x9000U;
+    if((mhz!=20U&&mhz!=100U&&mhz!=200U)||!psram_axi_quiet()||reference.before[0]||reference.before[16]||reference.before[7]!=bus||
+       reference.before[20]!=bus||(reference.roots[1]&0xFFB000U)!=root||(reference.before[3]&6U)||
        (reference.before[4]&0x3DC00U))return MAIA_PSRAM_BUSY;
     crypt=psram_read(WINDOW_CRYPT);ecc=psram_read(WINDOW_ECC);
     if(encrypted(crypt)||(ecc&0x100000U))return MAIA_PSRAM_BUSY;

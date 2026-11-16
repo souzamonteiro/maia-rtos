@@ -38,4 +38,7 @@ static inline void psram_write(uintptr_t p,uint32_t v){MAIA_MMIO32(p)=v;__asm__ 
 static inline int psram_axi_quiet(void){return (psram_read(PSRAM_MSPI0+0x3CU)&0x80000001U)==0x80000000U;}
 int maia_psram_x8_claimed(void);
 int maia_psram_clock_claimed(void);
+unsigned maia_psram_clock_mhz(void);
+maia_psram_result_t maia_psram_fast_phase(unsigned phase);
+maia_psram_result_t maia_psram_mpll_read(uint32_t budget,maia_psram_mpll_report_t *);
 #endif
