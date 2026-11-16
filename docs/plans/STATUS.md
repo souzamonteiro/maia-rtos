@@ -1187,3 +1187,26 @@ boot-exclusive, not coldstartup/31point delayline/temp-margin/SMP acceptance.
 Next fullframePSRAM->DSI grouped integration/visual test; then continuousLCD/touch.
 Continue under existing authorization; no per-substep approval stops. Installed
 full desktop still originalruntime; native tests import none.
+
+## Full native framebuffer visible and accepted — 2026-11-16
+
+[Framebuffer audit](../audits/native-framebuffer.md): actual1843200B RGB565 source
+4B800080 in native200MHz PSRAM, single-block sourceincrement/MSIZE16/ARLEN15 to
+DSI, native720x1280/logical1280x720/software90. Private source claim/cache handoff
+freezes window lifecycle until actualDMA drain/MMU/guard release; per-frameSAR
+rewind only while idle. No LLP or relaxed legacy solid-source bounds.
+Same image68a8dfc0f8d9c9cb8bd3c2cdad7635a2d2c610bb703c07d129bc65c587e97d8f/79488bytes:
+electronic4frames/65383us; fresh-ready visual1000frames/230400000items/999rearms/
+15282355us, raw383FF/status12/allerrors0/recovered1/released1. HashE3D71BEF/all
+guards unchanged; preliminary9x4KiB PSRAMDMA exact; memory/mode4B/clocks/MMU
+restored, fourRDDPM9C replies. Owner confirmed complete/stable/correct orientation
+when asked about numbered red/green/blue/yellow corners. Qualitative acceptance,
+not all-pixel/tear-free proof. Host56/56/ASan/UBSan/four mutants/oracle/C++98/runtime
+gatePASS. Electronic initialhostFAIL was wrongwholeDPI0 predicate; correct exact
+inherited19D0/enable0 comparison passes sameUART; original log retained. Visual
+strictPASS. Reset shell/SciCalc14/desktop verified both runs; no flash/SD/parser
+changes. Recovery `../maia-rtos-recovery/native-framebuffer-20261116/`.
+Next continuous nativeLCD tasks/IRQ/source lifetime/updates/recovery, then touch.
+Still boot-exclusive finite diagnostic, not native complete desktop/coldstartup/
+SMP or31point margin acceptance. Full installed firmware remains originalruntime;
+new native code imports none. Keep grouped work/autonomous electronic tests.

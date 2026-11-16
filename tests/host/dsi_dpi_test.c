@@ -47,6 +47,14 @@ static unsigned frame_writes,frame_drop,frame_progress,frame_finish,frame_starte
 #define SPATIAL_TEST_ALIAS (SPATIAL_TEST_LIST+0x40000000U)
 static unsigned spatial_mode,spatial_bad_writeback,spatial_drop_rearm,spatial_memory_writes,spatial_done_count;
 static uint32_t spatial_list[80];
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+#include "dsi_framebuffer_probe.h"
+#include "psram_dma_owner.h"
+static unsigned fb_mode,fb_lease,fb_available,fb_releases,fb_release_fail,fb_rewinds,fb_drop_rewind;
+uint32_t maia_psram_window_dma_acquire(void){if(!fb_available||fb_lease)return 0;fb_lease=1;return DSI_FB_SOURCE;}
+int maia_psram_window_dma_live(void){return (int)fb_lease;}
+int maia_psram_window_dma_release(void){assert(!frame_cfg&&!frame_channels);if(fb_release_fail)return 0;++fb_releases;fb_lease=0;return 1;}
+#endif
 static maia_dsi_access_report_t report;
 static unsigned reference_mode,test_writes,poll_reads,lock_after,stop_after;
 static maia_dsi_reference_report_t ref;
@@ -72,6 +80,9 @@ uint32_t maia_dsi_access_test_read(uintptr_t address) {
     ++frame_progress;
     if(frame_progress>=frame_finish){
      frame_channels=0;channel_status|=2U;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+     if(fb_mode)channel_words[0]=DSI_FB_SOURCE+DSI_FB_BYTES;
+#endif
      if(spatial_mode){
       channel_status=0; /* LLI done proof is in writeback, as qualified on SRAM. */
       ++spatial_done_count;
@@ -166,7 +177,11 @@ uint32_t maia_dsi_access_test_read(uintptr_t address) {
 int maia_ldo3_test_context(void) { return (int)context; }
 uint32_t maia_ldo3_test_read(uintptr_t address) { return maia_dsi_access_test_read(address); }
 void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
- ++writes;assert(writes<=(spatial_mode?50000U:reference_mode==12U?6000U:41U));
+ ++writes;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+ if(fb_mode&&reference_mode==12U&&address==channel_addr(0)){assert(!frame_cfg&&!frame_channels&&fb_lease&&value==DSI_FB_SOURCE);++fb_rewinds;if(!fb_drop_rewind)channel_words[0]=value;return;}
+#endif
+ assert(writes<=(spatial_mode?50000U:reference_mode==12U?50000U:41U));
  if(spatial_mode){
   if(address>=SPATIAL_TEST_ALIAS&&address<SPATIAL_TEST_ALIAS+320U){
    assert(!frame_cfg&&!frame_channels);++spatial_memory_writes;
@@ -195,11 +210,18 @@ void maia_dsi_access_test_write(uintptr_t address,uint32_t value) {
 
  if(reference_mode == 11U){
   unsigned i=channel_writes++;assert(i<16 && address==channel_addr(i));
-  assert(value==((channel_old[i]&~channel_masks[i])|channel_values[i]));
+  uint32_t expected=channel_values[i];
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+  if(fb_mode){if(i==0U)expected=DSI_FB_SOURCE;if(i==5U)expected=0x1CDB41U;if(i==6U)expected=0xF87C0U;}
+#endif
+  assert(value==((channel_old[i]&~channel_masks[i])|expected));
   if(channel_writes!=channel_drop)channel_words[i]=value;
   if(channel_writes==channel_drift)regs[1]^=0x1000U;
   if(channel_writes==channel_error)regs[49]=0x20;
   if(channel_writes==channel_bus_error)channel_status=0x80;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+  if(fb_mode&&channel_writes==16U)reference_mode=12;
+#endif
   return;
  }
 
@@ -434,6 +456,9 @@ static void bridge_failed(void) {
 static maia_dsi_dma_stage_report_t channel_report;
 static void setup_channel(void){
  spatial_mode=0;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+ fb_mode=0;
+#endif
  setup_bridge();assert(prepare_bridge()==MAIA_DSI_ACCESS_OK);reference_mode=11;
  reads=writes=channel_writes=channel_drop=channel_drift=channel_error=channel_bus_error=channel_status=common_status=0;
  for(unsigned i=0;i<16;++i)channel_words[i]=channel_old[i]=0xA4000000U|((~channel_values[i])&channel_masks[i]);
@@ -455,6 +480,13 @@ static void setup_spatial(void){
  frame_gen=frame_common_gen=0xFFFFFFFFU;frame_finish=4;channel_status=common_status=0;
  for(unsigned n=0;n<5U;++n)for(unsigned w=0;w<16U;++w)spatial_list[n*16U+w]=dsi_spatial_word(SPATIAL_TEST_SOURCE,SPATIAL_TEST_LIST,n,w);
 }
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+static void setup_fb(void){
+ setup_channel();fb_mode=fb_available=1;fb_lease=fb_releases=fb_release_fail=fb_rewinds=fb_drop_rewind=0;
+ frame_cfg=frame_channels=frame_writes=frame_drop=frame_progress=frame_started=frame_early_disable=frame_timeout=frame_underrun=frame_clock_loss=frame_clean_stuck=frame_applied=refresh_drop_clear=0;
+ frame_gen=frame_common_gen=0xFFFFFFFFU;frame_finish=4;
+}
+#endif
 int main(void) {
  setup_dpi();assert(maia_esp32p4_dsi_dpi_stage(NULL,&staged) == MAIA_DSI_ACCESS_INVALID && !reads && !writes);
  assert(maia_esp32p4_dsi_dpi_stage(&timing,NULL) == MAIA_DSI_ACCESS_INVALID);
@@ -643,5 +675,18 @@ int main(void) {
  setup_spatial();frame_underrun=1;assert(maia_dsi_spatial_probe(SPATIAL_TEST_SOURCE,SPATIAL_TEST_LIST,1,20,&spatial)==MAIA_DSI_ACCESS_IO&&spatial.refresh.last.recovered);
  setup_spatial();frame_timeout=1;assert(maia_dsi_spatial_probe(SPATIAL_TEST_SOURCE,SPATIAL_TEST_LIST,1,2,&spatial)==MAIA_DSI_ACCESS_TIMEOUT&&spatial.refresh.last.recovered);
  setup_spatial();assert(maia_dsi_spatial_probe(SPATIAL_TEST_SOURCE,SPATIAL_TEST_LIST,400,20,&spatial)==MAIA_DSI_ACCESS_OK&&spatial.refresh.frames_completed==400&&spatial.refresh.items==92160000&&spatial.refresh.rearm_writes==399);
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+ maia_dsi_framebuffer_report_t fb;
+ setup_fb();assert(maia_dsi_framebuffer_probe(0,20,&fb)==MAIA_DSI_ACCESS_INVALID&&!reads&&!writes);
+ assert(maia_dsi_framebuffer_probe(1201,20,&fb)==MAIA_DSI_ACCESS_INVALID&&!reads&&!writes);
+ fb_available=0;assert(maia_dsi_framebuffer_probe(4,20,&fb)==MAIA_DSI_ACCESS_BUSY&&!reads&&!writes);
+ setup_fb();assert(maia_dsi_framebuffer_probe(4,20,&fb)==MAIA_DSI_ACCESS_OK&&fb.stage.completed==18&&fb.refresh.frames_completed==4&&fb.refresh.items==921600&&fb.refresh.rearm_writes==3&&fb.source_released&&fb_releases==1&&!fb_lease&&fb_rewinds==3);
+ assert((fb.stage.after[5]&channel_masks[5])==0x1CDB41U&&(fb.stage.after[6]&channel_masks[6])==0xF87C0U);
+ saved=reads;assert(maia_dsi_framebuffer_probe(4,20,&fb)==MAIA_DSI_ACCESS_BUSY&&reads==saved);
+ setup_fb();fb_drop_rewind=1;assert(maia_dsi_framebuffer_probe(4,20,&fb)==MAIA_DSI_ACCESS_VERIFY&&fb.refresh.frames_completed==1&&!fb.source_released&&fb_lease&&!fb_releases);
+ setup_fb();frame_timeout=1;assert(maia_dsi_framebuffer_probe(4,2,&fb)==MAIA_DSI_ACCESS_TIMEOUT&&!fb.source_released&&fb_lease&&!fb_releases);
+ setup_fb();fb_release_fail=1;assert(maia_dsi_framebuffer_probe(1,20,&fb)==MAIA_DSI_ACCESS_VERIFY&&!fb.source_released&&fb_lease&&!fb_releases);
+ setup_fb();assert(maia_dsi_framebuffer_probe(1000,20,&fb)==MAIA_DSI_ACCESS_OK&&fb.refresh.frames_completed==1000&&fb.refresh.items==230400000&&fb_rewinds==999&&fb.source_released);
+#endif
  puts("PASS: actual native DPI staging, exact80MHz route/RGB565/timing,20 dropped stores, drift/errors and sticky guarded refusal");
 }

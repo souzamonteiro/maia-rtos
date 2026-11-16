@@ -71,6 +71,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_VDMA_COUNT AND (NOT MAIA_NATIVE_PROBE_VDMA_TRANSFER OR MAIA_NATIVE_PROBE_MIPI_PARK))
     message(FATAL_ERROR "VDMA count requires separate SRAM transfer profile")
   endif()
+  option(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER "Native full PSRAM framebuffer to DSI" OFF)
+  if(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER AND (NOT MAIA_NATIVE_PROBE_DPI_BRIDGE OR MAIA_NATIVE_PROBE_DPI_DMA_TILE OR MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL OR MAIA_NATIVE_PROBE_DPI_DMA_CENTER OR MAIA_NATIVE_PROBE_DPI_DMA_STAGE))
+    message(FATAL_ERROR "PSRAM framebuffer requires bridge and excludes SRAM diagnostics")
+  endif()
   option(MAIA_NATIVE_PROBE_DPI_DMA_CENTER "Central32-row SRAM pixel diagnostic" OFF)
   if(MAIA_NATIVE_PROBE_DPI_DMA_CENTER AND (NOT MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL OR NOT MAIA_NATIVE_PROBE_DPI_BRIDGE OR MAIA_NATIVE_PROBE_DPI_DMA_TILE OR MAIA_NATIVE_PROBE_DPI_DMA_STAGE))
     message(FATAL_ERROR "DPI center requires spatial/bridge without legacy tile/solid stage")
@@ -307,6 +311,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     ${MAIA_PROBE_APP}
   )
+  if(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER)
+    target_sources(maia_sched_probe.elf PRIVATE soc/espressif/esp32p4/soc_psram_snapshot.c
+      soc/espressif/esp32p4/soc_psram_mode.c soc/espressif/esp32p4/soc_psram_array.c
+      soc/espressif/esp32p4/soc_psram_clock.c soc/espressif/esp32p4/soc_psram_mpll.c
+      soc/espressif/esp32p4/soc_psram_window.c)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER=1 MAIA_DSI_FRAMEBUFFER_PROBE=1)
+  endif()
   if(MAIA_NATIVE_PROBE_DSI_RESET)
     target_sources(maia_sched_probe.elf PRIVATE drivers/i2c/bitbang.c
       drivers/gpio/pi4ioe5v6408.c boards/m5stack/tab5/touch_identify.c
@@ -650,6 +661,12 @@ else()
     target_compile_definitions(dsi_dpi_test PRIVATE MAIA_DSI_ACCESS_TEST=1 MAIA_LDO3_TEST=1 MAIA_DSI_SPATIAL_PROBE=1)
     target_compile_options(dsi_dpi_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_test(NAME dsi_dpi_test COMMAND dsi_dpi_test)
+    add_executable(dsi_framebuffer_test tests/host/dsi_dpi_test.c soc/espressif/esp32p4/soc_dsi_access.c
+      soc/espressif/esp32p4/soc_ldo3_plan.c soc/espressif/esp32p4/soc_ldo3_snapshot.c)
+    target_include_directories(dsi_framebuffer_test PRIVATE include soc/espressif/esp32p4)
+    target_compile_definitions(dsi_framebuffer_test PRIVATE MAIA_DSI_ACCESS_TEST=1 MAIA_LDO3_TEST=1 MAIA_DSI_SPATIAL_PROBE=1 MAIA_DSI_FRAMEBUFFER_PROBE=1)
+    target_compile_options(dsi_framebuffer_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME dsi_framebuffer_test COMMAND dsi_framebuffer_test)
     add_executable(dsi_center_test tests/host/dsi_dpi_test.c soc/espressif/esp32p4/soc_dsi_access.c
       soc/espressif/esp32p4/soc_ldo3_plan.c soc/espressif/esp32p4/soc_ldo3_snapshot.c)
     target_include_directories(dsi_center_test PRIVATE include soc/espressif/esp32p4)
@@ -719,6 +736,10 @@ else()
     target_include_directories(dsi_spatial_plan_test PRIVATE include soc/espressif/esp32p4)
     target_compile_options(dsi_spatial_plan_test PRIVATE -Wall -Wextra -Werror)
     add_test(NAME dsi_spatial_plan_test COMMAND dsi_spatial_plan_test)
+    add_executable(framebuffer_pattern_test tests/host/framebuffer_pattern_test.c)
+    target_include_directories(framebuffer_pattern_test PRIVATE tests/hardware)
+    target_compile_options(framebuffer_pattern_test PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME framebuffer_pattern_test COMMAND framebuffer_pattern_test)
     add_executable(psram_dma_plan_test tests/host/psram_dma_plan_test.c)
     target_include_directories(psram_dma_plan_test PRIVATE tests/hardware)
     target_compile_options(psram_dma_plan_test PRIVATE -Wall -Wextra -Werror)
@@ -891,6 +912,7 @@ else()
 
 
 
+    add_test(NAME framebuffer_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/framebuffer_capture_test.py)
     add_test(NAME native_probe_result_test
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_result_test.py)
 

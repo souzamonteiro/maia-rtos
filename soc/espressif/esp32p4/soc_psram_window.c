@@ -8,7 +8,7 @@
  * License: LICENSES/Apache-2.0.txt. */
 #include "psram_window_internal.h"
 typedef struct {uint32_t size;uint16_t line;uint8_t ways;uint32_t type;} cache_mode;
-enum { FREE,OWNED,FAULTED };
+enum { FREE,OWNED,FAULTED,DMA_OWNED };
 static unsigned cache_state,window_state;
 static maia_psram_snapshot_t reference;
 static uint32_t saved[WINDOW_REGS],current[WINDOW_REGS],table[32],saved_index,crypt,ecc,pms[4],pms_base,pms_size;
@@ -169,4 +169,28 @@ maia_psram_result_t maia_esp32p4_psram_window_stop(uint32_t budget,maia_psram_wi
     psram_write(WINDOW_MMU_INDEX,saved_index);
     if(!guards()||psram_read(WINDOW_MMU_INDEX)!=saved_index)return MAIA_PSRAM_VERIFY;
     report(r,0);r->stage=6;r->restored=1;window_state=FREE;return MAIA_PSRAM_OK;
+}
+
+static int dma_idle(void){
+    if(!(psram_read(MAIA_ESP32P4_HP_SYS_CLKRST_BASE+0x14U)&0x2000U)||
+       !(psram_read(MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG)&0x20U))return 0;
+    uintptr_t base=MAIA_ESP32P4_GDMA_BASE;
+    if(psram_read(base+0x10U)||psram_read(base+0x18U)||psram_read(base+0x1CU)||(psram_read(base+0x58U)&1U))return 0;
+    for(unsigned i=0;i<4U;++i)if(psram_read(base+0x134U+i*0x100U)&0x7FFFU)return 0;
+    return 1;
+}
+uint32_t maia_psram_window_dma_acquire(void){
+    if(!psram_context()||window_state!=OWNED||maia_psram_clock_mhz()!=200U)return 0;
+    if(!dma_idle())return 0;
+    maia_psram_window_report_t r;
+    if(maia_esp32p4_psram_window_sync(10000,&r)!=MAIA_PSRAM_OK)return 0;
+    if(!dma_idle())return 0;
+    window_state=DMA_OWNED;return MAIA_PSRAM_WINDOW_VADDR+128U;
+}
+int maia_psram_window_dma_live(void){return psram_context()&&window_state==DMA_OWNED&&guards();}
+int maia_psram_window_dma_release(void){
+    if(!psram_context()||window_state!=DMA_OWNED)return 0;
+    window_state=FAULTED;
+    if(!guards()||!dma_idle()||!table_matches(1))return 0;
+    window_state=OWNED;return 1;
 }

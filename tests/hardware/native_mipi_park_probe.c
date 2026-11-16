@@ -59,6 +59,9 @@ static void halt(const char *reason) {
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL
 #include "native_dpi_dma_spatial.h"
 #endif
+#ifdef MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER
+#include "native_dpi_framebuffer.h"
+#endif
 void maia_boot_main(void) {
     maia_console_puts("MAIA_MIPI_PARK_BOOT\n");
     uint32_t hart,status;__asm__ volatile("csrr %0, mhartid":"=r"(hart));__asm__ volatile("csrr %0, mstatus":"=r"(status));
@@ -359,6 +362,9 @@ void maia_boot_main(void) {
     dpi_clock();
 #ifdef MAIA_NATIVE_PROBE_DPI_BRIDGE
     dpi_bridge();
+#ifdef MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER
+    dpi_framebuffer();
+#endif
 #ifdef MAIA_NATIVE_PROBE_DPI_DMA_CENTER
     dpi_center_buffer();
     dpi_dma_spatial();

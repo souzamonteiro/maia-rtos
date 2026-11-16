@@ -6,7 +6,8 @@ void maia_psram_mode_test_reset(void);
 static uint32_t root[9],reg[2][256],pins[20],mmu[1024],initial_mmu[1024],initial_reg[2][256],initial_pins[20],index_word;
 static unsigned reads,writes,context,claims,active,rom_calls,rom_fail,drop_mmu,drop_reg,loss_reg,busy,sync_busy;
 static uint32_t crypt_word;
-static unsigned clock_rate;
+static unsigned clock_rate,dma_active;
+static uint32_t dma_words[0x500U/4U],dma_clock;
 int maia_psram_test_context(void){return (int)context;}
 int maia_psram_x8_claimed(void){return (int)claims;}
 int maia_psram_clock_claimed(void){return (int)claims;}
@@ -14,6 +15,8 @@ unsigned maia_psram_clock_mhz(void){return claims?clock_rate:0U;}
 static uint32_t *pointer(uintptr_t p){
     for(unsigned i=0;i<9U;++i)if(p==psram_roots[i])return &root[i];
     if(p==WINDOW_CRYPT)return &crypt_word;
+    if(p==MAIA_ESP32P4_HP_MIPI_SYS_CLK_REG)return &dma_clock;
+    if(p>=MAIA_ESP32P4_GDMA_BASE&&p<MAIA_ESP32P4_GDMA_BASE+0x500U)return &dma_words[(p-MAIA_ESP32P4_GDMA_BASE)/4U];
     assert((root[0]&0x80000000U)&&(root[1]&0xC000U)==0xC000U);
     for(unsigned i=0;i<20U;++i)if(p==window_plan[i].address)return &pins[i];
     if(p==WINDOW_MMU_INDEX)return &index_word;
@@ -23,6 +26,7 @@ static uint32_t *pointer(uintptr_t p){
 }
 uint32_t maia_psram_test_read(uintptr_t p){
     ++reads;
+    if(p==MAIA_ESP32P4_GDMA_BASE+0x10U&&dma_active)return 1;
     if(p==PSRAM_MSPI1&&active){active=0;reg[1][0]=0;reg[1][0x58/4]=0x0BU;}
     if(p==WINDOW_FIFO&&busy)return 0;
     return *pointer(p);
@@ -48,7 +52,7 @@ int maia_psram_window_test_rom(unsigned op,void *arg){
 }
 static void setup(void){
     maia_psram_window_test_reset();maia_psram_mode_test_reset();
-    reads=writes=active=rom_calls=busy=sync_busy=0;context=claims=1;clock_rate=20;
+    reads=writes=active=rom_calls=busy=sync_busy=0;context=claims=1;clock_rate=20;dma_active=0;dma_clock=0x20U;memset(dma_words,0,sizeof dma_words);
     drop_mmu=drop_reg=loss_reg=rom_fail=~0U;index_word=7;crypt_word=0;
     memset(root,0,sizeof root);memset(reg,0,sizeof reg);
     root[0]=0x80000000;root[1]=0xC00C;root[4]=0x180;
@@ -104,5 +108,17 @@ int main(void){
     }
     setup();cache_ready();clock_rate=200;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_BUSY);
     setup();cache_ready();clock_rate=80;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_BUSY);
+    setup();clock_rate=200;root[0]|=0x2000U;root[1]=0xD00CU;cache_ready();
+    assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK);
+    dma_active=1;assert(!maia_psram_window_dma_acquire());dma_active=0;
+    assert(maia_psram_window_dma_acquire()==0x4B800080U&&maia_psram_window_dma_live());
+    n=reads;assert(!maia_psram_window_dma_acquire()&&reads==n);
+    assert(maia_esp32p4_psram_window_sync(3,&r)==MAIA_PSRAM_BUSY&&reads==n);
+    assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_BUSY&&reads==n);
+    assert(maia_psram_window_dma_release()&&!maia_psram_window_dma_live());
+    assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_OK);
+    setup();clock_rate=200;root[0]|=0x2000U;root[1]=0xD00CU;cache_ready();
+    assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK&&maia_psram_window_dma_acquire());
+    dma_active=1;assert(!maia_psram_window_dma_release());sticky();
     return 0;
 }

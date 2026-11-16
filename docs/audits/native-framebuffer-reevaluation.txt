@@ -1,0 +1,1 @@
+PASS: exact recorded device output before host reset/status footer; no target rerun. Original full log and hostFAIL preserved. DPI disabled bit0 and full inherited config19D0 restored, not zero register.

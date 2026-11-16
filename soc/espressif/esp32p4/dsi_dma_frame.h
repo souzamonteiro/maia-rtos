@@ -5,6 +5,9 @@
 #define FRAME_CHSTAT_REQUIRED (FRAME_ERRORS|3U)
 #define FRAME_COMMON_REQUIRED 0x001FFF8FU
 static int frame_roots(void){
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+    if(framebuffer_claim&&!maia_psram_window_dma_live())return 0;
+#endif
     if(!transfer_bus_guard(&dpi_staged_guard)||!supply_same(&dpi_staged_guard.supply))return 0;
     return (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U)==1U &&
         !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&0xEU) && !dsi_read(MAIA_ESP32P4_GDMA_BASE+0x1CU) &&
@@ -39,6 +42,13 @@ static int frame_guard(uint32_t mode,uint32_t lp,uint32_t dpi,uint32_t cfg){
     for(unsigned i=0;i<MAIA_DSI_DPI_WORDS;++i)if(dsi_read(dpi_address(i))!=dpi_staged_words[i])return 0;
     for(unsigned i=0;i<MAIA_DSI_DMA_STAGE_WORDS;++i){
         if(i==4U)continue; /* live block-progress observation is separate */
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+        if(framebuffer_claim&&i==0U){
+            uint32_t v=dsi_read(dma_stage_address(i));
+            if((v&7U)||v<DSI_FB_SOURCE||v>DSI_FB_SOURCE+DSI_FB_BYTES)return 0;
+            continue;
+        }
+#endif
 #ifdef MAIA_DSI_SPATIAL_PROBE
         if(dma_staged_list){if(!spatial_live(i))return 0;continue;}
 #endif
@@ -239,6 +249,42 @@ maia_dsi_access_result_t maia_dsi_spatial_probe(uint32_t source,uint32_t list,ui
     }
     dpi_refresh_state=OWNED;return MAIA_DSI_ACCESS_OK;
 refused_spatial:
+    dpi_frame_state=transfer_state=FAULTED;return MAIA_DSI_ACCESS_VERIFY;
+}
+#endif
+
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+maia_dsi_access_result_t maia_dsi_framebuffer_probe(uint32_t frames,uint32_t budget,maia_dsi_framebuffer_report_t *r){
+    if(!r)return MAIA_DSI_ACCESS_INVALID;
+    for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
+    if(!frames||frames>1200U||!budget||budget>100000U)return MAIA_DSI_ACCESS_INVALID;
+    if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
+    if(dpi_refresh_state==FAULTED||dpi_frame_state==FAULTED||dpi_dma_state==FAULTED||transfer_state==FAULTED)return MAIA_DSI_ACCESS_FAILED;
+    if(framebuffer_claim||dpi_refresh_state!=UNCLAIMED||dpi_frame_state!=UNCLAIMED||dpi_dma_state!=UNCLAIMED||transfer_state!=UNCLAIMED)return MAIA_DSI_ACCESS_BUSY;
+    uint32_t source=maia_psram_window_dma_acquire();if(source!=DSI_FB_SOURCE)return MAIA_DSI_ACCESS_BUSY;
+    framebuffer_claim=1;
+    maia_dsi_access_result_t result=dma_stage_body(source,0,&r->stage);
+    if(result!=MAIA_DSI_ACCESS_OK)return result; /* retain uncertain ownership */
+    dpi_refresh_state=FAULTED;
+    for(unsigned n=0;n<frames;++n){
+        if(n){
+            if(dpi_frame_state!=3U||!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet())goto refused_fb;
+            uint32_t pending=dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U);
+            if(pending&~0x4000001BU)goto refused_fb;
+            ++r->refresh.rearm_writes;dsi_write(MAIA_ESP32P4_GDMA_BASE+0x198U,0x4000001BU);
+            if(!frame_roots()||dsi_read(MAIA_ESP32P4_GDMA_BASE+0x188U)||dsi_read(MAIA_ESP32P4_GDMA_BASE+0x50U))goto refused_fb;
+            /* Only incrementing SAR needs rewind; no arbitrary live rewrites. */
+            dsi_write(dma_stage_address(0),source);
+            if(!frame_roots()||!dma_quiet()||dsi_read(dma_stage_address(0))!=source)goto refused_fb;
+            dpi_frame_state=UNCLAIMED;
+        }
+        result=frame_run(budget,&r->refresh.last);r->refresh.polls+=r->refresh.last.polls;
+        if(result!=MAIA_DSI_ACCESS_OK)return result;
+        ++r->refresh.frames_completed;r->refresh.items+=r->refresh.last.items;
+    }
+    if(!dma_quiet()||!maia_psram_window_dma_release())goto refused_fb;
+    r->source_released=1;framebuffer_claim=0;dpi_refresh_state=OWNED;return MAIA_DSI_ACCESS_OK;
+refused_fb:
     dpi_frame_state=transfer_state=FAULTED;return MAIA_DSI_ACCESS_VERIFY;
 }
 #endif

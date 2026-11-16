@@ -22,6 +22,9 @@ static uintptr_t dma_stage_address(unsigned i) {
     return (i<12U ? MAIA_ESP32P4_GDMA_BASE+0x100U : MAIA_ESP32P4_DSI_BRG_BASE)+dma_stage_offsets[i];
 }
 static maia_dsi_access_result_t dma_stage_check(uint32_t bridge,const uint32_t *expected,maia_dsi_dma_stage_report_t *r) {
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+    if(framebuffer_claim&&!maia_psram_window_dma_live())return MAIA_DSI_ACCESS_VERIFY;
+#endif
     maia_dsi_dpi_bridge_report_t check;
     check.irq_raw=0;check.observation=r->observation;
     maia_dsi_access_result_t result=bridge_check(bridge,&check);r->observation=check.observation;
@@ -43,6 +46,10 @@ static maia_dsi_access_result_t dma_stage_body(uint32_t source,uint32_t list,mai
     io->completed=io->header=io->header_attempted=io->command_before=io->command_after=0;
     io->polls=io->status=io->fifo=io->error0=io->error1=io->saw_busy=0;
     for(unsigned i=0;i<MAIA_DSI_DMA_STAGE_WORDS;++i)r->before[i]=r->after[i]=0;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+    if(framebuffer_claim){if(source!=DSI_FB_SOURCE||!maia_psram_window_dma_live())return MAIA_DSI_ACCESS_VERIFY;}
+    else
+#endif
     if((source&127U) || source<0x4FF00000U || source>0x4FF27F80U)return MAIA_DSI_ACCESS_INVALID;
 #ifdef MAIA_DSI_SPATIAL_PROBE
     if(list && !dsi_spatial_layout(source,list))return MAIA_DSI_ACCESS_INVALID;
@@ -69,6 +76,13 @@ static maia_dsi_access_result_t dma_stage_body(uint32_t source,uint32_t list,mai
         values[5]=dsi_spatial_word(source,list,0,8);values[6]=0x000F8040U;values[7]=15U;values[9]=list|1U;
         values[12]=0x50U;values[13]=0x10000000U;
     }else dma_staged_list=0;
+#endif
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+    if(framebuffer_claim){
+        if(width!=720U||height!=1280U||bytes!=DSI_FB_BYTES)return MAIA_DSI_ACCESS_VERIFY;
+        values[5]=0x001CDB41U; /* increment source/64bit/MSIZE16; dest fixed256 */
+        values[6]=0x000F87C0U; /* explicit ARLEN_EN/field15, AWLEN15 */
+    }
 #endif
     r->source=source;r->frame_bytes=bytes;r->completed=1;dpi_dma_state=transfer_state=FAULTED;
     for(unsigned i=0;i<MAIA_DSI_DMA_STAGE_WORDS;++i){

@@ -1417,3 +1417,51 @@ Final actual200MHz qualification now PASS: bothDLLwords1->21->1, MPLL99 twice/
 copies. All45copies byte-exact, guarded cleanup/mode/clocks/window restored and
 desktop verified. See [operational audit](../audits/native-psram-fast.md) for
 four retained refusals, source hashes, full capture and remaining warm-only limits.
+
+## Full native PSRAM framebuffer transfer — 2026-11-16
+
+Pinned SDK f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+master1 reads MSPI PSRAM, master0 writes DSI FIFO50105000. Contiguous single block,
+64bit/increment source, sourceMSIZE16 enum3, explicit ARLEN_EN/field15 (qualified
+in native200MHz M2M). Destination fixed256items/AWLEN15 retains earlier display
+path. Register plan CTL0=1CDB41 / CTL1=F87C0,230400items/full1843200B frame. No LLP.
+[registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_reg.h),
+sourceSAR can advance only within owned aligned frame span; before each rearm,
+verify previous recovery/idle, clear only qualified status flags, rewind SAR.
+Bridge single-block controls, status/DMA-done/rawN-1/drain/recovery unchanged from
+finite solid-frame path; no relaxed display completion or new unverified status.
+
+Fixed native policy: framebuffer4B800080..+1843200 in owned2MiB window,128B prefix
+and all unused tailA5 guards; cache writeback/invalidate before private DMA claim.
+Window sync/stop refuses while DMA owns source; release requires live memory guard,
+MMU table and actualDMA clock/disabled/drained checks. Caller immutability/exclusive
+boot still mandatory; no thread/SMP/ISR/allocator safety claim. Public legacy solid
+API keeps SRAM-only bounds; framebuffer path is separate private diagnostic.
+
+Production reference `platforms/tab5/main/hal/hal_esp32.cpp` sets software
+LV_DISPLAY_ROTATION_90. Vendored [LVGL draw rotation](https://github.com/lvgl/lvgl/blob/v9.2.2/src/draw/sw/lv_draw_sw.c)
+rotate90_rgb565 maps logical(x,y) to native(y,width-1-x); actual local source and
+version checked during implementation. Test picture uses inverse logicalx=1279-
+nativey/logicaly=nativex, with four large numbered red/green/blue/yellow corners,
+white grid/border and central six-color rectangle. Native720x1280/logical1280x720;
+no panel MADCTL/production timing change. Host corner/mapping/hash tests precede
+hardware/visual proof. Electronic4frame run and visual1000frame run are distinct;
+visual requires fresh owner readiness. New integration pending actual target.
+
+First actual electronic integration completed all4 full frames with hashE3D71BEF
+unchanged, guards retained, raw383FF/items921600/DMAstatus12/errors0/drain/release1,
+3checked SARrewinds, total65383us. Nine preliminary PSRAM-to-SRAM copies also
+byte-exact. Native memory/mode/clock restoration and fourRDDPM9C replies passed.
+Initial host evaluator incorrectly required whole DPI control register0; actual
+inherited/returned disabled value19D0 preserves configuration with enablebit0clear.
+Evaluator now compares exact originalDPI_BRIDGE_IDLE word and checks enable0.
+Same recorded device output before host reset/status footer re-evaluatesPASS;
+original raw log/hostFAIL retained, no synthetic log or hardware rerun. Visual
+acceptance remains pending fresh owner readiness; no visible-picture claim yet.
+
+Actual prolonged1000frame run now strictPASS:230400000items/999rearms/15282355us,
+all errors0/sourcehashE3D71BEF unchanged, guards/memory/mode/clocks/MMU recovered.
+Fresh owner readiness then qualitative complete/stable/correct orientation
+confirmed. See [framebuffer audit](../audits/native-framebuffer.md) for exact
+logs, original electronic verifier refusal, source/runtime gates and limits.

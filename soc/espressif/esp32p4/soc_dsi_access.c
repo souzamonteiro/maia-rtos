@@ -9,12 +9,20 @@ static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi
  * transitions keep command transport FAULTED until reboot. Initial reference
  * acquisition still requires bridge off. */
 static uint32_t dpi_bridge_expected;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+#include "psram_dma_owner.h"
+#include "dsi_framebuffer_probe.h"
+static unsigned framebuffer_claim;
+#endif
 #ifdef MAIA_DSI_SPATIAL_PROBE
 static uint32_t dma_staged_list;
 #endif
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
 void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED;dpi_clock_state=UNCLAIMED;dpi_pattern_state=UNCLAIMED;dpi_bridge_state=UNCLAIMED;dpi_dma_state=UNCLAIMED;dpi_frame_state=UNCLAIMED;dpi_refresh_state=UNCLAIMED;dpi_bridge_expected=0;
+#ifdef MAIA_DSI_FRAMEBUFFER_PROBE
+ framebuffer_claim=0;
+#endif
 #ifdef MAIA_DSI_SPATIAL_PROBE
  dma_staged_list=0;
 #endif
