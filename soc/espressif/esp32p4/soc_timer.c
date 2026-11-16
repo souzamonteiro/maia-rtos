@@ -79,6 +79,11 @@ void maia_soc_systimer_init(uint32_t tick_hz) {
     MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_CONF_REG)      |= MAIA_ESP32P4_SYSTIMER_TARGET0_WORK_EN;
 }
 
+/* Unclaimed peripheral interrupts retain fatal behavior. Optional native SoC
+ * IRQ owner supplies the strong dispatcher; no driver knowledge in kernel. */
+int maia_soc_external_irq_dispatch(uint32_t id);
+__attribute__((weak)) int maia_soc_external_irq_dispatch(uint32_t id){(void)id;return 0;}
+
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval);
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval) {
     uint32_t *frame = (uint32_t *)sp;
@@ -92,6 +97,11 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
             (void)maia_sched_tick_isr();
             uintptr_t next = maia_sched_select_next_sp(sp);
             if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
+            return next;
+        }
+        if(maia_soc_external_irq_dispatch(irq_id)){
+            uintptr_t next=maia_sched_select_next_sp(sp);
+            if(!next)maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
             return next;
         }
         maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);

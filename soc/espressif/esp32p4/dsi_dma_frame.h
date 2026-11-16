@@ -5,13 +5,17 @@
 #define FRAME_CHSTAT_REQUIRED (FRAME_ERRORS|3U)
 #define FRAME_COMMON_REQUIRED 0x001FFF8FU
 static int frame_roots(void){
+    uint32_t allowed_cfg=1U;
+#ifdef MAIA_DSI_LCD_STREAM
+    if(lcd_stream_mode)allowed_cfg=3U;
+#endif
 #ifdef MAIA_DSI_FRAMEBUFFER_PROBE
     if(framebuffer_claim&&!maia_psram_window_dma_live())return 0;
 #endif
     if(!transfer_bus_guard(&dpi_staged_guard)||!supply_same(&dpi_staged_guard.supply))return 0;
     return (dsi_read(MAIA_ESP32P4_DSI_BRG_BASE+4U)&1U)==1U &&
         !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x18U)&0xEU) && !dsi_read(MAIA_ESP32P4_GDMA_BASE+0x1CU) &&
-        !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x58U)&1U) && !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&~1U);
+        !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x58U)&1U) && !(dsi_read(MAIA_ESP32P4_GDMA_BASE+0x10U)&~allowed_cfg);
 }
 #ifdef MAIA_DSI_SPATIAL_PROBE
 static int spatial_live(unsigned i){

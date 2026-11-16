@@ -5,6 +5,14 @@
 #include "dsi_access_internal.h"
 enum { UNCLAIMED,OWNED,FAULTED };
 static unsigned state,reference_state,phy_state,command_state,transfer_state,dpi_state,dpi_clock_state,dpi_pattern_state,dpi_bridge_state,dpi_dma_state,dpi_frame_state,dpi_refresh_state;
+#ifdef MAIA_DSI_LCD_STREAM
+#include "lcd_async.h"
+#include "dw_dma_irq.h"
+static unsigned lcd_stream_mode;
+#ifdef MAIA_DSI_ACCESS_TEST
+static void lcd_async_reset_state(void);
+#endif
+#endif
 /* Shared PHY guard follows only our verified bridge enable; failed partial
  * transitions keep command transport FAULTED until reboot. Initial reference
  * acquisition still requires bridge off. */
@@ -20,6 +28,9 @@ static uint32_t dma_staged_list;
 #ifdef MAIA_DSI_ACCESS_TEST
 void maia_dsi_access_test_reset(void);
 void maia_dsi_access_test_reset(void) { state=UNCLAIMED;reference_state=UNCLAIMED;phy_state=UNCLAIMED;command_state=UNCLAIMED;transfer_state=UNCLAIMED;dpi_state=UNCLAIMED;dpi_clock_state=UNCLAIMED;dpi_pattern_state=UNCLAIMED;dpi_bridge_state=UNCLAIMED;dpi_dma_state=UNCLAIMED;dpi_frame_state=UNCLAIMED;dpi_refresh_state=UNCLAIMED;dpi_bridge_expected=0;
+#ifdef MAIA_DSI_LCD_STREAM
+ lcd_stream_mode=0;lcd_async_reset_state();
+#endif
 #ifdef MAIA_DSI_FRAMEBUFFER_PROBE
  framebuffer_claim=0;
 #endif
@@ -634,3 +645,7 @@ maia_dsi_access_result_t maia_esp32p4_dsi_read_color_mode(uint32_t budget,maia_d
 #include "dsi_dpi_bridge.h"
 #include "dsi_dma_stage.h"
 #include "dsi_dma_frame.h"
+
+#ifdef MAIA_DSI_LCD_STREAM
+#include "dsi_lcd_async_impl.h"
+#endif

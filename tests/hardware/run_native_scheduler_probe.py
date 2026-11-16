@@ -597,6 +597,60 @@ def dpi_dma_tile_hashes(source,base):
     return fnv(pixels),fnv(b''.join(descriptors))
 
 
+def evaluate_lcd_stream(output,visual=False):
+    if not evaluate_dpi_bridge(output):return False
+    clean=output.replace('\r','');lines=clean.splitlines()
+    if lines.count('MAIA_NATIVE_LCD_STREAM_PASS')!=1 or 'MAIA_NATIVE_DPI_FRAMEBUFFER_PASS' in lines:return False
+    def row(prefix,keys):
+        selected=[l for l in lines if l.startswith(prefix+' ')]
+        if len(selected)!=1:return None
+        m=re.fullmatch(prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),selected[0])
+        return dict(zip(keys,(int(v,16) for v in m.groups()))) if m else None
+    init=[l for l in lines if l.startswith('LCD_STREAM_INIT ')]
+    if init!=[f'LCD_STREAM_INIT part={i:08x} result=00000000' for i in range(6)]:return False
+    prep=row('LCD_STREAM_PREP','engine irq map ctrl'.split())
+    if prep is None or prep['engine']!=5 or prep['irq']!=6:return False
+    route=row('LCD_STREAM_ROUTE','map_before map_after ctrl_before ctrl_after'.split())
+    task=row('LCD_STREAM_TASK','result frames waits timeouts errors stopped requested active_stop'.split())
+    irq=row('LCD_STREAM_IRQ','line source irqs posts spurious drains released done recovered raw status common bridge error0 error1'.split())
+    kernel=row('LCD_STREAM_KERNEL','ticks timer external ecalls beats work exited errors'.split())
+    image=row('DPI_FB_IMAGE','source bytes hash native_width native_height rotation frames visual'.split())
+    idle=row('DPI_FB_IDLE','cfg channels dpi mode hash guards duplicate'.split())
+    memory=row('DPI_FB_MEMORY_RESTORE','bytes roots words mode axi'.split())
+    if any(r is None for r in (route,task,irq,kernel,image,idle,memory)):return False
+    fast=row('DPI_FB_FAST','result rate mpll div dll0 dll1'.split())
+    cache=row('DPI_FB_CACHE','result stage size line'.split())
+    copy_final=row('PSRAM_DMA_FINAL','cfg channels fifo restored preserved'.split())
+    if fast!=dict(result=0,rate=200,mpll=400,div=0x99,dll0=0x21,dll1=0x21):return False
+    if cache is None or cache['result']!=0 or cache['stage']!=3 or cache['size'] not in (131072,262144,524288) or cache['line'] not in (64,128):return False
+    if copy_final!=dict(cfg=0,channels=0,fifo=0,restored=1,preserved=1):return False
+    duration=12000 if visual else 1500
+    if route['map_before']!=route['map_after'] or (route['ctrl_before']^route['ctrl_after'])&~1:return False
+    if prep['map']!=route['map_before'] or prep['ctrl']!=route['ctrl_before'] or prep['ctrl']&0x101:return False
+    if not(task['result']==0 and 40<=task['frames']<=2000 and task['waits']>=task['frames'] and not task['timeouts'] and not task['errors'] and task['stopped']==task['requested']==task['active_stop']==1):return False
+    if not(17<=irq['line']<48 and irq['source']==24 and irq['irqs']==irq['posts']==task['frames'] and not irq['spurious'] and irq['released']==irq['done']==irq['recovered']==1 and irq['raw']==230399 and irq['status']&2 and not irq['status']&0x023f7fe0 and not irq['common'] and not irq['bridge']&1 and not irq['error0']&0x1fffff and not irq['error1']&0x81fff):return False
+    if not(duration<=kernel['ticks']<=duration+205 and kernel['timer']>=duration and kernel['external']==irq['irqs'] and kernel['ecalls']>task['frames'] and kernel['beats']>=duration//2 and kernel['work']>=10000 and kernel['exited']==3 and not kernel['errors']):return False
+    if image!=dict(source=0x4b800080,bytes=1843200,hash=0xe3d71bef,native_width=720,native_height=1280,rotation=90,frames=0,visual=int(visual)):return False
+    inherited=re.search(r'^DPI_BRIDGE_IDLE bridge=[0-9a-f]{8} dpi=([0-9a-f]{8}) ',clean,re.M)
+    if inherited is None:return False
+    if idle!=dict(cfg=0,channels=0,dpi=int(inherited.group(1),16),mode=1,hash=0xe3d71bef,guards=1,duplicate=1):return False
+    if not(memory['bytes']==4096 and memory['roots']==memory['words']==1 and memory['mode']==0x4b and memory['axi']&0x80000001==0x80000000):return False
+    # Reuse the independently byte-checked memory/reply portion via exact rows.
+    for prefix,count in [('DPI_FB_RAW',3),('DPI_FB_REPLY',4),('PSRAM_DMA_COPY',9)]:
+        selected=[l for l in lines if l.startswith(prefix+' ')]
+        if len(selected)!=count:return False
+        if prefix=='DPI_FB_RAW':
+            if selected!=[f'DPI_FB_RAW phase={i:08x} result=00000000 bytes=00001000 restored=00000001' for i in range(3)]:return False
+        elif prefix=='DPI_FB_REPLY':
+            for i,l in enumerate(selected):
+                if not re.fullmatch(f'DPI_FB_REPLY index={i:08x} result=00000000 word=0000009c restored=00000005 error0=00000000 error1=00000000',l):return False
+        else:
+            for i,l in enumerate(selected):
+                if not re.fullmatch(f'PSRAM_DMA_COPY index={i:08x} offset={(0,65408,0x1ff000)[i//3]:08x} bytes=00001000 burst={(1,4,16)[i%3]:08x} done=00000001 polls=[0-9a-f]{{8}} matched=00001000 guards=00000001 raw=000001ff status=00000000 common=00000000 us=[0-9a-f]{{8}}',l):return False
+    order=[l.split()[0] for l in lines if l.startswith('LCD_STREAM_') and not l.startswith(('LCD_STREAM_INIT ','LCD_STREAM_PREP '))]
+    return order==['LCD_STREAM_ROUTE','LCD_STREAM_TASK','LCD_STREAM_IRQ','LCD_STREAM_KERNEL']
+
+
 def evaluate_dpi_framebuffer(output,visual=False):
     if not evaluate_dpi_bridge(output):return False
     clean=output.replace('\r','');lines=clean.splitlines()
@@ -1316,15 +1370,15 @@ class Vo3CycleStimulus:
 
 
 class FramebufferStimulus(Vo3CycleStimulus):
-    def __init__(self,port,visual=False,**kwargs):
+    def __init__(self,port,visual=False,stream=False,**kwargs):
         super().__init__(port,**kwargs)
-        self.visual,self.sent=visual,False
+        self.visual,self.sent,self.stream=visual,False,stream
     def feed(self,output):
         super().feed(output)
         if self.phase==2 and not self.sent and 'DPI_FB_READY\n' in output.replace('\r',''):
             if self.port.write(b'V' if self.visual else b'E')!=1:raise RuntimeError('short framebuffer command')
             self.port.flush();self.sent=True
-            print('[HOST] Framebuffer mode: '+('visual1000' if self.visual else 'electronic4'))
+            print('[HOST] Framebuffer mode: '+(('native-service-visual' if self.visual else 'native-service-electronic') if self.stream else ('visual1000' if self.visual else 'electronic4')))
 
 
 class SerialInputStimulus:
@@ -1370,6 +1424,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--lcd-stream', action='store_true', help='native task/IRQ LCD session with concurrent kernel load')
     parser.add_argument('--dpi-framebuffer', action='store_true', help='transfer full native PSRAM framebuffer')
     parser.add_argument('--framebuffer-visual', action='store_true', help='show1000frames with temporary backlight; owner readiness required')
     parser.add_argument('--dpi-bridge', action='store_true', help='prepare bridge and publish update without pixel output/DMA')
@@ -1418,6 +1473,7 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.lcd_stream:args.dpi_framebuffer=True
     if args.framebuffer_visual and not args.dpi_framebuffer:parser.error('visual mode requires framebuffer')
     if args.dpi_framebuffer:
         if any((args.dpi_dma_center,args.dpi_dma_spatial,args.dpi_dma_tile,args.dpi_dma_stage,args.dpi_dma_frame,args.dpi_dma_refresh)):parser.error('framebuffer excludes SRAM diagnostics')
@@ -1573,7 +1629,7 @@ def main():
                 if port.write(b'P') != 1:
                     raise RuntimeError('short MIPI park host-ready write')
                 port.flush()
-            stimulus = FramebufferStimulus(port,args.framebuffer_visual) if args.dpi_framebuffer else Vo3CycleStimulus(port) if args.vo3_cycle else SerialInputStimulus(port) if args.serial_input else None
+            stimulus = FramebufferStimulus(port,args.framebuffer_visual,stream=args.lcd_stream) if args.dpi_framebuffer else Vo3CycleStimulus(port) if args.vo3_cycle else SerialInputStimulus(port) if args.serial_input else None
             deadline = time.monotonic() + args.capture_seconds
             while time.monotonic() < deadline:
                 data = port.read(8192)
@@ -1597,7 +1653,9 @@ def main():
             passed = evaluate_expander(output.replace("\r", ""))
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
-        if args.dpi_framebuffer:
+        if args.lcd_stream:
+            passed = evaluate_lcd_stream(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2
+        elif args.dpi_framebuffer:
             passed = evaluate_dpi_framebuffer(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2 and len(stimulus.holds)==2
         elif args.dpi_dma_spatial:
             passed = evaluate_dpi_spatial(output,center=args.dpi_dma_center) and stimulus.phase == 2 and len(stimulus.holds) == 2
@@ -1661,7 +1719,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Full PSRAM framebuffer transfer/recovery:' if args.dpi_framebuffer else '[HOST] Operational PSRAM clock/window/DMA:' if args.psram_fast else '[HOST] PSRAM source DMA burst bytes:' if args.psram_dma else '[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Native LCD task/IRQ service:' if args.lcd_stream else '[HOST] Full PSRAM framebuffer transfer/recovery:' if args.dpi_framebuffer else '[HOST] Operational PSRAM clock/window/DMA:' if args.psram_fast else '[HOST] PSRAM source DMA burst bytes:' if args.psram_dma else '[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

@@ -1210,3 +1210,24 @@ Next continuous nativeLCD tasks/IRQ/source lifetime/updates/recovery, then touch
 Still boot-exclusive finite diagnostic, not native complete desktop/coldstartup/
 SMP or31point margin acceptance. Full installed firmware remains originalruntime;
 new native code imports none. Keep grouped work/autonomous electronic tests.
+
+## Scheduled native LCD with actual IRQs — 2026-11-16
+
+[Service audit](../audits/native-lcd-stream.md): native owner task, split-phase framebuffer DMA, actual
+DW-GDMA source24 routing to proven-free CLIC18 (17 already enabled, preserved),
+native notification and100tick deadline. Target99frames/99realIRQs/99posts,
+1517timerIRQs,1414heartbeat iterations and CPU-load progress; active-stop request,
+actual drain/source release/exact route restoration, no timeout/spurious/error.
+Hash/guards/9mirrorDMAcopies/restored4KiB/mode/clocks/MMU/fourRDDPM9C PASS.
+Native/strict host PASS; no new visual claim. Image
+f62e30839ff5ac3b7ba7ad63d5f0927fd9c4569701b1414ead30659db00e8c38/87008bytes.
+Host60/60, ASan/UBSan/four rejected mutants/C++98/pinned SDK oracle/runtimegate
+PASS. Two earlier safe init refusals preserved; fixed-line busy condition resolved
+by bounded free-line selection. Recovery `../maia-rtos-recovery/native-lcd-stream-20261116/`.
+Reset shell/SciCalc14/exit0/desktop verified. No flash/SD/parser changes.
+HARDWARE-TESTED, PARTIAL: single warm session/core0/immutable buffer; no native
+complete desktop, image updates/reinitialization/coldboot/SMP/margin acceptance.
+Next grouped unit: safe source publication/reuse and LCD lifecycle, then native
+touch contacts/rotation/service integration. Continue under existing authorization;
+coordinate presence only for actual visual/touch observations. Installed complete
+firmware remains original runtime; new native code imports none.

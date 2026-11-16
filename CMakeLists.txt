@@ -71,6 +71,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_VDMA_COUNT AND (NOT MAIA_NATIVE_PROBE_VDMA_TRANSFER OR MAIA_NATIVE_PROBE_MIPI_PARK))
     message(FATAL_ERROR "VDMA count requires separate SRAM transfer profile")
   endif()
+  option(MAIA_NATIVE_PROBE_LCD_STREAM "Native LCD task with actual DW-GDMA completion IRQ" OFF)
+  if(MAIA_NATIVE_PROBE_LCD_STREAM AND NOT MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER)
+    message(FATAL_ERROR "LCD stream requires framebuffer profile")
+  endif()
   option(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER "Native full PSRAM framebuffer to DSI" OFF)
   if(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER AND (NOT MAIA_NATIVE_PROBE_DPI_BRIDGE OR MAIA_NATIVE_PROBE_DPI_DMA_TILE OR MAIA_NATIVE_PROBE_DPI_DMA_SPATIAL OR MAIA_NATIVE_PROBE_DPI_DMA_CENTER OR MAIA_NATIVE_PROBE_DPI_DMA_STAGE))
     message(FATAL_ERROR "PSRAM framebuffer requires bridge and excludes SRAM diagnostics")
@@ -311,6 +315,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     ${MAIA_PROBE_APP}
   )
+  if(MAIA_NATIVE_PROBE_LCD_STREAM)
+    target_sources(maia_sched_probe.elf PRIVATE services/lcd_output.c soc/espressif/esp32p4/soc_dw_dma_irq.c)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_LCD_STREAM=1 MAIA_DSI_LCD_STREAM=1)
+  endif()
   if(MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER)
     target_sources(maia_sched_probe.elf PRIVATE soc/espressif/esp32p4/soc_psram_snapshot.c
       soc/espressif/esp32p4/soc_psram_mode.c soc/espressif/esp32p4/soc_psram_array.c
@@ -661,6 +669,22 @@ else()
     target_compile_definitions(dsi_dpi_test PRIVATE MAIA_DSI_ACCESS_TEST=1 MAIA_LDO3_TEST=1 MAIA_DSI_SPATIAL_PROBE=1)
     target_compile_options(dsi_dpi_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_test(NAME dsi_dpi_test COMMAND dsi_dpi_test)
+    add_executable(lcd_output_test tests/host/lcd_output_test.c services/lcd_output.c)
+    target_include_directories(lcd_output_test PRIVATE include soc/espressif/esp32p4)
+    target_compile_definitions(lcd_output_test PRIVATE MAIA_LCD_OUTPUT_TEST=1)
+    target_compile_options(lcd_output_test PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME lcd_output_test COMMAND lcd_output_test)
+    add_executable(dw_dma_irq_test tests/host/dw_dma_irq_test.c soc/espressif/esp32p4/soc_dw_dma_irq.c)
+    target_include_directories(dw_dma_irq_test PRIVATE include soc/espressif/esp32p4)
+    target_compile_definitions(dw_dma_irq_test PRIVATE MAIA_PSRAM_TEST=1)
+    target_compile_options(dw_dma_irq_test PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME dw_dma_irq_test COMMAND dw_dma_irq_test)
+    add_executable(dsi_lcd_async_test tests/host/dsi_dpi_test.c soc/espressif/esp32p4/soc_dsi_access.c
+      soc/espressif/esp32p4/soc_ldo3_plan.c soc/espressif/esp32p4/soc_ldo3_snapshot.c)
+    target_include_directories(dsi_lcd_async_test PRIVATE include soc/espressif/esp32p4)
+    target_compile_definitions(dsi_lcd_async_test PRIVATE MAIA_DSI_ACCESS_TEST=1 MAIA_LDO3_TEST=1 MAIA_DSI_SPATIAL_PROBE=1 MAIA_DSI_FRAMEBUFFER_PROBE=1 MAIA_DSI_LCD_STREAM=1)
+    target_compile_options(dsi_lcd_async_test PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME dsi_lcd_async_test COMMAND dsi_lcd_async_test)
     add_executable(dsi_framebuffer_test tests/host/dsi_dpi_test.c soc/espressif/esp32p4/soc_dsi_access.c
       soc/espressif/esp32p4/soc_ldo3_plan.c soc/espressif/esp32p4/soc_ldo3_snapshot.c)
     target_include_directories(dsi_framebuffer_test PRIVATE include soc/espressif/esp32p4)
@@ -912,6 +936,7 @@ else()
 
 
 
+    add_test(NAME lcd_stream_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_stream_capture_test.py)
     add_test(NAME framebuffer_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/framebuffer_capture_test.py)
     add_test(NAME native_probe_result_test
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_result_test.py)

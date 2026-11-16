@@ -1465,3 +1465,32 @@ all errors0/sourcehashE3D71BEF unchanged, guards/memory/mode/clocks/MMU recovere
 Fresh owner readiness then qualitative complete/stable/correct orientation
 confirmed. See [framebuffer audit](../audits/native-framebuffer.md) for exact
 logs, original electronic verifier refusal, source/runtime gates and limits.
+
+## Native DW-GDMA completion interrupt — 2026-11-16
+
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[interrupt sources](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/interrupts.h):
+ETS_DW_GDMA_INTR_SOURCE=24, ETS_MAX_INTR_SOURCE=128. [Core0 matrix](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/interrupt_core0_reg.h)
+GDMA_INT_MAP=500D6060,6bit CPUline;128 map words contiguous. Native single-owner
+policy selects the first free CLIC17..47 after scanning every other producer and confirming
+line disabled/nonpending and DMAidle; restores exact previous route/control.
+CLIC register layout/level/nonvectoredM-mode uses existing verified timer-port
+facts; [soc_caps](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/soc_caps.h)
+provides32 CPUinterrupts. CLIC16 remains the native timer; selection17..47 is native policy, not an SDK allocated handle.
+[DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h):
+globalCFG bit1 INT_EN, channel INTSTATUS_ENABLE0+80 generation versus
+INTSIGNAL_ENABLE0+90 propagation. Native ISR masks propagation before waking
+worker; completion/source release still require actualcount/done/drain guards.
+No SDK IRQ allocator/runtime linked. Task/IRQ/stop target validation is recorded in the native LCD stream audit.
+
+Native async LCD engine/service: start publishes one hardware frame under local
+IRQ exclusion, returns immediately; DW-GDMA ISR masks globalINT_EN bit1, latches
+status predicate and notifies native owner. Worker verifies actual done/raw383FF/
+naturaldisable/FIFOs and qualified recovery before rearm, with IRQs enabled during
+hardware wait. Residual drain uses bounded-deadline1tick sleeps, not a frame-long
+spin. Unknown/unclaimed externalIRQ remains fatal; ownedIRQ uses existing trap
+context and scheduler epilogue without advancing timer ticks. Service uses native
+coalescing notifications plus predicate,100tick frame timeout and32poll error
+cleanup. Source remains immutable/claimed until guarded actual stop/release.
+No heap/printing/cache maintenance in ISR. Single-session warm native service;
+source updates/reinitialization/SMP/margin qualification are separate open gates.

@@ -21,15 +21,43 @@ static int fb_raw(unsigned phase,void *data,unsigned write){
     return result==MAIA_PSRAM_OK&&r.completed==4096U&&r.restored;
 }
 static uint32_t fb_hash(volatile const uint8_t *p,unsigned n){uint32_t h=2166136261U;for(unsigned i=0;i<n;++i)h=(h^p[i])*16777619U;return h;}
+static void fb_finish(uint32_t hash,const maia_psram_snapshot_t *initial){
+    volatile uint8_t *memory=(volatile uint8_t *)(uintptr_t)MAIA_PSRAM_WINDOW_VADDR;
+    maia_psram_snapshot_t before=*initial,after;
+    maia_psram_window_report_t window;maia_psram_clock_report_t clock;maia_psram_mode_switch_report_t mode;
+    uint32_t after_hash=fb_hash(memory+128U,FB_BYTES);unsigned guards=1;
+    for(unsigned i=0;i<MAIA_PSRAM_WINDOW_BYTES;++i)if((i<128U||i>=128U+FB_BYTES)&&memory[i]!=0xA5)guards=0;
+    maia_dsi_framebuffer_report_t again;
+    unsigned duplicate=maia_dsi_framebuffer_probe(1,1,&again)==MAIA_DSI_ACCESS_BUSY;
+    field("DPI_FB_IDLE cfg=",rd(MAIA_ESP32P4_GDMA_BASE+0x10U));field(" channels=",rd(MAIA_ESP32P4_GDMA_BASE+0x18U));field(" dpi=",rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U));field(" mode=",rd(MAIA_ESP32P4_DSI_HOST_BASE+0x34U));field(" hash=",after_hash);field(" guards=",guards);field(" duplicate=",duplicate);maia_console_puts("\n");
+    if(hash!=after_hash||!guards||!duplicate)halt("fb-transfer");
+    if(maia_esp32p4_psram_window_stop(10000,&window)!=MAIA_PSRAM_OK||maia_esp32p4_psram_fast_stop(&clock)!=MAIA_PSRAM_OK)halt("fb-memory-stop");
+    if(!fb_raw(1,fb_saved,1)||!fb_raw(2,fb_readback,0))halt("fb-raw-restore");
+    unsigned restored=0;for(unsigned i=0;i<4096U;++i)if(fb_saved[i]==fb_readback[i])++restored;
+    if(maia_esp32p4_psram_x8_mode(1,10000,&mode)!=MAIA_PSRAM_OK||maia_esp32p4_psram_xtal20_stop(&clock)!=MAIA_PSRAM_OK||maia_esp32p4_psram_snapshot(&after)!=MAIA_PSRAM_OK)halt("fb-clock-restore");
+    unsigned roots=1,words=1;for(unsigned i=0;i<9U;++i)if(before.roots[i]!=after.roots[i])roots=0;
+    for(unsigned i=0;i<27U;++i)if(before.before[i]!=after.before[i])words=0;
+    field("DPI_FB_MEMORY_RESTORE bytes=",restored);field(" roots=",roots);field(" words=",words);field(" mode=",mode.after);field(" axi=",rd(PSRAM_MSPI0+0x3CU));maia_console_puts("\n");
+    if(restored!=4096U||!roots||!words)halt("fb-restore");
+    for(unsigned i=0;i<4U;++i){maia_dsi_read_report_t p;maia_dsi_access_result_t reply=maia_esp32p4_dsi_read_power_mode(10000,&p);
+        field("DPI_FB_REPLY index=",i);field(" result=",(uint32_t)reply);field(" word=",p.word);field(" restored=",p.restore_attempted);field(" error0=",p.transfer.error0);field(" error1=",p.transfer.error1);maia_console_puts("\n");
+        if(reply!=MAIA_DSI_ACCESS_OK||(p.word&0x14U)!=0x14U)halt("fb-reply");}
+}
+#ifdef MAIA_NATIVE_PROBE_LCD_STREAM
+#include "native_lcd_stream_probe.h"
+#endif
 static void dpi_framebuffer(void){
     maia_console_puts("DPI_FB_READY\n");unsigned command=0;
     for(unsigned i=0;i<10000000U;++i){int c=maia_serial_rx_read(NULL);if(c=='E'||c=='V'){command=(unsigned)c;break;}}
     if(!command)halt("fb-host-timeout");
     unsigned visual=command=='V',frames=visual?1000U:4U;
+#ifdef MAIA_NATIVE_PROBE_LCD_STREAM
+    frames=0; /* runtime session stopped by controller, not a frame batch */
+#endif
     maia_psram_cache_report_t cache;maia_psram_result_t result=maia_esp32p4_psram_cache_boot(&cache);
     field("DPI_FB_CACHE result=",(uint32_t)result);field(" stage=",cache.stage);field(" size=",cache.size);field(" line=",cache.line);maia_console_puts("\n");
     if(result!=MAIA_PSRAM_OK)halt("fb-cache");
-    maia_psram_snapshot_t before,after;
+    maia_psram_snapshot_t before;
     if(maia_esp32p4_psram_snapshot(&before)!=MAIA_PSRAM_OK)halt("fb-snapshot");
     maia_psram_clock_report_t clock;
     if(maia_esp32p4_psram_xtal20_start(&clock)!=MAIA_PSRAM_OK)halt("fb-xtal");
@@ -50,28 +78,16 @@ static void dpi_framebuffer(void){
     if(psram_dma(0)!=1)halt("fb-memory-dma");
     dpi_backlight_snapshot_t light={0};
     if(visual&&!dpi_bl_on(rd,wr,&light))halt("fb-light");
+#ifdef MAIA_NATIVE_PROBE_LCD_STREAM
+    lcd_stream_launch(visual,hash,&before,&light);
+#endif
     maia_dsi_framebuffer_report_t r;uint64_t began=maia_soc_time_us();
     maia_dsi_access_result_t transferred=maia_dsi_framebuffer_probe(frames,100000,&r);
     uint32_t elapsed=(uint32_t)(maia_soc_time_us()-began);
     field("DPI_FB_TRANSFER result=",(uint32_t)transferred);field(" stage=",r.stage.completed);field(" frames=",r.refresh.frames_completed);field(" items=",r.refresh.items);field(" rearms=",r.refresh.rearm_writes);field(" polls=",r.refresh.polls);field(" raw=",r.refresh.last.count_raw);field(" done=",r.refresh.last.done);field(" recovered=",r.refresh.last.recovered);field(" released=",r.source_released);field(" status=",r.refresh.last.channel_status);field(" common=",r.refresh.last.common_status);field(" bridge=",r.refresh.last.bridge_status);field(" error0=",r.refresh.last.observation.error0);field(" error1=",r.refresh.last.observation.error1);field(" us=",elapsed);maia_console_puts("\n");
     if(!r.source_released)halt("fb-owned-or-uncertain");
     if(visual&&!dpi_bl_restore(rd,wr,&light))halt("fb-light-restore");
-    uint32_t after_hash=fb_hash(memory+128U,FB_BYTES);unsigned guards=1;
-    for(unsigned i=0;i<MAIA_PSRAM_WINDOW_BYTES;++i)if((i<128U||i>=128U+FB_BYTES)&&memory[i]!=0xA5)guards=0;
-    maia_dsi_framebuffer_report_t again;
-    unsigned duplicate=maia_dsi_framebuffer_probe(1,1,&again)==MAIA_DSI_ACCESS_BUSY;
-    field("DPI_FB_IDLE cfg=",rd(MAIA_ESP32P4_GDMA_BASE+0x10U));field(" channels=",rd(MAIA_ESP32P4_GDMA_BASE+0x18U));field(" dpi=",rd(MAIA_ESP32P4_DSI_BRG_BASE+0x40U));field(" mode=",rd(MAIA_ESP32P4_DSI_HOST_BASE+0x34U));field(" hash=",after_hash);field(" guards=",guards);field(" duplicate=",duplicate);maia_console_puts("\n");
-    if(transferred!=MAIA_DSI_ACCESS_OK||hash!=after_hash||!guards||!duplicate)halt("fb-transfer");
-    if(maia_esp32p4_psram_window_stop(10000,&window)!=MAIA_PSRAM_OK||maia_esp32p4_psram_fast_stop(&clock)!=MAIA_PSRAM_OK)halt("fb-memory-stop");
-    if(!fb_raw(1,fb_saved,1)||!fb_raw(2,fb_readback,0))halt("fb-raw-restore");
-    unsigned restored=0;for(unsigned i=0;i<4096U;++i)if(fb_saved[i]==fb_readback[i])++restored;
-    if(maia_esp32p4_psram_x8_mode(1,10000,&mode)!=MAIA_PSRAM_OK||maia_esp32p4_psram_xtal20_stop(&clock)!=MAIA_PSRAM_OK||maia_esp32p4_psram_snapshot(&after)!=MAIA_PSRAM_OK)halt("fb-clock-restore");
-    unsigned roots=1,words=1;for(unsigned i=0;i<9U;++i)if(before.roots[i]!=after.roots[i])roots=0;
-    for(unsigned i=0;i<27U;++i)if(before.before[i]!=after.before[i])words=0;
-    field("DPI_FB_MEMORY_RESTORE bytes=",restored);field(" roots=",roots);field(" words=",words);field(" mode=",mode.after);field(" axi=",rd(PSRAM_MSPI0+0x3CU));maia_console_puts("\n");
-    if(restored!=4096U||!roots||!words)halt("fb-restore");
-    for(unsigned i=0;i<4U;++i){maia_dsi_read_report_t p;maia_dsi_access_result_t reply=maia_esp32p4_dsi_read_power_mode(10000,&p);
-        field("DPI_FB_REPLY index=",i);field(" result=",(uint32_t)reply);field(" word=",p.word);field(" restored=",p.restore_attempted);field(" error0=",p.transfer.error0);field(" error1=",p.transfer.error1);maia_console_puts("\n");
-        if(reply!=MAIA_DSI_ACCESS_OK||(p.word&0x14U)!=0x14U)halt("fb-reply");}
+    if(transferred!=MAIA_DSI_ACCESS_OK)halt("fb-transfer-result");
+    fb_finish(hash,&before);
     maia_console_puts("MAIA_NATIVE_DPI_FRAMEBUFFER_PASS\n");
 }
