@@ -87,3 +87,7 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [input lifecycle/startup dependency inventory](../audits/native-input-lifecycle.md),
 [native MPLL startup](../audits/native-mpll-initialize.md),
 [native PSRAM mode programming](../audits/native-psram-profile.md).
+
+Native VO2 configuration/adoption checkpoint: [supply audit](../audits/native-psram-supply.md).
+Powered-supply pipeline passes; disabled-supply programming remains HOST-only.
+This does not close cold supply/device startup or native desktop acceptance.

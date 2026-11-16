@@ -597,6 +597,13 @@ def dpi_dma_tile_hashes(source,base):
     return fnv(pixels),fnv(b''.join(descriptors))
 
 
+def evaluate_psram_supply(output):
+    if not evaluate_psram_profile(output):return False
+    rows=re.findall(r'^PSRAM_SUPPLY result=([0-9a-f]{8}) stage=([0-9a-f]{8}) adopted=([0-9a-f]{8}) writes=([0-9a-f]{8}) dref=([0-9a-f]{8}) mul=([0-9a-f]{8}) before0=([0-9a-f]{8}) after0=([0-9a-f]{8}) before1=([0-9a-f]{8}) after1=([0-9a-f]{8})$',output.replace('\r',''),re.M)
+    if len(rows)!=1 or sum(l.startswith('PSRAM_SUPPLY ') for l in output.replace('\r','').splitlines())!=1:return False
+    result,stage,adopted,writes,d,m,c0,c1,a0,a1=map(lambda v:int(v,16),rows[0])
+    return (result,stage,adopted,writes)==(0,4,1,0) and 0<d<16 and 0<m<8 and c0==c1 and a0==a1 and c1&0x4F80==0x180 and a1>>28==d and (a1>>23)&7==m and bool(a1&0x4000000)
+
 def evaluate_psram_profile(output):
     if not evaluate_mpll_initialize(output):return False
     rows=re.findall(r'^PSRAM_PROFILE phase=([0-9a-f]{8}) result=([0-9a-f]{8}) stage=([0-9a-f]{8}) attempts=([0-9a-f]{8}) polls=([0-9a-f]{8}) restored=([0-9a-f]{8}) before0=([0-9a-f]{8}) after0=([0-9a-f]{8}) before4=([0-9a-f]{8}) after4=([0-9a-f]{8}) before8=([0-9a-f]{8}) after8=([0-9a-f]{8})$',output.replace('\r',''),re.M)
@@ -1481,6 +1488,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--psram-supply', action='store_true', help='verify native calibrated VO2 adoption (no supply power cycle) and full pipeline')
     parser.add_argument('--psram-profile', action='store_true', help='verify native PSRAM mode programming/restoration before full-frame qualification')
     parser.add_argument('--mpll-initialize', action='store_true', help='verify native powered400MHz MPLL programming and calibration')
     parser.add_argument('--input-lifecycle', action='store_true', help='three native touch/bus stop/restart cycles with LCD active')
@@ -1535,6 +1543,7 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.psram_supply:args.psram_profile=True
     if args.psram_profile:args.mpll_initialize=True
     if args.mpll_initialize:args.input_lifecycle=True
     if args.input_lifecycle:
@@ -1731,6 +1740,7 @@ def main():
                 passed=passed and rows==['TOUCH_LIFECYCLE cycles=00000003 stops=00000004 restarts=00000003 stopped=00000001 closed=00000001 refused=00000003 sequence=00000003 bus_refused=00000003']
             if args.mpll_initialize:passed=passed and evaluate_mpll_initialize(output)
             if args.psram_profile:passed=passed and evaluate_psram_profile(output)
+            if args.psram_supply:passed=passed and evaluate_psram_supply(output)
 
         elif args.dpi_framebuffer:
             passed = evaluate_dpi_framebuffer(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2 and len(stimulus.holds)==2

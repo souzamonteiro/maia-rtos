@@ -1359,3 +1359,24 @@ parser changes, no new visual claim. HARDWARE-TESTED LIMITED powered mode setup;
 actual differing-default startup HOST-only. Next native LDO2 supply/reset/power-on
 entry, then exercise mode initialization against actual defaults. Keep private
 warm guards/fallback; no cold/full32MiB/margins/SMP/native desktop acceptance yet.
+
+## Native PSRAM VO2 supply configuration — 2026-11-16
+
+[Supply audit](../audits/native-psram-supply.md): native fixed1900mV/eFuse configuration,
+strict no-write adoption or gated-consumer disabled-supply programming, unrelated
+fields preserved, checked writes and sticky failure. Apache2 vendor adaptation;
+no foreign runtime/headers. Actual powered Tab5 adoption result0/stage4/trim7/5/
+writes0/control40200180/analog76800000 unchanged. Native MPLL cal400,mode profile,
+PSRAM200/fullimage/guards/9x4KiBDMA/102LCDframes/threeinputcycles/errors0 pass;
+295polls/301bus calls/1569timerIRQs. Saved4KiB/modes/clocks/MMU/IRQ routes and
+panel replies restored; shell/SciCalc14/exit0/desktop verified after RAM reset.
+Image119322f50a2443dfcadabc0fdc2e2e36c078683c6565f27c01ffbdd715db1138/100304bytes.
+Host70/70, actual supply ASan+UBSan/five non-equivalent mutants rejected/original
+PMU-eFuse field oracle/C++98/source pins/native runtime gate PASS. Initial harness
+redundant-mutant expectation failure preserved; whole-snapshot check still caught
+the omitted immediate readback. Recovery `../maia-rtos-recovery/native-psram-supply-20261116/`.
+No flash/SD/parser changes. HARDWARE-TESTED LIMITED powered adoption; off-supply
+programming HOST-only, no rail measurement/discharge/settling/device default/cold
+claim. Next grouped work: primary documented supply/device power-on timing and
+native PSRAM+MPLL consumer sequencing, then physical different/default-mode entry.
+Keep warm guards/fallback; full32MiB/margins/SMP/native desktop still open.

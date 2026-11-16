@@ -71,6 +71,12 @@ static void dpi_framebuffer(void){
     maia_psram_cache_report_t cache;maia_psram_result_t result=maia_esp32p4_psram_cache_boot(&cache);
     field("DPI_FB_CACHE result=",(uint32_t)result);field(" stage=",cache.stage);field(" size=",cache.size);field(" line=",cache.line);maia_console_puts("\n");
     if(result!=MAIA_PSRAM_OK)halt("fb-cache");
+#ifdef MAIA_NATIVE_PROBE_PSRAM_SUPPLY
+    maia_psram_supply_report_t supply;maia_psram_result_t supplied=maia_esp32p4_psram_supply1900(&supply);
+    field("PSRAM_SUPPLY result=",(uint32_t)supplied);field(" stage=",supply.stage);field(" adopted=",supply.adopted);field(" writes=",supply.writes);field(" dref=",supply.dref);field(" mul=",supply.mul);
+    for(unsigned i=0;i<2U;++i){field(i?" before1=":" before0=",supply.before[i]);field(i?" after1=":" after0=",supply.after[i]);}
+    maia_console_puts("\n");if(supplied!=MAIA_PSRAM_OK||!supply.adopted||supply.writes)halt("fb-supply");
+#endif
     maia_psram_snapshot_t before;
     if(maia_esp32p4_psram_snapshot(&before)!=MAIA_PSRAM_OK)halt("fb-snapshot");
     maia_psram_clock_report_t clock;

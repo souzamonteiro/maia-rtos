@@ -13,6 +13,23 @@ typedef enum maia_psram_result {
     MAIA_PSRAM_GATED=-3,MAIA_PSRAM_CHANGED=-4,MAIA_PSRAM_BUSY=-5,
     MAIA_PSRAM_FAILED=-6,MAIA_PSRAM_VERIFY=-7,MAIA_PSRAM_TIMEOUT=-8,MAIA_PSRAM_IO=-9
 } maia_psram_result_t;
+typedef struct maia_psram_supply_report {
+    uint32_t stage,dref,mul,adopted,writes,before[2],after[2];
+} maia_psram_supply_report_t;
+/* Boot/core0/IRQs-off, CPU1 parked, code/data internal SRAM, exclusive VO2 and
+ * all PSRAM/MPLL consumers. Boot-lifetime ownership; call before clock claims.
+ * Requires rev1.3/schema1+ and nonzero dedicated1900mV eFuse pair with no RS
+ * failure. Adopts only matching enabled SW-owned/non-bypass/ripple-suppressed
+ * supply, without writes. For disabled supply requires PSRAM core+PLL gates,
+ * MPLL circuit and output clock off, then configures trim/owner/ripple/enable.
+ * Preserves other fields. OK means digital programming/readback, NOT measured
+ * voltage, stabilization, discharge, device power-on/reset or memory readiness.
+ * Caller must qualify electrical/device startup before enabling consumers.
+ * No power-off/release/voltage-adjust API. INVALID/CONTEXT/prior FAILED/duplicate
+ * refuse without MMIO. Pre-store conflict/change refuses; any store failure
+ * sticky until reset with no blind rollback. Fixed bounded work, no waits/heap.
+ * Not thread/ISR/SMP-safe; report contains observations, not an ownership key. */
+maia_psram_result_t maia_esp32p4_psram_supply1900(maia_psram_supply_report_t *);
 typedef struct maia_psram_snapshot {
     uint32_t roots[MAIA_PSRAM_ROOT_WORDS],roots_after[MAIA_PSRAM_ROOT_WORDS];
     uint32_t before[MAIA_PSRAM_CONTROLLER_WORDS],after[MAIA_PSRAM_CONTROLLER_WORDS];

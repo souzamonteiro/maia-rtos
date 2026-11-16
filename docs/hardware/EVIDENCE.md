@@ -1608,3 +1608,24 @@ The oracle compiles the exact pinned vendor struct and confirms30/20/4B/0B.
 pass on this powered AP32MiB/X16 entry; initial fields already match the target,
 so differing/default-field startup remains host-only evidence. Supply/reset/cold
 entry is not inferred from same-value device readback. No SDK runtime/header.
+
+## Native PSRAM VO2 configuration — 2026-11-16
+
+Primary ESP-IDF revision f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0, Apache-2.0:
+[Kconfig.ldo](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/port/esp32p4/Kconfig.ldo)
+reserves channel2/1900mV for PSRAM **and MPLL**. This supply must not be treated
+as a PSRAM-only reset line. [ldo_ll.h, voltage/owner/enable/ripple helpers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/ldo_ll.h#L70)
+maps channel2 (unit1) to PMU.ext_ldo[3]; uses dedicated nonzero VO2 DREF/MUL
+eFuse calibration for1900mV. Native implementation refuses absent calibration
+instead of importing the SDK nominal-coefficient fallback. The SDK acquisition
+[sequence](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/ldo/esp_ldo_regulator.c)
+programs voltage, owner, ripple suppression and enable. No runtime/locks imported.
+[PMU register layout](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/pmu_struct.h#L700)
+places VO2 control/analog at PMU+1D0/+1D4: force7/XPD8/source11:9/bypass14;
+analog MUL25:23/VDET26/DREF31:28. Masks4F80/F7800000 preserve all other fields.
+[eFuse layout](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/efuse_struct.h#L618)
+has VO2 DREF MAC_SYS2[31:28], MUL MAC_SYS3[5:3]. Existing rev1.3/schema/RS guard
+retained. Off-supply configuration requires both PSRAM core/PLL gates off and
+MPLL circuit/output off using previously pinned clock/power facts above. Digital
+readback does not establish voltage/discharge/settling or device reset/defaults.
+No power-off primitive or guessed time delay is introduced by this port.

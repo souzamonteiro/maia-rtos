@@ -395,3 +395,11 @@ recovery pass alongside PSRAM200MHz/data/DMA/LCD. [Mode audit](../audits/native-
 Physical entry was already the target profile; alternative/default fields only
 host-tested. Native LDO2/supply/reset/power-on defaults remain unqualified before
 claiming cold initialization; do not infer successful cold entry from readback.
+
+VO2 checkpoint2026-11-16: [native calibrated supply configuration](../audits/native-psram-supply.md)
+implements strict powered adoption and disabled-supply programming. Adoption and
+downstream pipeline pass on Tab5; off-supply path is HOST-TESTED only. Before
+any physical VO2 cycle, establish discharge/settling/device reset/power-on timing
+from primary PSRAM/SoC documents and coordinate MPLL plus PSRAM consumer gates.
+Digital XPD readback is not rail-off/ready evidence. No guessed delays, nominal
+trim fallback, supply-off API or cold completion claim introduced.
