@@ -1097,3 +1097,26 @@ writes. Recovery `../maia-rtos-recovery/native-psram-clock-20261115/`. No physic
 frequency/voltage/clock-edge measurement or cold-init/array/MMU/framebuffer
 claim. Next native VO2/mode setup and reserved array test, then cache/full LCD.
 Touch events/runtime bus ownership still pending; installed full desktop original.
+
+## Ported PSRAM mode + actual array data verified — 2026-11-15
+
+[Array audit](../audits/native-psram-array.md) groups native port of SDKf5c3654 DQS FIFO read/write algorithm
+(Apache-2.0), checked mode switch, data patterns and exact data/mode/clock restore.
+Boot/core0/IRQs-off/all internal buffers/exclusive PSRAM. Initial raw-X16 offsets
+failed random data2060/4096; samples0..127 match expected1024..1151. Primary AP
+Memory rev1.2 p11 CA10 ignored/X16 word addresses explains alias. No guessed
+address remap. Adapt SDK8-line mode: exactMR8 4B->0B readback, byte aperture with
+privateclaim, then checked0B->4B. Raw X16 byte transfers are now refused.
+Final one RAM upload SHA830fd7d2a29e102a7a2a522aa9ad340851b4ecddf94f74a5e8288f15d56d32a3,
+18320bytes/entry4FF00100. Eleven4KiB transfers/704chunks/45056bytes, four exact
+patterns4096/4096 (76EFDDC5/34E76DC5/0F3A4DC5/E4B8E234), saved bytes hashD3D6E224
+restored/all4096matched/guards kept. Mode andD00C/30103/30103 clocks restored,
+nine roots/27 words equal original; runnerPASS, oldcapturesFAIL retained. Host50/50,
+ASan+UBSan/C++98/six runtime mutants/invalid profile/SDK oraclePASS. Reset shell/
+SciCalc14/desktopPASS; original hashes/no flash/SD/parser writes. Recovery
+`../maia-rtos-recovery/native-psram-array-20261115/`, two refusal sibling dirs.
+No cold startup/ordinary mapped PSRAM/full capacity/full framebuffer/continuous
+LCD or touch claim. Next adapt controller AXI/cache/MMU startup/mapping, then
+framebuffer. Owner requests grouping functional deliveries/autonomous electronic
+tests, existing licensed driver reuse; AGENTS and four-gate delivery plan updated.
+Installed complete desktop remains original runtime; native port imports none.

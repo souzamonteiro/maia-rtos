@@ -818,7 +818,7 @@ def evaluate_dpi_pattern(output):
             positions[6]<lines.index('DPI_PATTERN_LIGHT_RESTORE verified=00000001')<positions[7] and positions[-1]<lines.index('MAIA_NATIVE_DPI_PATTERN_PASS'))
 
 
-def evaluate_psram_state(output,allow_identity=False,allow_clock=False):
+def evaluate_psram_state(output,allow_identity=False,allow_clock=False,allow_array=False):
     clean=output.replace('\r','');lines=clean.splitlines()
     if 'FAIL' in clean or 'FATAL' in clean or lines.count('MAIA_NATIVE_PSRAM_STATE_OBSERVED')!=1:return False
     def rows(prefix,keys):
@@ -839,13 +839,14 @@ def evaluate_psram_state(output,allow_identity=False,allow_clock=False):
     allowed={'PSRAM_STATE','PSRAM_ROOT','PSRAM_WORD'}
     extra={'PSRAM_ID','PSRAM_ID_WORD','PSRAM_ID_RESTORE'} if allow_identity else set()
     if allow_clock:extra|={'PSRAM_CLOCK','PSRAM_CLOCK_WORD','PSRAM_CLOCK_FINAL'}
+    if allow_array:extra|={'PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_PATTERN','PSRAM_ARRAY_RESTORE','PSRAM_ARRAY_MODE'}
     if any(l.startswith('PSRAM_') and l.split()[0] not in allowed|extra for l in lines):return False
     positions=[i for i,l in enumerate(lines) if l.split() and l.split()[0] in allowed]
     return ([lines[i].split()[0] for i in positions]==['PSRAM_STATE']+['PSRAM_ROOT']*9+['PSRAM_WORD']*len(words) and positions[-1]<lines.index('MAIA_NATIVE_PSRAM_STATE_OBSERVED'))
 
 
-def evaluate_psram_identity(output,allow_clock=False):
-    if not evaluate_psram_state(output,allow_identity=True,allow_clock=allow_clock):return False
+def evaluate_psram_identity(output,allow_clock=False,allow_array=False):
+    if not evaluate_psram_state(output,allow_identity=True,allow_clock=allow_clock,allow_array=allow_array):return False
     if 'PSRAM_STATE result=00000000 roots_valid=00000001 samples=00000036' not in output:return False
     clean=output.replace('\r','');lines=clean.splitlines()
     def rows(prefix,keys,n):
@@ -875,8 +876,8 @@ def evaluate_psram_identity(output,allow_clock=False):
             lines.index('MAIA_NATIVE_PSRAM_STATE_OBSERVED')<pos[0] and pos[-1]<lines.index('MAIA_NATIVE_PSRAM_ID_PASS'))
 
 
-def evaluate_psram_clock(output):
-    if not evaluate_psram_identity(output,allow_clock=True):return False
+def evaluate_psram_clock(output,allow_array=False):
+    if not evaluate_psram_identity(output,allow_clock=True,allow_array=allow_array):return False
     lines=output.replace('\r','').splitlines()
     if lines.count('MAIA_NATIVE_PSRAM_CLOCK_HOST_READY')!=1:return False
     def rows(prefix,keys,n):
@@ -912,6 +913,41 @@ def evaluate_psram_clock(output):
     return (lines.index('MAIA_NATIVE_PSRAM_CLOCK_HOST_READY')<next(i for i,l in enumerate(lines) if l.startswith('PSRAM_STATE ')) and
             lines.index('MAIA_NATIVE_PSRAM_STATE_OBSERVED')<positions['PSRAM_CLOCK phase=00000000']<positions['PSRAM_ID index=00000000'] and
             lines.index('MAIA_NATIVE_PSRAM_ID_PASS')<positions['PSRAM_CLOCK phase=00000001']<positions['PSRAM_CLOCK_FINAL']<lines.index('MAIA_NATIVE_PSRAM_CLOCK_PASS'))
+
+
+def evaluate_psram_array(output):
+    if not evaluate_psram_clock(output,allow_array=True):return False
+    lines=output.replace('\r','').splitlines()
+    if lines.count('MAIA_NATIVE_PSRAM_ARRAY_PASS')!=1:return False
+    def rows(prefix,keys,n):
+        selected=[l for l in lines if l.startswith(prefix+' ')]
+        parsed=[re.fullmatch(prefix+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),l) for l in selected]
+        if len(parsed)!=n or any(r is None for r in parsed):return None
+        return [dict(zip(keys,(int(v,16) for v in r.groups()))) for r in parsed]
+    modes=rows('PSRAM_ARRAY_MODE','phase result stage before after'.split(),2)
+    transfers=rows('PSRAM_ARRAY_TRANSFER','index write result completed chunks polls command restored attempted'.split(),11)
+    patterns=rows('PSRAM_ARRAY_PATTERN','index matched expected actual'.split(),4)
+    restore=rows('PSRAM_ARRAY_RESTORE','matched before after guards'.split(),1)
+    if any(r is None for r in (modes,transfers,patterns,restore)):return False
+    if modes!=[dict(phase=0,result=0,stage=3,before=0x4b,after=0x0b),dict(phase=1,result=0,stage=3,before=0x0b,after=0x4b)]:return False
+    for i,t in enumerate(transfers):
+        write=int(i%2==1)
+        if not(t['index']==i and t['write']==write and t['result']==0 and t['completed']==4096 and t['chunks']==64 and
+               64<=t['polls']<=640000 and t['command']==0 and t['restored']==1 and t['attempted']==write):return False
+    for i,p in enumerate(patterns):
+        h=2166136261;state=0x783a1b25
+        for j in range(4096):
+            state=(state*1664525+1013904223)&0xffffffff
+            b=0 if i==0 else 255 if i==1 else (0x55 if j&1 else 0xaa) if i==2 else state>>24
+            h=((h^b)*16777619)&0xffffffff
+        if p!=dict(index=i,matched=4096,expected=h,actual=h):return False
+    r=restore[0]
+    if r['matched']!=4096 or r['before']!=r['after'] or r['guards']!=1:return False
+    names=[l.split()[0] for l in lines if l.startswith(('PSRAM_ARRAY_TRANSFER ','PSRAM_ARRAY_PATTERN ','PSRAM_ARRAY_RESTORE ','PSRAM_ARRAY_MODE '))]
+    if names!=['PSRAM_ARRAY_MODE','PSRAM_ARRAY_TRANSFER']+['PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_PATTERN']*4+['PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_TRANSFER','PSRAM_ARRAY_RESTORE','PSRAM_ARRAY_MODE']:return False
+    positions=[j for j,l in enumerate(lines) if l.startswith('PSRAM_ARRAY_')]
+    return (lines.index('MAIA_NATIVE_PSRAM_ID_PASS')<positions[0] and positions[-1]<lines.index('MAIA_NATIVE_PSRAM_ARRAY_PASS')<
+            next(j for j,l in enumerate(lines) if l.startswith('PSRAM_CLOCK phase=00000001')))
 
 
 def evaluate_vdma_list(output):
@@ -1153,6 +1189,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--psram-array', action='store_true', help='port HEX training array transfers and verify content restore')
     parser.add_argument('--psram-clock', action='store_true', help='qualify native XTAL20 PSRAM clock and restore')
     parser.add_argument('--psram-id', action='store_true', help='read/restore inherited HEX mode-register identity')
     parser.add_argument('--psram-state', action='store_true', help='observe PSRAM controllers without array/clock/MMU writes')
@@ -1298,11 +1335,12 @@ def main():
     if args.serial_input and args.expect_fatal_cause is not None:
         parser.error('serial input workload cannot be combined with a fatal profile')
 
+    if args.psram_array:args.psram_clock=True
     if args.psram_clock:args.psram_id=True
     if args.psram_id:args.psram_state=True
     if args.psram_state:
         for name,value in vars(args).items():
-            if name not in ('psram_state','psram_id','psram_clock') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
+            if name not in ('psram_state','psram_id','psram_clock','psram_array') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
         if args.expect_fatal_cause is not None:parser.error('PSRAM state excludes fatal profile')
 
     import esptool
@@ -1430,7 +1468,7 @@ def main():
         elif args.mipi_state:
             passed = evaluate_mipi(output)
         if args.psram_state:
-            passed = evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
+            passed = evaluate_psram_array(output) if args.psram_array else evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
         if args.ldo3_acquire:
@@ -1441,7 +1479,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

@@ -1220,3 +1220,45 @@ pair matching analog DREF/MUL and qualified rev1.3/eFuse schema/error checks.
 No VO2 programming, voltage measurement, cold power-up, PSRAM mode writes or
 array/MMU/cache readiness are inferred. Source/mask oracle is host-only;
 native build imports no vendor headers or runtime.
+
+## Ported HEX PSRAM training-array transfers — 2026-11-15
+
+Primary implementation [ESP-IDF mspi_timing_by_dqs.c](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/mspi_timing_by_dqs.c),
+pinned f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0, Apache-2.0,
+`mspi_timing_config_psram_write_data/read_data`: split into <=64byte FIFO chunks,
+byte offset advances by chunk size; SYNC_WRITE8080 / SYNC_READ0000, command16 /
+address32.200M configured device profile uses read26/write12 dummy bits. Source
+[HEX implementation](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c)
+mode fields fix MR0 lt1/readlatency4/drive0, MR4 write latency1, MR8 X16/burst2048.
+[Controller LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h)
+common_transaction selects OPI_DTR/CS1 on command port3. Adaptation retains that
+algorithm/protocol and replaces SDK/ROM command engine with bounded native code.
+[spi1_mem_s_reg.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/spi1_mem_s_reg.h)
+USER MOSIbit27/MISObit28, MOSI_DLEN+24/MISO_DLEN+28 bits[9:0] length-minus1,
+W0..W15+58..94 plainR/W FIFO. Host SDK oracle checks these facts; target imports
+no SDK headers. No claim of a PSRAM device ACK from an idle command alone;
+independent patterns/readback must establish actual data transfer. First4096
+physical bytes are an explicit boot-exclusive training reservation, not an
+inherited SDK heap allocation or assumed CPU virtual address. Warm powered modes,
+DQS/DLL and nominal20MHz clock profile remain preconditions, not cold-init proof.
+
+Correction during actual array testing: raw byte-valued command addresses while
+MR8=4B (X16) alias CA10. Two refused images/captures retained. Samples show
+read0..127 equals expected1024..1151, not random signal corruption. The small SDK
+DQS-training algorithm is not a general linear-byte allocator for inheritedX16.
+Primary [AP Memory APS256XXN-OBx9 datasheet](https://www.apmemory.com/en/downloadFiles/0325021716tb786912),
+rev1.2 Jan3,2025, PDF p11 §§7.1–7.4/table: X8 byte vs X16 word addressing,
+CA10 ignored in X16; p16 §7.7 Figures12/13: mode reads/writes use DQ7..0 even inX16,
+MR8 is8bits and write latency1 independent of MR4; p21 Table19: MR8bit6 selects
+X8/X16 and switching after power-up is supported. PDF downloaded from primary URL,
+text extracted and pages11/16/21 rendered/visually inspected with macOS PDFKit
+(Poppler absent). This is a protocol-family reference, not identification of exact
+package part number. Native adaptation follows SDK CONFIG_SPIRAM_USE_8LINE_MODE:
+claim exactMR8=4B, write0B via C0C0/address8/one-byte data/no dummy, verify readback,
+then byte-addressed training only with private X8 claim/profile0B. Restore4B by
+checked write/readback before restoring clock. No guessed address transformation,
+reset opcode, clock delay, or adjacent-byte reads beyond the one-byte mode value.
+Initial raw-offset tests do not prove a contiguous4KiB physical aperture or saved
+contents restoration; they failed before restore and were reset. All PSRAM was
+boot-exclusive, no live external-memory clients/flash/SD writes. Successful X8
+mode+data+restore acceptance must come from subsequent actual device capture.

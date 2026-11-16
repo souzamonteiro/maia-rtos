@@ -818,3 +818,26 @@ for a,b in [('after=0000c00c','after=0000d00c'),('attempts=0000001f','attempts=0
     assert not runner.evaluate_psram_clock(clock_capture.replace(a,b)),(a,b)
 assert not runner.evaluate_psram_clock(clock_capture+clock_capture)
 assert not runner.evaluate_psram_clock(clock_capture.replace('MAIA_NATIVE_PSRAM_CLOCK_HOST_READY\n',''))
+
+array_records='PSRAM_ARRAY_MODE phase=00000000 result=00000000 stage=00000003 before=0000004b after=0000000b\n'
+for i in range(11):
+    w=i%2
+    array_records+=f'PSRAM_ARRAY_TRANSFER index={i:08x} write={w:08x} result=00000000 completed=00001000 chunks=00000040 polls=00000080 command=00000000 restored=00000001 attempted={w:08x}\n'
+    if i in (2,4,6,8):
+        p=i//2-1;state=0x783a1b25;h=2166136261
+        for j in range(4096):
+            state=(state*1664525+1013904223)&0xffffffff
+            b=0 if p==0 else 255 if p==1 else (0x55 if j&1 else 0xaa) if p==2 else state>>24
+            h=((h^b)*16777619)&0xffffffff
+        array_records+=f'PSRAM_ARRAY_PATTERN index={p:08x} matched=00001000 expected={h:08x} actual={h:08x}\n'
+array_records+='PSRAM_ARRAY_RESTORE matched=00001000 before=12345678 after=12345678 guards=00000001\nPSRAM_ARRAY_MODE phase=00000001 result=00000000 stage=00000003 before=0000000b after=0000004b\nMAIA_NATIVE_PSRAM_ARRAY_PASS\n'
+array_capture=clock_capture.replace('PSRAM_CLOCK phase=00000001',array_records+'PSRAM_CLOCK phase=00000001')
+assert runner.evaluate_psram_array(array_capture)
+assert not runner.evaluate_psram_clock(array_capture)
+assert not runner.evaluate_psram_array(clock_capture)
+for a,b in [('completed=00001000','completed=00000040'),('chunks=00000040','chunks=0000003f'),('matched=00001000','matched=00000fff'),('guards=00000001','guards=00000000'),('before=12345678 after=12345678','before=12345678 after=12345679'),('PSRAM_ARRAY_TRANSFER index=00000001 write=00000001','PSRAM_ARRAY_TRANSFER index=00000001 write=00000000')]:
+    assert a in array_capture
+    assert not runner.evaluate_psram_array(array_capture.replace(a,b)),(a,b)
+assert not runner.evaluate_psram_array(array_capture+array_capture)
+
+assert not runner.evaluate_psram_array(array_capture.replace("before=0000004b after=0000000b","before=0000004b after=0000004b"))

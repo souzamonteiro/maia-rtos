@@ -68,6 +68,36 @@ typedef struct maia_psram_clock_report {
  * No cold-init, array/coherency or continuous-display capability is established. */
 maia_psram_result_t maia_esp32p4_psram_xtal20_start(maia_psram_clock_report_t *);
 maia_psram_result_t maia_esp32p4_psram_xtal20_stop(maia_psram_clock_report_t *);
+typedef struct maia_psram_transfer_report {
+    uint32_t completed,chunks,polls,command,restored,write_attempted;
+} maia_psram_transfer_report_t;
+typedef struct maia_psram_mode_switch_report {uint32_t before,after,stage;} maia_psram_mode_switch_report_t;
+/* Same boot-exclusive context as clock/array APIs; no clients across switch.
+ * restore0 claims exact MR8=4B and writes0B (X8) via C0C0/address8/one-byte data,
+ * no dummy, preserving other mode registers. restore1 requires private claim and
+ * exact0B then writes4B. Both verify device readback and restore command/FIFO.
+ * Invalid/context/duplicate/no-claim/prior FAILED do no MMIO. Any attempted
+ * programming failure sticky until reboot. Successful stop releases claim.
+ * No array/clock/cache/MMU changes; no arbitrary mode writer/reset is exposed. */
+maia_psram_result_t maia_esp32p4_psram_x8_mode(unsigned restore,uint32_t budget,maia_psram_mode_switch_report_t *);
+/* Boot-only reserved training aperture: physical bytes[0,4096), not a CPU
+ * mapping/allocation API. Caller owns whole PSRAM exclusively, executes with
+ * core0/IRQs off/internal SRAM; data/report disjoint and internal SRAM too.
+ * Requires successful xtal20_start/x8_mode(0), qualified200M latency profile.
+ * offset/length multiples4, length1..4096, read/write exactly0/1, budget1..100000
+ * per64-byte command. INVALID/CONTEXT/prior FAILED do no MMIO. Bounded native
+ * port of SDK DQS training read/write chunk algorithm; no ROM SPI helpers.
+ * No flash/device-mode/clock/voltage/cache/MMU writes. Temporary command/FIFO
+ * state restored after each successful chunk before committing read bytes.
+ * Completed counts committed read or issued/idle write bytes, NOT device ACK.
+ * Writes need independent readback. Partial transfer/error may already have
+ * modified array; no rollback/retry after uncertain transfer. Failure sticky
+ * until reboot after claim. Read buffers may contain completed prefix on error.
+ * Training aperture must stay reserved from all clients until startup finishes;
+ * caller saves/restores original contents if preservation is required.
+ * This does not establish cold initialization, mapping or framebuffer bandwidth. */
+maia_psram_result_t maia_esp32p4_psram_boot_transfer(uint32_t offset,void *data,
+    uint32_t length,unsigned write,uint32_t budget,maia_psram_transfer_report_t *);
 #ifdef __cplusplus
 }
 #endif

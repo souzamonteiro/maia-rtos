@@ -11,6 +11,9 @@ static void field(const char *k,uint32_t n){char b[9];const char *d="0123456789a
 #include "native_psram_identity.h"
 #endif
 #ifdef MAIA_NATIVE_PROBE_PSRAM_CLOCK
+#ifdef MAIA_NATIVE_PROBE_PSRAM_ARRAY
+#include "native_psram_array.h"
+#endif
 #include "native_psram_clock.h"
 #endif
 void maia_boot_main(void){

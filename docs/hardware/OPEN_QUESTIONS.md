@@ -349,3 +349,16 @@ matching is not voltage measurement; no independent clock-edge/settling/bandwidt
 measurement.20MHz diagnostic does not qualify full framebuffer throughput.
 Cold power-up delay/reset protocol and missing-calibration fallback still require
 primary evidence. Preserve known modes; do not invent reset opcodes or delays.
+
+### Ported PSRAM data path: X8 succeeds; X16 raw-byte assumption refused — 2026-11-15
+
+[Array audit](../audits/native-psram-array.md): native port of SDK64-byte chunk
+algorithm passes four patterns across reserved4KiB after checked MR8 X8 switch;
+original data/MR8 X16/clocks restored. InitialX16 raw byte-valued wire addresses
+alias CA10, so old warm identity/clock success did not establish array addressing.
+AP Memory rev1.2 p11 documents X16 word addressing and ignoredCA10; p16/p21 mode
+access/switch protocol. Exact internal package PN not established by that family
+reference. Do not use unqualified raw X16 offsets as linear byte addresses or
+infer X16 upper-lane coverage. Need native power/startup, controller AXI/cache/
+MMU, full memory capacity, high-speed/DQS and continuous framebuffer bandwidth.
+No cold boot, mapped PSRAM capability/allocator or full-frame acceptance yet.

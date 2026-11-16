@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-15",
+  "image_sha256": "830fd7d2a29e102a7a2a522aa9ad340851b4ecddf94f74a5e8288f15d56d32a3",
+  "entry": "0x4ff00100",
+  "load_address": "0x4ff00000",
+  "segment_bytes": 18320,
+  "chip": "ESP32-P4 rev1.3",
+  "reported_xtal_mhz": 40,
+  "mac": "e8:f6:0a:e2:fd:4c",
+  "port": "/dev/cu.usbmodem1301",
+  "sources": {
+    "CMakeLists.txt": "9c6ee0546fd25ce7e7c29fe97d991f0c32ed6cce1b6f2e8549c533e9d2ef9329",
+    "include/maia/soc/esp32p4_psram.h": "d183a847760a1a1de1e3710b359c530f48dab67e84886a0a6f4eebd839868309",
+    "soc/espressif/esp32p4/psram_internal.h": "ed5c059cc1322bb28d9ac97be99b4a996ee7c8896c35ff1e7af9fa5e8a568993",
+    "soc/espressif/esp32p4/psram_mode_internal.h": "8feb566d562fb1511d37ad72593bb16ee58596abd9bd4d8048cd95dc552c7853",
+    "soc/espressif/esp32p4/soc_psram_snapshot.c": "a86e5983b87057cd53c678f5769a7c33756fe1d743e8b3018f822151a3b88420",
+    "soc/espressif/esp32p4/soc_psram_mode.c": "23bca3320135ded8b335941651c5da9d9f39b8a4e42f7230e9bdcd7fffc2c1d3",
+    "soc/espressif/esp32p4/soc_psram_clock.c": "e4df36137b396cc1a937d5956a6a9a4eeba29f63a84ced8c06aad872afdb1799",
+    "soc/espressif/esp32p4/soc_psram_array.c": "1b38fafb04257bc9f3f4e20f69b9c919c6fc0acd105a1e8136bc8ed578b5892c",
+    "tests/host/psram_array_test.c": "5e369ceb28667a828edfacaf070e1fc6ed82293f7f5f8fafbac64e6e59f9248d",
+    "tests/host/native_probe_result_test.py": "4a1fc374db0a8e2c1ff4c90bf18ce14665ce61a39f284a8823710616d340a878",
+    "tests/hardware/native_psram_state_probe.c": "a8af45cc18056f0fadf08418190c9eb8938f2fbe7eb42fb3f6773df0615d8f7b",
+    "tests/hardware/native_psram_identity.h": "b43d5fbf147c471832e8f6c67763e7f7563aee7a33c7bc5c40ace1021a6305c5",
+    "tests/hardware/native_psram_clock.h": "4e0007b208960466b625ec20e2148ab8b088748754d9b19a5bd22c091bd6588e",
+    "tests/hardware/native_psram_array.h": "ad4fc14cd39691c291a3c25ca2b63b79e565c08b69fbb233eba48177e5836e99",
+    "tests/hardware/run_native_scheduler_probe.py": "a5e8f33ce8fd179669d6fea24b809bb52441cbcfc7aec4668a4698ea25aecdd5"
+  },
+  "sdk": {
+    "revision": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+    "files": {
+      "components/esp_hw_support/mspi_timing_by_dqs.c": "3302d7bf72a12ee8c71932e05d16f93fbf001e7b1a4c7fc33080ca814d6d0250",
+      "components/hal/esp32p4/include/hal/psram_ctrlr_ll.h": "206b9aeea07acdf7e8a7b327f15ad8ffc2eb22b8648fc3b51dae021786b87d1b",
+      "components/soc/esp32p4/register/soc/spi1_mem_s_reg.h": "2e99654b830e417b552e09268b0a43b13bb75f10e58ddf001460a089d19ee38c",
+      "components/esp_psram/device/esp_psram_impl_ap_hex.c": "3c2f7bdd3224bf33e08d8fb65729c9b08e02f8e086f4c091c7e1e3f033cca1ac",
+      "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  },
+  "pdf": {
+    "url": "https://www.apmemory.com/en/downloadFiles/0325021716tb786912",
+    "revision": "1.2 Jan3,2025",
+    "sha256": "aa4f1de4a80379496840584ed81857651664d94b5bceb8888735eb584fa507c1",
+    "sections": "p11 7.1-7.4; p16 7.7; p21 Table19",
+    "scope": "protocol-family reference; exact package PN not established"
+  },
+  "refused_images": {
+    "raw-X16": "4182748f20727c542b08a234d4e9bb3bcb5cdf0bb9594452e428a281ad61adca",
+    "samples-X16": "d637522bd20a5e0491a23ec6b3c0fa216ce8ac0c3b74a02d790503ccbed7e1e4"
+  },
+  "logs": {
+    "native-psram-array-first-refusal.txt": "34f6764278b5992343dcb2275a72f600630930144402f367e037a11336ced0f2",
+    "native-psram-array-samples-refusal.txt": "5a8972cebeaf5e6a1a9d45ee9b17f6876999d9c323020f6077aaf6a9f13d901d",
+    "native-psram-array-hardware.txt": "7e9c588779270467e32bfaf8c67afb6e81da0cd008c4fc51bc10ce66ed1da876",
+    "native-psram-array-desktop.txt": "7c729a4f9c6fc0aa970768794d1fe15305767845127a92105f01af8804e5bce6"
+  },
+  "scope": "warm boot-only reserved4KiB data/mode/controller/clock restore; not cold initialization, mapping or framebuffer",
+  "baseline_bin_sha256": "21bfb79ab701bbab592f8f95e26dd7b47896c1ca483bf7892fdc1d5719fb72dd",
+  "baseline_elf_sha256": "f486955925d7fa85539d4f5b8381ea187a04c9d7bb5df37e175a7260f6f1e45c",
+  "flash_writes": false,
+  "sd_writes": false
+}

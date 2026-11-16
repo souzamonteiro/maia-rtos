@@ -48,6 +48,14 @@ reference material, not the working firmware baseline.
   descriptive commit and push it. State the change, validation and material
   limitations so rollback points are easy to identify. Keep later work in
   separate commits; do not force-push or rewrite published history.
+- Owner clarification (2026-11-15): prefer adapting existing licensed vendor/
+  M5Stack drivers and algorithms over reconstructing every hardware operation.
+  Group internal steps into observable functional deliveries (usable PSRAM,
+  full framebuffer, continuous LCD, integrated touch); continue implementation
+  and electronic tests within existing authorization without approval stops at
+  every substep. Keep reviewable commits/recovery evidence. Request the owner's
+  presence when a visual/touch observation actually requires it. No foreign OS
+  runtime/shim is permitted; retain file-level licenses and source revision.
 
 ## C/C++ policy
 

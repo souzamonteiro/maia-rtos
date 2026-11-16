@@ -11,6 +11,10 @@ static void psram_clock(const maia_psram_snapshot_t *before){
     maia_psram_snapshot_t active;
     if(maia_esp32p4_psram_snapshot(&active)!=MAIA_PSRAM_OK){maia_console_puts("MAIA_NATIVE_PSRAM_CLOCK_FAIL snapshot\n");return;}
     psram_identity(&active);
+#ifdef MAIA_NATIVE_PROBE_PSRAM_ARRAY
+    if(!psram_array()){maia_console_puts("MAIA_NATIVE_PSRAM_ARRAY_FAIL transfer-or-data\n");return;}
+    maia_console_puts("MAIA_NATIVE_PSRAM_ARRAY_PASS\n");
+#endif
     result=maia_esp32p4_psram_xtal20_stop(&r);clock_report(1,result,&r);
     if(result!=MAIA_PSRAM_OK){maia_console_puts("MAIA_NATIVE_PSRAM_CLOCK_FAIL stop\n");return;}
     maia_psram_snapshot_t after;result=maia_esp32p4_psram_snapshot(&after);unsigned roots=1,words=1;
