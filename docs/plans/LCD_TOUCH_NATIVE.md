@@ -31,10 +31,14 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
 3. **Continuous driver — HARDWARE-TESTED, PARTIAL.** Native owner task, real DMA
    IRQ notification,100tick deadline and guarded active stop/source release now
    pass99frames with heartbeat/CPU-load tasks progressing. Single warm session
-   and immutable source only. Image publication, brightness lifecycle and repeated
-   initialization remain pending.
-4. **LCD acceptance — PENDING.** Cold boot/reboot, repeated image updates,
-   concurrent task load and failure recovery. Preserve final production rotation.
+   now extended to CPU edit/cache publication and three clean warm restarts.
+   Six image updates per run/759visual frames passed; owner confirms stable
+   whole-image alternation. Brightness lifecycle/cold initialization and concurrent
+   PSRAM clients remain pending.
+4. **LCD acceptance — HARDWARE-TESTED, PARTIAL.** Repeated complete image updates,
+   warm reuse and concurrent SRAM tasks pass in the native harness. Cold boot,
+   brightness lifecycle, unrelated PSRAM clients and target fault recovery remain
+   pending. Preserve final production rotation.
 
 ## Touch delivery
 
@@ -52,8 +56,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: complete nativeLCD lifecycle and safe image publication,
-repeated image updates and source lifetime/stop/recovery, then touch input. Continue through internal
+Next implementation: native touch contacts/rotation/input service with LCD image
+updates; retain the remaining cold-boot/brightness/concurrency acceptance gates. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
 acceptance remain separate gates; no schedule/percentage follows checkbox counts.
@@ -67,4 +71,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [operational200MHz](../audits/native-psram-fast.md),
 [full framebuffer/owner observation](../audits/native-framebuffer.md),
 [scheduled LCD/real IRQ](../audits/native-lcd-stream.md),
+[image publication/warm reuse/visual acceptance](../audits/native-lcd-lifecycle.md),
 [touch identification](../audits/native-touch-identify.md).

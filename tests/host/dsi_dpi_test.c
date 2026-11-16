@@ -52,12 +52,14 @@ static uint32_t spatial_list[80];
 #include "psram_dma_owner.h"
 static unsigned fb_mode,fb_lease,fb_available,fb_releases,fb_release_fail,fb_rewinds,fb_drop_rewind;
 uint32_t maia_psram_window_dma_acquire(void){if(!fb_available||fb_lease)return 0;fb_lease=1;return DSI_FB_SOURCE;}
-int maia_psram_window_dma_live(void){return (int)fb_lease;}
+int maia_psram_window_dma_live(void){return fb_lease==1;}
 int maia_psram_window_dma_release(void){assert(!frame_cfg&&!frame_channels);if(fb_release_fail)return 0;++fb_releases;fb_lease=0;return 1;}
 #endif
 #ifdef MAIA_DSI_LCD_STREAM
 #include "lcd_async.h"
 #include "dw_dma_irq.h"
+uint32_t maia_psram_window_edit_begin(void){assert(!frame_cfg&&!frame_channels&&fb_lease==1);fb_lease=2;return DSI_FB_SOURCE;}
+int maia_psram_window_edit_publish(void){assert(!frame_cfg&&!frame_channels&&fb_lease==2);fb_lease=1;return 1;}
 static maia_dw_irq_callback_t stream_irq;
 static void *stream_irq_arg;
 static unsigned stream_fake,stream_claimed,stream_posts;
@@ -714,15 +716,28 @@ int main(void) {
  assert(maia_lcd_async_finish()==MAIA_DSI_ACCESS_BUSY&&!stream_posts);
  for(unsigned n=0;n<12U;++n){
   assert(maia_lcd_async_start()==MAIA_DSI_ACCESS_OK&&frame_cfg==3U&&frame_channels);
-  assert(!maia_lcd_async_pending());
+  assert(!maia_lcd_async_pending()&&!maia_lcd_async_edit_begin());
   for(unsigned p=0;p<8U&&frame_channels;++p)(void)maia_dsi_access_test_read(MAIA_ESP32P4_GDMA_BASE+0x18U);
   assert(!frame_channels);stream_irq(stream_irq_arg);assert(frame_cfg==1U&&maia_lcd_async_pending());
   assert(maia_lcd_async_finish()==MAIA_DSI_ACCESS_OK&&!frame_cfg);
  }
+ assert(maia_lcd_async_edit_begin()==(uint16_t *)(uintptr_t)DSI_FB_SOURCE&&fb_lease==2);
+ assert(!maia_lcd_async_edit_begin()&&maia_lcd_async_start()==MAIA_DSI_ACCESS_BUSY&&maia_lcd_async_stop()==MAIA_DSI_ACCESS_BUSY);
+ assert(maia_lcd_async_edit_publish()==MAIA_DSI_ACCESS_OK&&fb_lease==1);
+ assert(maia_lcd_async_edit_publish()==MAIA_DSI_ACCESS_BUSY);
  maia_lcd_async_report_t ar;maia_lcd_async_report(&ar);
  assert(ar.frames==12U&&ar.irqs==12U&&ar.notifications==12U&&stream_posts==12U&&!ar.spurious);
  assert(maia_lcd_async_stop()==MAIA_DSI_ACCESS_OK&&!stream_claimed&&!fb_lease);
  maia_lcd_async_report(&ar);assert(ar.released&&ar.last.done&&ar.last.recovered);
+ for(unsigned cycle=0;cycle<3;++cycle){
+  assert(maia_lcd_async_prepare(stream_wake,&stream_posts)==MAIA_DSI_ACCESS_OK&&fb_lease);
+  maia_lcd_async_report(&ar);assert(!ar.frames&&!ar.irqs&&!ar.updates&&!ar.released);
+  assert(maia_lcd_async_start()==MAIA_DSI_ACCESS_OK);
+  for(unsigned p=0;p<8U&&frame_channels;++p)(void)maia_dsi_access_test_read(MAIA_ESP32P4_GDMA_BASE+0x18U);
+  assert(!frame_channels);stream_irq(stream_irq_arg);assert(maia_lcd_async_finish()==MAIA_DSI_ACCESS_OK);
+  assert(maia_lcd_async_stop()==MAIA_DSI_ACCESS_OK&&!fb_lease);
+ }
+
  setup_fb();stream_fake=1;assert(maia_lcd_async_prepare(stream_wake,&stream_posts)==MAIA_DSI_ACCESS_OK);
  assert(maia_lcd_async_start()==MAIA_DSI_ACCESS_OK);frame_timeout=1;
  assert(maia_lcd_async_cancel()==MAIA_DSI_ACCESS_OK);

@@ -1494,3 +1494,15 @@ coalescing notifications plus predicate,100tick frame timeout and32poll error
 cleanup. Source remains immutable/claimed until guarded actual stop/release.
 No heap/printing/cache maintenance in ISR. Single-session warm native service;
 source updates/reinitialization/SMP/margin qualification are separate open gates.
+
+
+Native LCD publication/reuse (software ownership extension, no new MMIO facts):
+CPU edit lease freezes window sync/stop/release while the owner draws with IRQs
+and scheduling enabled. Begin requires the already qualified channel/controller
+idle and MMU/table guards; publish uses the existing pinned ROM cache writeback
+binding and bounded MSPI drain before returning the lease to DMA. Cache ABI,
+range/line and MMU facts remain those cited for the native PSRAM window. Warm
+prepare after clean stop reuses the checked DMA configuration, restores its IRQ
+signal mask and reacquires the proven-free matrix/CLIC route; it does not reset
+or cold-initialize the panel/PSRAM. Prior failed or uncertain state stays refused.
+Evidence: [LCD lifecycle audit](../audits/native-lcd-lifecycle.md).

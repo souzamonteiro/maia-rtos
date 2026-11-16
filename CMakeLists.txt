@@ -71,6 +71,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_VDMA_COUNT AND (NOT MAIA_NATIVE_PROBE_VDMA_TRANSFER OR MAIA_NATIVE_PROBE_MIPI_PARK))
     message(FATAL_ERROR "VDMA count requires separate SRAM transfer profile")
   endif()
+  option(MAIA_NATIVE_PROBE_LCD_LIFECYCLE "Native LCD image publication and warm restart cycles" OFF)
+  if(MAIA_NATIVE_PROBE_LCD_LIFECYCLE AND NOT MAIA_NATIVE_PROBE_LCD_STREAM)
+    message(FATAL_ERROR "LCD lifecycle requires stream profile")
+  endif()
   option(MAIA_NATIVE_PROBE_LCD_STREAM "Native LCD task with actual DW-GDMA completion IRQ" OFF)
   if(MAIA_NATIVE_PROBE_LCD_STREAM AND NOT MAIA_NATIVE_PROBE_DPI_FRAMEBUFFER)
     message(FATAL_ERROR "LCD stream requires framebuffer profile")
@@ -315,6 +319,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     ${MAIA_PROBE_APP}
   )
+  if(MAIA_NATIVE_PROBE_LCD_LIFECYCLE)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_LCD_LIFECYCLE=1)
+  endif()
   if(MAIA_NATIVE_PROBE_LCD_STREAM)
     target_sources(maia_sched_probe.elf PRIVATE services/lcd_output.c soc/espressif/esp32p4/soc_dw_dma_irq.c)
     target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_LCD_STREAM=1 MAIA_DSI_LCD_STREAM=1)
@@ -936,6 +943,7 @@ else()
 
 
 
+    add_test(NAME lcd_lifecycle_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_lifecycle_capture_test.py)
     add_test(NAME lcd_stream_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_stream_capture_test.py)
     add_test(NAME framebuffer_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/framebuffer_capture_test.py)
     add_test(NAME native_probe_result_test

@@ -8,7 +8,7 @@
  * License: LICENSES/Apache-2.0.txt. */
 #include "psram_window_internal.h"
 typedef struct {uint32_t size;uint16_t line;uint8_t ways;uint32_t type;} cache_mode;
-enum { FREE,OWNED,FAULTED,DMA_OWNED };
+enum { FREE,OWNED,FAULTED,DMA_OWNED,CPU_EDIT_OWNED };
 static unsigned cache_state,window_state;
 static maia_psram_snapshot_t reference;
 static uint32_t saved[WINDOW_REGS],current[WINDOW_REGS],table[32],saved_index,crypt,ecc,pms[4],pms_base,pms_size;
@@ -188,6 +188,18 @@ uint32_t maia_psram_window_dma_acquire(void){
     window_state=DMA_OWNED;return MAIA_PSRAM_WINDOW_VADDR+128U;
 }
 int maia_psram_window_dma_live(void){return psram_context()&&window_state==DMA_OWNED&&guards();}
+uint32_t maia_psram_window_edit_begin(void){
+    if(!psram_context()||window_state!=DMA_OWNED)return 0;
+    if(!guards()||!dma_idle()||!table_matches(1))return 0;
+    window_state=CPU_EDIT_OWNED;return MAIA_PSRAM_WINDOW_VADDR+128U;
+}
+int maia_psram_window_edit_publish(void){
+    if(!psram_context()||window_state!=CPU_EDIT_OWNED)return 0;
+    window_state=FAULTED;
+    maia_psram_window_report_t r={0};
+    if(!guards()||!dma_idle()||!table_matches(1)||cache_call(4,0)||!drained(10000,&r)||!dma_idle())return 0;
+    window_state=DMA_OWNED;return 1;
+}
 int maia_psram_window_dma_release(void){
     if(!psram_context()||window_state!=DMA_OWNED)return 0;
     window_state=FAULTED;

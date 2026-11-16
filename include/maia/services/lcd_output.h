@@ -7,11 +7,29 @@ extern "C" {
 #endif
 typedef struct maia_lcd_output_stats {
     uint32_t frames,waits,timeouts,errors,stopped,stop_requested;
+    uint32_t updates,presented;
     maia_task_id_t owner;
 } maia_lcd_output_stats_t;
+/* Borrowed packed native-orientation RGB565 buffer; pitch=width pixels. Executed
+ * only by owner thread with IRQs enabled and DMA idle. Do not retain the pointer,
+ * touch outside width*height, throw, or call other PSRAM/cache/lifecycle APIs.
+ * The callback must return; scheduling remains enabled but its duration is not
+ * covered by the DMA timeout. Callback and arg must live until publication/stop.
+ * No SMP or unrelated PSRAM/cache clients are supported in this warm service. */
+typedef void (*maia_lcd_draw_fn)(uint16_t *,uint32_t width,uint32_t height,void *);
+/* Core0 task/ISR, one pending request. OK queued (not yet visible), BUSY if a
+ * request/edit exists; INVALID null callback or stopped/stopping/uninitialized.
+ * Stop cancels requests not yet taken; a callback already started publishes and
+ * completes one frame before stopping. updates counts cache publication;
+ * presented counts updates whose subsequent DMA frame finished successfully. */
+maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn,void *);
+/* Owner thread, IRQs enabled, only after run returned a clean graceful stop.
+ * Reclaims the same warm panel/window/config; clears per-session counters.
+ * OK; PERM wrong context; BUSY active/faulted/backend refusal. Not cold init. */
+maia_status_t maia_lcd_output_restart(void);
 /* Boot-only IRQs-off after native panel/PSRAM setup; owner must be READY with
- * static lifetime. Claims immutable PSRAM framebuffer until stop/recovery.
- * Single session, no SMP or arbitrary drawing/client cache sharing yet.
+ * static lifetime. Claims PSRAM framebuffer until stop/recovery.
+ * One active session, CPU drawing only via queued callback; no SMP/cache sharing.
  * OK; BUSY if already initialized/backend refuses; PERM for wrong context;
  * INVALID for a missing/non-ready owner. Backend partial failure is reset-only. */
 maia_status_t maia_lcd_output_init(maia_task_id_t owner);

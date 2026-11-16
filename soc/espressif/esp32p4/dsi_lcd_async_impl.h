@@ -1,6 +1,6 @@
 /* Original MaiaRTOS MIT. Split-phase native engine using qualified frame
  * guards/start/stop protocol, actual DW-GDMA IRQ wake instead of polling frame. */
-enum { ASYNC_FREE,ASYNC_READY,ASYNC_ACTIVE,ASYNC_ERROR,ASYNC_STOPPED };
+enum { ASYNC_FREE,ASYNC_READY,ASYNC_ACTIVE,ASYNC_ERROR,ASYNC_STOPPED,ASYNC_EDITING };
 static unsigned async_phase,async_pending,async_irq_bad;
 static maia_lcd_wake_t async_wake;
 static void *async_arg;
@@ -30,14 +30,17 @@ maia_dsi_access_result_t maia_lcd_async_prepare(maia_lcd_wake_t fn,void *arg){
     if(!fn)return MAIA_DSI_ACCESS_INVALID;
     if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
     if(async_phase==ASYNC_ERROR)return MAIA_DSI_ACCESS_FAILED;
-    if(async_phase!=ASYNC_FREE||framebuffer_claim||dpi_dma_state!=UNCLAIMED||dpi_bridge_state!=OWNED)return MAIA_DSI_ACCESS_BUSY;
+    unsigned reuse=async_phase==ASYNC_STOPPED;
+    if((async_phase!=ASYNC_FREE&&!reuse)||framebuffer_claim||dpi_dma_state!=(reuse?OWNED:UNCLAIMED)||dpi_bridge_state!=OWNED)return MAIA_DSI_ACCESS_BUSY;
+    for(unsigned i=0;i<sizeof async_report;++i)((volatile unsigned char *)&async_report)[i]=0;
     async_phase=ASYNC_ERROR;
     async_report.init_stage=1;
     uint32_t source=maia_psram_window_dma_acquire();if(source!=DSI_FB_SOURCE)return MAIA_DSI_ACCESS_BUSY;
     framebuffer_claim=1;lcd_stream_mode=1;
     async_report.init_stage=2;
     maia_dsi_dma_stage_report_t stage;
-    maia_dsi_access_result_t result=dma_stage_body(source,0,&stage);if(result!=MAIA_DSI_ACCESS_OK)return result;
+    if(!reuse){maia_dsi_access_result_t result=dma_stage_body(source,0,&stage);if(result!=MAIA_DSI_ACCESS_OK)return result;}
+    else if(!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet())return MAIA_DSI_ACCESS_VERIFY;
     async_report.init_stage=3;async_signal_before=dma_staged_words[11];
     uint32_t signal=(async_signal_before&~dma_stage_masks[11])|(FRAME_ERRORS|2U);
     dsi_write(dma_stage_address(11),signal);
@@ -46,6 +49,20 @@ maia_dsi_access_result_t maia_lcd_async_prepare(maia_lcd_wake_t fn,void *arg){
     async_wake=fn;async_arg=arg;
     async_report.init_stage=4;if(!maia_dw_irq_claim(lcd_irq,0))return MAIA_DSI_ACCESS_VERIFY;
     async_report.init_stage=5;async_phase=ASYNC_READY;return MAIA_DSI_ACCESS_OK;
+}
+uint16_t *maia_lcd_async_edit_begin(void){
+    if(!dsi_context()||async_phase!=ASYNC_READY)return 0;
+    if(!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet())return 0;
+    uint32_t source=maia_psram_window_edit_begin();
+    if(source!=DSI_FB_SOURCE)return 0;
+    async_phase=ASYNC_EDITING;return (uint16_t *)(uintptr_t)source;
+}
+maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
+    if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
+    if(async_phase!=ASYNC_EDITING)return MAIA_DSI_ACCESS_BUSY;
+    async_phase=ASYNC_ERROR;
+    if(!maia_psram_window_edit_publish()||!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet())return MAIA_DSI_ACCESS_VERIFY;
+    ++async_report.updates;async_phase=ASYNC_READY;return MAIA_DSI_ACCESS_OK;
 }
 maia_dsi_access_result_t maia_lcd_async_start(void){
     if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
@@ -105,7 +122,9 @@ maia_dsi_access_result_t maia_lcd_async_stop(void){
     if(async_phase!=ASYNC_READY&&async_phase!=ASYNC_ERROR)return MAIA_DSI_ACCESS_BUSY;
     if(!dma_quiet()||!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0))return MAIA_DSI_ACCESS_VERIFY;
     dsi_write(dma_stage_address(11),async_signal_before);
-    if(dsi_read(dma_stage_address(11))!=async_signal_before||!maia_dw_irq_release()||!maia_psram_window_dma_release())return MAIA_DSI_ACCESS_VERIFY;
+    if(dsi_read(dma_stage_address(11))!=async_signal_before)return MAIA_DSI_ACCESS_VERIFY;
+    dma_staged_words[11]=async_signal_before;
+    if(!maia_dw_irq_release()||!maia_psram_window_dma_release())return MAIA_DSI_ACCESS_VERIFY;
     async_report.released=1;framebuffer_claim=0;lcd_stream_mode=0;async_phase=ASYNC_STOPPED;return MAIA_DSI_ACCESS_OK;
 }
 void maia_lcd_async_report(maia_lcd_async_report_t *r){if(r&&dsi_context())for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=((const unsigned char *)&async_report)[i];}

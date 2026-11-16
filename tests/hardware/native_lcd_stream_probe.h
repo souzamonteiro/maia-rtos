@@ -1,3 +1,6 @@
+#ifdef MAIA_NATIVE_PROBE_LCD_LIFECYCLE
+#include "native_lcd_lifecycle_probe.h"
+#else
 /* Kernel-driven LCD session; other tasks prove work during DMA IRQ waits.
  * Diagnostic shutdown stops all test clients before boot-style memory restore. */
 #include <maia/services/lcd_output.h>
@@ -58,3 +61,5 @@ static __attribute__((noreturn)) void lcd_stream_launch(unsigned visual,uint32_t
     if(result!=MAIA_OK)halt("lcd-stream-init");
     maia_soc_systimer_init(1000);maia_sched_start();halt("lcd-stream-return");for(;;)__asm__ volatile("wfi");
 }
+
+#endif

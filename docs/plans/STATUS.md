@@ -1231,3 +1231,26 @@ Next grouped unit: safe source publication/reuse and LCD lifecycle, then native
 touch contacts/rotation/service integration. Continue under existing authorization;
 coordinate presence only for actual visual/touch observations. Installed complete
 firmware remains original runtime; new native code imports none.
+
+## Native LCD updates and warm restart — 2026-11-16
+
+[Lifecycle audit](../audits/native-lcd-lifecycle.md): one queued native owner callback edits only after actual
+DMA completion; CPU edit lease freezes PSRAM lifecycle, cache publication returns
+ownership to DMA. Clean owner-thread restart reclaims the warm source/IRQ route;
+failed or uncertain state cannot restart. No foreign OS/runtime/headers.
+Electronic three sessions x24frames, six complete image edits,72realIRQs;
+visual three sessions x253frames,759realIRQs, six updates, correct hashes, all
+active stops/releases/restoration with no errors/timeouts. Owner confirmed the
+whole picture alternated correctly and stayed stable. Final harness makes the
+duplicate-request test atomic; final electronic regression again72frames/IRQs
+PASS. Final image3fda28fd6228a4bc40cd58527aa48dde2c66d4489c8ba6307c8089b16cd06f48/89792bytes.
+Host61/61, four ASan/UBSan targets, six rejected mutants/C++98/runtimegate/pinned
+SDK oracle PASS. Shell/SciCalc14/moduleexit0/desktop verified after both final resets.
+Recovery `../maia-rtos-recovery/native-lcd-lifecycle-20261116/`. No flash/SD/parser
+changes. HARDWARE-TESTED, LIMITED: warm fixed single-buffer/core0, trusted bounded
+callbacks and exclusive PSRAM/cache clients; no cold startup/SMP/margin, brightness
+lifecycle, target fault injection or complete native desktop acceptance.
+Next grouped delivery: native touch contacts/coordinate rotation/input service
+with LCD updates; preserve full installed original-runtime fallback. Continue
+under existing authorization; coordinate presence only for actual touch/visual
+observations, no per-substep approval stops.
