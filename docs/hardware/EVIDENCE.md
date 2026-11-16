@@ -1542,3 +1542,12 @@ Latest-state input snapshots preserve held contacts on no fresh report, invalida
 on errors/stale polling and recover only from a complete fresh report. They are
 explicitly not a lossless gesture/event queue. Target integration evidence:
 [touch/LCD audit](../audits/native-touch-input.md).
+
+
+Touch/LCD physical checkpoint2026-11-16: [actual capture/owner confirmation](../audits/native-touch-input.md)
+qualifies ST7121/fw1 on this Tab5:10slot/70byte reports under native preemption,
+1148polls/826reports/1974bus transactions, ten downs/ten releases/96moves/four
+corners, no bus/decode/controller errors.827image publications,1211actualDMAIRQs
+and20048timerIRQs. Owner confirms cross alignment/following/release disappearance.
+This supersedes the prior NOT RUN physical interaction status, not cold/SMP/
+multi-finger/all-controller/latency/tear-free/full-native-desktop acceptance.

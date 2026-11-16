@@ -1337,3 +1337,24 @@ is this grouped hardware acceptance, fixing native layers if it exposes defects.
 Recovery `../maia-rtos-recovery/native-touch-input-electronic-20261116/`. Full
 installed desktop remains original-runtime fallback. Not production touch/cold
 startup/SMP/multi-finger/lossless-queue/full native desktop acceptance.
+
+## Physical native touch + LCD accepted — 2026-11-16
+
+[Physical checkpoint](audits/native-touch-input.md): fresh owner readiness, same93040byte final image
+2482663ab6063b6ee76e97477858e3f5795efda43139c34194d15ae180f77fda loaded in RAM.
+1148polls/826fresh70byte reports/1974native bus transactions, ten downs/ten ups/
+96moves and corner maskF, errors/contentions0.827LCD publications/presentations,
+1211actualDMAframes/IRQs/posts, zero timeout/spurious/controller errors.20048timer
+IRQs/17044heartbeats/CPU-load progress; all four other tasks exit before teardown.
+Active stop/source release/exactroute/hash/guards/memory/panelRDDPM restoration
+PASS. Native/strict host PASS. Owner confirms cross follows correct finger position
+and disappears on release, with no image fault. Host64/64 regressions PASS with
+actual physical capture and negative gesture/IRQ/presentation checks. No native
+implementation/image changes, flash/SD/parser writes; original desktop restored.
+Recovery `../maia-rtos-recovery/native-touch-lcd-physical-20261116/`.
+This supersedes prior pending physical readiness/contact/70byte-under-preemption
+notes. HARDWARE-TESTED LIMITED warm single-finger native LCD/touch interaction;
+not coldboot/multi-finger/SMP/lossless-event/physical-fault/shared-extra-client or
+complete native desktop acceptance. Keep original-runtime full firmware fallback.
+Next grouped work: consolidate native board/display/input lifecycle and remaining
+production gates, then remaining drivers; preserve MaiaScript EBNF/MaiaCC rule.

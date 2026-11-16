@@ -42,12 +42,14 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
 
 ## Touch delivery
 
-- HOST-TESTED controller/contact decoder, checked orientation and latest-state
-  service now implemented; native bus/capabilities/idle polling run concurrently
-  with LCD on target. Physical corner taps/drag/release/cursor alignment await
-  owner readiness. No full touch acceptance from the idle result.
-- Integrate shared system-I2C ownership/timeouts/recovery and native input service;
-  verify drawing/drag/release with LCD under concurrent task load/repeated boot.
+- HARDWARE-TESTED, LIMITED: native70byte/full-slot reads, rotated latest-state
+  input and LCD feedback pass corner taps, drag and release.1148polls/826reports,
+  ten downs/ten ups/96moves,827image publications/1211DMAframes with no errors.
+  Owner confirms correct cross position/following/disappearance. Single-finger
+  warm test; multi-finger target/cold/full-production acceptance remain open.
+- Native task bus ownership/timeouts and input service are integrated and tested
+  with concurrent native LCD/timer/heartbeat/load. Physical bus recovery, additional
+  bus clients, repeated cold boot and full teardown lifecycle remain open.
 
 Already qualified foundation: panel selection/reset/power/DSI and finite SRAM
 DMA output; owner confirmed stable colored central32-row incremental-source

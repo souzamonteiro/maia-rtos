@@ -371,3 +371,12 @@ and real DMA/timer IRQs. [Touch input audit](../audits/native-touch-input.md).
 Physical70byte contact reports, shared additional clients, bus teardown, held-wire/
 frozen-timebase fault injection, cold-state and SMP remain open. Physical touch
 readiness requested, test NOT RUN; do not equate idle polling with touch accuracy.
+
+
+UQ-012 physical checkpoint2026-11-16: native70byte/full-slot reports under real
+preemption now pass1148polls/826fresh reports with concurrent1211LCD DMAframes;
+four-corner rotation/drag/release/visible cursor confirmed by owner. This resolves
+the pending physical interaction/interruptible-report question for this warm
+single-finger device. Additional clients, physical bus fault/recovery, cold state,
+teardown, multi-master/SMP and full production integration remain open. See
+[native touch acceptance](../audits/native-touch-input.md).

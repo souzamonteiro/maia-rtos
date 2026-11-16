@@ -20,3 +20,11 @@ print('Actual electronic touch/LCD capture and negative capacity/bus/presentatio
 f=(r/'docs/audits/native-touch-lcd-final-electronic-hardware.txt').read_text()
 assert m.evaluate_lcd_stream(f,touch=True)
 print('Final status-first electronic capture PASS')
+
+v=(r/'docs/audits/native-touch-lcd-physical-hardware.txt').read_text()
+assert m.evaluate_lcd_stream(v,visual=True,touch=True)
+assert not m.evaluate_lcd_stream(v,touch=True)
+for a,b in [('corners=0000000f','corners=00000007'),('ups=0000000a','ups=00000000'),('moves=00000060','moves=00000000'),('errors=00000000 downs=','errors=00000001 downs='),('presented=0000033b','presented=0000033a'),('external=000004bb','external=000004ba')]:
+ assert a in v,a
+ assert not m.evaluate_lcd_stream(v.replace(a,b),visual=True,touch=True),a
+print('Actual physical touch/LCD capture and negative corner/release/move/error/presentation/IRQ checks PASS')
