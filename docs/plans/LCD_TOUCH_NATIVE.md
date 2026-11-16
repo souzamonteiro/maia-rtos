@@ -42,9 +42,10 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
 
 ## Touch delivery
 
-- Port native contact/coordinate reading and lifecycle from the existing driver,
-  with orientation mapping. Current target evidence identifies firmware1 and
-  reset/I2C transport, not full touch input.
+- HOST-TESTED controller/contact decoder, checked orientation and latest-state
+  service now implemented; native bus/capabilities/idle polling run concurrently
+  with LCD on target. Physical corner taps/drag/release/cursor alignment await
+  owner readiness. No full touch acceptance from the idle result.
 - Integrate shared system-I2C ownership/timeouts/recovery and native input service;
   verify drawing/drag/release with LCD under concurrent task load/repeated boot.
 
@@ -72,4 +73,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [full framebuffer/owner observation](../audits/native-framebuffer.md),
 [scheduled LCD/real IRQ](../audits/native-lcd-stream.md),
 [image publication/warm reuse/visual acceptance](../audits/native-lcd-lifecycle.md),
-[touch identification](../audits/native-touch-identify.md).
+[touch identification](../audits/native-touch-identify.md),
+[touch input/electronic qualification](../audits/native-touch-input.md).

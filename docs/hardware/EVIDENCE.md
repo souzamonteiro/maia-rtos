@@ -1506,3 +1506,39 @@ prepare after clean stop reuses the checked DMA configuration, restores its IRQ
 signal mask and reacquires the proven-free matrix/CLIC route; it does not reset
 or cold-initialize the panel/PSRAM. Prior failed or uncertain state stays refused.
 Evidence: [LCD lifecycle audit](../audits/native-lcd-lifecycle.md).
+
+
+Native ST712x contacts / concurrent I2C — 2026-11-16:
+[Sitronix TDDI Interface Protocol A v01.11,2023-12-25](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/ST7123-TDDI-Interface-Protocol-V01.11.pdf.pdf),
+local `ST7123-TDDI-Interface-Protocol-V01.11.pdf.pdf`: p9 section5.3.2 sequential
+16bit high/low-pointer read with STOP before data START; pp12-13 report map
+(maximumX0005/6,maximumY0007/8,slots0009,advanced0010,7byte slots0014..0059),
+p18 section6.6 reading the final supported coordinate register acknowledges the
+report; no-coordinate bit means no fresh coordinate report, not finger release.
+Valid flag Xhighbit7, X/Yhigh6bits, stable ID is slot index; p20 XY valid/area,
+p21 section6.7 read-only advertised maxima/capacity. Proximity, gesture/checksum
+modes are outside this native subset; reset/proximity-data flags are refused.
+Read all advertised slots (1..10), never just first active finger. Geometry maps
+native(x,y) to logical(1279-y,x) for90degrees, inverse of qualified framebuffer.
+Out-of-raster coordinates are rejected, never clipped into a false edge touch.
+
+Adapted primary implementation:
+[Espressif ST7123 driver](https://github.com/espressif/esp-iot-solution/blob/1f855ac00e3fdb33773c8ba5893d4f98f1d9b576/components/display/lcd_touch/esp_lcd_touch_st7123/esp_lcd_touch_st7123.c),
+Apache-2.0,2023-2024 attribution preserved in `drivers/input/st712x.c`; local
+component1.0.0 pins that revision. Ported report/capability algorithm only: no
+FreeRTOS locks/delays, SDK APIs, bitfield ABI, allocation or foreign runtime.
+M5GFX `Touch_ST7123.inl` at28d47949bdc84f30881623476f555398e2194313 was reviewed
+as corroboration, no code copied from it. ST7121 FW1 sharing remains limited to
+the supplied BSP and actual device qualification, not a claim of all ST7123
+silicon modes. Register/document hashes recorded with recovery evidence.
+
+Native bus adoption keeps existing GPIO31/32/reset/power state. Core0 service
+serializes callers with short IRQ-protected try-ownership; wire reads run with
+IRQs enabled. Only UNIT0 capture is locally IRQ-excluded to avoid interleaved
+snapshots by native timer/time clients; no timer-clock reconfiguration in tasks.
+Existing GPIO/timer facts from the touch-identification audit apply. Concurrent
+ISR/SMP/multi-master access and automatic recovery pulses are not supported.
+Latest-state input snapshots preserve held contacts on no fresh report, invalidate
+on errors/stale polling and recover only from a complete fresh report. They are
+explicitly not a lossless gesture/event queue. Target integration evidence:
+[touch/LCD audit](../audits/native-touch-input.md).

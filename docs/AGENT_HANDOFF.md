@@ -1314,3 +1314,26 @@ Next grouped delivery: native touch contacts/coordinate rotation/input service
 with LCD updates; preserve full installed original-runtime fallback. Continue
 under existing authorization; coordinate presence only for actual touch/visual
 observations, no per-substep approval stops.
+
+## Native touch service / electronic checkpoint — 2026-11-16
+
+[Touch input audit](audits/native-touch-input.md): adapted Apache-2.0 Espressif ST7123 read/capability
+algorithms to bounded native block-I2C/controller/service, with complete10slot
+reads,90degree checked coordinates and latest-state snapshots. No-data holds
+contact state; complete empty report releases; errors/stale polling invalidate,
+never synthesize UP. Native core0 bus try-ownership and short serialized timer
+capture allow task use with wire phases interruptible. No foreign runtime/headers.
+Host64/64, three ASan/UBSan targets, six rejected mutants and C++98 headers PASS.
+Native runtime gate project+libgcc PASS. Two electronic RAM runs: firmware1,
+maxX720/maxY1280/10slots,295polls/101LCDframes with realIRQ, errors/contentions0,
+no fresh coordinate reports. Final image2482663ab6063b6ee76e97477858e3f5795efda43139c34194d15ae180f77fda/93040bytes.
+Source hash/guards/memory/clocks/route/panel replies restored. Final desktop
+shell/SciCalc14/exit0 verification in recovery evidence. No flash/SD/parser writes.
+HOST-TESTED contacts, HARDWARE-TESTED LIMITED idle transport; physical contacts,
+70byte reports under preemption, visible cursor/rotation/release are NOT RUN.
+Prepared20second corner1/2/3/4 tap+lift and center drag test awaits owner readiness
+(requested asynchronously); do not launch it until fresh confirmation. Next action
+is this grouped hardware acceptance, fixing native layers if it exposes defects.
+Recovery `../maia-rtos-recovery/native-touch-input-electronic-20261116/`. Full
+installed desktop remains original-runtime fallback. Not production touch/cold
+startup/SMP/multi-finger/lossless-queue/full native desktop acceptance.

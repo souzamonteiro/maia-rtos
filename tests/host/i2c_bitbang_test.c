@@ -8,7 +8,8 @@ typedef struct slave {
     unsigned master, slave_low, active, bit, reading, raised;
     unsigned starts, stops, bytes, pauses, fail_pause, nack_byte;
     unsigned stuck_scl, stuck_sda, stretch, remaining_stretch, fail_stop;
-    unsigned master_nacks, high_since, address_phase;
+    unsigned master_nacks, master_acks, received, response_bytes, high_since, address_phase;
+    uint8_t responses[70];
     uint8_t accumulator, wire[64], reply;
 } slave_t;
 static unsigned sample(void *context) {
@@ -35,10 +36,12 @@ static void drive(void *context, unsigned mask, unsigned release) {
     if (!(old & MAIA_I2C_SCL) && (s->master & MAIA_I2C_SCL) && s->active) {
         s->raised=1U;s->remaining_stretch=s->stretch;
         if (s->bit < 8U) {
-            if (s->reading) s->slave_low=!(s->reply & (0x80U >> s->bit));
+            if (s->reading) s->slave_low=!((s->response_bytes>1?s->responses[s->received]:s->reply) & (0x80U >> s->bit));
             else s->accumulator=(uint8_t)((s->accumulator << 1U) | ((s->master & MAIA_I2C_SDA) != 0U));
         } else if (s->reading) {
-            CHECK(s->master & MAIA_I2C_SDA);++s->master_nacks;s->slave_low=0U;
+            if(s->received+1U<s->response_bytes){if(!s->fail_pause||s->pauses<s->fail_pause)CHECK(!(s->master & MAIA_I2C_SDA));++s->master_acks;}
+            else {if(!s->fail_pause||s->pauses<s->fail_pause)CHECK(s->master & MAIA_I2C_SDA);++s->master_nacks;}
+            ++s->received;s->slave_low=0U;
         } else {
             CHECK(s->bytes < sizeof s->wire);s->wire[s->bytes++]=s->accumulator;
             s->slave_low=s->nack_byte != s->bytes;
@@ -63,7 +66,7 @@ static maia_i2c_result_t pause_step(void *context) {
     return ++s->pauses == s->fail_pause ? MAIA_I2C_TIMEOUT : MAIA_I2C_OK;
 }
 static maia_i2c_lines_t setup(slave_t *s) {
-    memset(s,0,sizeof *s);s->master=MAIA_I2C_BOTH;s->reply=0x81U;
+    memset(s,0,sizeof *s);s->master=MAIA_I2C_BOTH;s->reply=0x81U;s->response_bytes=1;
     maia_i2c_lines_t b={s,drive,sample,pause_step};return b;
 }
 int main(void) {
@@ -72,6 +75,27 @@ int main(void) {
     CHECK(out == 0x81U && s.bytes == 4U && s.starts == 2U && s.stops == 2U && s.master_nacks == 1U);
     const uint8_t expected[]={0xAAU,0x12U,0x34U,0xABU};CHECK(!memcmp(expected,s.wire,4));
     CHECK(s.master == MAIA_I2C_BOTH);
+    uint8_t block[70],expected_block[70];
+    for(unsigned count=1;count<=70;++count){
+        b=setup(&s);s.response_bytes=count;
+        for(unsigned i=0;i<count;++i)s.responses[i]=expected_block[i]=(uint8_t)(i*37U+3U);
+        if(count==1)s.reply=s.responses[0];
+        memset(block,0xCC,sizeof block);
+        CHECK(maia_i2c_read_register16_block(&b,0x55,0x14,block,count)==MAIA_I2C_OK);
+        CHECK(!memcmp(block,expected_block,count)&&s.master_acks==count-1U&&s.master_nacks==1&&s.received==count);
+    }
+    unsigned block_pauses=s.pauses;
+    printf("PASS: block1..70 byte ACK/NACK, %u pause-failure positions, atomic output and pointer bounds\n",block_pauses);
+    for(unsigned n=1;n<=block_pauses;++n){
+        b=setup(&s);s.response_bytes=70;s.fail_pause=n;memset(block,0xCC,sizeof block);
+        CHECK(maia_i2c_read_register16_block(&b,0x55,0x14,block,70)==MAIA_I2C_TIMEOUT);
+        for(unsigned i=0;i<70;++i)CHECK(block[i]==0xCC);
+        CHECK(s.master==MAIA_I2C_BOTH);
+    }
+    b=setup(&s);CHECK(maia_i2c_read_register16_block(&b,0x55,0xFFFF,block,2)==MAIA_I2C_INVALID&&!s.pauses);
+    CHECK(maia_i2c_read_register16_block(&b,0x55,0,block,71)==MAIA_I2C_INVALID&&!s.pauses);
+    CHECK(maia_i2c_read_register16_block(&b,0x55,0,block,0)==MAIA_I2C_INVALID&&!s.pauses);
+    b=setup(&s);CHECK(maia_i2c_read_register16(&b,0x55U,0x1234U,&out)==MAIA_I2C_OK);
     unsigned full_pauses=s.pauses;
     /* Every pause in a complete transaction can fail, including final STOP. */
     for (unsigned n=1U;n<=full_pauses;++n) {

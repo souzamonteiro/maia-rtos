@@ -10,7 +10,10 @@ extern "C" {
  * Storage must stay at its original address until reset; do not copy/move it.
  * Prepare configures pins and enables the timer, not any board power/reset.
  * Success leaves both lines released; failures after pin setup release them.
- * No teardown, concurrent use, runtime scheduling or frequency guarantee. */
+ * After preparation and before scheduler start, lines may be adopted by native
+ * maia_i2c_bus_init; thereafter only that service may use callbacks. Preparation
+ * itself remains boot-only. Snapshot capture excludes IRQs briefly; wire phases
+ * remain interruptible. No teardown/SMP/arbitration/frequency guarantee. */
 typedef struct maia_esp32p4_boot_i2c {
     maia_i2c_lines_t lines;
     uint32_t sda_pin;

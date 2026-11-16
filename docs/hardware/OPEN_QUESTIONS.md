@@ -362,3 +362,12 @@ reference. Do not use unqualified raw X16 offsets as linear byte addresses or
 infer X16 upper-lane coverage. Need native power/startup, controller AXI/cache/
 MMU, full memory capacity, high-speed/DQS and continuous framebuffer bandwidth.
 No cold boot, mapped PSRAM capability/allocator or full-frame acceptance yet.
+
+
+UQ-012 runtime checkpoint2026-11-16: native core0 try-ownership plus short UNIT0
+capture exclusion and interruptible wire phases are now implemented. Two RAM
+runs pass controller capabilities and295idle polls concurrent with101LCDframes
+and real DMA/timer IRQs. [Touch input audit](../audits/native-touch-input.md).
+Physical70byte contact reports, shared additional clients, bus teardown, held-wire/
+frozen-timebase fault injection, cold-state and SMP remain open. Physical touch
+readiness requested, test NOT RUN; do not equate idle polling with touch accuracy.

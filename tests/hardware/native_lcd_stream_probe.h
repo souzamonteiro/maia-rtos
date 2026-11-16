@@ -1,4 +1,6 @@
-#ifdef MAIA_NATIVE_PROBE_LCD_LIFECYCLE
+#ifdef MAIA_NATIVE_PROBE_TOUCH_LCD
+#include "native_touch_lcd_probe.h"
+#elif defined(MAIA_NATIVE_PROBE_LCD_LIFECYCLE)
 #include "native_lcd_lifecycle_probe.h"
 #else
 /* Kernel-driven LCD session; other tasks prove work during DMA IRQ waits.

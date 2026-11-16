@@ -41,6 +41,11 @@ typedef struct maia_i2c_lines {
 maia_i2c_result_t maia_i2c_probe_address(const maia_i2c_lines_t *bus, uint8_t address);
 maia_i2c_result_t maia_i2c_read_register16(const maia_i2c_lines_t *bus,
                                         uint8_t address, uint16_t reg, uint8_t *out);
+/* Sequential read,1..70bytes without 16bit pointer wrap. Intermediate bytes ACK,
+ * last byte NACK; STOP between pointer write/read. Entire out unchanged on any
+ * failure, including final STOP. Same exclusive/thread and finite wait contract. */
+maia_i2c_result_t maia_i2c_read_register16_block(const maia_i2c_lines_t *bus,
+    uint8_t address,uint16_t reg,uint8_t *out,uint32_t bytes);
 /* Same exclusive, bounded bus contract. Read8 uses repeated START and commits
  * out only after STOP. Write8 sends one register/value pair; OK means bus ACK
  * and STOP, not verified device state. On any write error the device may already

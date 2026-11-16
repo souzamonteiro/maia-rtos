@@ -1,6 +1,7 @@
-/* Boot-only GPIO transport. Register facts: docs/audits/native-touch-identify.md. */
+/* Boot-prepared GPIO transport; runtime only through native bus ownership. Register facts: docs/audits/native-touch-identify.md. */
 #include <maia/soc/esp32p4_boot_i2c.h>
 #include <maia/soc/esp32p4_regs.h>
+#include <maia/arch/irq.h>
 
 static void output(uint32_t pin, unsigned enable) {
     uintptr_t reg = pin < 32U ?
@@ -24,14 +25,17 @@ static unsigned sample(void *context) {
     return result;
 }
 static maia_i2c_result_t capture(uint32_t *ticks) {
+    /* Serialize the short UNIT0 snapshot with native timer/time clients.
+     * Wire phases and the overall transaction remain interruptible. */
+    uintptr_t irq=maia_arch_irq_save();
     MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_UNIT0_OP_REG) = MAIA_ESP32P4_SYSTIMER_UNIT0_UPDATE;
     for (unsigned i = 0U; i < 256U; ++i) {
         if (MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_UNIT0_OP_REG) & MAIA_ESP32P4_SYSTIMER_UNIT0_VALID) {
             *ticks = MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_UNIT0_VAL_LO_REG);
-            return MAIA_I2C_OK;
+            maia_arch_irq_restore(irq);return MAIA_I2C_OK;
         }
     }
-    return MAIA_I2C_TIMEOUT;
+    maia_arch_irq_restore(irq);return MAIA_I2C_TIMEOUT;
 }
 static maia_i2c_result_t pause5us(void *context) {
     (void)context;
