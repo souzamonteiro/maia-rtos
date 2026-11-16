@@ -29,7 +29,7 @@ maia_status_t maia_touch_input_init(maia_task_id_t id,maia_touch_read_fn fn,void
 maia_status_t maia_touch_input_poll(void){
     uintptr_t irq=maia_arch_irq_save();
     if(!initialized||!irq||maia_task_current_id()!=owner){maia_arch_irq_restore(irq);return MAIA_ERR_PERM;}
-    if(polling){maia_arch_irq_restore(irq);return MAIA_ERR_BUSY;}
+    if(polling||state.stopped){maia_arch_irq_restore(irq);return MAIA_ERR_BUSY;}
     polling=1;maia_arch_irq_restore(irq);
     maia_touch_frame_t frame;maia_i2c_result_t r=maia_st712x_read(reader,reader_arg,&info,&frame);
     if(r==MAIA_I2C_OK&&frame.fresh)for(unsigned i=0;i<frame.count;++i){maia_touch_point_t *p=&frame.points[i];
@@ -44,10 +44,29 @@ maia_status_t maia_touch_input_poll(void){
     }
     polling=0;maia_arch_irq_restore(irq);return r==MAIA_I2C_OK?MAIA_OK:MAIA_ERR_BUSY;
 }
+maia_status_t maia_touch_input_stop(void){
+    uintptr_t irq=maia_arch_irq_save();maia_status_t r=MAIA_OK;
+    if(!initialized||!irq||maia_task_current_id()!=owner)r=MAIA_ERR_PERM;
+    else if(polling||state.stopped)r=MAIA_ERR_BUSY;
+    else {state.stopped=1;state.valid=0;state.frame.count=0;state.frame.fresh=0;++state.sequence;++state.stops;}
+    maia_arch_irq_restore(irq);return r;
+}
+maia_status_t maia_touch_input_restart(void){
+    uintptr_t irq=maia_arch_irq_save();
+    if(!initialized||!irq||maia_task_current_id()!=owner){maia_arch_irq_restore(irq);return MAIA_ERR_PERM;}
+    if(polling||!state.stopped){maia_arch_irq_restore(irq);return MAIA_ERR_BUSY;}
+    polling=1;maia_arch_irq_restore(irq);
+    maia_st712x_info_t actual;maia_i2c_result_t r=maia_st712x_identify(reader,reader_arg,&actual);
+    if(r==MAIA_I2C_OK&&(actual.firmware!=info.firmware||actual.max_x!=info.max_x||actual.max_y!=info.max_y||actual.slots!=info.slots))r=MAIA_I2C_VERIFY;
+    irq=maia_arch_irq_save();state.last_error=(int32_t)r;
+    if(r==MAIA_I2C_OK){state.stopped=0;++state.restarts;++state.sequence;}
+    else ++state.errors;
+    polling=0;maia_arch_irq_restore(irq);return r==MAIA_I2C_OK?MAIA_OK:MAIA_ERR_BUSY;
+}
 maia_status_t maia_touch_input_snapshot(maia_touch_snapshot_t *out){
     if(!out)return MAIA_ERR_INVALID;
     uintptr_t irq=maia_arch_irq_save();*out=state;
-    maia_status_t r=!initialized?MAIA_ERR_INVALID:!state.valid?MAIA_ERR_BUSY:maia_tick_get()-state.last_poll>100U?MAIA_ERR_TIMEOUT:MAIA_OK;
+    maia_status_t r=!initialized?MAIA_ERR_INVALID:state.stopped||!state.valid?MAIA_ERR_BUSY:maia_tick_get()-state.last_poll>100U?MAIA_ERR_TIMEOUT:MAIA_OK;
     if(r!=MAIA_OK)out->valid=0;
     maia_arch_irq_restore(irq);return r;
 }

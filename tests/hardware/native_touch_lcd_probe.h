@@ -20,6 +20,9 @@ static dpi_backlight_snapshot_t ti_light;
 static maia_touch_frame_t ti_old;
 static struct {uint32_t tick,x,y,count;} ti_events[32];
 static unsigned ti_event_count;
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+static volatile unsigned ti_pause,ti_paused,ti_restart,ti_restarted,ti_refused,ti_sequence_checks,ti_bus_refused;
+#endif
 extern void maia_soc_systimer_init(uint32_t);
 static maia_i2c_result_t ti_read_boot(void *ctx,uint16_t reg,uint8_t *p,uint32_t n){(void)ctx;return maia_i2c_read_register16_block(&reset_bus.lines,0x55,reg,p,n);}
 static maia_i2c_result_t ti_read_task(void *ctx,uint16_t reg,uint8_t *p,uint32_t n){return maia_i2c_bus_read16(ctx,0x55,reg,p,n);}
@@ -62,17 +65,56 @@ static void ti_touch(void *arg){
                 ti_events[n].x=s.frame.count?s.frame.points[0].x:0;ti_events[n].y=s.frame.count?s.frame.points[0].y:0;}
             maia_status_t queued=maia_lcd_output_request_update(ti_draw,0);if(queued!=MAIA_OK&&queued!=MAIA_ERR_BUSY)++ti_errors;
         }
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+        if(ti_pause>ti_paused){
+            if(maia_touch_input_stop()!=MAIA_OK)++ti_errors;
+            unsigned calls=ti_bus.transactions;
+            if(maia_touch_input_poll()!=MAIA_ERR_BUSY||ti_bus.transactions!=calls)++ti_errors;else ++ti_refused;
+            maia_touch_snapshot_t before,after;(void)maia_touch_input_snapshot(&before);
+            if(!before.stopped||before.valid)++ti_errors;
+            ti_paused=ti_pause;
+            while(ti_restart<ti_paused)maia_task_delay_ticks(1);
+            if(maia_touch_input_restart()!=MAIA_OK)++ti_errors;
+            (void)maia_touch_input_snapshot(&after);
+            if(after.stopped||after.valid||after.sequence<=before.sequence)++ti_errors;else ++ti_sequence_checks;
+            ti_restarted=ti_paused;
+        }
+#endif
         maia_task_delay_ticks(5);
     }
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+    if(maia_touch_input_stop()!=MAIA_OK)++ti_errors;
+#endif
     ti_input_exited=1;
 }
 static void ti_beat(void *arg){(void)arg;while(!ti_done){++ti_beats;maia_task_delay_ticks(1);}}
 static void ti_load(void *arg){(void)arg;while(!ti_done){++ti_work;__asm__ volatile("" ::: "memory");}}
 static void ti_controller(void *arg){
     (void)arg;uint64_t began=maia_tick_get();unsigned duration=ti_visual?20000U:1500U;
-    maia_task_delay_ticks(duration);ti_finish_input=1;
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+    (void)duration;
+    for(unsigned cycle=1;cycle<=3U;++cycle){
+        maia_task_delay_ticks(400);ti_pause=cycle;
+        for(unsigned i=0;i<200U&&ti_paused<cycle;++i)maia_task_delay_ticks(1);
+        if(ti_paused!=cycle)halt("input-pause");
+        if(maia_i2c_bus_close(&ti_bus)!=MAIA_OK)halt("input-bus-close");
+        uint8_t sentinel=0xCC;unsigned calls=ti_bus.transactions;
+        if(maia_i2c_bus_read16(&ti_bus,0x55,0,&sentinel,1)!=MAIA_I2C_INVALID||sentinel!=0xCC||ti_bus.transactions!=calls)++ti_errors;else ++ti_bus_refused;
+        if(maia_i2c_bus_reopen(&ti_bus)!=MAIA_OK)halt("input-bus-reopen");
+        ti_restart=cycle;
+        for(unsigned i=0;i<200U&&ti_restarted<cycle;++i)maia_task_delay_ticks(1);
+        if(ti_restarted!=cycle)halt("input-restart");
+    }
+    maia_task_delay_ticks(300);
+#else
+    maia_task_delay_ticks(duration);
+#endif
+    ti_finish_input=1;
     for(unsigned i=0;i<200U&&!ti_input_exited;++i)maia_task_delay_ticks(1);
     if(!ti_input_exited)halt("touch-stop");
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+    if(maia_i2c_bus_close(&ti_bus)!=MAIA_OK)halt("input-final-close");
+#endif
     maia_lcd_output_stats_t stats;maia_touch_snapshot_t touch;
     (void)maia_lcd_output_stats(&stats);unsigned target=stats.updates+1U;
     for(unsigned i=0;i<200U;++i){maia_status_t r=maia_lcd_output_request_update(ti_draw,0);if(r==MAIA_OK)break;if(r!=MAIA_ERR_BUSY)halt("touch-cleanup-queue");maia_task_delay_ticks(1);if(i==199U)halt("touch-cleanup-busy");}
@@ -88,6 +130,10 @@ static void ti_controller(void *arg){
     maia_lcd_async_report_t engine;maia_trap_stats_t traps;
     (void)maia_lcd_output_stats(&stats);maia_lcd_async_report(&engine);maia_trap_get_stats(&traps);(void)maia_touch_input_snapshot(&touch);
     unsigned exited=0;for(unsigned i=0;i<5U;++i)if(i!=2U){maia_task_info_t info;if(maia_task_get_info((uint32_t)ti_ids[i],&info)==MAIA_OK&&info.state==MAIA_TASK_EXITED)++exited;}
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+    field("TOUCH_LIFECYCLE cycles=",ti_restarted);field(" stops=",touch.stops);field(" restarts=",touch.restarts);field(" stopped=",touch.stopped);field(" closed=",ti_bus.initialized==2U);field(" refused=",ti_refused);field(" sequence=",ti_sequence_checks);field(" bus_refused=",ti_bus_refused);maia_console_puts("\n");
+    if(ti_restarted!=3U||touch.stops!=4U||touch.restarts!=3U||!touch.stopped||ti_bus.initialized!=2U||ti_refused!=3U||ti_sequence_checks!=3U||ti_bus_refused!=3U)++ti_errors;
+#endif
     field("TOUCH_INPUT polls=",touch.polls);field(" reports=",touch.reports);field(" errors=",touch.errors);field(" downs=",touch.downs);field(" moves=",touch.moves);field(" ups=",touch.ups);field(" corners=",ti_mask);field(" draws=",ti_draws);field(" updates=",stats.updates);field(" presented=",stats.presented);field(" bus_calls=",ti_bus.transactions);field(" bus_errors=",ti_bus.errors);field(" contentions=",ti_bus.contentions);maia_console_puts("\n");
     for(unsigned i=0;i<ti_event_count;++i){field("TOUCH_EVENT index=",i);field(" tick=",ti_events[i].tick);field(" count=",ti_events[i].count);field(" x=",ti_events[i].x);field(" y=",ti_events[i].y);maia_console_puts("\n");}
     field("LCD_STREAM_ROUTE map_before=",ti_map);field(" map_after=",rd(MAIA_ESP32P4_INTR_CORE0_MAP_REG(24)));field(" ctrl_before=",ti_ctrl);field(" ctrl_after=",rd(MAIA_ESP32P4_CLIC_INT_CTRL_REG(maia_dw_irq_line())));maia_console_puts("\n");
@@ -101,6 +147,9 @@ static void ti_controller(void *arg){
     maia_console_puts(okay?"MAIA_NATIVE_TOUCH_LCD_PASS\n":"MAIA_NATIVE_TOUCH_LCD_INCOMPLETE\n");for(;;)__asm__ volatile("wfi");
 }
 static __attribute__((noreturn)) void lcd_stream_launch(unsigned visual,uint32_t hash,const maia_psram_snapshot_t *before,const dpi_backlight_snapshot_t *light){
+#ifdef MAIA_NATIVE_PROBE_INPUT_LIFECYCLE
+    if(visual)halt("input-lifecycle-electronic-only");
+#endif
     ti_visual=visual;ti_hash=hash;ti_before=*before;ti_light=*light;ti_map=rd(MAIA_ESP32P4_INTR_CORE0_MAP_REG(24));
     maia_i2c_result_t identified=maia_st712x_identify(ti_read_boot,0,&ti_info);
     field("TOUCH_INFO result=",(uint32_t)identified);field(" firmware=",ti_info.firmware);field(" max_x=",ti_info.max_x);field(" max_y=",ti_info.max_y);field(" slots=",ti_info.slots);maia_console_puts("\n");if(identified!=MAIA_I2C_OK)halt("touch-info");

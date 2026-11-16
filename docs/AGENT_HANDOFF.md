@@ -1358,3 +1358,24 @@ not coldboot/multi-finger/SMP/lossless-event/physical-fault/shared-extra-client 
 complete native desktop acceptance. Keep original-runtime full firmware fallback.
 Next grouped work: consolidate native board/display/input lifecycle and remaining
 production gates, then remaining drivers; preserve MaiaScript EBNF/MaiaCC rule.
+
+## Native input/bus lifecycle — 2026-11-16
+
+[Lifecycle audit](audits/native-input-lifecycle.md): owner-thread touch stop/revalidate/restart, no stale
+contact reuse; task bus close/reopen with closed reads refused and no pin/clock
+reset. Three cycles plus final shutdown pass alongside102nativeDMAframes/IRQs;
+296polls/302bus calls/errors0, three poll/closed-read/sequence guards,1569timerIRQs/
+1460heartbeats and CPU-load progress. Source/route/memory/panel replies restored,
+original shell/SciCalc14/exit0/desktop verified. Host65/65, three ASan/UBSan targets,
+eight rejected mutants/C++98/native-runtime-gate PASS. Initial host FAIL preserved:
+intentional invalid snapshot sentinel was treated as contact corruption; corrected
+explicit lifecycle evaluator passes the same UART prefix. Native image unchanged
+7204dc1076dfc79d12326a95a1b6f6108a8f943e9173084ec4037a2d7011bf90/94896bytes.
+Recovery `../maia-rtos-recovery/native-input-lifecycle-20261116/`. No flash/SD/parser
+writes. HARDWARE-TESTED LIMITED warm lifecycle, not cold startup/power-down/SMP or
+full native desktop. Prior physical touch acceptance retained, not rerun here.
+Audit inventories remaining inherited prerequisites: PSRAM supply/device modes,
+already calibrated MPLL, fixed boot cache/reservation. Next grouped work is native
+PSRAM device/clock cold-start ownership/acceptance from pinned vendor algorithms;
+never relax warm guards to simulate cold support. Keep full fallback and continue
+under existing authorization, coordinating presence only for actual visual tests.

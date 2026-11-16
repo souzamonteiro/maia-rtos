@@ -9,6 +9,7 @@ extern "C" {
 typedef struct maia_touch_snapshot {
     maia_touch_frame_t frame; /* logical coordinates, stable slot IDs */
     uint32_t valid,sequence,polls,reports,errors,downs,moves,ups;
+    uint32_t stopped,stops,restarts;
     uint64_t last_poll;
     int32_t last_error;
 } maia_touch_snapshot_t;
@@ -27,6 +28,16 @@ maia_status_t maia_touch_input_init(maia_task_id_t,maia_touch_read_fn,void *,con
  * invalidate snapshot, never synthesize UP. A later complete report recovers.
  * Caller schedules polling. No ISR/SMP; reader must have bounded completion. */
 maia_status_t maia_touch_input_poll(void);
+/* Owner task/IRQs-on only; stop invalidates held contacts (no synthetic UP) and
+ * stops wire access. Stop refuses an active poll/reentrant callback. Restart
+ * rereads identity/capabilities with IRQs enabled and accepts only the original
+ * firmware/maxima/slot count. Reopen adopted bus before restarting. A changed or
+ * failed reader leaves input stopped/invalid; a later explicit retry is allowed.
+ * Counters/sequence remain cumulative; fresh report required after restart.
+ * OK; PERM context/uninitialized; BUSY active/wrong state/identity/read failure.
+ * No hardware reset/power/clock changes; caller still schedules poll calls. */
+maia_status_t maia_touch_input_stop(void);
+maia_status_t maia_touch_input_restart(void);
 /* Core0 task/ISR short snapshot. Always fills nonnull out. OK only for valid
  * latest state; BUSY until report/after error; TIMEOUT when last poll >100ticks
  * ago; INVALID null/before init. Not a lossless event stream: slow consumers can

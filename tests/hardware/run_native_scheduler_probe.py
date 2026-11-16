@@ -597,11 +597,16 @@ def dpi_dma_tile_hashes(source,base):
     return fnv(pixels),fnv(b''.join(descriptors))
 
 
-def evaluate_lcd_stream(output,visual=False,lifecycle=False,touch=False):
+def evaluate_lcd_stream(output,visual=False,lifecycle=False,touch=False,input_lifecycle=False):
     if not evaluate_dpi_bridge(output):return False
     clean=output.replace('\r','');lines=clean.splitlines()
     marker='MAIA_NATIVE_TOUCH_LCD_PASS' if touch else 'MAIA_NATIVE_LCD_LIFECYCLE_PASS' if lifecycle else 'MAIA_NATIVE_LCD_STREAM_PASS'
     if lines.count(marker)!=1 or 'MAIA_NATIVE_DPI_FRAMEBUFFER_PASS' in lines:return False
+    if input_lifecycle:
+        if visual or not touch:return False
+        rows=[l for l in lines if l.startswith('TOUCH_LIFECYCLE ')]
+        if rows!=['TOUCH_LIFECYCLE cycles=00000003 stops=00000004 restarts=00000003 stopped=00000001 closed=00000001 refused=00000003 sequence=00000003 bus_refused=00000003']:return False
+
     if lifecycle:
         cycles=[l for l in lines if l.startswith('LCD_CYCLE ')]
         edits=[l for l in lines if l.startswith('LCD_EDIT ')]
@@ -650,7 +655,12 @@ def evaluate_lcd_stream(output,visual=False,lifecycle=False,touch=False):
         if len(events)>32:return False
         for i,l in enumerate(events):
             m=re.fullmatch(f'TOUCH_EVENT index={i:08x} tick=([0-9a-f]{{8}}) count=([0-9a-f]{{8}}) x=([0-9a-f]{{8}}) y=([0-9a-f]{{8}})',l)
-            if m is None or int(m[2],16)>10 or int(m[3],16)>=1280 or int(m[4],16)>=720:return False
+            if m is None:return False
+            count,x,y=(int(m[k],16) for k in (2,3,4))
+            # Explicit invalidation while stopped/restarting is not a contact.
+            if input_lifecycle and count==0xffffffff:
+                if x or y:return False
+            elif count>10 or x>=1280 or y>=720:return False
 
     duration=20000 if visual and touch else 12000 if visual else 1500
     if lifecycle and task['frames']!=total:return False
@@ -1453,6 +1463,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--input-lifecycle', action='store_true', help='three native touch/bus stop/restart cycles with LCD active')
     parser.add_argument('--touch-lcd', action='store_true', help='native touch contacts with scheduled LCD feedback')
     parser.add_argument('--lcd-lifecycle', action='store_true', help='three native LCD restart sessions and six full image publications')
     parser.add_argument('--lcd-stream', action='store_true', help='native task/IRQ LCD session with concurrent kernel load')
@@ -1504,6 +1515,9 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.input_lifecycle:
+        if args.framebuffer_visual:parser.error('input lifecycle is electronic only')
+        args.touch_lcd=True
     if args.touch_lcd:
         if args.lcd_lifecycle:parser.error('touch LCD excludes lifecycle')
         args.lcd_stream=True
@@ -1689,7 +1703,10 @@ def main():
         if args.panel_reset:
             passed = evaluate_panel_reset(output.replace("\r", ""))
         if args.lcd_stream:
-            passed = evaluate_lcd_stream(output,args.framebuffer_visual,args.lcd_lifecycle,args.touch_lcd) and stimulus.sent and stimulus.phase==2
+            passed = evaluate_lcd_stream(output,args.framebuffer_visual,args.lcd_lifecycle,args.touch_lcd,args.input_lifecycle) and stimulus.sent and stimulus.phase==2
+            if args.input_lifecycle:
+                rows=[l for l in output.replace('\r','').splitlines() if l.startswith('TOUCH_LIFECYCLE ')]
+                passed=passed and rows==['TOUCH_LIFECYCLE cycles=00000003 stops=00000004 restarts=00000003 stopped=00000001 closed=00000001 refused=00000003 sequence=00000003 bus_refused=00000003']
         elif args.dpi_framebuffer:
             passed = evaluate_dpi_framebuffer(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2 and len(stimulus.holds)==2
         elif args.dpi_dma_spatial:

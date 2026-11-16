@@ -71,6 +71,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_VDMA_COUNT AND (NOT MAIA_NATIVE_PROBE_VDMA_TRANSFER OR MAIA_NATIVE_PROBE_MIPI_PARK))
     message(FATAL_ERROR "VDMA count requires separate SRAM transfer profile")
   endif()
+  option(MAIA_NATIVE_PROBE_INPUT_LIFECYCLE "Native touch stop/restart and bus close/reopen with LCD active" OFF)
+  if(MAIA_NATIVE_PROBE_INPUT_LIFECYCLE AND NOT MAIA_NATIVE_PROBE_TOUCH_LCD)
+    message(FATAL_ERROR "Input lifecycle requires touch LCD")
+  endif()
   option(MAIA_NATIVE_PROBE_TOUCH_LCD "Native scheduled touch contacts and LCD feedback" OFF)
   if(MAIA_NATIVE_PROBE_TOUCH_LCD AND (NOT MAIA_NATIVE_PROBE_LCD_STREAM OR MAIA_NATIVE_PROBE_LCD_LIFECYCLE))
     message(FATAL_ERROR "Touch LCD requires stream and excludes lifecycle harness")
@@ -323,6 +327,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     ${MAIA_PROBE_APP}
   )
+  if(MAIA_NATIVE_PROBE_INPUT_LIFECYCLE)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_INPUT_LIFECYCLE=1)
+  endif()
   if(MAIA_NATIVE_PROBE_TOUCH_LCD)
     target_sources(maia_sched_probe.elf PRIVATE services/i2c_bus.c services/touch_input.c drivers/input/st712x.c)
     target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_TOUCH_LCD=1)
@@ -960,6 +967,7 @@ else()
 
 
 
+    add_test(NAME input_lifecycle_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/input_lifecycle_capture_test.py)
     add_test(NAME touch_lcd_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/touch_lcd_capture_test.py)
     add_test(NAME lcd_lifecycle_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_lifecycle_capture_test.py)
     add_test(NAME lcd_stream_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_stream_capture_test.py)

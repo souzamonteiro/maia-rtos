@@ -49,7 +49,9 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
   warm test; multi-finger target/cold/full-production acceptance remain open.
 - Native task bus ownership/timeouts and input service are integrated and tested
   with concurrent native LCD/timer/heartbeat/load. Physical bus recovery, additional
-  bus clients, repeated cold boot and full teardown lifecycle remain open.
+  bus clients and repeated cold boot remain open. Native warm input stop/restart
+  and software bus close/reopen now pass three cycles with the LCD active; this
+  retains prepared pins/timebase rather than powering them down.
 
 Already qualified foundation: panel selection/reset/power/DSI and finite SRAM
 DMA output; owner confirmed stable colored central32-row incremental-source
@@ -59,8 +61,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: native touch contacts/rotation/input service with LCD image
-updates; retain the remaining cold-boot/brightness/concurrency acceptance gates. Continue through internal
+Next implementation: native PSRAM device/clock cold-start ownership, with the
+remaining brightness/concurrency acceptance gates. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
 acceptance remain separate gates; no schedule/percentage follows checkbox counts.
@@ -76,4 +78,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [scheduled LCD/real IRQ](../audits/native-lcd-stream.md),
 [image publication/warm reuse/visual acceptance](../audits/native-lcd-lifecycle.md),
 [touch identification](../audits/native-touch-identify.md),
-[touch input/electronic qualification](../audits/native-touch-input.md).
+[touch physical qualification](../audits/native-touch-input.md),
+[input lifecycle/startup dependency inventory](../audits/native-input-lifecycle.md).

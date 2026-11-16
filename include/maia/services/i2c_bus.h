@@ -15,6 +15,14 @@ typedef struct maia_i2c_bus {
  * Raw callbacks/configuration must no longer be accessed by other clients.
  * OK, INVALID missing callbacks/storage, PERM context, BUSY already initialized. */
 maia_status_t maia_i2c_bus_init(maia_i2c_bus_t *,const maia_i2c_lines_t *);
+/* Core0 task/IRQs-on only, clients stopped before close. Refuses active wire
+ * call or non-idle input lines. Closed bus rejects all reads without I/O/output
+ * changes; reopen retains the same stationary lines/config and cumulative stats.
+ * This quiesces software ownership, not power/pins/clocks or physical recovery.
+ * OK; INVALID wrong state/null; PERM context; BUSY active/non-idle. No ISR/SMP.
+ * Storage/callbacks/pin reservation stay alive even while closed. */
+maia_status_t maia_i2c_bus_close(maia_i2c_bus_t *);
+maia_status_t maia_i2c_bus_reopen(maia_i2c_bus_t *);
 /* Core0 task/IRQs-on only. Try ownership, never blocks on another client; BUSY
  * on contention/context. Wire operation runs with IRQs enabled, finite waits,
  * releases ownership on every exit. No ISR/SMP/retry/recovery pulses. Same block

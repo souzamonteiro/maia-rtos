@@ -1551,3 +1551,15 @@ corners, no bus/decode/controller errors.827image publications,1211actualDMAIRQs
 and20048timerIRQs. Owner confirms cross alignment/following/release disappearance.
 This supersedes the prior NOT RUN physical interaction status, not cold/SMP/
 multi-finger/all-controller/latency/tear-free/full-native-desktop acceptance.
+
+
+Native input/bus warm lifecycle2026-11-16 (software-only ownership extension,
+no new MMIO facts): three touch stop/capability revalidation/restart and bus
+close/reopen cycles alongside102LCDframes pass. Closed bus/poll refusal and
+snapshot invalidation are verified; no hardware reset/pin/clock power-down
+implied. [Audit, inherited startup inventory and primary algorithm comparison](../audits/native-input-lifecycle.md).
+[Pinned SDKf5c3654 PSRAM reference](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c#L368)
+`esp_psram_impl_enable` (Apache-2.0) includes MPLL start/frequency ownership, full
+mode configuration and tuning beyond the existing native warm-qualified subset.
+Native cold startup remains open; these facts do not authorize guessed register
+values, warm-guard relaxation or SDK runtime/header linkage.

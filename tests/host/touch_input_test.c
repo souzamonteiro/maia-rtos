@@ -13,7 +13,7 @@ uint64_t maia_tick_get(void){return ticks;}
 maia_status_t maia_task_get_info(uint32_t id,maia_task_info_t *i){if(id!=3)return MAIA_ERR_INVALID;i->state=MAIA_TASK_READY;return MAIA_OK;}
 static maia_i2c_result_t read_bytes(void *arg,uint16_t reg,uint8_t *out,uint32_t n){
  assert(arg==bytes);++calls;if(fail_call==calls)return MAIA_I2C_TIMEOUT;
- if(nested){nested=0;assert(maia_touch_input_poll()==MAIA_ERR_BUSY);}
+ if(nested){nested=0;assert(maia_touch_input_stop()==MAIA_ERR_BUSY);assert(maia_touch_input_poll()==MAIA_ERR_BUSY);}
  if(reg==1){assert(n==1);*out=identity[1];}
  else if(reg==0){assert(n==10);memcpy(out,identity,n);}
  else if(reg==0x10){assert(n==1);*out=adv;}
@@ -58,4 +58,19 @@ int main(void){
  ticks=101;assert(maia_touch_input_snapshot(&s)==MAIA_ERR_TIMEOUT&&!s.valid);
  point(0,720,100);assert(maia_touch_input_poll()==MAIA_ERR_BUSY&&maia_touch_input_snapshot(&s)==MAIA_ERR_BUSY);
  current=4;assert(maia_touch_input_poll()==MAIA_ERR_PERM);
+ current=3;point(0,100,300);assert(maia_touch_input_poll()==MAIA_OK&&maia_touch_input_snapshot(&s)==MAIA_OK&&s.frame.count==1);
+ uint32_t ups_before=s.ups;assert(maia_touch_input_stop()==MAIA_OK);
+ unsigned before_stop=calls;assert(maia_touch_input_poll()==MAIA_ERR_BUSY&&calls==before_stop);
+ assert(maia_touch_input_snapshot(&s)==MAIA_ERR_BUSY&&s.stopped&&!s.valid&&!s.frame.count&&s.ups==ups_before);
+ uint32_t sequence=s.sequence;
+ identity[0]=3;assert(maia_touch_input_restart()==MAIA_ERR_BUSY);
+ assert(maia_touch_input_snapshot(&s)==MAIA_ERR_BUSY&&s.stopped);identity[0]=1;
+ fail_call=calls+1;assert(maia_touch_input_restart()==MAIA_ERR_BUSY);fail_call=0;
+ assert(maia_touch_input_restart()==MAIA_OK);
+ assert(maia_touch_input_snapshot(&s)==MAIA_ERR_BUSY&&!s.stopped&&s.sequence>sequence&&s.stops==1&&s.restarts==1);
+ adv=0;assert(maia_touch_input_poll()==MAIA_OK&&maia_touch_input_snapshot(&s)==MAIA_ERR_BUSY);
+ adv=8;point(0,100,300);assert(maia_touch_input_poll()==MAIA_OK&&maia_touch_input_snapshot(&s)==MAIA_OK&&s.valid);
+ assert(maia_touch_input_restart()==MAIA_ERR_BUSY);
+ current=4;assert(maia_touch_input_stop()==MAIA_ERR_PERM&&maia_touch_input_restart()==MAIA_ERR_PERM);
+
 }
