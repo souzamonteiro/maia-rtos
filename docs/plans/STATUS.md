@@ -1380,3 +1380,30 @@ programming HOST-only, no rail measurement/discharge/settling/device default/col
 claim. Next grouped work: primary documented supply/device power-on timing and
 native PSRAM+MPLL consumer sequencing, then physical different/default-mode entry.
 Keep warm guards/fallback; full32MiB/margins/SMP/native desktop still open.
+
+## Native PSRAM/MPLL consumer parking — 2026-11-16
+
+[Park audit](../audits/native-psram-park.md): native boot XTAL20 -> core/modulePLL/
+MPLL output/circuit off -> circuit/output/modulePLL/XTAL core restore, checked
+writes/unchanged fields/no gated reads/sticky failure. VO2 stays on, not cold.
+Actual PERI C00C->000C->C00C,RF09000000->08000000->09000000,output1FFCFFFD->
+0FFCFFFD->1FFCFFFD. Then nativeMPLL END0->1/CAL024C->034C/400MHz,mode profile,
+PSRAM200/fullimage/guards/9x4KiBDMA/102LCDframes/threeinputcycles/errors0 pass.
+295polls/301bus calls/1569timerIRQs, saved4KiB/modes/clocks/MMU/IRQ routes restored.
+Desktop shell/SciCalc14/exit0/desktop PASS. Image
+5c5e46958229260d1d01ab316a02e23417fde572cde3ded616e683f1653023b2/101072bytes.
+Host72/72, actualclock/park ASan+UBSan -Os/five rejected mutants/C++98/sixsource
+pins/runtimegate PASS. Initial416byte SRAM overflow refused; clock -Os then exposed
+unresolved compiler-generated memcpy, also link-refused. Bounded explicit snapshot
+copy removes libc dependency. No boundary/stack reduction:160KiB window/16KiB boot
+stack, final BSS4FF23FA0/stacktop4FF27FA0, task guards pass. Failed preparations
+contain explicitly marked stale previous-image files NOT RUN; successful final
+image/source/capture in `../maia-rtos-recovery/native-psram-park-20261116/`.
+No flash/SD/parser changes/new visual claims. New PDF research: owner's Tab5.pdf
+is17-page product export; linked official5-sheet schematic visually verifies
+LDO2->U1 pins72/59/67 and capacitors, separate flashLDO1. Primary SDK documents
+consumer-stop order but no fitted AP32MiB HEX/SIP discharge/initialization timing.
+Do not substitute generic Octal timing or claim MPLL power-off resets PSRAM.
+Next: establish applicable fitted-memory supply/reset specification, then qualify
+native device entry after genuine supply loss. Power-off API remains absent;
+full32MiB/margins/SMP/shared consumers/native desktop still open. Keep fallback.

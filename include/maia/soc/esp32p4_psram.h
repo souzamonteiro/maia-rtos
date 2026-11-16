@@ -85,6 +85,21 @@ typedef struct maia_psram_clock_report {
  * No cold-init, array/coherency or continuous-display capability is established. */
 maia_psram_result_t maia_esp32p4_psram_xtal20_start(maia_psram_clock_report_t *);
 maia_psram_result_t maia_esp32p4_psram_xtal20_stop(maia_psram_clock_report_t *);
+typedef struct maia_psram_park_report {
+    uint32_t stage,writes,restored,before[3],after[3];
+} maia_psram_park_report_t;
+/* Boot-exclusive/core0/IRQs-off/internal SRAM; CPU1 and ALL memory/cache/DMA/
+ * analog/MPLL/F25/F50 clients stopped. Genuine native XTAL20 claim, idle closed
+ * AXI controllers and no X8/pad claim required. restore0 gates PSRAM core then
+ * module PLL clock, MPLL output then circuit; VO2 stays powered. restore1 powers
+ * MPLL circuit then output, restores module PLL then XTAL core, checks original
+ * controllers/roots exactly. Does not declare MPLL calibrated: caller must run
+ * initialize400 before selecting it. While parked clock_mhz=0; other clock
+ * operations refuse. No gated controller reads, no supply/reset/device writes.
+ * No PSRAM retention/cold startup/ready/settling claim. Fixed bounded work,
+ * boot-only, not thread/ISR/SMP-safe. INVALID/CONTEXT/prior FAILED/duplicate/no
+ * claim refuse without MMIO; attempted-store failure sticky until reset. */
+maia_psram_result_t maia_esp32p4_psram_consumers_park(unsigned restore,maia_psram_park_report_t *);
 typedef struct maia_psram_mpll_report {
     uint32_t stage,polls,restored,div,repeat,mhz,power,clock,calibration;
 } maia_psram_mpll_report_t;

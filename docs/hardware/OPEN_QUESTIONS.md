@@ -403,3 +403,13 @@ any physical VO2 cycle, establish discharge/settling/device reset/power-on timin
 from primary PSRAM/SoC documents and coordinate MPLL plus PSRAM consumer gates.
 Digital XPD readback is not rail-off/ready evidence. No guessed delays, nominal
 trim fallback, supply-off API or cold completion claim introduced.
+
+
+Cold-start research2026-11-16: actual official5-sheet schematic visually confirms
+ESP_LDO2 -> U1 pins72/59/67 and capacitive loading, separate flash LDO1. Product
+Tab5.pdf is a17-page documentation export. SDK pmu_sleep.c documents consumer
+stop before VO2 off, but supplies no discharge/settling specification for this
+fitted AP32MiB HEX/SIP device. Generic Octal/AP256XXN timing must not substitute
+for identified silicon. Need exact fitted memory electrical/reset requirements
+or an applicable Espressif startup specification before physical supply cycling.
+Native consumer park/resume/recalibration can be qualified with VO2 left on.

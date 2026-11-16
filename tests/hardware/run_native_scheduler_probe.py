@@ -597,6 +597,22 @@ def dpi_dma_tile_hashes(source,base):
     return fnv(pixels),fnv(b''.join(descriptors))
 
 
+def evaluate_psram_park(output):
+    if not evaluate_psram_supply(output):return False
+    clean=output.replace('\r','')
+    rows=re.findall(r'^PSRAM_PARK phase=([0-9a-f]{8}) result=([0-9a-f]{8}) stage=([0-9a-f]{8}) writes=([0-9a-f]{8}) restored=([0-9a-f]{8}) before0=([0-9a-f]{8}) after0=([0-9a-f]{8}) before1=([0-9a-f]{8}) after1=([0-9a-f]{8}) before2=([0-9a-f]{8}) after2=([0-9a-f]{8})$',clean,re.M)
+    if len(rows)!=2 or sum(l.startswith('PSRAM_PARK ') for l in clean.splitlines())!=2:return False
+    initial=None;parked=None
+    for phase,row in enumerate(rows):
+        ph,result,stage,writes,restored,c0,c1,p0,p1,o0,o1=map(lambda v:int(v,16),row)
+        if (ph,result,stage,writes,restored)!=(phase,0,4,4,phase):return False
+        if not phase:
+            if c0&0xFFB000!=0x8000 or not c0&0x4000 or not p0&0x1000000 or not o0&0x10000000:return False
+            if (c1,p1,o1)!=(c0&~0xC000,p0&~0x1000000,o0&~0x10000000):return False
+            initial=(c0,p0,o0);parked=(c1,p1,o1)
+        elif (c0,p0,o0)!=parked or (c1,p1,o1)!=initial:return False
+    return clean.index('PSRAM_PARK phase=00000001')<clean.index('MPLL_BOOT ')
+
 def evaluate_psram_supply(output):
     if not evaluate_psram_profile(output):return False
     rows=re.findall(r'^PSRAM_SUPPLY result=([0-9a-f]{8}) stage=([0-9a-f]{8}) adopted=([0-9a-f]{8}) writes=([0-9a-f]{8}) dref=([0-9a-f]{8}) mul=([0-9a-f]{8}) before0=([0-9a-f]{8}) after0=([0-9a-f]{8}) before1=([0-9a-f]{8}) after1=([0-9a-f]{8})$',output.replace('\r',''),re.M)
@@ -1488,6 +1504,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--psram-park', action='store_true', help='verify native PSRAM/MPLL consumer stop/resume then recalibration and full pipeline; supply stays on')
     parser.add_argument('--psram-supply', action='store_true', help='verify native calibrated VO2 adoption (no supply power cycle) and full pipeline')
     parser.add_argument('--psram-profile', action='store_true', help='verify native PSRAM mode programming/restoration before full-frame qualification')
     parser.add_argument('--mpll-initialize', action='store_true', help='verify native powered400MHz MPLL programming and calibration')
@@ -1543,6 +1560,7 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.psram_park:args.psram_supply=True
     if args.psram_supply:args.psram_profile=True
     if args.psram_profile:args.mpll_initialize=True
     if args.mpll_initialize:args.input_lifecycle=True
@@ -1741,6 +1759,7 @@ def main():
             if args.mpll_initialize:passed=passed and evaluate_mpll_initialize(output)
             if args.psram_profile:passed=passed and evaluate_psram_profile(output)
             if args.psram_supply:passed=passed and evaluate_psram_supply(output)
+            if args.psram_park:passed=passed and evaluate_psram_park(output)
 
         elif args.dpi_framebuffer:
             passed = evaluate_dpi_framebuffer(output,args.framebuffer_visual) and stimulus.sent and stimulus.phase==2 and len(stimulus.holds)==2

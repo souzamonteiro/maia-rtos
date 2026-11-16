@@ -91,3 +91,7 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 Native VO2 configuration/adoption checkpoint: [supply audit](../audits/native-psram-supply.md).
 Powered-supply pipeline passes; disabled-supply programming remains HOST-only.
 This does not close cold supply/device startup or native desktop acceptance.
+
+Native PSRAM/MPLL consumer park/resume plus recalibration/pipeline checkpoint:
+[park audit](../audits/native-psram-park.md). Full electronics passes with VO2 on;
+physical supply-loss/default startup remains open pending fitted-memory timing.

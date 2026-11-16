@@ -81,6 +81,14 @@ static void dpi_framebuffer(void){
     if(maia_esp32p4_psram_snapshot(&before)!=MAIA_PSRAM_OK)halt("fb-snapshot");
     maia_psram_clock_report_t clock;
     if(maia_esp32p4_psram_xtal20_start(&clock)!=MAIA_PSRAM_OK)halt("fb-xtal");
+#ifdef MAIA_NATIVE_PROBE_PSRAM_PARK
+    for(unsigned phase=0;phase<2U;++phase){
+        maia_psram_park_report_t parked;maia_psram_result_t result=maia_esp32p4_psram_consumers_park(phase,&parked);
+        field("PSRAM_PARK phase=",phase);field(" result=",(uint32_t)result);field(" stage=",parked.stage);field(" writes=",parked.writes);field(" restored=",parked.restored);
+        for(unsigned i=0;i<3U;++i){field(i==0U?" before0=":i==1U?" before1=":" before2=",parked.before[i]);field(i==0U?" after0=":i==1U?" after1=":" after2=",parked.after[i]);}
+        maia_console_puts("\n");if(result!=MAIA_PSRAM_OK)halt("fb-park");
+    }
+#endif
 #ifdef MAIA_NATIVE_PROBE_MPLL_INITIALIZE
     maia_psram_mpll_init_report_t initialized;
     maia_psram_result_t programmed=maia_esp32p4_psram_mpll_initialize400(10000,&initialized);

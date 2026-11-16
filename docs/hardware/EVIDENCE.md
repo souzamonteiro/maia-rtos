@@ -1629,3 +1629,31 @@ retained. Off-supply configuration requires both PSRAM core/PLL gates off and
 MPLL circuit/output off using previously pinned clock/power facts above. Digital
 readback does not establish voltage/discharge/settling or device reset/defaults.
 No power-off primitive or guessed time delay is introduced by this port.
+
+
+## Native PSRAM/MPLL consumer parking — 2026-11-16
+
+Primary pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0:
+[pmu_sleep_start](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_hw_support/port/esp32p4/pmu_sleep.c#L372)
+waits for memory clients, selects XTAL, gates PSRAM core/module and disables MPLL
+before the deep-sleep VO2 power-off path. Native scope stops short of VO2 writes.
+[psram_ctrlr_ll](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/psram_ctrlr_ll.h#L292)
+maps core gate to PERI_CLK_CTRL00 bit15, PLL gate bit14. Native changes those
+only, retaining the shared register-bus gate SOC_CLK_CTRL0 bit31. No controller
+access with core gated. [clk_ll_mpll_enable](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/clk_tree_ll.h#L154)
+sets circuit power then output gate; the existing RF_PWC bit24/LP_HP_CLK_CTRL
+bit28 definitions above are used with unrelated fields preserved. Native park
+adds explicit output gating before circuit off, reverses on resume, restores
+XTAL core last, then invokes native MPLL initialization/calibration before use.
+Power readback alone is not PLL-ready or PSRAM retention evidence.
+
+[Official Tab5 schematic](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/Tab5_Schematics_PDF.pdf),
+5 sheets, inspected sheet1 on2026-11-16: ESP_LDO2 connects U1 pin72 VO2 and pins
+59/67 VDDPST, with C15=1uF and C18/C19=1uF/100nF to GND. Flash uses separate
+ESP_LDO1. The owner's docs/hardware/Tab5.pdf is a17-page product documentation
+export linking this schematic; it is not itself the5-sheet circuit drawing.
+[Local ESP32-P4 datasheet v0.5](datasheets/esp32-p4_datasheet_en.pdf), printed
+pages29-30/sections2.6.1-2.6.2, identifies59/67 as PSRAM supply and72 as output,
+VO2 nominal1.9V. These documents do not establish the fitted in-package AP
+memory discharge/initialization timing or a readable rail-off/ready indicator.
+Generic AP Octal device timing is not assumed valid for this HEX/SIP part.
