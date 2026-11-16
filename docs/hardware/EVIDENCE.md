@@ -1332,3 +1332,25 @@ boot profile: all524288words over2MiB matched FNV2E4E04FE; direct SPI read
 after cache sync independently matched4096bytes. See [window audit](../audits/native-psram-window.md)
 for exact restoration boundaries, actual capture and remaining startup/speed gates.
 No generic nocache alias for PSRAM inferred from L2MEM-only cache_ll macros.
+
+## PSRAM DMA source qualification — 2026-11-15
+
+Pinned ESP-IDF f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0
+[DW-GDMA LL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/dw_gdma_ll.h)
+master1 supports L2MEM/ROM/MSPI Flash/PSRAM, ordinary mapped address used as SAR;
+source/destination increment, width64 enum3, source MSIZE1/4/16 enum0/1/3.
+[registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/dw_gdma_reg.h)
+CTL0+18 widths[10:8]/[13:11], sourceMSIZE[17:14], CTL1+1C ARLEN_EN6/
+ARLEN[14:7]. Explicit candidate fields0/3/15, NOT automatic ARLEN; encoding is
+qualification input, not yet assumed hardware proof. Native test requests4096B
+from three offsets0/65408/1FF000 within the owned2MiB window, after window sync;
+known deterministic full-window pattern provides independent byte oracle. Middle
+source crosses a64KiB page. Dedicated4352B SRAM aligned128,128B guards; ROM sync
+only this owned internal region then existing L2MEM NC alias+40000000. No PSRAM
+nocache alias inferred. Save/restore12 channel configuration words; raw/status
+progress and intentional status clears are not restored. MIPI clocks/peripherals/
+other channels preserved; disable/drain before releasing source/destination.
+Boot-only/all clients stopped, no IRQ/task/SMP integration. Actual9x4096B target
+copies all matched, including page crossing/tail; fields0/3/15 with MSIZE1/4/16
+are now qualified for these memory transfers. See [DMA audit](../audits/native-psram-dma.md)
+for capture, restoration and performance limits.

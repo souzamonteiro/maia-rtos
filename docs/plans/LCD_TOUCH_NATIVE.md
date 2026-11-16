@@ -17,6 +17,8 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
    qualification before calling PSRAM ready for production clients. A native
    controller/pad/MMU/cache port now passes2MiB CPU write/read and independent
    post-sync direct-device checks. This provides space for one complete frame.
+   Native DMA reads now pass all nine4KiB address/burst cases, including a page
+   crossing;20MHz throughput still needs operational-clock qualification.
 2. **Full-frame image — PENDING.** Reserve/map a complete RGB565 framebuffer
    (1843200bytes), define cache/DMA ownership, present actual full-frame data and
    verify native720x1280 vs logical1280x720/software90 orientation.
@@ -52,4 +54,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [warm clock](../audits/native-psram-clock.md),
 [ported data path](../audits/native-psram-array.md),
 [mapped2MiB window](../audits/native-psram-window.md),
+[PSRAM DMA](../audits/native-psram-dma.md),
 [touch identification](../audits/native-touch-identify.md).

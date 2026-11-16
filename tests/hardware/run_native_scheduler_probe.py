@@ -994,6 +994,26 @@ def evaluate_psram_window(output):
             next(i for i,l in enumerate(lines) if l.startswith('PSRAM_CLOCK phase=00000001')))
 
 
+def evaluate_psram_dma(output):
+    lines=output.replace('\r','').splitlines()
+    dma=[l for l in lines if l.startswith('PSRAM_DMA')]
+    clean='\n'.join(l for l in lines if not l.startswith('PSRAM_DMA'))+'\n'
+    if not evaluate_psram_window(clean) or len(dma)!=10:return False
+    keys='index offset bytes burst done polls matched guards raw status common us'.split()
+    for i,line in enumerate(dma[:9]):
+        m=re.fullmatch('PSRAM_DMA_COPY'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),line)
+        if m is None:return False
+        a=dict(zip(keys,(int(v,16) for v in m.groups())))
+        if not(a['index']==i and a['offset']==(0,65408,0x1ff000)[i//3] and a['bytes']==4096 and
+               a['burst']==(1,4,16)[i%3] and a['done']==1 and 1<=a['polls']<=1000000 and
+               a['matched']==4096 and a['guards']==1 and a['raw']==511 and not(a['status']&0x023f7fe0) and not a['common'] and a['us']):return False
+    if dma[9]!='PSRAM_DMA_FINAL cfg=00000000 channels=00000000 fifo=00000000 restored=00000001 preserved=00000001':return False
+    positions=[i for i,l in enumerate(lines) if l.startswith('PSRAM_DMA')]
+    before=next(i for i,l in enumerate(lines) if l.startswith('PSRAM_WINDOW_DATA '))
+    after=next(i for i,l in enumerate(lines) if l.startswith('PSRAM_WINDOW phase=00000002 '))
+    return before<positions[0] and positions==list(range(positions[0],positions[0]+10)) and positions[-1]<after
+
+
 def evaluate_vdma_list(output):
     clean=output.replace('\r','');lines=clean.splitlines()
     if 'FAIL' in clean or 'FATAL' in clean or lines.count('MAIA_NATIVE_VDMA_LIST_PASS')!=1:return False
@@ -1233,6 +1253,7 @@ def main():
     parser.add_argument('--expect-fatal-pc', type=lambda value: int(value, 0))
     parser.add_argument('--expect-fatal-cause', type=lambda value: int(value, 0), choices=(2, 3, 11))
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--psram-dma', action='store_true', help='qualify mapped PSRAM source DMA burst bytes')
     parser.add_argument('--psram-window', action='store_true', help='qualify native CPU2MiB PSRAM mapped memory')
     parser.add_argument('--psram-array', action='store_true', help='port HEX training array transfers and verify content restore')
     parser.add_argument('--psram-clock', action='store_true', help='qualify native XTAL20 PSRAM clock and restore')
@@ -1380,13 +1401,14 @@ def main():
     if args.serial_input and args.expect_fatal_cause is not None:
         parser.error('serial input workload cannot be combined with a fatal profile')
 
+    if args.psram_dma:args.psram_window=True
     if args.psram_window:args.psram_array=True
     if args.psram_array:args.psram_clock=True
     if args.psram_clock:args.psram_id=True
     if args.psram_id:args.psram_state=True
     if args.psram_state:
         for name,value in vars(args).items():
-            if name not in ('psram_state','psram_id','psram_clock','psram_array','psram_window') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
+            if name not in ('psram_state','psram_id','psram_clock','psram_array','psram_window','psram_dma') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
         if args.expect_fatal_cause is not None:parser.error('PSRAM state excludes fatal profile')
 
     import esptool
@@ -1514,7 +1536,7 @@ def main():
         elif args.mipi_state:
             passed = evaluate_mipi(output)
         if args.psram_state:
-            passed = evaluate_psram_window(output) if args.psram_window else evaluate_psram_array(output) if args.psram_array else evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
+            passed = evaluate_psram_dma(output) if args.psram_dma else evaluate_psram_window(output) if args.psram_window else evaluate_psram_array(output) if args.psram_array else evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
         if args.ldo3_acquire:
@@ -1525,7 +1547,7 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
-        print('[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+        print('[HOST] PSRAM source DMA burst bytes:' if args.psram_dma else '[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
 

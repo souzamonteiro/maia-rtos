@@ -1211,3 +1211,19 @@ Reset shell/SciCalc14/desktopPASS; no flash/SD/parser writes. Recovery
 RGB565frame; DMA/throughput/cold startup/production concurrency still unqualified.
 Continue clock/burst/DMA/full-image integration autonomously, then continuous LCD/
 touch. Existing full installed desktop still original runtime.
+
+## Native PSRAM DMA burst/address qualification — 2026-11-15
+
+[DMA audit](audits/native-psram-dma.md): one native RAM upload686f26dead6cee2033c6cec32250670e27d837a86e2fd273275ee89acd6d84dd/27152bytes.
+All9x4096bytes PSRAM->SRAM matched, guards kept, offsets0/65408(pagecross)/1FF000,
+explicit source1/4/16items andARLENfields0/3/15,64bit. All raw511/naturalstop/
+errors0,12configwords restored and MIPI/otherchannels preserved. Nominal20MHz
+4KiB samples1179/373/170–171us; insufficientfor currentDPIrate, not sustained
+displaythroughput. Full2MiB CPU/cache/direct/mode/clock recovery alsoPASS. Host
+52/52/sanitizers/SDKoracle/C++98/three rejected mutants/invalidprofile/runtime
+gatePASS. Reset shell/SciCalc14/desktopPASS, no flash/SD/parserwrites. Recovery
+`../maia-rtos-recovery/native-psram-dma-20261115/`. Next operationalclock adaptation
+(bounded MPLLdivisorread/no sharedPLL retuning), data/DMA then fullframePSRAM->DSI.
+No nativePLLchange/fullLCD/touch/coldstartup acceptance yet. Existing fullfirmware
+remains originalruntime; native tests use none. Continue internally under existing
+authorization; coordinate owner presence only for prepared visual/touch checks.

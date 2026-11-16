@@ -864,3 +864,16 @@ for a,b in [('vaddr=4b800000','vaddr=48100000'),('bytes=00200000','bytes=0000100
     assert a in window_capture
     assert not runner.evaluate_psram_window(window_capture.replace(a,b)),(a,b)
 assert not runner.evaluate_psram_window(window_capture+window_capture)
+
+# PSRAM DMA is a stricter profile; never accept CPU-only proof as DMA evidence.
+dma_records=''
+for i in range(9):
+    dma_records+=f'PSRAM_DMA_COPY index={i:08x} offset={(0,65408,0x1ff000)[i//3]:08x} bytes=00001000 burst={(1,4,16)[i%3]:08x} done=00000001 polls=00000001 matched=00001000 guards=00000001 raw=000001ff status=00000000 common=00000000 us=00000100\n'
+dma_records+='PSRAM_DMA_FINAL cfg=00000000 channels=00000000 fifo=00000000 restored=00000001 preserved=00000001\n'
+dma_capture=window_capture.replace('PSRAM_WINDOW phase=00000002',dma_records+'PSRAM_WINDOW phase=00000002')
+assert runner.evaluate_psram_dma(dma_capture)
+assert not runner.evaluate_psram_dma(window_capture)
+assert not runner.evaluate_psram_window(dma_capture)
+for a,b in [('burst=00000010','burst=0000000f'),('matched=00001000','matched=00000fff'),('guards=00000001','guards=00000000'),('status=00000000','status=00000020'),('raw=000001ff','raw=00000200'),('polls=00000001','polls=00000000'),('restored=00000001 preserved=','restored=00000000 preserved='),('offset=0000ff80','offset=00010000')]:
+    assert not runner.evaluate_psram_dma(dma_capture.replace(a,b)),(a,b)
+assert not runner.evaluate_psram_dma(dma_capture+dma_records)

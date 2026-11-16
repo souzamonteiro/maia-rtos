@@ -21,6 +21,9 @@ static void window_report(unsigned phase,maia_psram_result_t result,const maia_p
     field("PSRAM_WINDOW phase=",phase);field(" result=",(uint32_t)result);field(" stage=",r->stage);field(" vaddr=",r->vaddr);field(" bytes=",r->bytes);field(" physical=",r->physical);field(" restored=",r->restored);field(" polls=",r->polls);maia_console_puts("\n");
     if(result==MAIA_PSRAM_OK)for(unsigned i=0;i<32U;++i){field("PSRAM_WINDOW_MMU phase=",phase);field(" index=",i);field(" before=",r->mmu_before[i]);field(" after=",r->mmu_after[i]);maia_console_puts("\n");}
 }
+#ifdef MAIA_NATIVE_PROBE_PSRAM_DMA
+#include "native_psram_dma.h"
+#endif
 static int psram_window(void){
     if(!window_mode(0)||!window_raw(0,array_memory.original,0))return 0;
     maia_psram_window_report_t r;maia_psram_result_t result=maia_esp32p4_psram_window_start(10000,&r);window_report(0,result,&r);
@@ -33,6 +36,9 @@ static int psram_window(void){
     for(uint32_t i=0;i<MAIA_PSRAM_WINDOW_BYTES/4U;++i){uint32_t value=memory[i],want=window_value(i);if(value==want)++matched;
         for(unsigned j=0;j<4U;++j){expected=(expected^((want>>(j*8U))&255U))*16777619U;actual=(actual^((value>>(j*8U))&255U))*16777619U;}}
     field("PSRAM_WINDOW_DATA words=",MAIA_PSRAM_WINDOW_BYTES/4U);field(" matched=",matched);field(" expected=",expected);field(" actual=",actual);maia_console_puts("\n");
+#ifdef MAIA_NATIVE_PROBE_PSRAM_DMA
+    if(!psram_dma())return 0;
+#endif
     result=maia_esp32p4_psram_window_stop(10000,&r);window_report(2,result,&r);if(result!=MAIA_PSRAM_OK)return 0;
     if(!window_raw(1,array_memory.readback,0))return 0;
     unsigned direct=0;for(unsigned i=0;i<4096U;++i)if(array_memory.readback[i]==(uint8_t)(window_value(i/4U)>>((i%4U)*8U)))++direct;
