@@ -71,6 +71,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_VDMA_COUNT AND (NOT MAIA_NATIVE_PROBE_VDMA_TRANSFER OR MAIA_NATIVE_PROBE_MIPI_PARK))
     message(FATAL_ERROR "VDMA count requires separate SRAM transfer profile")
   endif()
+  option(MAIA_NATIVE_PROBE_PSRAM_PROFILE "Native PSRAM mode/latency initialization and recovery" OFF)
+  if(MAIA_NATIVE_PROBE_PSRAM_PROFILE AND NOT MAIA_NATIVE_PROBE_MPLL_INITIALIZE)
+    message(FATAL_ERROR "PSRAM profile requires MPLL initialize/framebuffer qualification")
+  endif()
   option(MAIA_NATIVE_PROBE_MPLL_INITIALIZE "Native powered MPLL400 programming/calibration before framebuffer" OFF)
   if(MAIA_NATIVE_PROBE_MPLL_INITIALIZE AND NOT MAIA_NATIVE_PROBE_INPUT_LIFECYCLE)
     message(FATAL_ERROR "MPLL initialize requires isolated input lifecycle/framebuffer profile")
@@ -331,6 +335,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     ${MAIA_PROBE_APP}
   )
+  if(MAIA_NATIVE_PROBE_PSRAM_PROFILE)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_PSRAM_PROFILE=1)
+  endif()
   if(MAIA_NATIVE_PROBE_MPLL_INITIALIZE)
     target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_MPLL_INITIALIZE=1)
   endif()
@@ -979,6 +986,7 @@ else()
 
 
 
+    add_test(NAME psram_profile_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_profile_capture_test.py)
     add_test(NAME mpll_initialize_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/mpll_initialize_capture_test.py)
     add_test(NAME input_lifecycle_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/input_lifecycle_capture_test.py)
     add_test(NAME touch_lcd_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/touch_lcd_capture_test.py)

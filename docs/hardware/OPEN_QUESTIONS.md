@@ -388,3 +388,10 @@ now observes END0->END1 and passes subsequentPSRAM200MHz/DMA/LCD/input cycles.
 This removes reliance on an already-calibrated MPLL circuit, but supply/LDO2 and
 PSRAM device modes remain warm prerequisites. Native PSRAM mode configuration,
 cold supply/device boot, full capacity/margins and shared-clock clients remain open.
+
+
+PSRAM mode checkpoint2026-11-16: native MR0/MR4/MR8 programming and original-profile
+recovery pass alongside PSRAM200MHz/data/DMA/LCD. [Mode audit](../audits/native-psram-profile.md).
+Physical entry was already the target profile; alternative/default fields only
+host-tested. Native LDO2/supply/reset/power-on defaults remain unqualified before
+claiming cold initialization; do not infer successful cold entry from readback.

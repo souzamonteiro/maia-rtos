@@ -23,7 +23,9 @@ touch observations when needed. Parser ownership remains EBNF + MaiaCC.
    measured slow-clock limitation; sustained full-image DMA now runs in later
    gates. Native powered-domain MPLL400 restart/programming with observed END0->1
    and downstreamPSRAM200/LCD also passes. PSRAM supply/device-mode cold entry,
-   full capacity and operating margins remain open.
+   full capacity and operating margins remain open. Native MR0/MR4/MR8 programming
+   and exact profile recovery now pass the downstream data/DMA/LCD pipeline on the
+   powered matching-field device; differing fields are host-tested, not cold proof.
 2. **Full-frame image — HARDWARE-TESTED, LIMITED.** Complete1843200B RGB565
    framebuffer in owned200MHz PSRAM, cache/lifetime claim, direct single-block
    DMA toDSI. Electronic4frames and fresh-ready visual1000frames pass with source
@@ -63,8 +65,8 @@ address aliasing; corrected X8 mode/data/restoration path is now target-tested.
 These are boot diagnostics, not continuous desktop equivalence. Installed full
 firmware remains original ESP-IDF/FreeRTOS fallback until native integration passes.
 
-Next implementation: native PSRAM mode/latency/interface and supply/device
-cold-start ownership (powered MPLL restart now qualified), with the
+Next implementation: native LDO2/supply/reset/device power-on entry and actual
+default-mode qualification (MPLL and powered mode programming now qualified), with the
 remaining brightness/concurrency acceptance gates. Continue through internal
 substeps autonomously; do not stop just to request permission for the next small
 register operation. Fix integration defects in native layers. SMP and full-system
@@ -83,4 +85,5 @@ Evidence: [SRAM marker](../audits/native-dpi-dma-center.md),
 [touch identification](../audits/native-touch-identify.md),
 [touch physical qualification](../audits/native-touch-input.md),
 [input lifecycle/startup dependency inventory](../audits/native-input-lifecycle.md),
-[native MPLL startup](../audits/native-mpll-initialize.md).
+[native MPLL startup](../audits/native-mpll-initialize.md),
+[native PSRAM mode programming](../audits/native-psram-profile.md).

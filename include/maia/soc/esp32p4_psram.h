@@ -113,6 +113,22 @@ maia_psram_result_t maia_esp32p4_psram_fast_stop(maia_psram_clock_report_t *);
 typedef struct maia_psram_transfer_report {
     uint32_t completed,chunks,polls,command,restored,write_attempted;
 } maia_psram_transfer_report_t;
+typedef struct maia_psram_profile_report {
+    uint32_t stage,write_attempts,polls,restored,before[3],after[3];
+} maia_psram_profile_report_t;
+/* Boot/core0/IRQs-off/exclusive native XTAL20 claim, closed AXI/idle controllers,
+ * powered/readable AP32MiB HEX/X16 device; not a cold power/supply initializer.
+ * restore0 saves MR0/1,MR4,MR8 and programs fixed200M latency/drive/burst profile
+ * via qualified native command port; accepts differing mode fields, not guessed
+ * identity/reserved/interface values. MR0 and MR4 use vendor16bit writes, MR8
+ * uses qualified one-byte write (avoids reading past vendor's byte object).
+ * Readback preserves all other fields. Existing X8 claim may then be acquired.
+ * restore1 requires genuine profile claim, X16 restored, XTAL20, no other clients;
+ * restores original device profile after data/window/cache users are stopped.
+ * budget1..100000; invalid/context/duplicate/no-claim refuse before I/O. Any
+ * post-claim failure sticky until reset, no blind rollback/ACK claim. Reports
+ * contain attempts and actual readback, not evidence of a device write ACK. */
+maia_psram_result_t maia_esp32p4_psram_profile200(unsigned restore,uint32_t budget,maia_psram_profile_report_t *);
 typedef struct maia_psram_mode_switch_report {uint32_t before,after,stage;} maia_psram_mode_switch_report_t;
 /* Same boot-exclusive context as clock/array APIs; no clients across switch.
  * restore0 claims exact MR8=4B and writes0B (X8) via C0C0/address8/one-byte data,

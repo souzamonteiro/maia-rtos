@@ -1589,3 +1589,22 @@ addresses/masks; source byte hashes pinned in recovery. [Actual calibration,
 refusals and downstream PSRAM/DMA/LCD evidence](../audits/native-mpll-initialize.md).
 This qualifies native powered-domain circuit restart/programming, not cold
 PSRAM supply/device startup or a measured clock waveform.
+
+
+## Native PSRAM mode profile — 2026-11-16
+
+[AP HEX implementation at pinned f5c3654](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c#L138),
+Apache-2.0, s_init_psram_mode_reg plus the field struct/constants at lines21–112:
+200M fixed read latency4/drive0 gives MR0 masked3F/value30; write latency1 gives
+MR4 maskedE0/value20; burstlen3/type0/rbx1/X16 gives MR8=4B (X8=0B). Read command
+4040, writeC0C0,16bit commands/32bit address, register writes without dummy.
+Vendor uses16bit MR0 and MR4 writes and16bits starting at its byte MR8 object;
+native port uses explicit2byte MR0/MR4 buffers and the previously qualified
+one-byte MR8 writer to avoid an object over-read. It obtains MR4/MR8 bytes with
+separate qualified reads, without assuming paired-read upper-byte behavior.
+Masked fields and unowned MR0/MR4 bits preserved; no arbitrary register API.
+The oracle compiles the exact pinned vendor struct and confirms30/20/4B/0B.
+[Actual programming/readback, original-profile recovery and downstream DMA/LCD](../audits/native-psram-profile.md)
+pass on this powered AP32MiB/X16 entry; initial fields already match the target,
+so differing/default-field startup remains host-only evidence. Supply/reset/cold
+entry is not inferred from same-value device readback. No SDK runtime/header.

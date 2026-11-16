@@ -1338,3 +1338,24 @@ HARDWARE-TESTED LIMITED powered-domain native PLL startup; PSRAM supply/device
 modes still inherited, not cold board/full32MiB/margins/SMP/native desktop acceptance.
 Next grouped work: native MR0/MR4/MR8 timing/interface configuration and supply/
 device startup from primary documented defaults; preserve warm guards/fallback.
+
+## Native PSRAM MR profile programming — 2026-11-16
+
+[Profile audit](../audits/native-psram-profile.md): native MR0 read/fixed latency/drive,MR4 write latency and
+MR8 burst/interface programming from pinned Apache2 vendor algorithm, with
+original-profile ownership/readback/restoration. Native command/FIFO guards,
+no SDK/FreeRTOS runtime. Unexpected restore mode changes now poison the shared
+profile so legacy array/X8 entry cannot bypass refusal. Host differing-mode entry
+and exact restore/ignored writes/timeout/unowned fields/clock guards pass.
+Actual powered device already8D30/20/4B; three programming attempts/readback and
+restore pass, not a cold/default-mode transition claim. Subsequent MPLL native
+power/cal400,PSRAM200/fullimage/guards/9x4KiBDMA/102LCDframes/three input restart
+cycles/errors0 and desktop shell/SciCalc14/exit0 pass. Final image
+57927950a3d722e5295b3a47a6e8b682a490cba8adb2f61612f872359515f1c3/99168bytes.
+Host68/68, array/profile ASan+UBSan/five rejected mutants/C++98/vendor struct oracle/
+pinned source/runtimegate PASS. Both initial and final successful image evidence
+preserved in `../maia-rtos-recovery/native-psram-profile-20261116/`. No flash/SD/
+parser changes, no new visual claim. HARDWARE-TESTED LIMITED powered mode setup;
+actual differing-default startup HOST-only. Next native LDO2 supply/reset/power-on
+entry, then exercise mode initialization against actual defaults. Keep private
+warm guards/fallback; no cold/full32MiB/margins/SMP/native desktop acceptance yet.
