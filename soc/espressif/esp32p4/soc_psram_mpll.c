@@ -69,7 +69,7 @@ typedef struct {
     maia_psram_mpll_init_report_t *report;
 } mpll_init_t;
 static int init_live(const mpll_init_t *c){
-    const uintptr_t a[4]={MPLL_LPCLK,MPLL_LPRESET,MPLL_POWER,MPLL_CLOCK};
+    static const uintptr_t a[4]={MPLL_LPCLK,MPLL_LPRESET,MPLL_POWER,MPLL_CLOCK};
     if(maia_psram_clock_mhz()!=20U)return 0;
     for(unsigned i=0;i<4U;++i)if(psram_read(a[i])!=c->fixed[i])return 0;
     if((psram_read(MPLL_CAL)&~0x100U)!=(c->cal&~0x100U))return 0;
@@ -127,7 +127,7 @@ maia_psram_result_t maia_esp32p4_psram_mpll_initialize400(uint32_t budget,maia_p
     mpll_init_t c; c.report=r;
     if(maia_esp32p4_psram_snapshot(&c.memory)!=MAIA_PSRAM_OK||c.memory.before[0]||c.memory.before[16]||!psram_axi_quiet())return MAIA_PSRAM_BUSY;
     if((c.memory.roots[1]&0xFFB000U)!=0x8000U||c.memory.before[7]!=0x10001U||c.memory.before[20]!=0x10001U)return MAIA_PSRAM_BUSY;
-    const uintptr_t a[4]={MPLL_LPCLK,MPLL_LPRESET,MPLL_POWER,MPLL_CLOCK};
+    static const uintptr_t a[4]={MPLL_LPCLK,MPLL_LPRESET,MPLL_POWER,MPLL_CLOCK};
     for(unsigned i=0;i<4U;++i)c.fixed[i]=psram_read(a[i]);
     c.cal=r->cal_before=psram_read(MPLL_CAL);
     if(!(c.fixed[0]&0x8000000U)||(c.fixed[1]&0x4000000U)||!(c.fixed[2]&0x1000000U)||!(c.fixed[3]&0x10000000U)||!(c.cal&0x200U))return MAIA_PSRAM_BUSY;
@@ -137,13 +137,14 @@ maia_psram_result_t maia_esp32p4_psram_mpll_initialize400(uint32_t budget,maia_p
     fault=1;r->stage=1;
     if(!init_route(&c,1,saved[1]&0xFF000000U)||!init_route(&c,0,saved[0]&0xFF000000U)||!init_route(&c,1,(saved[1]&0xFF000000U)|0x200U))return MAIA_PSRAM_VERIFY;
     for(unsigned i=0;i<3U;++i)if(!init_analog(&c,i+1U,0,&r->before[i],budget))return MAIA_PSRAM_TIMEOUT;
-    /* Preserve the known installed400M reference for recovery; future power-on
-     * profiles need separate validation, not a guessed alternate baseline. */
-    if(r->before[1]!=0x99U)return MAIA_PSRAM_VERIFY;
+    /* Warm entry preserves its known400M recovery reference. Only the genuine
+     * native boot claim can configure an unknown initial divider: it never
+     * returns to the old firmware clock and verifies the programmed result. */
+    if(!maia_psram_boot_claimed()&&r->before[1]!=0x99U)return MAIA_PSRAM_VERIFY;
     uint32_t powered=c.fixed[2];
     if(!init_power(&c,powered&~0x1000000U)||!init_power(&c,powered))return MAIA_PSRAM_VERIFY;
     for(unsigned i=0;i<3U;++i)if(!init_analog(&c,i+1U,0,&r->before[i],budget))return MAIA_PSRAM_TIMEOUT;
-    if(r->before[1]!=0x99U)return MAIA_PSRAM_VERIFY;
+    if(!maia_psram_boot_claimed()&&r->before[1]!=0x99U)return MAIA_PSRAM_VERIFY;
     if(!init_cal(&c,c.cal&~0x200U))return MAIA_PSRAM_VERIFY;
     if(!(psram_read(MPLL_CAL)&0x100U))r->saw_not_done=1;
     r->stage=2;
@@ -165,5 +166,6 @@ maia_psram_result_t maia_esp32p4_psram_mpll_initialize400(uint32_t budget,maia_p
     r->cal_after=psram_read(MPLL_CAL);r->stage=4;
     if(!init_route(&c,1,saved[1])||!init_route(&c,0,saved[0]))return MAIA_PSRAM_VERIFY;
     r->route_restored=1;r->mhz=40U*((r->after[1]>>3U)+1U)/((r->after[1]&7U)+1U);r->stage=5;fault=0;
+    maia_psram_boot_mpll_ready();
     return MAIA_PSRAM_OK;
 }

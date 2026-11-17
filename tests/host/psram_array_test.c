@@ -5,7 +5,8 @@ void maia_psram_array_test_reset(void);
 void maia_psram_mode_test_reset(void);
 static uint32_t root[9],reg[2][256],saved[2][256];
 static uint8_t memory[4096];
-static unsigned device_mr8,device_mr0,device_mr4,clock_rate,ignore_mode_offset,pair_writes_mr8;
+static unsigned device_mr8,device_mr0,device_mr4,clock_rate,ignore_mode_offset,pair_writes_mr8,boot_claim;
+int maia_psram_boot_claimed(void){return (int)boot_claim;}
 unsigned maia_psram_clock_mhz(void){return clock_rate;}
 static unsigned context,reads,writes,active,delay,stuck,drop,loss,commands,bad_profile,stuck_after;
 static uint32_t *ptr(uintptr_t p){
@@ -66,7 +67,7 @@ static void setup(void){
     reg[1][0x20/4]=0x70000000;reg[1][0x34/4]=2;reg[1][0xD4/4]=0x20;
     for(unsigned i=0;i<16;++i)reg[1][0x58/4+i]=0x10203040U+i;
     for(unsigned i=0;i<4096;++i)memory[i]=(uint8_t)(i*17U+(i>>8U));
-    memcpy(saved,reg,sizeof reg);device_mr8=0x4BU;device_mr0=0x8D30U;device_mr4=0x20U;clock_rate=20;ignore_mode_offset=0;pair_writes_mr8=1;
+    memcpy(saved,reg,sizeof reg);device_mr8=0x4BU;device_mr0=0x8D30U;device_mr4=0x20U;clock_rate=20;ignore_mode_offset=boot_claim=0;pair_writes_mr8=1;
 }
 static void setup_array(void){
     setup();maia_psram_mode_switch_report_t r;
@@ -119,6 +120,11 @@ int main(void){
 
     maia_psram_profile_report_t profile;
     setup();clock_rate=200;assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_BUSY&&!reads);
+    setup();device_mr8=3;assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_BUSY);
+    setup();boot_claim=1;device_mr0=0x8D28;device_mr4=0x40;device_mr8=3;
+    assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_OK&&device_mr0==0x8D30&&device_mr4==0x20&&device_mr8==0x4B);
+    assert(maia_esp32p4_psram_profile200(1,10,&profile)==MAIA_PSRAM_OK&&device_mr0==0x8D28&&device_mr4==0x40&&device_mr8==3);
+    setup();boot_claim=1;device_mr8=0x83;assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_BUSY);
     setup();device_mr0=0x8D20;device_mr4=0x40;device_mr8=0x43;
     assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_OK&&profile.stage==3&&profile.write_attempts==7);
     assert(device_mr0==0x8D30&&device_mr4==0x20&&device_mr8==0x4B&&!memcmp(saved,reg,sizeof reg));

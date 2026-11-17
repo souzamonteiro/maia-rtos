@@ -2,6 +2,8 @@
 #include "psram_mpll_internal.h"
 #include "psram_phase_plan.h"
 void maia_psram_mpll_test_reset(void);
+int maia_psram_boot_claimed(void){return 0;}
+void maia_psram_boot_mpll_ready(void){}
 static uint32_t root[5],route[2],control;
 static unsigned context,reads,writes,commands,drop,stuck,loss,mismatch,delay;
 int maia_psram_test_context(void){return (int)context;}

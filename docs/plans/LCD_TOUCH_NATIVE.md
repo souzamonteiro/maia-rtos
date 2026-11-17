@@ -95,3 +95,9 @@ This does not close cold supply/device startup or native desktop acceptance.
 Native PSRAM/MPLL consumer park/resume plus recalibration/pipeline checkpoint:
 [park audit](../audits/native-psram-park.md). Full electronics passes with VO2 on;
 physical supply-loss/default startup remains open pending fitted-memory timing.
+
+Native off-supply boot entry now feeds the complete existing framebuffer/DMA/
+LCD/input diagnostic: [implementation and tests](../audits/native-psram-native-boot.md).
+HOST-TESTED/NATIVE-BUILT only; new target run NOT RUN. Owner waived manually
+synchronized button/power testing as a development blocker. Proceed other
+memory/driver work; do not relabel old warm observations as this boot acceptance.

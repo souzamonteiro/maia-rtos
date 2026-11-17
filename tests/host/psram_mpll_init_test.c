@@ -4,7 +4,9 @@
 void maia_psram_mpll_test_reset(void);
 static uint32_t root[5],route[2],control,regs[4];
 static unsigned power_transitions;
-static unsigned context,rate,writes,commands,busy,drop,stuck,cal_stuck,stale_end,wrong_mux;
+static unsigned context,rate,writes,commands,busy,drop,stuck,cal_stuck,stale_end,wrong_mux,boot,ready;
+int maia_psram_boot_claimed(void){return (int)boot;}
+void maia_psram_boot_mpll_ready(void){if(boot)ready=1;}
 int maia_psram_test_context(void){return (int)context;}
 unsigned maia_psram_clock_mhz(void){return rate;}
 maia_psram_result_t maia_esp32p4_psram_snapshot(maia_psram_snapshot_t *s){memset(s,0,sizeof *s);s->roots[1]=wrong_mux?0x9000:0x8000;s->before[7]=s->before[20]=0x10001;return MAIA_PSRAM_OK;}
@@ -28,7 +30,7 @@ void maia_psram_test_write(uintptr_t p,uint32_t v){
  else if(p==MPLL_CAL){assert(!((v^root[4])&~0x300U));root[4]=(v&~0x100U)|(root[4]&0x100U);if(!(v&0x200U)&&!stale_end)root[4]&=~0x100U;}
  else {*ptr(p)=v;assert(p==MPLL_CONF1||p==MPLL_CONF2);}
 }
-static void setup(void){maia_psram_mpll_test_reset();context=1;rate=20;power_transitions=0;writes=commands=busy=drop=stuck=cal_stuck=stale_end=wrong_mux=0;
+static void setup(void){maia_psram_mpll_test_reset();context=1;rate=20;power_transitions=0;writes=commands=busy=drop=stuck=cal_stuck=stale_end=wrong_mux=boot=ready=0;
  root[0]=0x8000000;root[1]=0;root[2]=0x1000000;root[3]=0x10000000;root[4]=0x34C;
  route[0]=0xA5123456;route[1]=0x5A654321;control=0;regs[1]=0x20;regs[2]=0x99;regs[3]=0x0C;
 }
@@ -42,6 +44,9 @@ int main(void){maia_psram_mpll_init_report_t r;
   assert(regs[1]==0x20&&regs[2]==0x99&&regs[3]==0x3C&&root[4]==0x34C&&route[0]==0xA5123456&&route[1]==0x5A654321);
  }
  setup();stale_end=1;assert(maia_esp32p4_psram_mpll_initialize400(10,&r)==MAIA_PSRAM_VERIFY&&!r.route_restored);
+ setup();regs[2]=0x91;assert(maia_esp32p4_psram_mpll_initialize400(10,&r)==MAIA_PSRAM_VERIFY&&!ready);
+ setup();boot=1;regs[2]=0x91;assert(maia_esp32p4_psram_mpll_initialize400(10,&r)==MAIA_PSRAM_OK&&r.before[1]==0x91&&r.after[1]==0x99&&ready);
+ setup();boot=1;regs[2]=0x08;cal_stuck=1;assert(maia_esp32p4_psram_mpll_initialize400(3,&r)==MAIA_PSRAM_TIMEOUT&&!ready);
  setup();cal_stuck=1;assert(maia_esp32p4_psram_mpll_initialize400(10,&r)==MAIA_PSRAM_TIMEOUT&&!r.route_restored);
  setup();stuck=1;assert(maia_esp32p4_psram_mpll_initialize400(3,&r)==MAIA_PSRAM_TIMEOUT);
  unsigned n=writes;assert(maia_esp32p4_psram_mpll_initialize400(10,&r)==MAIA_PSRAM_FAILED&&writes==n);

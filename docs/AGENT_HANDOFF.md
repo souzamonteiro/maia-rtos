@@ -1526,3 +1526,35 @@ rawsuccess+failedcaptures/recovery/GIF/pins/checks in
 `../maia-rtos-recovery/native-psram-boot-armed-20261116/`.
 HARDWARE-TESTED LIMITED observation only. Cold init/full32MiB/margins/SMP/shared
 clients/native desktop stillopen. Keepfallback. No repeated button request needed.
+
+## Native supply-to-mode boot implementation — 2026-11-16
+
+Owner explicitly says proceed with manual power/button test NOT RUN; no further
+chat-timed preparation requests. Recorded in AGENTS.md. [Native boot audit](audits/native-psram-native-boot.md).
+HOST-TESTED/NATIVE-BUILT, new target boot and full pipeline NOT RUN. No device
+connection/reset/flash/SD operation this unit. Prior raw snapshots/physical warm
+LCD/touch evidence retained with their original limits, not promoted to new boot.
+New maia_esp32p4_psram_boot_initialize200 composes private boot entry from VO2-off,
+XTAL/bus-div4/idle closed AXI/accessibleregisters: gateconsumers, dedicatedtrim
+VO2enable, LPPERI analogmaster clock/heldreset release/160Msource, MPLLpower/output,
+XTAL20div2, native400Mcal END0->1 then MR0/MR4/MR8 target200/X16. No poweroffpulse,
+resetprotocol/settlingguess; readabledevice/widerROMCPU/cache prerequisites remain.
+Boot-lifetime owner cannot restore off-supply/oldfirmwareclocks. Warm guards retained;
+only privateboot permits unknowninitialMPLLdivider/readableX8mode. Fastclockblocked
+beforecal;park invalidatesready. Stickyphasefailure/no blindrollback/checkedroots.
+Frame diagnostic/CMake/runner explicit --psram-native-boot path feeds existing
+PSRAM200/window/DMA/LCD/input pipeline; native baseline retained onteardown,
+no originaloff-state restoration. Host future-envelope fixture explicitlysynthetic,
+not UART evidence. SourceAPI, integrationcode, header/contracts, tests, docs updated.
+Host77/77 PASS, actualboot/array-profile/MPLL ASan+UBSan -Os, six rejectedmutants,
+C++98/sevenprimarysourcepins PASS. Both warm/nativeboot builds runtimegate project+
+libgcc PASS. Initial -Os libc-helper linkrefusal fixed via statictables/bounded
+transfer clear; warm32byte overflow fixed withMPLL -Os, no stack/boundary change.
+New coldprofile99840byte image45a2589c643d1118519a0330e4c8ad26ed04aa654524bf634571bf2e61bd187c;
+BSS4FF23B20/stacktop4FF27B20, warm4FF23E20/4FF27E20. validate-onlybounds PASS,
+no serialaccess. Full artifacts/source/config/commands/checks/failures in
+`../maia-rtos-recovery/native-psram-native-boot-20261116/`.
+Manualtiming and newboot physicalacceptance explicitly NOT RUN; proceed remaining
+memory/driver work without treating that as developmentblocker. Electricalmargins,
+32MiBcapacity, fullyindependent CPU/cachestartup,SMP/sharedclients/native desktop
+and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.

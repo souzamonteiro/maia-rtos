@@ -11,6 +11,10 @@
 static unsigned array_fault;
 static unsigned mode_claim,profile_state;
 static uint32_t original_profile[3],configured_profile[3];
+/* Bounded boot-local initialization; -Os must not introduce libc helpers. */
+static void clear_transfer(maia_psram_transfer_report_t *r){
+    for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
+}
 int maia_psram_x8_claimed(void){return mode_claim==1U&&!array_fault&&profile_state!=2U;}
 #ifdef MAIA_PSRAM_TEST
 void maia_psram_array_test_reset(void);
@@ -21,7 +25,7 @@ static int roots(const maia_psram_snapshot_t *s){for(unsigned i=0;i<9U;++i)if(ps
 static int owned(const maia_psram_snapshot_t *s,const uint32_t *v,unsigned fifo){
     if(!roots(s)||!psram_axi_quiet())return 0;
     for(unsigned i=0;i<16U;++i){uint32_t x=psram_read(psram_address(i));if(i?x!=s->before[i]:!!(x&~255U))return 0;}
-    const unsigned fixed[]={18,19,20,25,26};
+    static const unsigned fixed[]={18,19,20,25,26};
     for(unsigned i=0;i<5U;++i)if(psram_read(psram_address(fixed[i]))!=s->before[fixed[i]])return 0;
     for(unsigned i=0;i<(fifo?26U:10U);++i)if(psram_read(address(i))!=v[i])return 0;
     return 1;
@@ -82,7 +86,7 @@ static maia_psram_result_t chunk(uint32_t offset,uint8_t *data,unsigned len,unsi
     r->restored=1;array_fault=0;return MAIA_PSRAM_OK;
 }
 static maia_psram_result_t profile(unsigned x16,unsigned budget){
-    const unsigned regs[]={0,2,4,8},masks[]={0x1F3FU,0xFFU,0xE0U,0x4FU},values[]={0x0D30U,0xDFU,0x20U,0x4BU};
+    static const unsigned regs[]={0,2,4,8},masks[]={0x1F3FU,0xFFU,0xE0U,0x4FU},values[]={0x0D30U,0xDFU,0x20U,0x4BU};
     /* MR0/1 uses little-endian word: vendor upper byte, latency lower byte. */
     for(unsigned i=0;i<4U;++i){maia_psram_mode_report_t m;
         maia_psram_result_t result=maia_esp32p4_psram_read_mode(regs[i],budget,&m);
@@ -103,7 +107,7 @@ maia_psram_result_t maia_esp32p4_psram_x8_mode(unsigned restore,uint32_t budget,
     if(result!=MAIA_PSRAM_OK)return result;
     if(m.value!=(restore?0x0BU:0x4BU))return MAIA_PSRAM_BUSY;
     r->before=m.value;r->stage=1;mode_claim=2;
-    uint8_t desired=restore?0x4BU:0x0BU;maia_psram_transfer_report_t transfer={0};
+    uint8_t desired=restore?0x4BU:0x0BU;maia_psram_transfer_report_t transfer;clear_transfer(&transfer);
     result=chunk(8,&desired,1,2,budget,&transfer);if(result!=MAIA_PSRAM_OK)return result;
     r->stage=2;result=maia_esp32p4_psram_read_mode(8,budget,&m);if(result!=MAIA_PSRAM_OK)return result;
     r->after=m.value;if(m.value!=desired)return MAIA_PSRAM_VERIFY;
@@ -135,15 +139,15 @@ maia_psram_result_t maia_esp32p4_psram_boot_transfer(uint32_t offset,void *data,
  * MR4/8 paired read. Preserve MR1/other fields and keep X16 throughout profile
  * programming; the independently qualified X8 API handles interface handoff. */
 static maia_psram_result_t read_profile(uint32_t out[3],unsigned budget,maia_psram_profile_report_t *r){
-    const unsigned regs[3]={0,4,8};
+    static const unsigned regs[3]={0,4,8};
     for(unsigned i=0;i<3U;++i){maia_psram_mode_report_t m;maia_psram_result_t result=maia_esp32p4_psram_read_mode(regs[i],budget,&m);
         r->polls+=m.polls;if(result!=MAIA_PSRAM_OK)return result;out[i]=m.value;}
     return MAIA_PSRAM_OK;
 }
 static maia_psram_result_t write_profile(const uint32_t values[3],unsigned budget,maia_psram_profile_report_t *r){
-    const unsigned regs[3]={0,4,8};
+    static const unsigned regs[3]={0,4,8};
     for(unsigned i=0;i<3U;++i){uint8_t bytes[2]={(uint8_t)values[i],(uint8_t)(i?values[2]:values[0]>>8U)};
-        maia_psram_transfer_report_t transfer={0};r->write_attempts|=1U<<i;
+        maia_psram_transfer_report_t transfer;clear_transfer(&transfer);r->write_attempts|=1U<<i;
         maia_psram_result_t result=chunk(regs[i],bytes,i==2U?1U:2U,2,budget,&transfer);
         r->polls+=transfer.polls;if(result!=MAIA_PSRAM_OK)return result;
     }
@@ -161,7 +165,8 @@ maia_psram_result_t maia_esp32p4_psram_profile200(unsigned restore,uint32_t budg
     else {
         maia_psram_mode_report_t identity;result=maia_esp32p4_psram_read_mode(2,budget,&identity);r->polls+=identity.polls;
         if(result!=MAIA_PSRAM_OK)return result;
-        if((identity.value&255U)!=0xDFU||(r->before[2]&~0x4FU)||!(r->before[2]&0x40U))return MAIA_PSRAM_BUSY;
+        if((identity.value&255U)!=0xDFU||(r->before[2]&~0x4FU)||
+           (!(r->before[2]&0x40U)&&!maia_psram_boot_claimed()))return MAIA_PSRAM_BUSY;
         for(unsigned i=0;i<3U;++i)original_profile[i]=r->before[i];
         configured_profile[0]=(r->before[0]&~0x3FU)|0x30U;
         configured_profile[1]=(r->before[1]&~0xE0U)|0x20U;

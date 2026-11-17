@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as d,patch.dict(sys.modules,{'esptool':esp,'e
     assert run(['--psram-boot-state','--validate-only'])==0 and not calls
     for flag in ['--psram-id','--psram-clock','--psram-array','--psram-window','--psram-dma',
                  '--psram-supply','--psram-profile','--psram-park','--mpll-initialize',
-                 '--lcd-stream','--touch-lcd','--input-lifecycle','--ldo3-acquire']:
+                 '--lcd-stream','--touch-lcd','--input-lifecycle','--ldo3-acquire','--psram-native-boot']:
         assert run(['--psram-boot-state',flag])==2 and not calls,flag
     assert run(['--psram-boot-state','--psram-fast','200'])==2 and not calls
     assert run(['--psram-boot-state','--expect-fatal-cause','2'])==2 and not calls

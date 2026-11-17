@@ -21,7 +21,7 @@ static int fb_raw(unsigned phase,void *data,unsigned write){
     return result==MAIA_PSRAM_OK&&r.completed==4096U&&r.restored;
 }
 static uint32_t fb_hash(volatile const uint8_t *p,unsigned n){uint32_t h=2166136261U;for(unsigned i=0;i<n;++i)h=(h^p[i])*16777619U;return h;}
-#ifdef MAIA_NATIVE_PROBE_PSRAM_PROFILE
+#if defined(MAIA_NATIVE_PROBE_PSRAM_PROFILE) && !defined(MAIA_NATIVE_PROBE_PSRAM_BOOT)
 static uint32_t fb_original_profile[3];
 static void fb_profile(unsigned restore){
     maia_psram_profile_report_t r;maia_psram_result_t result=maia_esp32p4_psram_profile200(restore,10000,&r);
@@ -29,6 +29,13 @@ static void fb_profile(unsigned restore){
     for(unsigned i=0;i<3U;++i){field(i==0U?" before0=":i==1U?" before4=":" before8=",r.before[i]);field(i==0U?" after0=":i==1U?" after4=":" after8=",r.after[i]);}
     maia_console_puts("\n");if(result!=MAIA_PSRAM_OK)halt("fb-profile");
     for(unsigned i=0;i<3U;++i){if(!restore)fb_original_profile[i]=r.before[i];else if(r.after[i]!=fb_original_profile[i])halt("fb-profile-original");}
+}
+#endif
+#ifdef MAIA_NATIVE_PROBE_MPLL_INITIALIZE
+static void fb_mpll_report(maia_psram_result_t result,const maia_psram_mpll_init_report_t *r){
+    field("MPLL_BOOT result=",(uint32_t)result);field(" stage=",r->stage);field(" writes=",r->writes);field(" polls=",r->polls);field(" routing=",r->route_restored);field(" saw_low=",r->saw_not_done);field(" cal_before=",r->cal_before);field(" cal_after=",r->cal_after);
+    for(unsigned i=0;i<3U;++i){field(i==0U?" before1=":i==1U?" before2=":" before3=",r->before[i]);field(i==0U?" after1=":i==1U?" after2=":" after3=",r->after[i]);}
+    field(" mhz=",r->mhz);maia_console_puts("\n");
 }
 #endif
 static void fb_finish(uint32_t hash,const maia_psram_snapshot_t *initial){
@@ -45,10 +52,13 @@ static void fb_finish(uint32_t hash,const maia_psram_snapshot_t *initial){
     if(!fb_raw(1,fb_saved,1)||!fb_raw(2,fb_readback,0))halt("fb-raw-restore");
     unsigned restored=0;for(unsigned i=0;i<4096U;++i)if(fb_saved[i]==fb_readback[i])++restored;
     if(maia_esp32p4_psram_x8_mode(1,10000,&mode)!=MAIA_PSRAM_OK)halt("fb-mode-restore");
-#ifdef MAIA_NATIVE_PROBE_PSRAM_PROFILE
+#if defined(MAIA_NATIVE_PROBE_PSRAM_PROFILE) && !defined(MAIA_NATIVE_PROBE_PSRAM_BOOT)
     fb_profile(1);mode.after=fb_original_profile[2];
 #endif
-    if(maia_esp32p4_psram_xtal20_stop(&clock)!=MAIA_PSRAM_OK||maia_esp32p4_psram_snapshot(&after)!=MAIA_PSRAM_OK)halt("fb-clock-restore");
+#ifndef MAIA_NATIVE_PROBE_PSRAM_BOOT
+    if(maia_esp32p4_psram_xtal20_stop(&clock)!=MAIA_PSRAM_OK)halt("fb-clock-restore");
+#endif
+    if(maia_esp32p4_psram_snapshot(&after)!=MAIA_PSRAM_OK)halt("fb-clock-snapshot");
     unsigned roots=1,words=1;for(unsigned i=0;i<9U;++i)if(before.roots[i]!=after.roots[i])roots=0;
     for(unsigned i=0;i<27U;++i)if(before.before[i]!=after.before[i])words=0;
     field("DPI_FB_MEMORY_RESTORE bytes=",restored);field(" roots=",roots);field(" words=",words);field(" mode=",mode.after);field(" axi=",rd(PSRAM_MSPI0+0x3CU));maia_console_puts("\n");
@@ -71,7 +81,15 @@ static void dpi_framebuffer(void){
     maia_psram_cache_report_t cache;maia_psram_result_t result=maia_esp32p4_psram_cache_boot(&cache);
     field("DPI_FB_CACHE result=",(uint32_t)result);field(" stage=",cache.stage);field(" size=",cache.size);field(" line=",cache.line);maia_console_puts("\n");
     if(result!=MAIA_PSRAM_OK)halt("fb-cache");
-#ifdef MAIA_NATIVE_PROBE_PSRAM_SUPPLY
+#ifdef MAIA_NATIVE_PROBE_PSRAM_BOOT
+    maia_psram_boot_report_t boot;maia_psram_result_t booted=maia_esp32p4_psram_boot_initialize200(10000,&boot);
+    field("PSRAM_BOOT result=",(uint32_t)booted);field(" stage=",boot.stage);field(" writes=",boot.writes);field(" supply_stage=",boot.supply.stage);field(" supply_writes=",boot.supply.writes);field(" adopted=",boot.supply.adopted);field(" dref=",boot.supply.dref);field(" mul=",boot.supply.mul);
+    field(" beforectl=",boot.supply.before[0]);field(" afterctl=",boot.supply.after[0]);field(" beforeana=",boot.supply.before[1]);field(" afterana=",boot.supply.after[1]);field(" clock_stage=",boot.clock.stage);field(" attempts=",boot.clock.attempts);field(" beforeperi=",boot.clock.before[0]);field(" afterperi=",boot.clock.after[0]);field(" bus0=",boot.clock.after[1]);field(" bus1=",boot.clock.after[2]);field(" profile_stage=",boot.profile.stage);field(" profile_attempts=",boot.profile.write_attempts);field(" profile_polls=",boot.profile.polls);
+    for(unsigned i=0;i<3U;++i){field(i==0U?" before0=":i==1U?" before4=":" before8=",boot.profile.before[i]);field(i==0U?" after0=":i==1U?" after4=":" after8=",boot.profile.after[i]);}
+    maia_console_puts("\n");
+    if(boot.stage>=5U)fb_mpll_report(boot.stage>=6U?MAIA_PSRAM_OK:booted,&boot.mpll);
+    if(booted!=MAIA_PSRAM_OK)halt("fb-native-boot");
+#elif defined(MAIA_NATIVE_PROBE_PSRAM_SUPPLY)
     maia_psram_supply_report_t supply;maia_psram_result_t supplied=maia_esp32p4_psram_supply1900(&supply);
     field("PSRAM_SUPPLY result=",(uint32_t)supplied);field(" stage=",supply.stage);field(" adopted=",supply.adopted);field(" writes=",supply.writes);field(" dref=",supply.dref);field(" mul=",supply.mul);
     for(unsigned i=0;i<2U;++i){field(i?" before1=":" before0=",supply.before[i]);field(i?" after1=":" after0=",supply.after[i]);}
@@ -79,8 +97,10 @@ static void dpi_framebuffer(void){
 #endif
     maia_psram_snapshot_t before;
     if(maia_esp32p4_psram_snapshot(&before)!=MAIA_PSRAM_OK)halt("fb-snapshot");
+#ifndef MAIA_NATIVE_PROBE_PSRAM_BOOT
     maia_psram_clock_report_t clock;
     if(maia_esp32p4_psram_xtal20_start(&clock)!=MAIA_PSRAM_OK)halt("fb-xtal");
+#endif
 #ifdef MAIA_NATIVE_PROBE_PSRAM_PARK
     for(unsigned phase=0;phase<2U;++phase){
         maia_psram_park_report_t parked;maia_psram_result_t result=maia_esp32p4_psram_consumers_park(phase,&parked);
@@ -89,15 +109,13 @@ static void dpi_framebuffer(void){
         maia_console_puts("\n");if(result!=MAIA_PSRAM_OK)halt("fb-park");
     }
 #endif
-#ifdef MAIA_NATIVE_PROBE_MPLL_INITIALIZE
+#if defined(MAIA_NATIVE_PROBE_MPLL_INITIALIZE) && !defined(MAIA_NATIVE_PROBE_PSRAM_BOOT)
     maia_psram_mpll_init_report_t initialized;
     maia_psram_result_t programmed=maia_esp32p4_psram_mpll_initialize400(10000,&initialized);
-    field("MPLL_BOOT result=",(uint32_t)programmed);field(" stage=",initialized.stage);field(" writes=",initialized.writes);field(" polls=",initialized.polls);field(" routing=",initialized.route_restored);field(" saw_low=",initialized.saw_not_done);field(" cal_before=",initialized.cal_before);field(" cal_after=",initialized.cal_after);
-    for(unsigned i=0;i<3U;++i){field(i==0U?" before1=":i==1U?" before2=":" before3=",initialized.before[i]);field(i==0U?" after1=":i==1U?" after2=":" after3=",initialized.after[i]);}
-    field(" mhz=",initialized.mhz);maia_console_puts("\n");
+    fb_mpll_report(programmed,&initialized);
     if(programmed!=MAIA_PSRAM_OK)halt("fb-mpll-initialize");
 #endif
-#ifdef MAIA_NATIVE_PROBE_PSRAM_PROFILE
+#if defined(MAIA_NATIVE_PROBE_PSRAM_PROFILE) && !defined(MAIA_NATIVE_PROBE_PSRAM_BOOT)
     fb_profile(0);
 #endif
     maia_psram_mode_switch_report_t mode;

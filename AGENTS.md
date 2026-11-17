@@ -56,6 +56,10 @@ reference material, not the working firmware baseline.
   every substep. Keep reviewable commits/recovery evidence. Request the owner's
   presence when a visual/touch observation actually requires it. No foreign OS
   runtime/shim is permitted; retain file-level licenses and source revision.
+- Owner clarification (2026-11-16): proceed with development with the manually
+  synchronized power/button startup test marked NOT RUN. Do not block subsequent
+  implementation on chat/device timing or ask to repeat that procedure. Keep
+  actual captures, HOST validation and unexecuted physical acceptance distinct.
 
 ## C/C++ policy
 

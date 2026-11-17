@@ -43,8 +43,7 @@ maia_psram_result_t maia_esp32p4_psram_supply1900(maia_psram_supply_report_t *r)
     s.analog=r->before[1]=r->after[1]=psram_read(VO2_ANA);
     uint32_t sys2=s.fixed[0],sys3=s.fixed[1];
     r->dref=sys2>>28U;r->mul=(sys3>>3U)&7U;
-    if(((sys2>>4U)&3U)!=1U||(sys2&15U)!=3U||(sys2&0xC0U)||
-       ((sys2>>11U)&3U)||!((sys2>>8U)&7U)||(s.fixed[2]&8U)||!r->dref||!r->mul)return MAIA_PSRAM_VERIFY;
+    if(!psram_supply_trim_valid(sys2,sys3,s.fixed[2]))return MAIA_PSRAM_VERIFY;
     if(!supply_same(&s))return MAIA_PSRAM_CHANGED;
     r->stage=1;
     uint32_t analog=(s.analog&~ANALOG_MASK)|(r->dref<<28U)|(r->mul<<23U)|0x4000000U;

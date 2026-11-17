@@ -630,12 +630,28 @@ def evaluate_psram_profile(output):
             b[6]==a[7] and b[8]==a[9] and b[10]==a[11] and b[7]==a[6] and b[9]==a[8] and b[11]==a[10])
 
 
-def evaluate_mpll_initialize(output):
+def evaluate_psram_native_boot(output):
+    if not evaluate_mpll_initialize(output,boot=True):return False
+    keys='result stage writes supply_stage supply_writes adopted dref mul beforectl afterctl beforeana afterana clock_stage attempts beforeperi afterperi bus0 bus1 profile_stage profile_attempts profile_polls before0 after0 before4 after4 before8 after8'.split()
+    clean=output.replace('\r','');lines=[l for l in clean.splitlines() if l.startswith('PSRAM_BOOT ')]
+    if len(lines)!=1:return False
+    row=re.fullmatch('PSRAM_BOOT'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),lines[0])
+    if row is None:return False
+    a=dict(zip(keys,(int(v,16) for v in row.groups())))
+    return bool(a['result']==0 and a['stage']==7 and a['writes']==8 and a['supply_stage']==4 and a['supply_writes']==3 and a['adopted']==0 and
+        0<a['dref']<16 and 0<a['mul']<8 and not a['beforectl']&0x100 and a['afterctl']&0x4f80==0x180 and not(a['beforectl']^a['afterctl'])&~0x4f80 and
+        a['afterana']>>28==a['dref'] and (a['afterana']>>23)&7==a['mul'] and a['afterana']&0x4000000 and not(a['beforeana']^a['afterana'])&~0xf7800000 and
+        a['clock_stage']==6 and a['attempts']==63 and a['beforeperi']==a['afterperi'] and a['afterperi']&0xfff000==0xc000 and a['bus0']==a['bus1']==0x10001 and
+        a['profile_stage']==3 and a['profile_attempts']==7 and a['profile_polls']>0 and a['after0']==(a['before0']&~0x3f)|0x30 and
+        a['after4']==(a['before4']&~0xe0)|0x20 and not a['before8']&~0x4f and a['after8']==0x4b and
+        clean.index('PSRAM_BOOT ')<clean.index('DPI_FB_FAST '))
+
+def evaluate_mpll_initialize(output,boot=False):
     if not evaluate_lcd_stream(output,touch=True,input_lifecycle=True):return False
     rows=re.findall(r'^MPLL_BOOT result=([0-9a-f]{8}) stage=([0-9a-f]{8}) writes=([0-9a-f]{8}) polls=([0-9a-f]{8}) routing=([0-9a-f]{8}) saw_low=([0-9a-f]{8}) cal_before=([0-9a-f]{8}) cal_after=([0-9a-f]{8}) before1=([0-9a-f]{8}) after1=([0-9a-f]{8}) before2=([0-9a-f]{8}) after2=([0-9a-f]{8}) before3=([0-9a-f]{8}) after3=([0-9a-f]{8}) mhz=([0-9a-f]{8})$',output.replace('\r',''),re.M)
     if len(rows)!=1 or sum(l.startswith('MPLL_BOOT ') for l in output.replace('\r','').splitlines())!=1:return False
     v=[int(x,16) for x in rows[0]]
-    return bool(v[0]==0 and v[1]==5 and v[2]==4 and v[3]>0 and v[4]==v[5]==1 and v[6]&0x200 and v[7]&0x300==0x300 and not((v[6]^v[7])&~0x100) and v[9]&0x20 and v[10]==v[11]==0x99 and v[13]&0x30==0x30 and v[14]==400)
+    return bool(v[0]==0 and v[1]==5 and v[2]==4 and v[3]>0 and v[4]==v[5]==1 and v[6]&0x200 and v[7]&0x300==0x300 and not((v[6]^v[7])&~0x100) and v[9]&0x20 and (boot or v[10]==0x99) and v[11]==0x99 and v[13]&0x30==0x30 and v[14]==400)
 
 
 def evaluate_lcd_stream(output,visual=False,lifecycle=False,touch=False,input_lifecycle=False):
@@ -1554,6 +1570,7 @@ def main():
     parser.add_argument('--dpi-dma-frame', action='store_true', help='transfer a single solid frame and verify recovery')
     parser.add_argument('--dpi-dma-stage', action='store_true', help='stage inactive solid-source channel0 and DSI flow, no transfer')
     parser.add_argument('--dpi-dma-tile', action='store_true', help='construct and verify SRAM source/tile LLIs without programming or enabling DMA')
+    parser.add_argument('--psram-native-boot', action='store_true', help='untested off-supply boot initializer plus full PSRAM/LCD pipeline; no manual timing required or cold acceptance implied')
     parser.add_argument('--psram-park', action='store_true', help='verify native PSRAM/MPLL consumer stop/resume then recalibration and full pipeline; supply stays on')
     parser.add_argument('--psram-supply', action='store_true', help='verify native calibrated VO2 adoption (no supply power cycle) and full pipeline')
     parser.add_argument('--psram-profile', action='store_true', help='verify native PSRAM mode programming/restoration before full-frame qualification')
@@ -1610,6 +1627,9 @@ def main():
     if args.expect_stack_sp is not None and not 0 <= args.expect_stack_sp <= 0xffffffff:
         parser.error('expected source SP must fit RV32')
 
+    if args.psram_native_boot:
+        if args.psram_park or args.psram_supply or args.psram_profile:parser.error('native boot excludes warm supply/profile/park entry')
+        args.mpll_initialize=True
     if args.psram_park:args.psram_supply=True
     if args.psram_supply:args.psram_profile=True
     if args.psram_profile:args.mpll_initialize=True
@@ -1814,7 +1834,8 @@ def main():
             if args.input_lifecycle:
                 rows=[l for l in output.replace('\r','').splitlines() if l.startswith('TOUCH_LIFECYCLE ')]
                 passed=passed and rows==['TOUCH_LIFECYCLE cycles=00000003 stops=00000004 restarts=00000003 stopped=00000001 closed=00000001 refused=00000003 sequence=00000003 bus_refused=00000003']
-            if args.mpll_initialize:passed=passed and evaluate_mpll_initialize(output)
+            if args.psram_native_boot:passed=passed and evaluate_psram_native_boot(output)
+            elif args.mpll_initialize:passed=passed and evaluate_mpll_initialize(output)
             if args.psram_profile:passed=passed and evaluate_psram_profile(output)
             if args.psram_supply:passed=passed and evaluate_psram_supply(output)
             if args.psram_park:passed=passed and evaluate_psram_park(output)

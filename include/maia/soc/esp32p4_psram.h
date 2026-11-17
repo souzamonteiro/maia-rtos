@@ -111,6 +111,8 @@ typedef struct maia_psram_mpll_init_report {
  * Requires genuine native XTAL20 claim, closed AXI/idle PSRAM and powered MPLL/
  * supply/analog clock (not power-on from an unpowered domain). Programs fixed
  *400MHz from40MHz XTAL using pinned vendor DHREF/RSTB/divisor/calibration order.
+ * Warm entry demands its known400M recovery divisor; the private native boot
+ * claim alone permits a different initial divisor and has no warm rollback.
  * Cycles the MPLL circuit power bit only (PSRAM supply stays on), then
  * recalibrates rather than relying on inherited CAL_END; requires observed END0
  * then END1 and readback. Keeps calibrated analog configuration; restores analog
@@ -148,8 +150,36 @@ typedef struct maia_psram_transfer_report {
 typedef struct maia_psram_profile_report {
     uint32_t stage,write_attempts,polls,restored,before[3],after[3];
 } maia_psram_profile_report_t;
+typedef struct maia_psram_boot_report {
+    /* LP master clock/reset, MPLL power/output, CAL, analog source selector.
+     * Slot5 sampled only after master access is enabled/reset released. */
+    uint32_t stage,writes,before[6],after[6];
+    maia_psram_clock_report_t clock;
+    maia_psram_supply_report_t supply;
+    maia_psram_mpll_init_report_t mpll;
+    maia_psram_profile_report_t profile;
+} maia_psram_boot_report_t;
+/* HOST-TESTED boot entry; physical power-on acceptance NOT RUN. Core0/IRQs-off,
+ * CPU1 parked, internal SRAM code/data/report, exclusive all memory/cache/DMA/
+ * analog/MPLL/F25/F50 clients. Requires observed ROM-entry profile: accessible
+ * idle controllers/closed AXI, XTAL core-div1/bus-div4, VO2 disabled, valid rev1.3
+ * dedicated1900mV trim. Gates consumers, configures/enables VO2, enables analog
+ * master clock/releases its held reset/selects vendor160M source, powers MPLL, establishes native XTAL20,
+ * calibrates400M from40M and programs/readbacks AP32MiB HEX/X16 modes for200M.
+ * Unknown identity/protocol refuses; does not guess reset, discharge or settle
+ * delays. Device reads remain a prerequisite, not proof of electrical margins.
+ * Boot-lifetime ownership: no restore to disabled supply/old firmware clocks.
+ * No supply-off, array/cache/MMU/allocator or LCD operation. Follow with native
+ * X8/fast/window APIs only after OK. All loops bounded; not measured WCET.
+ * INVALID/CONTEXT/duplicate/prior FAILED refuse before I/O; post-store failure
+ * remains sticky in owning layer until reset, no blind rollback. stage1..7 is
+ * progress, writes counts boot power/analog-root stores; other counts embedded.
+ * Not thread/ISR/SMP-safe. Reports are observations, never ownership tokens. */
+maia_psram_result_t maia_esp32p4_psram_boot_initialize200(uint32_t,maia_psram_boot_report_t *);
 /* Boot/core0/IRQs-off/exclusive native XTAL20 claim, closed AXI/idle controllers,
- * powered/readable AP32MiB HEX/X16 device; not a cold power/supply initializer.
+ * powered/readable AP32MiB HEX device; warm entry requires X16, genuine native
+ * boot ownership also accepts X8 before programming target X16. Not a standalone
+ * cold power/supply initializer.
  * restore0 saves MR0/1,MR4,MR8 and programs fixed200M latency/drive/burst profile
  * via qualified native command port; accepts differing mode fields, not guessed
  * identity/reserved/interface values. MR0 and MR4 use vendor16bit writes, MR8

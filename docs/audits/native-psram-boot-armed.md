@@ -97,3 +97,8 @@ recovery checks are in `../maia-rtos-recovery/native-psram-boot-armed-20261116/`
 Existing native power-off API remains absent. Full cold/32MiB/margins/SMP/shared
 consumers and native desktop acceptance remain open. No further operator button
 action is currently pending for this completed observation.
+
+Owner clarification2026-11-16: proceed with manually synchronized physical
+power/button acceptance NOT RUN; no further repetition requests. The subsequent
+[native boot implementation](native-psram-native-boot.md) has host/build evidence
+only. This preserves the actual snapshot above without asserting cold provenance.

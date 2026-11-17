@@ -16,6 +16,10 @@ static const uint16_t psram_offsets[MAIA_PSRAM_CONTROLLER_WORDS]={
     0,8,0xC,0x40,0x44,0x48,0x4C,0x50,0xD8,0x180,0x184,0x188,0x18C,0x190,0x200,0x130,
     0,8,0xC,0x10,0x14,0x18,0x1C,0x20,0xD4,0x180,0x200};
 static inline uintptr_t psram_address(unsigned i){return (i<16U?PSRAM_MSPI0:PSRAM_MSPI1)+psram_offsets[i];}
+static inline int psram_supply_trim_valid(uint32_t sys2,uint32_t sys3,uint32_t error){
+    return ((sys2>>4U)&3U)==1U&&(sys2&15U)==3U&&!(sys2&0xC0U)&&
+        !((sys2>>11U)&3U)&&((sys2>>8U)&7U)&&!(error&8U)&&(sys2>>28U)&&((sys3>>3U)&7U);
+}
 static inline int psram_accessible(const uint32_t roots[MAIA_PSRAM_ROOT_WORDS]){
     return (roots[0]&0x80000000U)&&(roots[1]&0xC000U)==0xC000U&&!(roots[2]&0x02800000U);
 }
@@ -40,6 +44,9 @@ static inline int psram_axi_quiet(void){return (psram_read(PSRAM_MSPI0+0x3CU)&0x
 int maia_psram_x8_claimed(void);
 int maia_psram_clock_claimed(void);
 unsigned maia_psram_clock_mhz(void);
+int maia_psram_boot_claimed(void);
+void maia_psram_boot_mpll_ready(void);
+maia_psram_result_t maia_psram_boot20(maia_psram_boot_report_t *);
 maia_psram_result_t maia_psram_fast_phase(unsigned phase);
 maia_psram_result_t maia_psram_mpll_read(uint32_t budget,maia_psram_mpll_report_t *);
 #endif

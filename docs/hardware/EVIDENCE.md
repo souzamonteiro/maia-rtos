@@ -1657,3 +1657,32 @@ pages29-30/sections2.6.1-2.6.2, identifies59/67 as PSRAM supply and72 as output,
 VO2 nominal1.9V. These documents do not establish the fitted in-package AP
 memory discharge/initialization timing or a readable rail-off/ready indicator.
 Generic AP Octal device timing is not assumed valid for this HEX/SIP part.
+
+## Native off-supply boot composition — 2026-11-16 (HOST-TESTED)
+
+Same pinned SDK f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0, Apache-2.0 sources;
+native source notices retained, no vendor headers/runtime linked. Existing VO2,
+PSRAM gates/dividers and MPLL facts above are reused. New analog-master setup:
+[regi2c_ctrl_ll.h lines24-50](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/regi2c_ctrl_ll.h#L24)
+enables LPPERI.CLK_EN.CK_EN_LP_I2CMST, releases RESET_EN.RST_EN_LP_I2CMST and
+selects I2C_ANA_MST.CLK160M.CLK_I2C_MST_SEL_160M. The
+[P4 bootloader hardware setup](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/bootloader_support/src/esp32p4/bootloader_esp32p4.c#L96)
+calls master enable/configure before analog programming. Native releases an
+already held reset, without pulsing a live shared master; all analog clients
+must be excluded. [LPPERI definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/lpperi_reg.h)
+give50120000 bit27 clock enable and50120008 bit26 reset.
+[I2C analog master definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/i2c_ana_mst_reg.h#L268)
+give CLK160M at50124034/bit0, initial default0; native selects1 and preserves all
+other bits. It reads this gated peripheral only after clock/reset access exists.
+No claim is made to initialize the whole CPU/CPLL clock tree from no ROM support.
+
+Pinned [AP HEX s_init_psram_mode_reg](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_psram/device/esp_psram_impl_ap_hex.c#L138)
+reads/writes modes and selects the requested MR8.x16 field; native boot ownership
+therefore permits a readable X8 starting mode before selecting targetX16. Warm
+entry retains its prior X16 requirement. Unknown MR8 fields/identity/protocol are
+still refused. MPLL configure writes divisor99 without requiring it already99;
+only the private boot claim admits that transition, retaining strict warm recovery.
+These are source/host-qualified adaptations, not physical cold/default proofs.
+Seven source hashes and sanitizer/mutation checks preserved with
+[native boot audit](../audits/native-psram-native-boot.md). Operator-synchronized
+power/button acceptance remains NOT RUN by owner instruction; no guessed timing.

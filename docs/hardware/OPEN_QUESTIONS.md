@@ -422,3 +422,13 @@ accessibility is not powered memory. Need native consumer gating/VO2 calibrated
 enable/MPLL startup from this entry without weakening warm guards. This does
 not establish rail voltage/discharge/device defaults or physical cold history.
 No further operator button action pending; no arbitrary VO2-off pulse added.
+
+
+Owner decision2026-11-16: manually synchronized power/button acceptance stays
+NOT RUN; proceed without further chat-timing requests. [Native supply-to-mode
+boot code](../audits/native-psram-native-boot.md) is now HOST-TESTED/NATIVE-BUILT:
+calibrated VO2 enable, analog master preparation, MPLL400 calibration and target
+200M/X16 modes. New target run remains NOT RUN, including electrical settling/
+identity/data/DMA/LCD from this entry. No assumed physical defaults or invented
+delays. Treat this as an explicit acceptance gap, not a blocker for continuing
+remaining memory/drivers and not permission to weaken warm guards.
