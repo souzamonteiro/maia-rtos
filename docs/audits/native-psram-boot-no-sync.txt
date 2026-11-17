@@ -1,0 +1,22 @@
+[HOST] Boot-state observation: no connection reset; physical power history is supplied by the operator, not inferred from registers
+Serial port /dev/cu.usbmodem1301
+WARNING: Pre-connection option "no_reset" was selected. Connection may fail if the chip is not in bootloader or flasher stub mode.
+Connecting..................
+Traceback (most recent call last):
+  File "/Volumes/External_SSD/Documentos/Projects/maia-rtos/tests/hardware/run_native_scheduler_probe.py", line 1841, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Volumes/External_SSD/Documentos/Projects/maia-rtos/tests/hardware/run_native_scheduler_probe.py", line 1722, in main
+    esp = esptool.get_default_connected_device(
+        [args.port], port=args.port, connect_attempts=3,
+        initial_baud=115200, chip='esp32p4',
+        before='no_reset' if args.psram_boot_state else 'default_reset')
+  File "/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/lib/python3.14/site-packages/esptool/__init__.py", line 1263, in get_default_connected_device
+    _esp.connect(before, connect_attempts)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/lib/python3.14/site-packages/esptool/loader.py", line 803, in connect
+    raise FatalError(
+    ...<6 lines>...
+    )
+esptool.util.FatalError: Failed to connect to ESP32-P4: No serial data received.
+For troubleshooting steps visit: https://docs.espressif.com/projects/esptool/en/latest/troubleshooting.html

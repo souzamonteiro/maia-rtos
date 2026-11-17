@@ -1479,6 +1479,54 @@ class SerialInputStimulus:
                 print('[HOST] Serial RX ' + marker + ' sent=' + str(last-first))
 
 
+def connect_boot_state(esptool,port_name,wait_seconds):
+    """Pinned host-tool protocol only; no automatic reset or active fallback."""
+    import serial
+    if esptool.__version__!='4.12.0':
+        raise RuntimeError('boot-state connection requires validated esptool4.12.0')
+    transport=None
+    deadline=time.monotonic()+wait_seconds
+    announced=False
+    try:
+        while True:
+            try:
+                if transport is None:
+                    transport=serial.serial_for_url(port_name,exclusive=True,do_not_open=True)
+                    # Configure idle control signals BEFORE opening on macOS too.
+                    # Passing this object bypasses esptool's string-port opener.
+                    transport.dtr=False;transport.rts=False
+                    transport.open()
+                    esp=esptool.CHIP_DEFS['esp32p4'](transport,115200)
+                if not wait_seconds:
+                    esp.connect('no_reset',3)
+                    return esp
+                if not announced:
+                    print('[HOST] BOOT_OBSERVATION_ARMED port open with DTR=0 RTS=0; waiting for ROM, no reset strategy',flush=True)
+                    announced=True
+                # This pinned method returns a failed-sync error without closing
+                # the port. Keep it open while the operator uses the button.
+                def forbidden_reset():
+                    raise RuntimeError('boot-state reset strategy must never run')
+                error=esp._connect_attempt(forbidden_reset,'no_reset')
+                if error is None:
+                    esp.connect('no_reset',1) # normal chip/security checks after sync
+                    return esp
+            except (serial.SerialException,OSError):
+                # Physical reset may re-enumerate USB; reopen only with idle
+                # signals and the same named port, never a reset fallback.
+                if transport is not None:
+                    with contextlib.suppress(Exception):transport.close()
+                transport=None
+                if not wait_seconds:raise
+            if time.monotonic()>=deadline:
+                raise esptool.FatalError('Boot-state ROM wait expired; no image sent, no reset fallback')
+            time.sleep(0.1)
+    except BaseException:
+        if transport is not None:
+            with contextlib.suppress(Exception):transport.close()
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='/dev/cu.usbmodem1301')
@@ -1499,6 +1547,7 @@ def main():
     parser.add_argument('--psram-id', action='store_true', help='read/restore inherited HEX mode-register identity')
     parser.add_argument('--psram-state', action='store_true', help='observe PSRAM controllers without array/clock/MMU writes')
     parser.add_argument('--psram-boot-state', action='store_true', help='read-only PSRAM state from manually entered ROM download mode; connect without reset, no automatic cold-start claim')
+    parser.add_argument('--psram-boot-wait', type=float, default=0, help='wait0..120 seconds with idle DTR/RTS for manual ROM entry; only with --psram-boot-state')
     parser.add_argument('--dpi-dma-center', action='store_true', help='verify central32-row native SRAM pixels and recovery')
     parser.add_argument('--dpi-dma-spatial', action='store_true', help='verify bounded five-block native spatial pixels and recovery')
     parser.add_argument('--dpi-dma-refresh', action='store_true', help='verify bounded400-frame color sequence and recovery')
@@ -1672,6 +1721,8 @@ def main():
     if args.psram_window:args.psram_array=True
     if args.psram_array:args.psram_clock=True
     if args.psram_clock:args.psram_id=True
+    if not 0<=args.psram_boot_wait<=120 or (args.psram_boot_wait and not args.psram_boot_state):
+        parser.error('boot wait requires --psram-boot-state and duration0..120 seconds')
     if args.psram_boot_state:
         if args.psram_id or args.psram_clock or args.psram_array or args.psram_window or args.psram_dma or args.psram_fast:
             parser.error('boot-state observation excludes identity/memory/clock programming profiles')
@@ -1719,10 +1770,9 @@ def main():
     with args.log.open('w') as logfile, contextlib.redirect_stdout(Tee(logfile)):
         if args.psram_boot_state:
             print('[HOST] Boot-state observation: no connection reset; physical power history is supplied by the operator, not inferred from registers')
-        esp = esptool.get_default_connected_device(
+        esp = connect_boot_state(esptool,args.port,args.psram_boot_wait) if args.psram_boot_state else esptool.get_default_connected_device(
             [args.port], port=args.port, connect_attempts=3,
-            initial_baud=115200, chip='esp32p4',
-            before='no_reset' if args.psram_boot_state else 'default_reset')
+            initial_baud=115200, chip='esp32p4',before='default_reset')
         try:
             esptool.main(['--chip', 'esp32p4', '--no-stub', 'load_ram', str(args.image)], esp=esp)
             port = esp._port

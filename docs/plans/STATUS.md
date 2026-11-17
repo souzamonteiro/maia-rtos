@@ -1432,3 +1432,37 @@ Next after operator confirmation: exact preserved image/hash, --psram-boot-state
 --capture-seconds8, retain raw/provenance, compare with warm roots, reset and verify
 fallback shell/SciCalc14/exit0/desktop. Never silently fall back to resetting
 connection on sync failure. No flash/SD/parser/EBNF changes, no cold acceptance.
+
+## Armed PSRAM ROM-entry snapshot — 2026-11-16
+
+[Actual boot snapshot and transport audit](../audits/native-psram-boot-armed.md)
+supersedes pending manual preparation. First no_reset connection failed/noimage;
+operator then reported Desktop visível. Failure preserved. New host connector
+opens preconfigured DTR/RTS false on macOS, passes open object to pinned esptool
+4.12, optional held wait0..120s/no reset callback/re-enumeration/cleanup. Other
+modes default_reset unchanged. This removes implicit asserted opens, not measured
+proof of physical reset-free pins or cause of first failure. Source/CLI tests pass.
+Armed capture synced promptly, no new manual request; no button action pending.
+Actual unchanged state-only6704byte imageaff430345ea1781429ed2541c7dcd40bd3a735dcbe9270a0d62cbc1f2f3960b7,
+result0/54samples/nine roots+27controllerwords before=after. SYS E6DF97AF,
+PERI C00C(XTAL/core+PLL gates enabled),reset100,VO2control40200000(XPD8/SW7clear),
+analogA0000000(DREF10/MUL0/VDET0),bothbusdiv30103; eFuse7B054313/3A184DEA/error0
+stilldedicated1900mVtrim7/5. UnlikewarmVO240200180/76800000/MPLLmuxD00C, this is
+an unconfigured/off-enable supply entry. No mode/array reads, no memory-ready or
+factory/default/cold physical-provenance claim. Earlier desktop visibility and
+unconfirmed power history prevent uninterrupted power-off-to-ROM assertion.
+Native warmguards shouldcontinue refusing this entry. Next grouped work: native
+boot entry from these observed roots, gateconsumers/configure+enable VO2 with
+nonzero eFuse pair, establish MPLL prerequisites, then modes/data/DMA/LCD. No
+invented rail power-off pulse/timing; warm and boot ownership remain distinct.
+Host75/75 plus unchanged native runtimegate PASS. Final runnerreset immediate
+shell check blank; explicit esptool standard reset/chip_id/hard_reset restored
+fallbackboot. Short postbootchecks missed startup; retained all failures. Same
+idleport held10s before existingcheck passes shell/SciCalc14/exit0/desktop.
+Transient approval BadRequest blocked first recovery invocation, same reviewed
+retry succeeded; no bypass. No commanded flash/SD writes; fallback existingboot
+SDinitialization stillruns. Nativecode/parser/EBNF unchanged. All source/image/
+rawsuccess+failedcaptures/recovery/GIF/pins/checks in
+`../maia-rtos-recovery/native-psram-boot-armed-20261116/`.
+HARDWARE-TESTED LIMITED observation only. Cold init/full32MiB/margins/SMP/shared
+clients/native desktop stillopen. Keepfallback. No repeated button request needed.

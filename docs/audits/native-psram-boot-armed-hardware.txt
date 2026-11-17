@@ -1,0 +1,58 @@
+[HOST] Boot-state observation: no connection reset; physical power history is supplied by the operator, not inferred from registers
+[HOST] BOOT_OBSERVATION_ARMED port open with DTR=0 RTS=0; waiting for ROM, no reset strategy
+.WARNING: Pre-connection option "no_reset" was selected. Connection may fail if the chip is not in bootloader or flasher stub mode.
+Connecting...
+esptool.py v4.12.0
+Found 2 serial ports
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:4c
+Enabling default SPI flash mode...
+RAM boot...
+Downloading 6624 bytes at 4ff00000... done!
+All segments done, executing at 4ff00100
+Exiting immediately.
+PSRAM_STATE result=00000000 roots_valid=00000001 samples=00000036
+PSRAM_ROOT index=00000000 address=500e6014 before=e6df97af after=e6df97af
+PSRAM_ROOT index=00000001 address=500e6030 before=0000c00c after=0000c00c
+PSRAM_ROOT index=00000002 address=500e60c0 before=00000100 after=00000100
+PSRAM_ROOT index=00000003 address=500e60cc before=00000000 after=00000000
+PSRAM_ROOT index=00000004 address=501151d0 before=40200000 after=40200000
+PSRAM_ROOT index=00000005 address=501151d4 before=a0000000 after=a0000000
+PSRAM_ROOT index=00000006 address=5012d04c before=7b054313 after=7b054313
+PSRAM_ROOT index=00000007 address=5012d050 before=3a184dea after=3a184dea
+PSRAM_ROOT index=00000008 address=5012d1c0 before=00000000 after=00000000
+PSRAM_WORD index=00000000 address=5008e000 before=00000000 after=00000000
+PSRAM_WORD index=00000001 address=5008e008 before=802c200c after=802c200c
+PSRAM_WORD index=00000002 address=5008e00c before=28e00000 after=28e00000
+PSRAM_WORD index=00000003 address=5008e040 before=0055c070 after=0055c070
+PSRAM_WORD index=00000004 address=5008e044 before=80c00000 after=80c00000
+PSRAM_WORD index=00000005 address=5008e048 before=00000000 after=00000000
+PSRAM_WORD index=00000006 address=5008e04c before=00000000 after=00000000
+PSRAM_WORD index=00000007 address=5008e050 before=00030103 after=00030103
+PSRAM_WORD index=00000008 address=5008e0d8 before=00003020 after=00003020
+PSRAM_WORD index=00000009 address=5008e180 before=00000001 after=00000001
+PSRAM_WORD index=0000000a address=5008e184 before=00000000 after=00000000
+PSRAM_WORD index=0000000b address=5008e188 before=00000000 after=00000000
+PSRAM_WORD index=0000000c address=5008e18c before=00000000 after=00000000
+PSRAM_WORD index=0000000d address=5008e190 before=00000001 after=00000001
+PSRAM_WORD index=0000000e address=5008e200 before=00000001 after=00000001
+PSRAM_WORD index=0000000f address=5008e130 before=00000003 after=00000003
+PSRAM_WORD index=00000010 address=5008f000 before=00000000 after=00000000
+PSRAM_WORD index=00000011 address=5008f008 before=002ca00c after=002ca00c
+PSRAM_WORD index=00000012 address=5008f00c before=00000ffc after=00000ffc
+PSRAM_WORD index=00000013 address=5008f010 before=00000000 after=00000000
+PSRAM_WORD index=00000014 address=5008f014 before=00030103 after=00030103
+PSRAM_WORD index=00000015 address=5008f018 before=80000000 after=80000000
+PSRAM_WORD index=00000016 address=5008f01c before=5c000007 after=5c000007
+PSRAM_WORD index=00000017 address=5008f020 before=70000000 after=70000000
+PSRAM_WORD index=00000018 address=5008f0d4 before=00000020 after=00000020
+PSRAM_WORD index=00000019 address=5008f180 before=00000000 after=00000000
+PSRAM_WORD index=0000001a address=5008f200 before=00000001 after=00000001
+MAIA_NATIVE_PSRAM_STATE_OBSERVED
+
+[HOST] Resetting to the preserved flash application
+Hard resetting via RTS pin...
+[HOST] PSRAM state observation (not memory readiness): PASS

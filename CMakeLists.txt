@@ -1013,6 +1013,8 @@ else()
 
 
 
+    add_test(NAME psram_boot_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_boot_capture_test.py)
+    add_test(NAME psram_boot_transport_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_boot_transport_test.py)
     add_test(NAME psram_boot_connection_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_boot_connection_test.py)
     add_test(NAME psram_park_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_park_capture_test.py)
     add_test(NAME psram_supply_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_supply_capture_test.py)

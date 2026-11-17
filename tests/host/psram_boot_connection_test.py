@@ -17,6 +17,11 @@ def connect(*args,**kwargs):
     calls.append(kwargs)
     raise BeforeSerial
 esp=types.ModuleType('esptool');esp.get_default_connected_device=connect
+def boot_connect(tool,port,wait):
+    assert tool is esp
+    calls.append({'before':'no_reset','wait':wait})
+    raise BeforeSerial
+m.connect_boot_state=boot_connect
 bin_image=types.ModuleType('esptool.bin_image')
 image=types.SimpleNamespace(segments=[types.SimpleNamespace(addr=0x4FF00000,data=bytes(1024))],entrypoint=0x4FF00100)
 bin_image.LoadFirmwareImage=lambda *a:image
@@ -31,6 +36,10 @@ with tempfile.TemporaryDirectory() as d,patch.dict(sys.modules,{'esptool':esp,'e
     assert run(['--psram-state'])=='before-serial' and calls[0]['before']=='default_reset'
     assert run(['--psram-boot-state'])=='before-serial' and calls[0]['before']=='no_reset'
     assert run(['--psram-boot-state','--psram-state'])=='before-serial' and calls[0]['before']=='no_reset'
+    assert run(['--psram-boot-state','--psram-boot-wait','120'])=='before-serial' and calls[0]['wait']==120
+    assert run(['--psram-boot-wait','1'])==2 and not calls
+    for bad in ['-1','121','nan','inf']:
+        assert run(['--psram-boot-state','--psram-boot-wait',bad])==2 and not calls
     assert run(['--psram-boot-state','--validate-only'])==0 and not calls
     for flag in ['--psram-id','--psram-clock','--psram-array','--psram-window','--psram-dma',
                  '--psram-supply','--psram-profile','--psram-park','--mpll-initialize',

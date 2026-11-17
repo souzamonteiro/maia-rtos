@@ -413,3 +413,12 @@ fitted AP32MiB HEX/SIP device. Generic Octal/AP256XXN timing must not substitute
 for identified silicon. Need exact fitted memory electrical/reset requirements
 or an applicable Espressif startup specification before physical supply cycling.
 Native consumer park/resume/recalibration can be qualified with VO2 left on.
+
+
+ROM-entry capture2026-11-16 now supplies a concrete VO2-off-enable state:
+control40200000/analogA0000000, PERI C00C/core+PLL gates enabled, divider30103.
+[Actual observation and limits](../audits/native-psram-boot-armed.md). Register
+accessibility is not powered memory. Need native consumer gating/VO2 calibrated
+enable/MPLL startup from this entry without weakening warm guards. This does
+not establish rail voltage/discharge/device defaults or physical cold history.
+No further operator button action pending; no arbitrary VO2-off pulse added.

@@ -1,5 +1,10 @@
 # PSRAM boot-state observation preparation — 2026-11-16
 
+Later checkpoint: [armed connection and actual unconfigured-supply snapshot](native-psram-boot-armed.md).
+The preparation/procedure below is retained as history; the first connection
+failed, then idle-before-open/held-port transport succeeded. Physical cold
+provenance is still unconfirmed; no further manual preparation is pending.
+
 HOST-TESTED / PREPARED. Actual no-reset target observation NOT RUN; operator
 power/download-mode preparation requested and pending. No cold initialization,
 supply power cycle or new memory-ready acceptance is claimed.
