@@ -1407,3 +1407,28 @@ Do not substitute generic Octal timing or claim MPLL power-off resets PSRAM.
 Next: establish applicable fitted-memory supply/reset specification, then qualify
 native device entry after genuine supply loss. Power-off API remains absent;
 full32MiB/margins/SMP/shared consumers/native desktop still open. Keep fallback.
+
+## PSRAM boot-state observation preparation — 2026-11-16
+
+[Boot observation](../audits/native-psram-boot-state.md): new runner
+--psram-boot-state requests installed esptool4.12 before=no_reset, only for isolated
+existing state-only RAM image. Refuses active/fatal profiles before serial; normal
+profiles retain default_reset. Logs operator power provenance, never infers cold
+initialization from snapshots. Native firmware/MMIO unchanged; early startup still
+configures UART/watchdogs/USB reset control, so PSRAM-read-only, not wholeSoC-readonly.
+Host73/73, actual CLI fake-image/connection isolation, installed esptool no-reset
+success/five failedsync attempts/default-reset behavior and image bounds PASS.
+Fresh state-only image6704bytes/SHAaff430345ea1781429ed2541c7dcd40bd3a735dcbe9270a0d62cbc1f2f3960b7,
+native runtimegate project+libgcc PASS. Prepared image/ELFs/map/config/source in
+`../maia-rtos-recovery/native-psram-boot-state-prepared-20261116/`, checks/docs in
+`../maia-rtos-recovery/native-psram-boot-state-20261116/`.
+HOST-TESTED/PREPARED, actual no-reset target capture NOT RUN. Operator physical
+power-off/all sources removed/atleast5s/directROMdownload preparation requested
+via pending async question; wait for explicit report before serial access. Do not
+claim absence of visible desktop proves no application code ran. Manufacturer5s
+note concerns board/IMU; not assumed PSRAM discharge timing. Applicable AP HEX/SIP
+power timing remains unresolved; no guessed VO2 pulse or supply-off API added.
+Next after operator confirmation: exact preserved image/hash, --psram-boot-state
+--capture-seconds8, retain raw/provenance, compare with warm roots, reset and verify
+fallback shell/SciCalc14/exit0/desktop. Never silently fall back to resetting
+connection on sync failure. No flash/SD/parser/EBNF changes, no cold acceptance.

@@ -1498,6 +1498,7 @@ def main():
     parser.add_argument('--psram-clock', action='store_true', help='qualify native XTAL20 PSRAM clock and restore')
     parser.add_argument('--psram-id', action='store_true', help='read/restore inherited HEX mode-register identity')
     parser.add_argument('--psram-state', action='store_true', help='observe PSRAM controllers without array/clock/MMU writes')
+    parser.add_argument('--psram-boot-state', action='store_true', help='read-only PSRAM state from manually entered ROM download mode; connect without reset, no automatic cold-start claim')
     parser.add_argument('--dpi-dma-center', action='store_true', help='verify central32-row native SRAM pixels and recovery')
     parser.add_argument('--dpi-dma-spatial', action='store_true', help='verify bounded five-block native spatial pixels and recovery')
     parser.add_argument('--dpi-dma-refresh', action='store_true', help='verify bounded400-frame color sequence and recovery')
@@ -1671,10 +1672,14 @@ def main():
     if args.psram_window:args.psram_array=True
     if args.psram_array:args.psram_clock=True
     if args.psram_clock:args.psram_id=True
+    if args.psram_boot_state:
+        if args.psram_id or args.psram_clock or args.psram_array or args.psram_window or args.psram_dma or args.psram_fast:
+            parser.error('boot-state observation excludes identity/memory/clock programming profiles')
+        args.psram_state=True
     if args.psram_id:args.psram_state=True
     if args.psram_state:
         for name,value in vars(args).items():
-            if name not in ('psram_state','psram_id','psram_clock','psram_array','psram_window','psram_dma') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
+            if name not in ('psram_state','psram_boot_state','psram_id','psram_clock','psram_array','psram_window','psram_dma') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
         if args.expect_fatal_cause is not None:parser.error('PSRAM state excludes fatal profile')
 
     import esptool
@@ -1712,9 +1717,12 @@ def main():
 
     output = ''
     with args.log.open('w') as logfile, contextlib.redirect_stdout(Tee(logfile)):
+        if args.psram_boot_state:
+            print('[HOST] Boot-state observation: no connection reset; physical power history is supplied by the operator, not inferred from registers')
         esp = esptool.get_default_connected_device(
             [args.port], port=args.port, connect_attempts=3,
-            initial_baud=115200, chip='esp32p4')
+            initial_baud=115200, chip='esp32p4',
+            before='no_reset' if args.psram_boot_state else 'default_reset')
         try:
             esptool.main(['--chip', 'esp32p4', '--no-stub', 'load_ram', str(args.image)], esp=esp)
             port = esp._port
