@@ -2,6 +2,9 @@
 
 Date: 2026-11-10
 
+Progress checklist (owner-facing, Portuguese):
+[CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
+
 ## Restored baseline and initial audit
 
 - Functional baseline: `bf044d3`, restored Tab5 desktop, full shell and MaiaScript
