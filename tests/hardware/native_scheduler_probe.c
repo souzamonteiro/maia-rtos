@@ -10,6 +10,10 @@
 #ifdef MAIA_F0_FLASH_KERNEL_PSRAM_STATE
 #include "../../soc/espressif/esp32p4/psram_internal.h"
 #endif
+#ifdef MAIA_F0_FLASH_HEAP_TEST
+#define F0_HEAP_POOL_BYTES 2048U
+static uint8_t s_f0_heap_pools[2][F0_HEAP_POOL_BYTES] __attribute__((aligned(64)));
+#endif
 
 #define PROBE_TICKS 250U
 #define PROBE_CYCLE_BUDGET 120000000U
@@ -240,9 +244,42 @@ static void off_priority_worker(void *arg) {
 
 extern void maia_soc_systimer_init(uint32_t tick_hz);
 
+#ifdef MAIA_F0_FLASH_HEAP_TEST
+static int f0_heap_test(void) {
+    if (maia_mem_init(s_f0_heap_pools[0], sizeof s_f0_heap_pools[0]) != MAIA_OK ||
+        maia_mem_add_region(s_f0_heap_pools[1], sizeof s_f0_heap_pools[1]) != MAIA_OK) {
+        return 0;
+    }
+
+    void *aligned = maia_mem_alloc_aligned(512U, 64U);
+    void *second = maia_mem_alloc(1800U);
+    uintptr_t second_address = (uintptr_t)second;
+    uintptr_t second_start = (uintptr_t)&s_f0_heap_pools[1][0];
+    uintptr_t second_end = second_start + sizeof s_f0_heap_pools[1];
+    maia_mem_stats_t stats;
+    int passed = aligned != NULL && second != NULL &&
+                 ((uintptr_t)aligned & 63U) == 0U &&
+                 second_address >= second_start && second_address < second_end &&
+                 maia_mem_free(aligned) == MAIA_OK &&
+                 maia_mem_free(second) == MAIA_OK &&
+                 maia_mem_get_stats(&stats) == MAIA_OK &&
+                 stats.used_bytes == 0U && stats.free_bytes == stats.total_bytes;
+    maia_console_puts(passed ? "MAIA_F0_SRAM_HEAP_PASS\n" : "MAIA_F0_SRAM_HEAP_FAIL\n");
+    maia_console_flush();
+    return passed;
+}
+#endif
+
 void maia_boot_main(void) {
 #ifdef MAIA_F0_FLASH_KERNEL_PSRAM_STATE
     MAIA_MMIO32(MAIA_ESP32P4_USB_CHIP_RST_REG) &= ~MAIA_ESP32P4_USB_UART_CHIP_RST_DIS;
+#endif
+#ifdef MAIA_F0_FLASH_HEAP_TEST
+    if (!f0_heap_test()) {
+        for (;;) __asm__ volatile("wfi");
+    }
+#endif
+#ifdef MAIA_F0_FLASH_KERNEL_PSRAM_STATE
     maia_psram_snapshot_t psram;
     maia_psram_result_t psram_result = maia_esp32p4_psram_snapshot(&psram);
     if (psram_result != MAIA_PSRAM_OK && psram_result != MAIA_PSRAM_GATED) {

@@ -33,8 +33,10 @@ completo `maia_m0.elf` continua bloqueado pelo shell C++ hospedado com
 
 - [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
 - [x] Kernel/scheduler e duas tarefas executando por XIP, com preempção por timer real (probe, 17/11; imagem de produto pendente)
-- [ ] Linker script de produto (SRAM + PSRAM + flash completas)
-- [ ] Heaps SRAM e PSRAM no alocador do kernel
+- [x] Base de linker flash-XIP testada no probe (IROM/DROM + estado em SRAM; PSRAM apenas como janela runtime, 18/11)
+- [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
+- [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
+- [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU
 - [ ] Inicialização de PSRAM a frio em todo boot — snapshot de 54 leituras de controlador passou, mas não houve inicialização nem acesso à memória PSRAM
 - [ ] LCD, touch e console como serviços do kernel (fim das opções de teste encadeadas)
 - [x] Gravação com verificação e restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)

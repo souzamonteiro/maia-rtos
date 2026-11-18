@@ -1566,3 +1566,39 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   Logs/backup: `maia-rtos-recovery/native-f0-kernel-psram-flash-20261117-220134/`.
 - This closes the probe-level XIP/kernel/two-task/timer acceptance only.
   Product linker, data heaps, cold PSRAM startup and PSRAM memory use remain open.
+- Multi-region heap groundwork (2026-11-18): `maia_mem_init` retains the
+  existing reset/first-pool API; new `maia_mem_add_region` accepts up to four
+  distinct, non-overlapping writable pools. Allocation scans each pool,
+  coalescing/freeing stays within its owning region, and stats aggregate all
+  regions. Added bounds/overflow/overlap/capacity and cross-region tests;
+  host CTest 78/78, allocator ASan/UBSan and RV32 freestanding compile PASS.
+  Allocator calls remain externally serialized. `boot_main.c` still registers
+  only its 32 KiB SRAM pool; no PSRAM memory is added until cold init and the
+  product CPU mapping are validated.
+- Device heap test (2026-11-18): flash image `maia_f0_kernel_psram_probe_image`
+  (85,008 bytes; SHA-256
+  `72198537e34c141beb6c934686381d0ac5da3c9e6d0fa44d317a9ca79553e908`)
+  initialized two disjoint SRAM pools at `0x4ff046c0..0x4ff056c0`, verified a
+  64-byte-aligned allocation and a large allocation from pool 2, freed both and
+  verified aggregate free bytes equal total bytes (`MAIA_F0_SRAM_HEAP_PASS`).
+  Then PSRAM controller snapshot result0/54 samples and scheduler acceptance
+  passed (250 IRQ/ticks, 251 switches). Original app restored; `maia.py info`
+  confirmed desktop/notes. Evidence: `maia-rtos-recovery/native-f0-multiheap-flash-20261118-080619/`.
+  This tests multiple SRAM pools only; PSRAM heap startup/registration remains
+  pending.
+- Flash-XIP linker baseline (2026-11-18): `boards/m5stack/tab5/flash_product.ld`
+  now lays out IROM/DROM, the app descriptor and writable image state in the
+  validated 160 KiB low-SRAM window. It exports the qualified 2 MiB PSRAM window
+  as absolute runtime symbols only; no loadable section or heap is placed there.
+  The scheduler/heap probe image is 80,080 bytes (SHA-256
+  `3aa5179dd6a5c8e95daee485571353edf7cfa2f70bd10b6bd22ee34709deeff4`), with
+  BSS ending and the 16 KiB stack beginning at `0x4ff056c0`, stack top
+  `0x4ff096c0`, and PSRAM symbols `0x4b800000..0x4ba00000`.
+  Structural image validation passed; device boot printed
+  `MAIA_F0_SRAM_HEAP_PASS` and `MAIA_NATIVE_PREEMPT_PASS` (250 timer IRQs,
+  251 switches). Original app restoration was verified by esptool and the
+  captured boot reached the desktop/wallpaper. Evidence:
+  `maia-rtos-recovery/native-f0-product-linker-20261118/flash-probe.bin`
+  (exact image), with report, backup and boot captures in the same directory.
+  This was a warm reset, not cold PSRAM initialization; the linker is a
+  flash-XIP baseline, not the completed product layout.

@@ -66,7 +66,16 @@ typedef struct maia_mem_stats {
     uint32_t free_count;
 } maia_mem_stats_t;
 
+/* Boot/quiescent context only; resets all registered regions. Pools must be
+ * writable, non-overlapping and remain alive for the allocator's lifetime.
+ * Alloc/free/stats are not internally serialized; callers must serialize them.
+ */
 maia_status_t maia_mem_init(void *pool_base, size_t pool_bytes);
+/* Add a distinct writable region after init, only after its memory is usable.
+ * The caller owns initialization/mapping and must add it before concurrent use.
+ * Up to four regions are supported; overlap is INVALID and a full table is NOMEM.
+ */
+maia_status_t maia_mem_add_region(void *pool_base, size_t pool_bytes);
 void         *maia_mem_alloc(size_t size);
 void         *maia_mem_alloc_aligned(size_t size, size_t alignment);
 maia_status_t maia_mem_free(void *ptr);
@@ -237,4 +246,3 @@ void           maia_sched_start(void);
 #endif
 
 #endif /* MAIA_KERNEL_H */
-

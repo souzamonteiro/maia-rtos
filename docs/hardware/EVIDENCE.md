@@ -1,5 +1,42 @@
 # Hardware evidence register
 
+## Flash-XIP product-layout baseline — 2026-11-18
+
+Primary references: Espressif ESP-IDF v5.4.2 second-stage
+[boot flow](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-guides/startup.html#second-stage-bootloader),
+[application image format](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-reference/system/app_image_format.html#application-description),
+and pinned source revision `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`:
+[P4 memory linker template](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/ld/esp32p4/memory.ld.in),
+[P4 section template](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/ld/esp32p4/sections.ld.in),
+the [P4 SoC memory map](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/soc.h),
+and [shared D/I image loader](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/bootloader_support/src/bootloader_utility.c).
+
+- `boards/m5stack/tab5/flash_product.ld` applies the pinned IROM/DROM image
+  structure to the scheduler/heap diagnostic. The descriptor is first in DROM;
+  initialized image data, BSS and boot stack stay in the validated low-SRAM
+  window. Linker assertions bound the entry, descriptor and stack.
+- The script exports `__maia_psram_window_start/end` as absolute symbols for the
+  previously qualified CPU window `0x4b800000..0x4ba00000`
+  ([native PSRAM window audit](../audits/native-psram-window.md)). These symbols
+  create no section or load segment. The heap is not registered, and the linker
+  does not place code/data in PSRAM; cold startup and full-product IRAM closure
+  remain unqualified.
+- Standalone GCC 14.2 and esptool 4.12.0 produced an 80,080-byte app image.
+  `f0_flash_image_test.py --sram-window 0x4FF00000:0x4FF28000` passed; image
+  inspection found two mapped records plus the reserved padding record, entry
+  `0x40000020`, descriptor `0x40010020`, valid checksum/hash. ELF symbols:
+  BSS `0x4ff00000..0x4ff056c0`, stack
+  `0x4ff056c0..0x4ff096c0`, PSRAM window symbols as above. Image SHA-256:
+  `3aa5179dd6a5c8e95daee485571353edf7cfa2f70bd10b6bd22ee34709deeff4`.
+- On Tab5 ESP32-P4 v1.3, the existing recovery runner backed up and validated
+  the factory app, wrote the probe at `0x10000`, captured
+  `MAIA_F0_SRAM_HEAP_PASS` and `MAIA_NATIVE_PREEMPT_PASS` (250 timer IRQs,
+  251 switches), then restored the app with esptool hash verification. The
+  restore capture shows the MaiaOS desktop module and wallpaper loaded.
+  This is a warm RTS reset test; it does not qualify cold PSRAM startup or
+  PSRAM array access. Exact image (`flash-probe.bin`), report, backup and
+  boot captures are in `maia-rtos-recovery/native-f0-product-linker-20261118/`.
+
 ## ESP-IDF second-stage image and offline native probe — 2026-11-17
 
 Primary references: Espressif ESP-IDF Programming Guide
@@ -106,6 +143,27 @@ flashed artifact is saved there as `flash-probe.bin`.
 This demonstrates flash XIP for the native scheduler and task code with working
 SRAM state/stack on this warm boot. Product linker/heaps, native cold PSRAM
 initialization and PSRAM memory allocation/access remain unverified.
+
+## Multi-region SRAM heap under flash XIP — 2026-11-18
+
+The flash probe now links `kernel/kmem.c` and tests the public region allocator
+against two disjoint 2 KiB pools in SRAM. The 85,008-byte image SHA-256 is
+`72198537e34c141beb6c934686381d0ac5da3c9e6d0fa44d317a9ca79553e908`.
+Both pools are in BSS at `0x4ff046c0..0x4ff056c0`; the 16 KiB boot stack ends at
+`0x4ff096c0`, within the existing 160 KiB linker bound.
+
+On the Tab5 the probe reported `MAIA_F0_SRAM_HEAP_PASS`: a 64-byte-aligned
+allocation succeeded in pool 1, an 1,800-byte allocation was served from pool 2,
+both frees succeeded, and aggregate `used_bytes` returned to zero with
+`free_bytes == total_bytes`. It then passed the read-only PSRAM-controller
+snapshot and the existing 250-tick/two-worker scheduler test. The app backup was
+verified and restored; desktop and `notes.mobj` returned. Exact binary and logs:
+`maia-rtos-recovery/native-f0-multiheap-flash-20261118-080619/`.
+
+This qualifies allocator use over multiple SRAM regions only. It does not add a
+PSRAM pool, prove allocator concurrency, or establish PSRAM initialization,
+capacity or array access. `maia_mem_add_region` must receive only an exclusive,
+already initialized and mapped pool; caller serialization remains required.
 
 ## Notification-driven native TX worker — 2026-11-11
 

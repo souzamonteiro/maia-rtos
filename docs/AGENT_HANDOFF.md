@@ -1591,3 +1591,38 @@ The recoverable build variant leaves USB RTS reset enabled from early startup,
 so a failure before `maia_boot_main` still has a host reset path. Continue with
 product memory map/heaps and truly cold PSRAM initialization; do not mark the
 probe's controller snapshot as memory bring-up.
+
+F0 memory follow-up (2026-11-18): kernel allocator now supports up to four
+non-overlapping pools via `maia_mem_add_region`; allocations search all pools,
+free/coalesce is region-local and stats aggregate. `tests/host/kmem_regions_test.c`
+checks alignment, crossing to a second region, free/coalesce, overlap, overflow,
+table limit and reset. Full host suite 78/78, focused ASan/UBSan and RV32
+freestanding compile pass. This is groundwork only: boot still registers just
+the 32 KiB SRAM pool, and allocator operations require external serialization.
+Do not pass a PSRAM address until the native boot sequence has initialized and
+mapped that exact range. Product linker and cold-init target acceptance remain.
+
+The same probe was extended with the actual allocator and two static SRAM pools.
+On-device it printed `MAIA_F0_SRAM_HEAP_PASS`: 64-byte alignment, fallback to
+pool 2 for a large allocation, both frees and aggregate stats verified. Latest
+image SHA-256 is
+`72198537e34c141beb6c934686381d0ac5da3c9e6d0fa44d317a9ca79553e908`; BSS pools
+occupy `0x4ff046c0..0x4ff056c0`, stack ends `0x4ff096c0`. Device capture and
+exact image: `maia-rtos-recovery/native-f0-multiheap-flash-20261118-080619/`.
+The app backup/restore and desktop check passed again. This is still SRAM-only;
+PSRAM heap registration awaits a validated startup and CPU mapping.
+
+F0 flash-XIP layout follow-up (2026-11-18): `boards/m5stack/tab5/flash_product.ld`
+is now used by the scheduler/heap flash probe. It preserves the pinned shared
+D/I image format, bounds mutable image state and the 16 KiB boot stack to the
+validated low-SRAM window, and exports only absolute symbols for the qualified
+2 MiB PSRAM CPU window. No image section is placed in PSRAM and no PSRAM heap
+is registered. Offline image validation and host CTest 78/78 pass; on-device
+warm reset produced `MAIA_F0_SRAM_HEAP_PASS` and `MAIA_NATIVE_PREEMPT_PASS`
+(250 timer IRQs, 251 switches). Runner restored the backed-up factory app;
+restore capture reached desktop wallpaper loading. Exact artifacts and logs:
+`maia-rtos-recovery/native-f0-product-linker-20261118/flash-probe.bin`,
+report, backup and captures.
+This is not cold-start/PSRAM-array acceptance or a complete product linker:
+native PSRAM startup code still needs an SRAM-resident call graph, and product
+integration remains blocked on C++ runtime work in F1.

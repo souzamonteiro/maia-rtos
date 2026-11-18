@@ -7,6 +7,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
+  set(MAIA_F0_PRODUCT_LINKER_SCRIPT
+    "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_product.ld")
   add_executable(maia_m0.elf
     arch/riscv/start.S
     arch/riscv/trap_context.S
@@ -104,6 +106,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_panic.c
       soc/espressif/esp32p4/soc_psram_snapshot.c
       arch/riscv/stack.c
+      kernel/kmem.c
       kernel/ksched.c
       boards/m5stack/tab5/app_desc.c
       tests/hardware/native_scheduler_probe.c
@@ -116,6 +119,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     )
     target_compile_definitions(maia_f0_kernel_psram_probe.elf PRIVATE
       MAIA_F0_FLASH_KERNEL_PSRAM_STATE=1
+      MAIA_F0_FLASH_HEAP_TEST=1
       MAIA_FLASH_PROBE_RECOVERABLE=1
     )
     target_compile_options(maia_f0_kernel_psram_probe.elf PRIVATE
@@ -123,13 +127,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       -ffunction-sections -fdata-sections
     )
     target_link_options(maia_f0_kernel_psram_probe.elf PRIVATE
-      "-T${MAIA_F0_FLASH_LINKER_SCRIPT}"
+      "-T${MAIA_F0_PRODUCT_LINKER_SCRIPT}"
       "-Wl,--gc-sections"
       "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_f0_kernel_psram_probe.map"
     )
     target_link_libraries(maia_f0_kernel_psram_probe.elf PRIVATE gcc)
     set_target_properties(maia_f0_kernel_psram_probe.elf PROPERTIES
-      LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
+      LINK_DEPENDS "${MAIA_F0_PRODUCT_LINKER_SCRIPT}"
     )
 
     set(MAIA_F0_KERNEL_PSRAM_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f0_kernel_psram_probe.bin")
@@ -828,6 +832,12 @@ else()
       target_compile_options(kernel_mvp_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME kernel_mvp_test COMMAND kernel_mvp_test)
+    add_executable(kmem_regions_test tests/host/kmem_regions_test.c kernel/kmem.c)
+    target_include_directories(kmem_regions_test PRIVATE include)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(kmem_regions_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME kmem_regions_test COMMAND kmem_regions_test)
     # Exercise the larger RV32F frame initialization/bounds on the host too.
     add_executable(kernel_fp_frame_test
       tests/host/kernel_mvp_test.c kernel/kmem.c kernel/ksync.c kernel/ksched.c
