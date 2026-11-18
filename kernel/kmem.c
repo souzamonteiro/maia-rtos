@@ -268,6 +268,40 @@ maia_status_t maia_mem_free(void *ptr) {
     return MAIA_ERR_INVALID;
 }
 
+maia_status_t maia_mem_get_alloc_size(const void *ptr, size_t *out_size) {
+    if (ptr == NULL || out_size == NULL || g_region_count == 0U) {
+        return MAIA_ERR_INVALID;
+    }
+
+    uintptr_t address = (uintptr_t)ptr;
+    for (size_t i = 0U; i < g_region_count; ++i) {
+        maia_mem_region_t *region = &g_regions[i];
+        if (address < region->start + sizeof(maia_mem_block_t) ||
+            address >= region->end || (address & 7U) != 0U) {
+            continue;
+        }
+
+        uintptr_t block_address = address - sizeof(maia_mem_block_t);
+        if (block_address < region->start ||
+            block_address > region->end - sizeof(maia_mem_block_t)) {
+            continue;
+        }
+        maia_mem_block_t *block = (maia_mem_block_t *)block_address;
+        if (address != block_address + sizeof(maia_mem_block_t) ||
+            block->magic != MAIA_MEM_MAGIC_USED || block->used == 0U ||
+            block->size > region->end - address ||
+            (block->next != NULL &&
+             (!block_in_region(region, block->next) || block->next->prev != block)) ||
+            (block->prev != NULL &&
+             (!block_in_region(region, block->prev) || block->prev->next != block))) {
+            return MAIA_ERR_INVALID;
+        }
+        *out_size = block->size;
+        return MAIA_OK;
+    }
+    return MAIA_ERR_INVALID;
+}
+
 maia_status_t maia_mem_get_stats(maia_mem_stats_t *out_stats) {
     if (out_stats == NULL) {
         return MAIA_ERR_INVALID;

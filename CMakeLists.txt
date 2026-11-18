@@ -25,6 +25,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     kernel/ksync.c
     kernel/ksched.c
     runtime/newlib_locks.c
+    runtime/newlib_heap.c
     shell/maia_shell_engine.cpp
     boards/m5stack/tab5/app_desc.c
     boards/m5stack/tab5/boot_main.c
@@ -41,7 +42,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "-T${MAIA_LINKER_SCRIPT}"
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_m0.map"
   )
-  target_link_libraries(maia_m0.elf PRIVATE gcc)
+  target_link_libraries(maia_m0.elf PRIVATE stdc++ c m gcc)
   set_target_properties(maia_m0.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured MaiaRTOS bare-metal target (maia_m0.elf) for ESP32-P4 / M5Stack Tab5")
 
@@ -854,6 +855,22 @@ else()
       target_compile_options(newlib_locks_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME newlib_locks_test COMMAND newlib_locks_test)
+    add_executable(newlib_heap_test
+      tests/host/newlib_heap_test.c
+      runtime/newlib_heap.c
+      runtime/newlib_locks.c
+      kernel/kmem.c
+      kernel/ksync.c
+    )
+    target_include_directories(newlib_heap_test BEFORE PRIVATE
+      tests/host/newlib_include
+      include
+    )
+    target_compile_definitions(newlib_heap_test PRIVATE MAIA_NEWLIB_HEAP_NO_CRT_EXPORTS=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(newlib_heap_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME newlib_heap_test COMMAND newlib_heap_test)
     add_executable(kmem_regions_test tests/host/kmem_regions_test.c kernel/kmem.c)
     target_include_directories(kmem_regions_test PRIVATE include)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

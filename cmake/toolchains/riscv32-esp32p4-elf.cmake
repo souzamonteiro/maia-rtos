@@ -17,8 +17,9 @@ set(CMAKE_READELF      "${MAIA_RISCV_TOOLCHAIN_BIN}/riscv32-esp-elf-readelf")
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 set(MAIA_ARCH_FLAGS "-march=rv32imac_zicsr_zifencei -mabi=ilp32 -ffreestanding -fno-builtin -fno-common -fdata-sections -ffunction-sections")
+# libstdc++ headers reject -ffreestanding; the executable remains bare-metal via -nostdlib.
+set(MAIA_CXX_ARCH_FLAGS "-march=rv32imac_zicsr_zifencei -mabi=ilp32 -fno-builtin -fno-common -fdata-sections -ffunction-sections")
 set(CMAKE_C_FLAGS_INIT "${MAIA_ARCH_FLAGS}")
 set(CMAKE_ASM_FLAGS_INIT "${MAIA_ARCH_FLAGS}")
-set(CMAKE_CXX_FLAGS_INIT "${MAIA_ARCH_FLAGS} -fno-exceptions -fno-rtti")
+set(CMAKE_CXX_FLAGS_INIT "${MAIA_CXX_ARCH_FLAGS} -fno-exceptions -fno-rtti")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "-nostdlib -Wl,--gc-sections -Wl,--no-relax")
-

@@ -79,6 +79,7 @@ maia_status_t maia_mem_add_region(void *pool_base, size_t pool_bytes);
 void         *maia_mem_alloc(size_t size);
 void         *maia_mem_alloc_aligned(size_t size, size_t alignment);
 maia_status_t maia_mem_free(void *ptr);
+maia_status_t maia_mem_get_alloc_size(const void *ptr, size_t *out_size);
 maia_status_t maia_mem_get_stats(maia_mem_stats_t *out_stats);
 
 /* ==========================================================================

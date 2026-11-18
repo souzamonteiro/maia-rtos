@@ -1,5 +1,16 @@
 #pragma once
 
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <strings.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #if defined(ARDUINO)
 #include <Arduino.h>
 #include <M5Unified.h>
@@ -72,16 +83,6 @@ static inline int32_t host_webserver_stop(void) { return -1; }
 static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf && max_len) snprintf(buf, max_len, "Web server not supported\n"); return -1; }
 #endif
 
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include "../maia/exec/elf_validator.h"
 #include "../maia/exec/elf_loader.h"
 #include "../maia/exec/hello_mobj.h"
@@ -99,13 +100,11 @@ static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
 #include <maia/soc/esp32p4_board_io.h>
-static inline void *malloc(size_t sz) { return maia_mem_alloc((uint32_t)sz); }
-static inline void free(void *p) { maia_mem_free(p); }
 #endif
 
 #include <stdarg.h>
 
-/* Freestanding vsnprintf & snprintf (Zero newlib stdio / Zero malloc) */
+/* Freestanding formatting helpers, independent of Newlib stdio. */
 static inline int msh_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
     if (!buf || size == 0) return 0;
     size_t pos = 0;
@@ -2599,7 +2598,11 @@ private:
                     e.is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
                     e.size = (uint32_t)st.st_size;
                 } else {
+#if defined(DT_DIR)
                     e.is_dir = (de->d_type == DT_DIR) ? 1 : 0;
+#else
+                    e.is_dir = 0;
+#endif
                     e.size = 0;
                 }
 

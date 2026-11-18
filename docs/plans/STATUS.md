@@ -1632,10 +1632,21 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   `libc.a` confirms the default no-op `libc_a-lock.o` is not extracted because
   Maia supplies both the callbacks and Newlib's static lock symbols. This is
   not yet a full `maia_m0.elf` link or device test.
-- Runtime work still open: the normal `maia_m0.elf` build is blocked because
-  libstdc++ hosted headers are rejected under `-ffreestanding`. A temporary
-  C++-only hosted-mode build gets past that guard but exposes declaration-order
-  and `malloc/free` linkage conflicts in `maia_shell.hpp`; production flags
-  were not changed. `malloc/free`, syscalls, per-task `reent`, C++ constructors
-  and gthread support remain unimplemented; no C++ runtime completion is
-  claimed.
+- Newlib heap bridge: `runtime/newlib_heap.c` routes global and reentrant
+  `malloc/free/calloc/realloc` calls to the Maia allocator, serializes access
+  with Newlib's recursive malloc lock, and reports allocation failures through
+  each reentrancy object's `errno`. The kernel allocator now exposes a checked
+  allocation-size query for realloc/usable-size support. Host tests cover
+  zeroing, alignment-sized capacity, data preservation, OOM behavior and
+  freeing; CTest passes 80/80. The allocator and shell C++ translation unit
+  compile for RV32. Shell-local `malloc/free` shims were removed so C++ uses the
+  same runtime heap.
+- C++/product link status: the C++ toolchain flags no longer pass
+  `-ffreestanding`, which libstdc++ headers reject; the executable remains
+  bare-metal with `-nostdlib` and explicitly links the runtime archives. The
+  full link now reaches the linker but is not yet successful: the current
+  linker script overflows `L2MEM_LOW` by 108,176 bytes, `__getreent`,
+  POSIX/VFS calls and gthread's `pthread_mutex_lock/unlock` are unresolved.
+  Per-task reentrancy, syscall/VFS integration, gthread support and the final
+  flash/XIP linker layout remain open; no device test or complete runtime
+  validation is claimed.

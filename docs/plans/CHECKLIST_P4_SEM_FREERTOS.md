@@ -48,8 +48,8 @@ e wrappers `malloc/free` no shell. Resolver a integração de runtime na F1.
 
 - [x] Mutex do kernel protege aquisição/liberação contra preempção local (host tests + compilação RV32, 18/11)
 - [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32 e prova de seleção do objeto; validação no produto/device pendente)
+- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests + compilação RV32; link final pendente)
 - [ ] Integrar e validar o runtime Newlib no ELF completo e no device
-- [ ] `malloc`/`free` sobre os heaps do kernel
 - [ ] Chamadas de sistema (`_write`, `_read`, `_sbrk`, tempo)
 - [ ] Contexto `reent` por tarefa
 - [ ] Construtores globais e guardas de inicialização C++
