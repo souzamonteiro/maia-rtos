@@ -1602,3 +1602,16 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   (exact image), with report, backup and boot captures in the same directory.
   This was a warm reset, not cold PSRAM initialization; the linker is a
   flash-XIP baseline, not the completed product layout.
+- PSRAM startup closure placed in internal SRAM (2026-11-18):
+  `flash_product.ld` collects the selected boot/clock/supply/MPLL/array/mode/
+  snapshot/window modules and constants in `.maia_psram_iram` at `0x4ff00000`.
+  Linker assertions pin the critical entry points, and `NOCROSSREFS_TO` rejects
+  relocations to XIP text/rodata. Readelf confirms distinct RX and RW segments
+  with no RWX mapping; disassembly shows the remaining indirect cache calls
+  target ROM. The 79,600-byte image passed esptool structure validation and
+  warm-reset device boot, including SRAM heap and scheduler markers; the
+  original app was verified restored and the desktop/Notes app loaded.
+  CTest 78/78 passed. Exact image and logs:
+  `maia-rtos-recovery/native-f0-psram-iram-20261118-084629/`.
+  This proves image loading, not execution of PSRAM startup, cold PSRAM
+  initialization, array access, full-product linker integration or heap use.

@@ -17,8 +17,34 @@ MEMORY
 __maia_psram_window_start = 0x4B800000;
 __maia_psram_window_end = 0x4BA00000;
 
+PHDRS
+{
+    flash_text PT_LOAD FLAGS(5);
+    flash_rodata PT_LOAD FLAGS(4);
+    psram_iram PT_LOAD FLAGS(5);
+    sram_data PT_LOAD FLAGS(6);
+}
+
 SECTIONS
 {
+    .maia_psram_iram : ALIGN(16)
+    {
+        _maia_psram_iram_start = ABSOLUTE(.);
+        KEEP(*soc_psram_boot.c.obj(.text.maia_esp32p4_psram_boot_initialize200))
+        KEEP(*soc_psram_window.c.obj(.text.maia_esp32p4_psram_cache_boot))
+        KEEP(*soc_psram_window.c.obj(.text.maia_esp32p4_psram_window_start))
+        *soc_psram_boot.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_clock.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_supply.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_mpll.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_array.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_mode.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_snapshot.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        *soc_psram_window.c.obj(.text .text.* .rodata .rodata.* .srodata .srodata.*)
+        . = ALIGN(16);
+        _maia_psram_iram_end = ABSOLUTE(.);
+    } > SRAM_LOW :psram_iram
+
     .flash.text ORIGIN(FLASH_IROM) : SUBALIGN(16)
     {
         _text_start = ABSOLUTE(.);
@@ -30,14 +56,14 @@ SECTIONS
         . += 16;
         . = ALIGN(16);
         _text_end = ABSOLUTE(.);
-    } > FLASH_IROM
+    } > FLASH_IROM :flash_text
 
     .flash_rodata_dummy ORIGIN(FLASH_DROM) (NOLOAD) : SUBALIGN(16)
     {
         _flash_rodata_dummy_start = ABSOLUTE(.);
         . = ALIGN(ALIGNOF(.flash.text)) + SIZEOF(.flash.text);
         . = ALIGN(0x10000) + 0x20;
-    } > FLASH_DROM
+    } > FLASH_DROM :flash_rodata
 
     .flash.appdesc : ALIGN(16)
     {
@@ -45,7 +71,7 @@ SECTIONS
         KEEP(*(.rodata_desc .rodata_desc.*))
         KEEP(*(.rodata_custom_desc .rodata_custom_desc.*))
         . = ALIGN(16);
-    } > FLASH_DROM
+    } > FLASH_DROM :flash_rodata
 
     .flash.rodata : ALIGN(16)
     {
@@ -55,7 +81,7 @@ SECTIONS
         *(.srodata .srodata.*)
         . = ALIGN(16);
         _flash_rodata_end = ABSOLUTE(.);
-    } > FLASH_DROM
+    } > FLASH_DROM :flash_rodata
 
     ASSERT(ADDR(.flash.appdesc) == ADDR(.flash_rodata_dummy) + SIZEOF(.flash_rodata_dummy),
            "Application descriptor must follow the reserved DROM page")
@@ -71,7 +97,7 @@ SECTIONS
         *(.sdata .sdata.*)
         . = ALIGN(16);
         _data_end = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     .bss (NOLOAD) : ALIGN(16)
     {
@@ -82,7 +108,7 @@ SECTIONS
         *(COMMON)
         . = ALIGN(16);
         __bss_end = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     .stack (NOLOAD) : ALIGN(16)
     {
@@ -90,7 +116,7 @@ SECTIONS
         . += 16384;
         . = ALIGN(16);
         __stack_top = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     /DISCARD/ :
     {
@@ -101,8 +127,42 @@ SECTIONS
 
 ASSERT(_start >= ADDR(.flash.text) && _start < ADDR(.flash.text) + SIZEOF(.flash.text),
        "Entry point must be in the flash-mapped IROM section")
+ASSERT(SIZEOF(.maia_psram_iram) > 0, "PSRAM SRAM-resident startup closure is empty")
+ASSERT(maia_esp32p4_psram_boot_initialize200 >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_boot_initialize200 < _maia_psram_iram_end,
+       "PSRAM boot composition must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_cache_boot >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_cache_boot < _maia_psram_iram_end,
+       "PSRAM cache bootstrap must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_window_start >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_window_start < _maia_psram_iram_end,
+       "PSRAM MMU window setup must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_snapshot >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_snapshot < _maia_psram_iram_end,
+       "PSRAM snapshot dependency must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_supply1900 >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_supply1900 < _maia_psram_iram_end,
+       "PSRAM supply setup must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_mpll_initialize400 >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_mpll_initialize400 < _maia_psram_iram_end,
+       "PSRAM MPLL setup must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_profile200 >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_profile200 < _maia_psram_iram_end,
+       "PSRAM profile setup must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_read_mode >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_read_mode < _maia_psram_iram_end,
+       "PSRAM mode-register reads must execute from internal SRAM")
+ASSERT(maia_psram_clock_mhz >= _maia_psram_iram_start &&
+       maia_psram_clock_mhz < _maia_psram_iram_end,
+       "PSRAM clock-state query must execute from internal SRAM")
+ASSERT(maia_psram_x8_claimed >= _maia_psram_iram_start &&
+       maia_psram_x8_claimed < _maia_psram_iram_end,
+       "PSRAM mode-state query must execute from internal SRAM")
 ASSERT(__bss_end <= __stack_bottom, "BSS overlaps the primary boot stack")
 ASSERT(__stack_top <= ORIGIN(SRAM_LOW) + LENGTH(SRAM_LOW),
        "Internal SRAM image exceeds the validated low-memory window")
 ASSERT(__maia_psram_window_end - __maia_psram_window_start == 0x200000,
        "PSRAM runtime window must remain the qualified 2 MiB CPU mapping")
+
+NOCROSSREFS_TO(.flash.text .maia_psram_iram)
+NOCROSSREFS_TO(.flash.rodata .maia_psram_iram)

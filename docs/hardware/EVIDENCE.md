@@ -1,5 +1,32 @@
 # Hardware evidence register
 
+## PSRAM startup closure resident in internal SRAM — 2026-11-18
+
+- `flash_product.ld` now collects the selected PSRAM boot, clock, supply,
+  MPLL, array, mode, snapshot and window code plus constants into
+  `.maia_psram_iram` at `0x4ff00000`. Linker assertions check the critical
+  entry points, and `NOCROSSREFS_TO` rejects relocations from that section to
+  flash text or rodata. Disassembly confirms that the remaining indirect
+  cache calls target ROM (`0x4fc...`); direct calls stay in SRAM.
+- The generated ELF has separate RX code and RW BSS/stack program headers
+  (no RWX segment). `maia_f0_kernel_psram_probe_image` built a valid 79,600-byte
+  app image with four records, including the 0x3710-byte IRAM segment at
+  `0x4ff00000`; image SHA-256:
+  `5f447bff77ccab515a29619a999515e1729cad86162f5518871af0eac688644a`.
+- On Tab5 ESP32-P4 v1.3, the recovery runner wrote the image at `0x10000`,
+  observed `MAIA_F0_SRAM_HEAP_PASS`, the read-only PSRAM snapshot
+  (`result=0`, 54 controller samples), and `MAIA_NATIVE_PREEMPT_PASS`
+  (250 timer IRQs, 251 switches). It restored and verified the factory app;
+  the restore capture loaded the MaiaOS desktop and Notes app. The factory
+  backup SHA-256 is
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  Exact image, backup, report and logs are in
+  `maia-rtos-recovery/native-f0-psram-iram-20261118-084629/`.
+- Host CTest passed 78/78. This warm-reset probe verifies image acceptance and
+  loading of the SRAM segment; it does not call the PSRAM startup routines,
+  validate cold startup, access the PSRAM array, or qualify a product linker
+  or PSRAM heap. Those remain open.
+
 ## Flash-XIP product-layout baseline — 2026-11-18
 
 Primary references: Espressif ESP-IDF v5.4.2 second-stage

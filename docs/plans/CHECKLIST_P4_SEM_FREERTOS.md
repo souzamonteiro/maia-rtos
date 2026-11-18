@@ -34,6 +34,7 @@ completo `maia_m0.elf` continua bloqueado pelo shell C++ hospedado com
 - [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
 - [x] Kernel/scheduler e duas tarefas executando por XIP, com preempção por timer real (probe, 17/11; imagem de produto pendente)
 - [x] Base de linker flash-XIP testada no probe (IROM/DROM + estado em SRAM; PSRAM apenas como janela runtime, 18/11)
+- [x] Closure de inicialização PSRAM do probe colocada em segmento SRAM; referências relocáveis a XIP bloqueadas no link e imagem aceita no device (reset morno, 18/11; rotinas PSRAM não foram executadas)
 - [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
 - [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU

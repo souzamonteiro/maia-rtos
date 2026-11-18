@@ -105,6 +105,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_timer.c
       soc/espressif/esp32p4/soc_panic.c
       soc/espressif/esp32p4/soc_psram_snapshot.c
+      soc/espressif/esp32p4/soc_psram_boot.c
+      soc/espressif/esp32p4/soc_psram_clock.c
+      soc/espressif/esp32p4/soc_psram_supply.c
+      soc/espressif/esp32p4/soc_psram_mpll.c
+      soc/espressif/esp32p4/soc_psram_array.c
+      soc/espressif/esp32p4/soc_psram_mode.c
+      soc/espressif/esp32p4/soc_psram_window.c
       arch/riscv/stack.c
       kernel/kmem.c
       kernel/ksched.c
