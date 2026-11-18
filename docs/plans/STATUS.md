@@ -1622,11 +1622,20 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   recursive acquisition, and both initially enabled and disabled IRQ states;
   RV32 cross-compilation/disassembly confirms the `mstatus` mask/restore
   instructions. Full host CTest passed 78/78.
-- Runtime investigation: the normal `maia_m0.elf` build still fails because
+- Newlib lock backend: `runtime/newlib_locks.c` implements the retargetable
+  callbacks over `maia_mutex`, including recursive locks and dynamic lock
+  allocation from the Maia heap. Boot now initializes this backend after the
+  heap and halts with an explicit diagnostic if setup fails. Host tests cover
+  contention, recursion, yielding, lock close/reclaim, and IRQ-state
+  preservation; CTest passes 79/79. The backend and updated `boot_main.c`
+  compile for the product RV32 ABI. A relocatable link against the installed
+  `libc.a` confirms the default no-op `libc_a-lock.o` is not extracted because
+  Maia supplies both the callbacks and Newlib's static lock symbols. This is
+  not yet a full `maia_m0.elf` link or device test.
+- Runtime work still open: the normal `maia_m0.elf` build is blocked because
   libstdc++ hosted headers are rejected under `-ffreestanding`. A temporary
   C++-only hosted-mode build gets past that guard but exposes declaration-order
   and `malloc/free` linkage conflicts in `maia_shell.hpp`; production flags
-  were not changed. The installed Newlib enables retargetable locking, while
-  its archive's default `__retarget_lock_*` callbacks are no-ops. Implementing
-  the kernel-backed retarget layer and allocator/startup integration remains
-  open; no C++ runtime completion is claimed.
+  were not changed. `malloc/free`, syscalls, per-task `reent`, C++ constructors
+  and gthread support remain unimplemented; no C++ runtime completion is
+  claimed.

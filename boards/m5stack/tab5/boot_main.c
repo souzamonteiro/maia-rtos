@@ -1,5 +1,6 @@
 #include <maia/console.h>
 #include <maia/kernel.h>
+#include <maia/runtime/newlib_locks.h>
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/version.h>
@@ -132,7 +133,11 @@ void maia_boot_main(void) {
 
     /* Initialize kernel subsystems (M2, M4, M5) */
     (void)maia_sched_init();
-    (void)maia_mem_init(g_heap_pool, sizeof(g_heap_pool));
+    if (maia_mem_init(g_heap_pool, sizeof(g_heap_pool)) != MAIA_OK ||
+        maia_newlib_locks_init() != MAIA_OK) {
+        maia_console_puts("[F1] Runtime heap/lock initialization failed\n");
+        for (;;) __asm__ volatile("wfi");
+    }
     (void)maia_mutex_init(&g_telem_mutex);
     (void)maia_queue_init(&g_telem_queue, g_telem_qbuf, sizeof(uint32_t), 8U);
 

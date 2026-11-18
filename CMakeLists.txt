@@ -24,6 +24,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     kernel/kmem.c
     kernel/ksync.c
     kernel/ksched.c
+    runtime/newlib_locks.c
     shell/maia_shell_engine.cpp
     boards/m5stack/tab5/app_desc.c
     boards/m5stack/tab5/boot_main.c
@@ -839,6 +840,20 @@ else()
       target_compile_options(kernel_mvp_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME kernel_mvp_test COMMAND kernel_mvp_test)
+    add_executable(newlib_locks_test
+      tests/host/newlib_locks_test.c
+      runtime/newlib_locks.c
+      kernel/kmem.c
+      kernel/ksync.c
+    )
+    target_include_directories(newlib_locks_test BEFORE PRIVATE
+      tests/host/newlib_include
+      include
+    )
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(newlib_locks_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME newlib_locks_test COMMAND newlib_locks_test)
     add_executable(kmem_regions_test tests/host/kmem_regions_test.c kernel/kmem.c)
     target_include_directories(kmem_regions_test PRIVATE include)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
