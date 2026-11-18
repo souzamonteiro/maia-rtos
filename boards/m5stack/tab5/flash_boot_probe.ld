@@ -11,12 +11,12 @@ MEMORY
 {
     FLASH_IROM (rx)  : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
     FLASH_DROM (r)   : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
-    SRAM_LOW   (rwx) : ORIGIN = 0x4FF00000, LENGTH = 0x2CBD0
+    SRAM_LOW   (rwx) : ORIGIN = 0x4FF00000, LENGTH = 0x28000
 }
 
 SECTIONS
 {
-    .flash.text : ALIGN(16)
+    .flash.text ORIGIN(FLASH_IROM) : SUBALIGN(16)
     {
         _text_start = ABSOLUTE(.);
         KEEP(*(.text.entry))
@@ -29,7 +29,7 @@ SECTIONS
         _text_end = ABSOLUTE(.);
     } > FLASH_IROM
 
-    .flash_rodata_dummy (NOLOAD) : ALIGN(16)
+    .flash_rodata_dummy ORIGIN(FLASH_DROM) (NOLOAD) : SUBALIGN(16)
     {
         _flash_rodata_dummy_start = ABSOLUTE(.);
         . = ALIGN(ALIGNOF(.flash.text)) + SIZEOF(.flash.text);

@@ -51,6 +51,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/flash_boot_probe_main.c
   )
   target_include_directories(maia_f0_flash_probe.elf PRIVATE include)
+  target_compile_definitions(maia_f0_flash_probe.elf PRIVATE MAIA_FLASH_PROBE_RECOVERABLE=1)
   target_compile_options(maia_f0_flash_probe.elf PRIVATE
     -Wall -Wextra -O2
     -ffunction-sections -fdata-sections
@@ -92,6 +93,65 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       VERBATIM
     )
     add_custom_target(maia_f0_flash_probe_image DEPENDS "${MAIA_F0_FLASH_PROBE_IMAGE}")
+
+    add_executable(maia_f0_kernel_psram_probe.elf
+      arch/riscv/start.S
+      arch/riscv/trap_context.S
+      soc/espressif/esp32p4/soc_early_init.c
+      soc/espressif/esp32p4/soc_console.c
+      soc/espressif/esp32p4/soc_serial_tx.c
+      soc/espressif/esp32p4/soc_timer.c
+      soc/espressif/esp32p4/soc_panic.c
+      soc/espressif/esp32p4/soc_psram_snapshot.c
+      arch/riscv/stack.c
+      kernel/ksched.c
+      boards/m5stack/tab5/app_desc.c
+      tests/hardware/native_scheduler_probe.c
+      tests/hardware/native_register_probe.S
+      tests/hardware/native_fp_abi.c
+    )
+    target_include_directories(maia_f0_kernel_psram_probe.elf PRIVATE
+      include
+      soc/espressif/esp32p4
+    )
+    target_compile_definitions(maia_f0_kernel_psram_probe.elf PRIVATE
+      MAIA_F0_FLASH_KERNEL_PSRAM_STATE=1
+      MAIA_FLASH_PROBE_RECOVERABLE=1
+    )
+    target_compile_options(maia_f0_kernel_psram_probe.elf PRIVATE
+      -Wall -Wextra -O2
+      -ffunction-sections -fdata-sections
+    )
+    target_link_options(maia_f0_kernel_psram_probe.elf PRIVATE
+      "-T${MAIA_F0_FLASH_LINKER_SCRIPT}"
+      "-Wl,--gc-sections"
+      "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_f0_kernel_psram_probe.map"
+    )
+    target_link_libraries(maia_f0_kernel_psram_probe.elf PRIVATE gcc)
+    set_target_properties(maia_f0_kernel_psram_probe.elf PROPERTIES
+      LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
+    )
+
+    set(MAIA_F0_KERNEL_PSRAM_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f0_kernel_psram_probe.bin")
+    add_custom_command(
+      OUTPUT "${MAIA_F0_KERNEL_PSRAM_IMAGE}"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 elf2image
+        --flash_mode dio
+        --flash_freq 80m
+        --flash_size 16MB
+        --flash-mmu-page-size 64KB
+        --output "${MAIA_F0_KERNEL_PSRAM_IMAGE}"
+        "$<TARGET_FILE:maia_f0_kernel_psram_probe.elf>"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 image_info
+        "${MAIA_F0_KERNEL_PSRAM_IMAGE}"
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+        "${MAIA_F0_KERNEL_PSRAM_IMAGE}" --sram-window 0x4FF00000:0x4FF28000
+      DEPENDS maia_f0_kernel_psram_probe.elf
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+      VERBATIM
+    )
+    add_custom_target(maia_f0_kernel_psram_probe_image DEPENDS "${MAIA_F0_KERNEL_PSRAM_IMAGE}")
   endif()
 
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")

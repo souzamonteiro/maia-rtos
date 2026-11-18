@@ -1,5 +1,5 @@
 /* Single-core integer/optional RV32F context diagnostic. No yield or synthetic tick calls.
- * This is RAM-only test firmware, not a replacement for the working desktop.
+ * The workload supports both RAM-loaded tests and the F0 flash-mapped probe.
  */
 #include <maia/console.h>
 #include <maia/kernel.h>
@@ -7,6 +7,9 @@
 #include <maia/arch/riscv_stack.h>
 #include <maia/soc/esp32p4_regs.h>
 #include <maia/soc/esp32p4_display.h>
+#ifdef MAIA_F0_FLASH_KERNEL_PSRAM_STATE
+#include "../../soc/espressif/esp32p4/psram_internal.h"
+#endif
 
 #define PROBE_TICKS 250U
 #define PROBE_CYCLE_BUDGET 120000000U
@@ -238,6 +241,23 @@ static void off_priority_worker(void *arg) {
 extern void maia_soc_systimer_init(uint32_t tick_hz);
 
 void maia_boot_main(void) {
+#ifdef MAIA_F0_FLASH_KERNEL_PSRAM_STATE
+    MAIA_MMIO32(MAIA_ESP32P4_USB_CHIP_RST_REG) &= ~MAIA_ESP32P4_USB_UART_CHIP_RST_DIS;
+    maia_psram_snapshot_t psram;
+    maia_psram_result_t psram_result = maia_esp32p4_psram_snapshot(&psram);
+    if (psram_result != MAIA_PSRAM_OK && psram_result != MAIA_PSRAM_GATED) {
+        maia_console_puts("MAIA_F0_PSRAM_STATE_FAIL\n");
+        maia_console_flush();
+        for (;;) __asm__ volatile("wfi");
+    }
+    maia_console_puts("MAIA_F0_PSRAM_STATE result=");
+    print_number((uint32_t)psram_result);
+    maia_console_puts(" roots_valid=");
+    print_number(psram.roots_valid);
+    maia_console_puts(" controller_samples=");
+    print_number(psram.controller_samples);
+    maia_console_puts("\nMAIA_F0_PSRAM_STATE_OBSERVED\n");
+#endif
 #ifdef MAIA_NATIVE_PROBE_MIXED
     maia_console_puts("MAIA_MIXED_PROBE: FS on/off, high priority yield/delay, live register ecalls\n");
 #else

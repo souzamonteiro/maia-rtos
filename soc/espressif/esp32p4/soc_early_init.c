@@ -24,8 +24,12 @@ void maia_soc_early_init(void) {
     disable_timg_wdt(MAIA_ESP32P4_TIMG0_BASE);
     disable_timg_wdt(MAIA_ESP32P4_TIMG1_BASE);
     disable_lp_wdt_and_swd();
+    /* Keep a flash probe recoverable if startup fails before its entry routine. */
+#ifdef MAIA_FLASH_PROBE_RECOVERABLE
+    MAIA_MMIO32(MAIA_ESP32P4_USB_CHIP_RST_REG) &= ~MAIA_ESP32P4_USB_UART_CHIP_RST_DIS;
+#else
     /* Disable USB-Serial-JTAG automatic chip reset on host DTR/RTS port close */
     MAIA_MMIO32(MAIA_ESP32P4_USB_CHIP_RST_REG) |= MAIA_ESP32P4_USB_UART_CHIP_RST_DIS;
+#endif
     maia_console_init();
 }
-

@@ -16,10 +16,22 @@ def fail(message):
 
 
 def main():
-    if len(sys.argv) != 2:
-        fail("usage: f0_flash_image_test.py IMAGE")
+    args = sys.argv[1:]
+    sram_window = None
+    if "--sram-window" in args:
+        index = args.index("--sram-window")
+        if index + 1 >= len(args):
+            fail("--sram-window requires START:END")
+        try:
+            start_text, end_text = args[index + 1].split(":", 1)
+            sram_window = (int(start_text, 0), int(end_text, 0))
+        except ValueError:
+            fail("--sram-window must be START:END")
+        del args[index:index + 2]
+    if len(args) != 1:
+        fail("usage: f0_flash_image_test.py IMAGE [--sram-window START:END]")
 
-    image = Path(sys.argv[1]).read_bytes()
+    image = Path(args[0]).read_bytes()
     if len(image) < 32 or image[0] != IMAGE_MAGIC:
         fail("missing ESP image header")
 
@@ -64,6 +76,19 @@ def main():
         for start, length, _, _ in segments
     ):
         fail(f"entry point {entry:#x} is not inside a loadable segment")
+
+    if sram_window is not None:
+        sram_start, sram_end = sram_window
+        if sram_start >= sram_end:
+            fail("SRAM window must have a positive size")
+        for load_address, length, _, _ in segments:
+            if load_address < 0x10000000 or FLASH_MAP_START <= load_address < FLASH_MAP_END:
+                continue
+            if not sram_start <= load_address < load_address + length <= sram_end:
+                fail(
+                    f"non-mapped segment {load_address:#x}+{length:#x} "
+                    f"falls outside SRAM window {sram_start:#x}:{sram_end:#x}"
+                )
 
     print(
         f"F0 flash image structure PASS: {segment_count} segments, "

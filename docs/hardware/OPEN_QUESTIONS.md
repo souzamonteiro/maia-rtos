@@ -436,9 +436,9 @@ remaining memory/drivers and not permission to weaken warm guards.
 - [ ] **UQ-016 (ESP-IDF second-stage application image for native MaiaRTOS):**
   source-backed D/I window, 64 KiB alignment, descriptor placement and
   two-mapping segment requirements are now recorded in `EVIDENCE.md`; an
-  offline C-only image passes structural checks. Device run 2026-11-17: the
-  installed v5.4.2 bootloader and partition table (factory `0x10000`, 10 MiB)
-  loaded the C-only probe from flash and it printed its USB marker; the
-  backed-up `bf044d3` app was restored and the desktop returned. Still open:
-  product image (full linker/heaps/PSRAM/services), cold power-on and 10×
+  installed v5.4.2 bootloader loaded both a minimal probe and a larger
+  flash-mapped scheduler/two-task image. The latter passed 250 timer ticks and
+  251 task switches; the original app was restored and the desktop returned.
+  Probe-level boot/XIP compatibility is verified. Still open: product image
+  and complete linker/heaps/services, true cold PSRAM startup and 10× cold
   repeated boot.

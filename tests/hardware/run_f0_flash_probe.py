@@ -100,7 +100,14 @@ def main():
     parser.add_argument("--backup-size", type=lambda v: int(v, 0), default=0x300000)
     parser.add_argument("--capture-seconds", type=float, default=8.0)
     parser.add_argument("--boots", type=int, default=1, help="probe resets to capture")
+    parser.add_argument("--marker", default=PROBE_MARKER,
+                        help="success marker that ends each boot capture")
     args = parser.parse_args()
+
+    if args.boots < 1:
+        parser.error("--boots must be at least one")
+    if args.capture_seconds <= 0:
+        parser.error("--capture-seconds must be positive")
 
     args.out.mkdir(parents=True, exist_ok=True)
     log = (args.out / "run.log").open("w")
@@ -125,9 +132,9 @@ def main():
                 hex(FACTORY_OFFSET), str(args.image), log=log)
         for boot in range(args.boots):
             log.write(f"\n[HOST] probe boot {boot + 1}\n")
-            text = capture(args.port, args.capture_seconds, log, PROBE_MARKER)
+            text = capture(args.port, args.capture_seconds, log, args.marker)
             (args.out / f"probe-boot-{boot + 1}.log").write_text(text)
-            report["boots"].append({"marker": PROBE_MARKER in text, "bytes": len(text)})
+            report["boots"].append({"marker": args.marker in text, "bytes": len(text)})
         probe_ok = bool(report["boots"]) and all(b["marker"] for b in report["boots"])
     finally:
         log.write("\n[HOST] restoring backed-up factory app\n")

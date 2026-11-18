@@ -74,6 +74,39 @@ This proves second-stage bootloader acceptance and execution of a minimal
 native image from flash (warm, after RTS reset). It does not cover the product
 image, PSRAM, cold power-on or repeated boots; those remain under UQ-016.
 
+## Flash-mapped kernel, tasks and PSRAM-controller snapshot — 2026-11-17
+
+The `maia_f0_kernel_psram_probe_image` target reuses the native scheduler
+preemption workload and adds the existing read-only PSRAM snapshot. Its
+83,376-byte image has entry and executable code at IROM `0x40000020`,
+app descriptor/constants at DROM `0x40010020`, and exactly two mapped D/I
+segments. The kernel scheduler, SYSTIMER path, both task workers and entry
+resolve into IROM. BSS ends at `0x4ff04650`; the 16 KiB boot stack ends at
+`0x4ff08650`, within the linker-bounded SRAM range
+`0x4ff00000..0x4ff28000`. ELF audit found no undefined symbols or FreeRTOS/
+ESP-IDF runtime references.
+
+Device run (ESP32-P4 v1.3, `/dev/cu.usbmodem1301`): after a verified factory-app
+backup, the image was written at `0x10000` and booted by the installed second
+stage. UART reported `MAIA_F0_PSRAM_STATE result=0 roots_valid=1
+controller_samples=54`; this means the 27 whitelisted controller registers
+matched across two read-only passes and the nine roots remained stable. It did
+not initialize PSRAM, test its array, establish usable capacity or prove cold
+startup. The kernel then recorded 250 real SYSTIMER IRQs/ticks, 251 task
+switches, progress by both workers, zero register errors, zero IRQ-stack errors
+and `MAIA_NATIVE_PREEMPT_PASS`.
+
+The original factory app was rewritten and verified. Its SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`
+matches the previous recovery image; `maia.py info` and serial output confirmed
+desktop, wallpaper and `notes.mobj` restored. Full capture/readback/report:
+`maia-rtos-recovery/native-f0-kernel-psram-flash-20261117-220134/`; the exact
+flashed artifact is saved there as `flash-probe.bin`.
+
+This demonstrates flash XIP for the native scheduler and task code with working
+SRAM state/stack on this warm boot. Product linker/heaps, native cold PSRAM
+initialization and PSRAM memory allocation/access remain unverified.
+
 ## Notification-driven native TX worker — 2026-11-11
 
 Reuses the verified queue, notification/ECALL, SYSTIMER/CLIC and USB TX paths;

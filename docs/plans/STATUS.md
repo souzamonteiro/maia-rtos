@@ -1550,3 +1550,19 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   verified write/restore procedure are PASS for the probe. Direct XIP of real
   product code, product linker, heaps, cold PSRAM, services and cold 10× boot
   remain open.
+- Flash-mapped kernel/task probe (2026-11-17): built
+  `maia_f0_kernel_psram_probe_image` (83,376 bytes; SHA-256
+  `c37955c11762740940c7c4f046f783572d417c8eb40fd5984deea444bcdc3600`).
+  ELF places scheduler, timer, task workers and entry in IROM `0x40000020`;
+  descriptor/constants in DROM `0x40010020`; BSS/boot stack at
+  `0x4ff00000..0x4ff08650`, within the bounded 160 KiB SRAM window. No undefined
+  symbols or FreeRTOS/ESP-IDF runtime symbols.
+- Device capture: `MAIA_F0_PSRAM_STATE result=0 roots_valid=1
+  controller_samples=54`, then 250 real timer IRQs/ticks, 251 switches,
+  both workers progressed, zero register/IRQ-stack errors and
+  `MAIA_NATIVE_PREEMPT_PASS`. The snapshot is read-only controller observation,
+  not PSRAM initialization, capacity verification or array test. Backup was
+  verified/restored and `maia.py info` confirmed the desktop and notes app.
+  Logs/backup: `maia-rtos-recovery/native-f0-kernel-psram-flash-20261117-220134/`.
+- This closes the probe-level XIP/kernel/two-task/timer acceptance only.
+  Product linker, data heaps, cold PSRAM startup and PSRAM memory use remain open.

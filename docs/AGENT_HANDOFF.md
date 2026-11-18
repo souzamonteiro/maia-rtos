@@ -1576,3 +1576,18 @@ backup (byte-identical to `bf044d3`) was restored and the desktop returned
 The probe clears `USB_UART_CHIP_RST_DIS` so RTS reset keeps working; any
 flash-resident native image must do the same until a host reset path exists.
 Next: product linker (SRAM+PSRAM+flash), heaps, cold PSRAM, services, 10× boot.
+
+F0 continuation (2026-11-17): a larger flash-mapped image now links the actual
+native scheduler/timer, two preempted worker tasks, RV32F register checks and
+the read-only PSRAM-controller snapshot. Device result: PSRAM snapshot result0,
+54 controller samples; 250 timer IRQs/ticks, 251 switches, both task workers,
+zero register/IRQ-stack errors and `MAIA_NATIVE_PREEMPT_PASS`. Kernel/task code
+symbols are in IROM at `0x40000020`; DROM is `0x40010020`; writable state and
+the boot stack fit SRAM through `0x4ff08650`. This does not initialize or read/
+write the PSRAM array. App backup/restore and desktop return succeeded; capture
+and exact flashed binary are at
+`maia-rtos-recovery/native-f0-kernel-psram-flash-20261117-220134/`.
+The recoverable build variant leaves USB RTS reset enabled from early startup,
+so a failure before `maia_boot_main` still has a host reset path. Continue with
+product memory map/heaps and truly cold PSRAM initialization; do not mark the
+probe's controller snapshot as memory bring-up.
