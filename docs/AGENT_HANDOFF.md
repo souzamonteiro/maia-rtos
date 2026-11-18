@@ -1558,3 +1558,21 @@ Manualtiming and newboot physicalacceptance explicitly NOT RUN; proceed remainin
 memory/driver work without treating that as developmentblocker. Electricalmargins,
 32MiBcapacity, fullyindependent CPU/cachestartup,SMP/sharedclients/native desktop
 and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
+
+## F0 kickoff — 2026-11-17
+
+The native target's include roots were corrected, but `maia_m0.elf` remains
+blocked by hosted C++ (`<vector>`, `<memory>`/`std::shared_ptr`) under
+`-ffreestanding`; do not add stubs. A separate C-only
+`maia_f0_flash_probe_image` now builds and passes structural checks against the
+pinned ESP-IDF shared D/I segment format, including descriptor, entry, two
+mapped segments and MMU alignment. Host configure/build/CTest is 77/77 PASS.
+Device follow-up (same day): `tests/hardware/run_f0_flash_probe.py` backs up
+the factory app (refuses to write if the readback does not validate), writes
+the probe at `0x10000`, captures the boot, and always restores the backup.
+The device bootloader loaded the probe and `MAIA_F0_FLASH_PROBE` appeared; the
+backup (byte-identical to `bf044d3`) was restored and the desktop returned
+(`maia.py info`). Logs: `maia-rtos-recovery/native-f0-flash-probe-20261117-215248/`.
+The probe clears `USB_UART_CHIP_RST_DIS` so RTS reset keeps working; any
+flash-resident native image must do the same until a host reset path exists.
+Next: product linker (SRAM+PSRAM+flash), heaps, cold PSRAM, services, 10× boot.

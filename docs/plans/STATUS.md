@@ -1501,3 +1501,52 @@ Manualtiming and newboot physicalacceptance explicitly NOT RUN; proceed remainin
 memory/driver work without treating that as developmentblocker. Electricalmargins,
 32MiBcapacity, fullyindependent CPU/cachestartup,SMP/sharedclients/native desktop
 and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
+
+## F0 kickoff — 2026-11-17
+
+- Corrected the `maia_m0.elf` include directories to match its actual shell,
+  assembler, MaiaScript and utility-header dependencies. This removes the
+  earlier missing `riscv_asm.hpp` diagnostic, but the native target still does
+  not build: the shell pulls hosted C++ library facilities (`<vector>`,
+  `<memory>`/`std::shared_ptr`) into a `-ffreestanding` target. This is a
+  runtime integration blocker; no stubs or compatibility layer were added.
+- Removed the linker comment's unsupported claim that the current RAM/probe
+  layout is compatible with second-stage flash boot. The existing app descriptor
+  is placed in internal memory; it is not evidence of the required DROM image
+  layout.
+- Added C-only `maia_f0_flash_probe.elf` and optional
+  `maia_f0_flash_probe_image` target, separate from the shell/runtime. The
+  cross-build and esptool 4.12.0 image packaging pass. The candidate has two
+  shared D/I mappings, a DROM descriptor at `0x40010020`, entry at
+  `0x40000020`, a reserved address-zero `PADDING` record, and valid checksum
+  and validation hash. Its validator checks descriptor, entry, mapping count
+  and 64 KiB MMU alignment; malformed descriptor, extra-mapping and alignment
+  cases fail.
+- Pinned ESP-IDF v5.4.2 source confirms the P4 shared D/I window and loader
+  requirement for exactly two mapped segments; address-zero padding is
+  reserved and not loaded. This plus the offline image check is not a device
+  boot test. Project partition configuration is known, but physical flash
+  contents and actual bootloader compatibility remain open under UQ-016.
+- The probe ELF has no undefined symbols and no FreeRTOS/ESP-IDF runtime
+  symbols. This audit applies only to the minimal probe, not the full product.
+- Validation: host configure/build/CTest 77/77 PASS. Native probe image target
+  PASS. The full `maia_m0.elf` target still FAILS at hosted libstdc++ headers
+  (`<vector>`, `<memory>`/`std::shared_ptr`) under `-ffreestanding`; no stubs
+  or compatibility layer were added. Existing recovery image
+  `maia_sched_probe_ram.bin` remains a RAM-load image, not a flash-app result.
+- Device test (2026-11-17, `/dev/cu.usbmodem1301`, ESP32-P4 v1.3):
+  `tests/hardware/run_f0_flash_probe.py` read back 3 MiB from `0x10000`; the
+  2,093,696-byte app validated and is byte-identical to `bf044d3`
+  `m5stack_tab5.bin`. The probe (66,192 bytes, SHA-256
+  `c29163763556f391edd59277af7992c27d84b2db09cb1d47f1f90b5c8e3ca3a6`) was
+  written with esptool verification. After RTS reset the installed v5.4.2
+  bootloader listed the partition table (factory `0x10000`, 10 MiB), mapped
+  segments `0x40010020` / `0x40000020`, skipped the padding block and the probe
+  printed `MAIA_F0_FLASH_PROBE`. The backup was rewritten and verified; the
+  restored firmware booted the desktop and `notes.mobj`, confirmed with
+  `maia.py info`. Logs and backup are in
+  `maia-rtos-recovery/native-f0-flash-probe-20261117-215248/`.
+- Checklist: "native image started by the second-stage bootloader" and the
+  verified write/restore procedure are PASS for the probe. Direct XIP of real
+  product code, product linker, heaps, cold PSRAM, services and cold 10× boot
+  remain open.

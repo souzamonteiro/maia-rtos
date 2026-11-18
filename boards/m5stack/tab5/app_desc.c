@@ -1,5 +1,5 @@
 /*
- * Clean-Room ESP32-P4 Application Descriptor Header for Cold Flash Boot
+ * Clean-Room ESP32-P4 Application Image Descriptor
  * Zero FreeRTOS / Zero ESP-IDF Runtime / Zero Arduino
  */
 
@@ -34,7 +34,7 @@ const __attribute__((section(".rodata_desc"), used)) esp_app_desc_t g_maia_app_d
     .project_name = "MaiaRTOS",
     .time = "12:00:00",
     .date = "Nov  4 2026",
-    .idf_ver = "Zero-FreeRTOS/Zero-IDF",
+    .idf_ver = "MaiaRTOS native",
     .app_elf_sha256 = {0U},
     .min_efuse_blk_rev_full = 0U,
     .max_efuse_blk_rev_full = 65535U,

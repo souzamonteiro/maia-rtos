@@ -4,7 +4,10 @@
  * Memory Map:
  * - Placed entirely in internal HP L2MEM [0x4FF00000 .. 0x4FF28000) (160 KiB),
  *   strictly below the ESP32-P4 ROM download/stack window [0x4FF296B8 .. 0x4FF40000).
- * - Compatible with both `esptool.py load_ram` and direct flash boot.
+ * - RAM/probe layout for `esptool.py load_ram`; this is not a validated
+ *   second-stage application-image linker layout.
+ * - The flash-address sections and application descriptor placement below
+ *   must not be treated as proof of direct flash boot.
  */
 
 OUTPUT_ARCH(riscv)

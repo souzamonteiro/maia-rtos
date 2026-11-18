@@ -1,0 +1,95 @@
+/*
+ * Native second-stage flash-image smoke-test layout for ESP32-P4.
+ * The DROM/IROM map is based on the pinned ESP-IDF v5.4.2 P4 linker template.
+ * This is a bounded probe image, not the final product memory layout.
+ */
+
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
+
+MEMORY
+{
+    FLASH_IROM (rx)  : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
+    FLASH_DROM (r)   : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
+    SRAM_LOW   (rwx) : ORIGIN = 0x4FF00000, LENGTH = 0x2CBD0
+}
+
+SECTIONS
+{
+    .flash.text : ALIGN(16)
+    {
+        _text_start = ABSOLUTE(.);
+        KEEP(*(.text.entry))
+        . = ALIGN(64);
+        KEEP(*(.text.trap))
+        *(.text .text.*)
+        KEEP(*(.flash.text))
+        . += 16;
+        . = ALIGN(16);
+        _text_end = ABSOLUTE(.);
+    } > FLASH_IROM
+
+    .flash_rodata_dummy (NOLOAD) : ALIGN(16)
+    {
+        _flash_rodata_dummy_start = ABSOLUTE(.);
+        . = ALIGN(ALIGNOF(.flash.text)) + SIZEOF(.flash.text);
+        . = ALIGN(0x10000) + 0x20;
+    } > FLASH_DROM
+
+    .flash.appdesc : ALIGN(16)
+    {
+        _rodata_desc_start = ABSOLUTE(.);
+        KEEP(*(.rodata_desc .rodata_desc.*))
+        KEEP(*(.rodata_custom_desc .rodata_custom_desc.*))
+        . = ALIGN(16);
+    } > FLASH_DROM
+
+    .flash.rodata : ALIGN(16)
+    {
+        _flash_rodata_start = ABSOLUTE(.);
+        KEEP(*(.flash.rodata))
+        *(.rodata .rodata.*)
+        *(.srodata .srodata.*)
+        . = ALIGN(16);
+        _flash_rodata_end = ABSOLUTE(.);
+    } > FLASH_DROM
+
+    ASSERT(ADDR(.flash.rodata) == ADDR(.flash.appdesc) + SIZEOF(.flash.appdesc),
+           "Application descriptor must be contiguous with DROM read-only data")
+    ASSERT(SIZEOF(.flash.appdesc) >= 256,
+           "ESP application descriptor is missing or truncated")
+
+    .data : ALIGN(16)
+    {
+        _data_start = ABSOLUTE(.);
+        *(.data .data.*)
+        *(.sdata .sdata.*)
+        . = ALIGN(16);
+        _data_end = ABSOLUTE(.);
+    } > SRAM_LOW
+
+    .bss (NOLOAD) : ALIGN(16)
+    {
+        __bss_start = ABSOLUTE(.);
+        __global_pointer$ = . + 0x800;
+        *(.sbss .sbss.*)
+        *(.bss .bss.*)
+        *(COMMON)
+        . = ALIGN(16);
+        __bss_end = ABSOLUTE(.);
+    } > SRAM_LOW
+
+    .stack (NOLOAD) : ALIGN(16)
+    {
+        __stack_bottom = ABSOLUTE(.);
+        . += 16384;
+        . = ALIGN(16);
+        __stack_top = ABSOLUTE(.);
+    } > SRAM_LOW
+
+    /DISCARD/ :
+    {
+        *(.eh_frame .eh_frame.*)
+        *(.comment)
+    }
+}

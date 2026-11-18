@@ -24,13 +24,19 @@ a migração dele é um projeto posterior (ver final).
 
 ## F0 — Firmware nativo gravado na flash
 
-- [ ] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio
-- [ ] Execução direto da flash (MMU/cache, XIP)
+🔧 **Em andamento:** em 17/11 um probe C-only, sem FreeRTOS, foi gravado na
+flash, carregado pelo bootloader do aparelho e executou (marcador
+`MAIA_F0_FLASH_PROBE` na USB). Em seguida o firmware original foi restaurado e o
+desktop voltou. Falta a imagem de produto. O target completo `maia_m0.elf`
+continua bloqueado pelo shell C++ hospedado com `-ffreestanding` (resolve na F1).
+
+- [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
+- [ ] Execução direto da flash (MMU/cache, XIP) — 🔧 o probe já roda mapeado da flash; falta o código de produto
 - [ ] Linker script de produto (SRAM + PSRAM + flash completas)
 - [ ] Heaps SRAM e PSRAM no alocador do kernel
 - [ ] Inicialização de PSRAM a frio em todo boot
 - [ ] LCD, touch e console como serviços do kernel (fim das opções de teste encadeadas)
-- [ ] Gravação com verificação de hash e roteiro de restauração pelo `maia-rtos-recovery`
+- [x] Gravação com verificação de hash e roteiro de restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)
 - [ ] Boot a frio repetido no device (10×) sem falha
 
 ## F1 — Biblioteca C/C++ sobre o kernel

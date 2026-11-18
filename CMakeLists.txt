@@ -6,6 +6,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
+  set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
   add_executable(maia_m0.elf
     arch/riscv/start.S
     arch/riscv/trap_context.S
@@ -25,7 +26,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/app_desc.c
     boards/m5stack/tab5/boot_main.c
   )
-  target_include_directories(maia_m0.elf PRIVATE include)
+  target_include_directories(maia_m0.elf PRIVATE
+    include
+    assembler/include
+    maiascript/include
+    lib/maiaregex
+    lib/maiaglob
+  )
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
   target_link_options(maia_m0.elf PRIVATE
     "-T${MAIA_LINKER_SCRIPT}"
@@ -35,8 +42,58 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set_target_properties(maia_m0.elf PROPERTIES LINK_DEPENDS "${MAIA_LINKER_SCRIPT}")
   message(STATUS "Configured MaiaRTOS bare-metal target (maia_m0.elf) for ESP32-P4 / M5Stack Tab5")
 
+  add_executable(maia_f0_flash_probe.elf
+    arch/riscv/start.S
+    soc/espressif/esp32p4/soc_early_init.c
+    soc/espressif/esp32p4/soc_console.c
+    soc/espressif/esp32p4/soc_serial_tx.c
+    boards/m5stack/tab5/app_desc.c
+    boards/m5stack/tab5/flash_boot_probe_main.c
+  )
+  target_include_directories(maia_f0_flash_probe.elf PRIVATE include)
+  target_compile_options(maia_f0_flash_probe.elf PRIVATE
+    -Wall -Wextra -O2
+    -ffunction-sections -fdata-sections
+  )
+  target_link_options(maia_f0_flash_probe.elf PRIVATE
+    "-T${MAIA_F0_FLASH_LINKER_SCRIPT}"
+    "-Wl,--gc-sections"
+    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_f0_flash_probe.map"
+  )
+  target_link_libraries(maia_f0_flash_probe.elf PRIVATE gcc)
+  set_target_properties(maia_f0_flash_probe.elf PROPERTIES
+    LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
+  )
+
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(MAIA_ESPTOOL_EXECUTABLE "" CACHE FILEPATH "Standalone esptool.py executable for native image packaging")
+  if(MAIA_ESPTOOL_EXECUTABLE)
+    if(NOT EXISTS "${MAIA_ESPTOOL_EXECUTABLE}")
+      message(FATAL_ERROR "MAIA_ESPTOOL_EXECUTABLE does not exist: ${MAIA_ESPTOOL_EXECUTABLE}")
+    endif()
+    set(MAIA_F0_FLASH_PROBE_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f0_flash_probe.bin")
+    add_custom_command(
+      OUTPUT "${MAIA_F0_FLASH_PROBE_IMAGE}"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 elf2image
+        --flash_mode dio
+        --flash_freq 80m
+        --flash_size 16MB
+        --flash-mmu-page-size 64KB
+        --output "${MAIA_F0_FLASH_PROBE_IMAGE}"
+        "$<TARGET_FILE:maia_f0_flash_probe.elf>"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 image_info
+        "${MAIA_F0_FLASH_PROBE_IMAGE}"
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+        "${MAIA_F0_FLASH_PROBE_IMAGE}"
+      DEPENDS maia_f0_flash_probe.elf
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+      VERBATIM
+    )
+    add_custom_target(maia_f0_flash_probe_image DEPENDS "${MAIA_F0_FLASH_PROBE_IMAGE}")
+  endif()
+
   set(MAIA_NATIVE_PROBE_FAULT "" CACHE STRING "RAM fault diagnostic: illegal16, illegal32 or breakpoint16")
   set(MAIA_NATIVE_PROBE_PSRAM_FAST "" CACHE STRING "Qualify native PSRAM at100 or200MHz")
   if(MAIA_NATIVE_PROBE_PSRAM_FAST AND (NOT MAIA_NATIVE_PROBE_PSRAM_DMA OR NOT MAIA_NATIVE_PROBE_PSRAM_FAST MATCHES "^(100|200)$"))

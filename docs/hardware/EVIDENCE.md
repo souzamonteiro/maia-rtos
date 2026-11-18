@@ -1,5 +1,79 @@
 # Hardware evidence register
 
+## ESP-IDF second-stage image and offline native probe — 2026-11-17
+
+Primary references: Espressif ESP-IDF Programming Guide
+[second-stage boot flow](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-guides/startup.html#second-stage-bootloader)
+and [application image format](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-reference/system/app_image_format.html#application-description),
+plus the repository's pinned ESP-IDF v5.4.2 source revision
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`.
+
+- The P4 source linker template selects `0x40000020` for flash-mapped IROM
+  and DROM when PSRAM code/rodata mapping is disabled. The `0x20` offset
+  satisfies the 64 KiB flash-MMU page alignment with the image header and
+  segment header. Its `.flash_rodata_dummy` reserves the DROM page after the
+  text section, then puts `esp_app_desc_t` first in `.flash.appdesc`.
+  References: [memory.ld.in](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/ld/esp32p4/memory.ld.in)
+  and [sections.ld.in](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/ld/esp32p4/sections.ld.in).
+- P4 uses a shared D/I virtual address window (`0x40000000..0x44000000`).
+  The pinned bootloader expects exactly two flash/PSRAM mapped segments in
+  that window. It also treats addresses below `0x10000000` as reserved
+  non-loaded blocks, including the image `PADDING` block.
+  References: [P4 memory map](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/soc.h),
+  [shared D/I loader](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/bootloader_support/src/bootloader_utility.c),
+  and [reserved-segment handling](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/bootloader_support/src/esp_image_format.c).
+- The checked-in Tab5 build configuration still maps code and constants to
+  PSRAM (`CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y`,
+  `CONFIG_SPIRAM_RODATA=y`, 64 KiB MMU pages). The local
+  `platforms/tab5/build/m5stack_tab5.bin` artifact is 2,092,288 bytes with
+  eight segments, entry `0x4ff003fe`, and its mapped code/descriptor use
+  `0x48000020` / `0x48130020`. This is a local build artifact, not a readback
+  of the connected device and not a direct-flash native image.
+- Project configuration, not verified physical flash contents:
+  `partitions.csv` places the factory app at `0x10000` with size `10M`;
+  `sdkconfig` sets the partition table offset to `0x8000`, DIO/80 MHz/16 MB
+  image settings, and the 64 KiB MMU page size.
+- The new C-only `maia_f0_flash_probe_image` target was built offline with
+  GCC `esp-14.2.0_20241119` and esptool 4.12.0. Its 66,192-byte candidate has
+  three image records: the descriptor starts at DROM `0x40010020`, a
+  reserved address-zero `PADDING` record, and the second shared D/I mapping
+  at `0x40000020`, which contains the entry point. `image_info` reports a
+  valid checksum and validation hash
+  `6bcf9958a74e79a23e173e30d99fb55e127b26f496cdb23a01ade08554895029`
+  (file SHA-256 `c29163763556f391edd59277af7992c27d84b2db09cb1d47f1f90b5c8e3ca3a6`).
+  The header carries chip ID 18 and an unrestricted chip-revision range.
+  The Python validator checks the header, descriptor, entry point, exactly
+  two mapped segments, and 64 KiB MMU alignment; malformed descriptor,
+  extra-mapping and alignment cases are rejected. The probe ELF has no
+  undefined symbols and no FreeRTOS/ESP-IDF runtime symbols.
+- Use esptool's default section-based `elf2image` packaging. `--use_segments`
+  is unsuitable for this linker layout because the ELF's NOLOAD DROM
+  reservation produces overlapping program-header address ranges; the
+  generated image's two mapped records follow the pinned bootloader's shared
+  D/I format.
+
+Device run, 2026-11-17 (`tests/hardware/run_f0_flash_probe.py`, ESP32-P4
+v1.3, `/dev/cu.usbmodem1301`):
+
+- Readback of the factory app at `0x10000` validated (2,093,696 bytes) and is
+  byte-identical to the preserved `bf044d3` `m5stack_tab5.bin`.
+- After writing the probe with esptool verification and an RTS reset, the
+  installed bootloader (`ESP-IDF v5.4.2-dirty`, built Nov 10 2026) printed the
+  partition table (nvs `0x9000`, phy_init `0xf000`, factory `0x10000` size
+  `0xa00000`, then two data partitions), mapped `paddr 0x10020 → 0x40010020`
+  and `paddr 0x20020 → 0x40000020`, did not load the padding record, reported
+  "Loaded app from partition at offset 0x10000", and the probe printed
+  `MAIA_F0_FLASH_PROBE` over USB Serial/JTAG.
+- The probe clears `USB_UART_CHIP_RST_DIS` (set by `maia_soc_early_init`), so
+  host RTS reset still works from a flash-resident native image.
+- The backup was written back and verified; the restored firmware reached the
+  desktop and `notes.mobj`, confirmed by `maia.py info`.
+- Logs, readback and report: `maia-rtos-recovery/native-f0-flash-probe-20261117-215248/`.
+
+This proves second-stage bootloader acceptance and execution of a minimal
+native image from flash (warm, after RTS reset). It does not cover the product
+image, PSRAM, cold power-on or repeated boots; those remain under UQ-016.
+
 ## Notification-driven native TX worker — 2026-11-11
 
 Reuses the verified queue, notification/ECALL, SYSTIMER/CLIC and USB TX paths;
