@@ -1615,3 +1615,18 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   `maia-rtos-recovery/native-f0-psram-iram-20261118-084629/`.
   This proves image loading, not execution of PSRAM startup, cold PSRAM
   initialization, array access, full-product linker integration or heap use.
+- Kernel mutex atomicity for the C/C++ runtime (2026-11-18):
+  `maia_mutex_trylock` and `maia_mutex_unlock` now mask local interrupts around
+  their ownership/count transition and restore the caller's prior MIE state on
+  every outcome. Host tests cover success, contention, wrong-owner release,
+  recursive acquisition, and both initially enabled and disabled IRQ states;
+  RV32 cross-compilation/disassembly confirms the `mstatus` mask/restore
+  instructions. Full host CTest passed 78/78.
+- Runtime investigation: the normal `maia_m0.elf` build still fails because
+  libstdc++ hosted headers are rejected under `-ffreestanding`. A temporary
+  C++-only hosted-mode build gets past that guard but exposes declaration-order
+  and `malloc/free` linkage conflicts in `maia_shell.hpp`; production flags
+  were not changed. The installed Newlib enables retargetable locking, while
+  its archive's default `__retarget_lock_*` callbacks are no-ops. Implementing
+  the kernel-backed retarget layer and allocator/startup integration remains
+  open; no C++ runtime completion is claimed.

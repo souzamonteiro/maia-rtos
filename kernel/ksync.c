@@ -25,34 +25,42 @@ maia_status_t maia_mutex_trylock(maia_mutex_t *mtx, int32_t task_id) {
     if (mtx == NULL || task_id < 0) {
         return MAIA_ERR_INVALID;
     }
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status;
     if (mtx->locked == 0U) {
         mtx->locked        = 1U;
         mtx->owner_task_id = task_id;
         mtx->lock_count    = 1U;
-        return MAIA_OK;
-    }
-    if (mtx->owner_task_id == task_id) {
+        status = MAIA_OK;
+    } else if (mtx->owner_task_id == task_id) {
         mtx->lock_count += 1U;
-        return MAIA_OK;
+        status = MAIA_OK;
+    } else {
+        status = MAIA_ERR_BUSY;
     }
-    return MAIA_ERR_BUSY;
+    maia_arch_irq_restore(irq);
+    return status;
 }
 
 maia_status_t maia_mutex_unlock(maia_mutex_t *mtx, int32_t task_id) {
     if (mtx == NULL || task_id < 0) {
         return MAIA_ERR_INVALID;
     }
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status;
     if (mtx->locked == 0U || mtx->owner_task_id != task_id) {
-        return MAIA_ERR_PERM;
-    }
-    if (mtx->lock_count > 1U) {
+        status = MAIA_ERR_PERM;
+    } else if (mtx->lock_count > 1U) {
         mtx->lock_count -= 1U;
-        return MAIA_OK;
+        status = MAIA_OK;
+    } else {
+        mtx->lock_count    = 0U;
+        mtx->owner_task_id = -1;
+        mtx->locked        = 0U;
+        status = MAIA_OK;
     }
-    mtx->lock_count    = 0U;
-    mtx->owner_task_id = -1;
-    mtx->locked        = 0U;
-    return MAIA_OK;
+    maia_arch_irq_restore(irq);
+    return status;
 }
 
 maia_status_t maia_sem_init(maia_sem_t *sem, uint32_t initial_count, uint32_t max_count) {

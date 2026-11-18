@@ -28,8 +28,9 @@ a migração dele é um projeto posterior (ver final).
 bootloader do aparelho a partir da flash. O segundo executou kernel, duas tarefas
 e timer com XIP; observou PSRAM sem escrita e foi seguido pela restauração do
 firmware original e retorno do desktop. Falta a imagem de produto. O target
-completo `maia_m0.elf` continua bloqueado pelo shell C++ hospedado com
-`-ffreestanding` (resolve na F1).
+completo `maia_m0.elf` continua bloqueado: `-ffreestanding` impede headers
+hosted do libstdc++; um ensaio temporário `-fhosted` expôs conflitos de includes
+e wrappers `malloc/free` no shell. Resolver a integração de runtime na F1.
 
 - [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
 - [x] Kernel/scheduler e duas tarefas executando por XIP, com preempção por timer real (probe, 17/11; imagem de produto pendente)
@@ -45,6 +46,7 @@ completo `maia_m0.elf` continua bloqueado pelo shell C++ hospedado com
 
 ## F1 — Biblioteca C/C++ sobre o kernel
 
+- [x] Mutex do kernel protege aquisição/liberação contra preempção local (host tests + compilação RV32, 18/11)
 - [ ] Bloqueios da newlib (locks) com mutex do kernel
 - [ ] `malloc`/`free` sobre os heaps do kernel
 - [ ] Chamadas de sistema (`_write`, `_read`, `_sbrk`, tempo)

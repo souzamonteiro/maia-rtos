@@ -1,8 +1,25 @@
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
 #include <maia/arch/riscv_context.h>
 #include <maia_shell/shell_mvp.h>
 #include <stdio.h>
 #include <string.h>
+
+static uintptr_t g_host_irq_state = 8U;
+static unsigned g_host_irq_saves;
+static unsigned g_host_irq_restores;
+
+uintptr_t maia_arch_irq_save(void) {
+    uintptr_t previous = g_host_irq_state;
+    g_host_irq_state = 0U;
+    ++g_host_irq_saves;
+    return previous;
+}
+
+void maia_arch_irq_restore(uintptr_t previous) {
+    g_host_irq_state = previous & 8U;
+    ++g_host_irq_restores;
+}
 
 static void dummy_task(void *arg) {
     (void)arg;
@@ -57,11 +74,24 @@ int main(void) {
 
     /* 2. M5 Mutex, Semaphore & Queue tests */
     maia_mutex_t mtx;
+    unsigned irq_saves_before = g_host_irq_saves;
+    unsigned irq_restores_before = g_host_irq_restores;
     if (maia_mutex_init(&mtx) != MAIA_OK) return 13;
     if (maia_mutex_trylock(&mtx, 1) != MAIA_OK) return 14;
+    if (g_host_irq_state != 8U) return 59;
     if (maia_mutex_trylock(&mtx, 2) != MAIA_ERR_BUSY) return 15;
+    if (g_host_irq_state != 8U) return 60;
     if (maia_mutex_unlock(&mtx, 2) != MAIA_ERR_PERM) return 16;
+    if (g_host_irq_state != 8U) return 61;
+    if (maia_mutex_trylock(&mtx, 1) != MAIA_OK || mtx.lock_count != 2U) return 62;
+    if (maia_mutex_unlock(&mtx, 1) != MAIA_OK || mtx.lock_count != 1U) return 63;
     if (maia_mutex_unlock(&mtx, 1) != MAIA_OK) return 17;
+    g_host_irq_state = 0U;
+    if (maia_mutex_trylock(&mtx, 1) != MAIA_OK || g_host_irq_state != 0U) return 64;
+    if (maia_mutex_unlock(&mtx, 1) != MAIA_OK || g_host_irq_state != 0U) return 65;
+    g_host_irq_state = 8U;
+    if (g_host_irq_saves - irq_saves_before != 8U ||
+        g_host_irq_restores - irq_restores_before != 8U) return 66;
 
     maia_sem_t sem;
     if (maia_sem_init(&sem, 1, 2) != MAIA_OK) return 18;
