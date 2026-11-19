@@ -9,6 +9,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
   set(MAIA_F0_PRODUCT_LINKER_SCRIPT
     "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_product.ld")
+  option(MAIA_USE_FLASH_PRODUCT_LINKER
+    "Use the Tab5 flash-XIP product linker and native PSRAM-backed LCD" ON)
+  if(MAIA_USE_FLASH_PRODUCT_LINKER)
+    set(MAIA_LINKER_SCRIPT "${MAIA_F0_PRODUCT_LINKER_SCRIPT}")
+  endif()
   add_executable(maia_m0.elf
     arch/riscv/start.S
     arch/riscv/trap_context.S
@@ -20,16 +25,73 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
-    soc/espressif/esp32p4/soc_display.c
+    soc/espressif/esp32p4/soc_display_native.c
+    soc/espressif/esp32p4/soc_mipi_park.c
+    soc/espressif/esp32p4/soc_dsi_access.c
+    soc/espressif/esp32p4/soc_boot_i2c.c
+    soc/espressif/esp32p4/soc_ldo3_acquire.c
+    soc/espressif/esp32p4/soc_ldo3_plan.c
+    soc/espressif/esp32p4/soc_ldo3_snapshot.c
+    drivers/i2c/bitbang.c
+    drivers/gpio/pi4ioe5v6408.c
+    boards/m5stack/tab5/panel_reset.c
+    boards/m5stack/tab5/touch_identify.c
+    boards/m5stack/tab5/st7121.c
     kernel/kmem.c
     kernel/ksync.c
     kernel/ksched.c
     runtime/newlib_locks.c
     runtime/newlib_heap.c
+    runtime/newlib_reent.c
+    runtime/newlib_syscalls.c
+    runtime/gthread.c
     shell/maia_shell_engine.cpp
+    components/exec/elf_validator.c
+    components/exec/elf_loader.c
+    assembler/src/riscv_isa.cpp
+    assembler/src/riscv_asm.cpp
+    assembler/src/riscv_disasm.cpp
+    maiascript/src/parser.cpp
+    maiascript/src/codegen_riscv.cpp
+    lib/maiaregex/maia_regex.c
+    lib/maiaglob/maia_glob.c
+    lib/maiaglob/maia_glob_compile.cpp
     boards/m5stack/tab5/app_desc.c
     boards/m5stack/tab5/boot_main.c
   )
+  if(MAIA_USE_FLASH_PRODUCT_LINKER)
+    target_sources(maia_m0.elf PRIVATE
+      soc/espressif/esp32p4/soc_display_product.c
+      services/lcd_output.c
+      soc/espressif/esp32p4/soc_dw_dma_irq.c
+      soc/espressif/esp32p4/soc_psram_boot.c
+      soc/espressif/esp32p4/soc_psram_clock.c
+      soc/espressif/esp32p4/soc_psram_supply.c
+      soc/espressif/esp32p4/soc_psram_mpll.c
+      soc/espressif/esp32p4/soc_psram_array.c
+      soc/espressif/esp32p4/soc_psram_mode.c
+      soc/espressif/esp32p4/soc_psram_snapshot.c
+      soc/espressif/esp32p4/soc_psram_window.c
+    )
+    target_compile_definitions(maia_m0.elf PRIVATE
+      MAIA_DSI_LCD_STREAM=1
+      MAIA_DSI_FRAMEBUFFER_PROBE=1
+    )
+    set_property(SOURCE
+      soc/espressif/esp32p4/soc_psram_boot.c
+      soc/espressif/esp32p4/soc_psram_clock.c
+      soc/espressif/esp32p4/soc_psram_supply.c
+      soc/espressif/esp32p4/soc_psram_mpll.c
+      soc/espressif/esp32p4/soc_psram_array.c
+      soc/espressif/esp32p4/soc_psram_mode.c
+      soc/espressif/esp32p4/soc_psram_snapshot.c
+      soc/espressif/esp32p4/soc_psram_window.c
+      APPEND PROPERTY COMPILE_OPTIONS -Os
+    )
+  endif()
+  if(NOT MAIA_USE_FLASH_PRODUCT_LINKER)
+    target_sources(maia_m0.elf PRIVATE soc/espressif/esp32p4/soc_display.c)
+  endif()
   target_include_directories(maia_m0.elf PRIVATE
     include
     assembler/include
@@ -38,6 +100,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     lib/maiaglob
   )
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
+  target_compile_definitions(maia_m0.elf PRIVATE MAIA_NATIVE_PSRAM_STARTUP_PENDING=1)
   target_link_options(maia_m0.elf PRIVATE
     "-T${MAIA_LINKER_SCRIPT}"
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_m0.map"
@@ -77,6 +140,29 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     if(NOT EXISTS "${MAIA_ESPTOOL_EXECUTABLE}")
       message(FATAL_ERROR "MAIA_ESPTOOL_EXECUTABLE does not exist: ${MAIA_ESPTOOL_EXECUTABLE}")
     endif()
+    if(MAIA_USE_FLASH_PRODUCT_LINKER)
+      set(MAIA_PRODUCT_FLASH_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_m0.bin")
+      add_custom_command(
+        OUTPUT "${MAIA_PRODUCT_FLASH_IMAGE}"
+        COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 elf2image
+          --flash_mode dio
+          --flash_freq 80m
+          --flash_size 16MB
+          --flash-mmu-page-size 64KB
+          --output "${MAIA_PRODUCT_FLASH_IMAGE}"
+          "$<TARGET_FILE:maia_m0.elf>"
+        COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 image_info
+          "${MAIA_PRODUCT_FLASH_IMAGE}"
+        COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+          "${MAIA_PRODUCT_FLASH_IMAGE}" --sram-window 0x4FF00000:0x4FF28000
+        DEPENDS maia_m0.elf
+          "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+        VERBATIM
+      )
+      add_custom_target(maia_m0_image DEPENDS "${MAIA_PRODUCT_FLASH_IMAGE}")
+    endif()
+
     set(MAIA_F0_FLASH_PROBE_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f0_flash_probe.bin")
     add_custom_command(
       OUTPUT "${MAIA_F0_FLASH_PROBE_IMAGE}"
@@ -871,6 +957,41 @@ else()
       target_compile_options(newlib_heap_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME newlib_heap_test COMMAND newlib_heap_test)
+    add_executable(newlib_reent_test
+      tests/host/newlib_reent_test.c
+      runtime/newlib_reent.c
+    )
+    target_include_directories(newlib_reent_test BEFORE PRIVATE
+      tests/host/newlib_include
+      include
+    )
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(newlib_reent_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME newlib_reent_test COMMAND newlib_reent_test)
+    add_executable(newlib_syscalls_test
+      tests/host/newlib_syscalls_test.c
+      runtime/newlib_syscalls.c
+    )
+    target_include_directories(newlib_syscalls_test PRIVATE include)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(newlib_syscalls_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME newlib_syscalls_test COMMAND newlib_syscalls_test)
+    add_executable(gthread_test
+      tests/host/gthread_test.c
+      runtime/gthread.c
+      kernel/ksync.c
+    )
+    target_include_directories(gthread_test BEFORE PRIVATE
+      tests/host/newlib_include
+      include
+    )
+    target_compile_definitions(gthread_test PRIVATE MAIA_GTHREAD_TEST=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(gthread_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME gthread_test COMMAND gthread_test)
     add_executable(kmem_regions_test tests/host/kmem_regions_test.c kernel/kmem.c)
     target_include_directories(kmem_regions_test PRIVATE include)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -1197,6 +1318,7 @@ else()
 
 
 
+    add_test(NAME f0_flash_runner_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_runner_test.py)
     add_test(NAME psram_native_boot_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_native_boot_capture_test.py)
     add_test(NAME psram_boot_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_boot_capture_test.py)
     add_test(NAME psram_boot_transport_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/psram_boot_transport_test.py)

@@ -3,7 +3,10 @@
 #include "dsi_access_internal.h"
 #include "dsi_dma_spatial_probe.h"
 #include <maia/soc/esp32p4_dsi_access.h>
+#include <maia/soc/esp32p4_display.h>
 void maia_dsi_access_test_reset(void);
+_Static_assert(MAIA_TAB5_DSI_VIDEO_MODE_CFG == 0xBF02UL,
+               "Tab5 must not enable the unsupported frame-BTA bit");
 static const uintptr_t addresses[]={DSI_CPU,DSI_SYS,DSI_PHY,DSI_RESET,DSI_ISP,DSI_NORST,
  0x50081010,0x50081018,0x5008101C,0x50081058,0x50081134,0x50081234,0x50081334,0x50081434,
  MAIA_ESP32P4_EFUSE_MAC_SYS2_REG,MAIA_ESP32P4_EFUSE_MAC_SYS3_REG,MAIA_ESP32P4_EFUSE_RS_ERR0_REG,
@@ -22,7 +25,7 @@ static const uintptr_t dpi_extra_addresses[]={
  MAIA_ESP32P4_DSI_BRG_BASE+0x18,MAIA_ESP32P4_DSI_BRG_BASE+0x30,MAIA_ESP32P4_DSI_BRG_BASE+0x34,
  MAIA_ESP32P4_DSI_BRG_BASE+0x38,MAIA_ESP32P4_DSI_BRG_BASE+0x3C};
 static const uint32_t dpi_test_masks[]={3,0x10F,0x1F,0xBF03,0x3FFF,0x1FFF,0x1FFF,0xFFF,0xFFF,0x7FFF,0x3FF,0x3FF,0x3FF,0x3FFF,0x7F,0x0FFF0FFF,0x0FFF0FFF,0x0FFF0FFF,0x0FFF0FFF};
-static const uint32_t dpi_test_values[]={0,0,0,0xBF02,720,0,0,3,60,1203,20,24,200,1280,2,0x050005F4,0x00140018,0x02D00322,0x00020028};
+static const uint32_t dpi_test_values[]={0,0,0,MAIA_TAB5_DSI_VIDEO_MODE_CFG,720,0,0,3,60,1203,20,24,200,1280,2,0x050005F4,0x00140018,0x02D00322,0x00020028};
 static uint32_t dpi_regs[19],dpi_old[19],dpi_root;
 static unsigned dpi_drop,dpi_drift,dpi_fault_after,clock_writes,clock_drop,clock_drift,clock_fault;
 static unsigned pattern_writes,pattern_drop,pattern_drift,pattern_fault,pattern_idle_reads,pattern_timeout;

@@ -150,23 +150,7 @@ void maia_boot_main(void) {
     /* Initialize MIPI-DSI 720x1280 screen */
     maia_display_init(maia_tab5_get_detected_panel());
 
-    /* Trigger synchronous breakpoint exception (ebreak, mcause=3) to verify trap vector */
-    __asm__ volatile(
-        ".option push\n\t"
-        ".option norvc\n\t"
-        "ebreak\n\t"
-        ".option pop"
-        ::: "memory");
-
-    maia_trap_stats_t ts;
-    maia_trap_get_stats(&ts);
-    maia_console_puts("[M1] Trap vector verified (ebreak): sync_exceptions=");
-    print_u32(ts.sync_exceptions);
-    maia_console_puts(" last_mcause=");
-    print_hex32(ts.last_mcause);
-    maia_console_puts(" systimer_us=");
-    print_u32((uint32_t)maia_time_us());
-    maia_console_puts("\n");
+    maia_console_puts("[M1] SYSTIMER configured; trap handling is verified by scheduler execution\n");
 
     /* Create RTOS tasks (M2) */
     maia_task_id_t tid_idle  = -1;

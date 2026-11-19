@@ -9,6 +9,8 @@ its boot log. The probe must clear USB_UART_CHIP_RST_DIS so the host can reset.
 import argparse
 import hashlib
 import json
+import math
+import signal
 import struct
 import subprocess
 import sys
@@ -52,44 +54,60 @@ def image_length(data):
     return offset
 
 
-def capture(port, seconds, log, marker=None):
+def capture(port, seconds, log, marker=None, observe_seconds=0.0):
     ser = serial.Serial()
     ser.port = port
     ser.baudrate = 115200
     ser.timeout = 0.1
     ser.dtr = False
     ser.rts = False
-    ser.open()
-    ser.rts = True
-    time.sleep(0.2)
-    ser.rts = False
     text = ""
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        try:
-            chunk = ser.read(4096)
-        except serial.SerialException:
-            ser.close()
-            time.sleep(0.3)
+    marker_seen = False
+    try:
+        ser.open()
+        ser.rts = True
+        time.sleep(0.2)
+        ser.rts = False
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
             try:
-                ser.open()
+                chunk = ser.read(4096)
             except serial.SerialException:
-                pass
-            continue
-        if chunk:
-            decoded = chunk.decode("utf-8", "replace")
-            text += decoded
-            log.write(decoded)
-            log.flush()
-            if marker and marker in text:
+                ser.close()
                 time.sleep(0.3)
-                break
-    ser.close()
+                try:
+                    ser.open()
+                except serial.SerialException:
+                    pass
+                continue
+            if chunk:
+                decoded = chunk.decode("utf-8", "replace")
+                text += decoded
+                log.write(decoded)
+                log.flush()
+                if marker and ("MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text):
+                    break
+                if marker and not marker_seen and marker in text:
+                    marker_seen = True
+                    if observe_seconds == 0:
+                        time.sleep(0.3)
+                        break
+                    message = f"[HOST] VISUAL_OBSERVATION_STARTED seconds={observe_seconds:g}"
+                    log.write("\n" + message + "\n")
+                    log.flush()
+                    print(message, flush=True)
+                    deadline = time.monotonic() + observe_seconds
+    finally:
+        ser.close()
     return text
 
 
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def interrupt_probe(signum, _frame):
+    raise InterruptedError(f"probe interrupted by signal {signum}")
 
 
 def main():
@@ -102,16 +120,28 @@ def main():
     parser.add_argument("--boots", type=int, default=1, help="probe resets to capture")
     parser.add_argument("--marker", default=PROBE_MARKER,
                         help="success marker that ends each boot capture")
+    parser.add_argument("--observe-seconds", type=float, default=0.0,
+                        help="keep capturing for up to 120 seconds after the marker for visual inspection")
     args = parser.parse_args()
 
     if args.boots < 1:
         parser.error("--boots must be at least one")
-    if args.capture_seconds <= 0:
-        parser.error("--capture-seconds must be positive")
+    if not math.isfinite(args.capture_seconds) or args.capture_seconds <= 0:
+        parser.error("--capture-seconds must be finite and positive")
+    if not 0 <= args.observe_seconds <= 120:
+        parser.error("--observe-seconds must be between 0 and 120")
+    if not args.marker:
+        parser.error("--marker must not be empty")
 
     args.out.mkdir(parents=True, exist_ok=True)
     log = (args.out / "run.log").open("w")
-    report = {"image": str(args.image), "image_sha256": sha256(args.image), "boots": []}
+    report = {
+        "image": str(args.image),
+        "image_sha256": sha256(args.image),
+        "boots": [],
+        "probe_pass": False,
+        "restore_verified": False,
+    }
 
     backup = args.out / "factory-backup-raw.bin"
     esptool(args.port, "--after", "no_reset", "read_flash",
@@ -119,6 +149,10 @@ def main():
     raw = backup.read_bytes()
     app_len = image_length(raw)
     app_len_padded = (app_len + 0xFFF) & ~0xFFF
+    image_size = args.image.stat().st_size
+    image_size_padded = (image_size + 0xFFF) & ~0xFFF
+    if app_len_padded > len(raw) or image_size == 0 or image_size_padded > app_len_padded:
+        raise SystemExit("backup does not cover every flash sector the probe would overwrite; nothing was written")
     app = args.out / "factory-backup-app.bin"
     app.write_bytes(raw[:app_len_padded])
     info = esptool(args.port, "image_info", str(app), log=log)
@@ -126,28 +160,49 @@ def main():
         raise SystemExit("backup app image did not validate; nothing was written")
     report.update(backup_app_length=app_len, backup_app_sha256=sha256(app))
 
-    probe_ok = False
+    guarded_signals = [signal.SIGINT, signal.SIGTERM]
+    if hasattr(signal, "SIGHUP"):
+        guarded_signals.append(signal.SIGHUP)
+    previous_handlers = {sig: signal.getsignal(sig) for sig in guarded_signals}
     try:
-        esptool(args.port, "--after", "no_reset", "write_flash",
-                hex(FACTORY_OFFSET), str(args.image), log=log)
-        for boot in range(args.boots):
-            log.write(f"\n[HOST] probe boot {boot + 1}\n")
-            text = capture(args.port, args.capture_seconds, log, args.marker)
-            (args.out / f"probe-boot-{boot + 1}.log").write_text(text)
-            report["boots"].append({"marker": args.marker in text, "bytes": len(text)})
-        probe_ok = bool(report["boots"]) and all(b["marker"] for b in report["boots"])
+        for sig in guarded_signals:
+            signal.signal(sig, interrupt_probe)
+        try:
+            esptool(args.port, "--after", "no_reset", "write_flash",
+                    hex(FACTORY_OFFSET), str(args.image), log=log)
+            for boot in range(args.boots):
+                log.write(f"\n[HOST] probe boot {boot + 1}\n")
+                text = capture(args.port, args.capture_seconds, log, args.marker, args.observe_seconds)
+                (args.out / f"probe-boot-{boot + 1}.log").write_text(text)
+                fatal = "MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text
+                reached = args.marker in text
+                report["boots"].append({"marker": reached, "fatal": fatal, "bytes": len(text)})
+                if fatal or not reached:
+                    break
+            report["probe_pass"] = len(report["boots"]) == args.boots and all(
+                b["marker"] and not b["fatal"] for b in report["boots"]
+            )
+        finally:
+            for sig in guarded_signals:
+                signal.signal(sig, signal.SIG_IGN)
+            try:
+                log.write("\n[HOST] restoring backed-up factory app\n")
+                restored_output = esptool(args.port, "--after", "no_reset", "write_flash",
+                                           hex(FACTORY_OFFSET), str(app), log=log)
+                if "Hash of data verified." not in restored_output:
+                    raise RuntimeError("esptool did not confirm the restored app hash")
+                report["restore_verified"] = True
+                restored = capture(args.port, 12.0, log)
+                (args.out / "restore-boot.log").write_text(restored)
+                report["restore_boot_bytes"] = len(restored)
+            finally:
+                (args.out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     finally:
-        log.write("\n[HOST] restoring backed-up factory app\n")
-        esptool(args.port, "--after", "no_reset", "write_flash",
-                hex(FACTORY_OFFSET), str(app), log=log)
-        restored = capture(args.port, 12.0, log)
-        (args.out / "restore-boot.log").write_text(restored)
-        report["restore_boot_bytes"] = len(restored)
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
 
-    report["probe_pass"] = probe_ok
-    (args.out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
-    return 0 if probe_ok else 1
+    return 0 if report["probe_pass"] else 1
 
 
 if __name__ == "__main__":

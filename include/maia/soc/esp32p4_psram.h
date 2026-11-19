@@ -231,6 +231,9 @@ typedef struct maia_psram_window_report {
  * not reversible by window_stop. ROM internal waits have no measured WCET.
  * Reject encryption, invalid context/duplicates/failed initialization. */
 maia_psram_result_t maia_esp32p4_psram_cache_boot(maia_psram_cache_report_t *);
+/* XIP variant: same guards/claim, but only queries the ROM cache mode because
+ * the running flash image depends on bootloader-enabled caches. */
+maia_psram_result_t maia_esp32p4_psram_cache_adopt(maia_psram_cache_report_t *);
 /* Same boot exclusivity; cache_boot/xtal20_start/x8_mode(0) claims required.
  * Fixed reserved physical[0,2MiB) -> VADDR[4B800000,4BA00000),32x64KiB pages.
  * All clients must stop using returned address before sync/stop, no ISR/task/SMP

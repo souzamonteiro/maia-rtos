@@ -17,6 +17,8 @@
 #define STM32_KBD_ADDR   0x6DU
 
 static uint32_t g_detected_panel = MAIA_TAB5_PANEL_UNKNOWN;
+static uint8_t  g_detected_touch_firmware;
+static uint8_t  g_detected_touch_firmware_valid;
 static uint8_t  g_kbd_type       = 0U; /* 0=none, 1=TCA8418(0x34), 2=STM32(0x6D) */
 static uint8_t  g_kbd_bus_sda    = TAB5_EXT_SDA_PIN;
 static uint8_t  g_kbd_bus_scl    = TAB5_EXT_SCL_PIN;
@@ -582,6 +584,14 @@ uint32_t maia_tab5_get_detected_panel(void) {
     return g_detected_panel;
 }
 
+int maia_tab5_get_detected_touch_firmware(uint8_t *firmware) {
+    if (firmware == NULL || !g_detected_touch_firmware_valid) {
+        return -1;
+    }
+    *firmware = g_detected_touch_firmware;
+    return 0;
+}
+
 static void scan_and_report_i2c_bus(const char *name, uint32_t sda_pin, uint32_t scl_pin) {
     maia_console_puts("[I2C] Scanning ");
     maia_console_puts(name);
@@ -697,10 +707,17 @@ void maia_tab5_board_io_init(void) {
     scan_and_report_i2c_bus("ExtI2C(GPIO0/1)", TAB5_EXT_SDA_PIN, TAB5_EXT_SCL_PIN);
 
     /* 4. Detect Display Controller via Touch I2C address on System I2C */
+    g_detected_touch_firmware_valid = 0U;
     if (i2c_probe(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, 0x55U)) {
         uint8_t reg16[2] = {0x00U, 0x00U};
         uint8_t fw_ver = 0U;
-        (void)maia_i2c_write_read(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, 0x55U, reg16, 2U, &fw_ver, 1U);
+        if (maia_i2c_write_read(TAB5_SYS_SDA_PIN, TAB5_SYS_SCL_PIN, 0x55U,
+                                reg16, 2U, &fw_ver, 1U) == 0) {
+            g_detected_touch_firmware = fw_ver;
+            g_detected_touch_firmware_valid = 1U;
+        } else {
+            maia_console_puts("[PANEL] Touch firmware read failed\n");
+        }
         if (fw_ver == 3U) {
             g_detected_panel = MAIA_TAB5_PANEL_ST7123;
             maia_console_puts("[PANEL] Detected ST7123 (touch 0x55 fw=3)\n");

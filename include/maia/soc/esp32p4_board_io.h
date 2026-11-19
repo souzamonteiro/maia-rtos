@@ -39,6 +39,7 @@ int maia_i2c_write_read(uint32_t sda_pin, uint32_t scl_pin, uint8_t addr7,
 #define MAIA_TAB5_PANEL_ST7121   3U
 
 uint32_t maia_tab5_get_detected_panel(void);
+int maia_tab5_get_detected_touch_firmware(uint8_t *firmware);
 
 /* Set display backlight PWM duty cycle (0..4095) */
 void maia_tab5_backlight_set_duty(uint32_t duty_4095);
@@ -48,4 +49,3 @@ void maia_tab5_backlight_set_duty(uint32_t duty_4095);
 #endif
 
 #endif /* MAIA_SOC_ESP32P4_BOARD_IO_H */
-

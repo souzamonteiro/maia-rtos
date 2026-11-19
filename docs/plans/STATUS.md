@@ -1641,12 +1641,362 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   freeing; CTest passes 80/80. The allocator and shell C++ translation unit
   compile for RV32. Shell-local `malloc/free` shims were removed so C++ uses the
   same runtime heap.
-- C++/product link status: the C++ toolchain flags no longer pass
-  `-ffreestanding`, which libstdc++ headers reject; the executable remains
-  bare-metal with `-nostdlib` and explicitly links the runtime archives. The
-  full link now reaches the linker but is not yet successful: the current
-  linker script overflows `L2MEM_LOW` by 108,176 bytes, `__getreent`,
-  POSIX/VFS calls and gthread's `pthread_mutex_lock/unlock` are unresolved.
-  Per-task reentrancy, syscall/VFS integration, gthread support and the final
-  flash/XIP linker layout remain open; no device test or complete runtime
-  validation is claimed.
+- Per-task Newlib reentrancy: `runtime/newlib_reent.c` now provides
+  `__getreent()` with isolated state for each Maia task and a separate
+  boot/idle slot. The scheduler reclaims Newlib state when a task entry returns.
+  Host tests cover slot isolation, stable pointers and reclaim/reinitialization;
+  RV32 compilation passes. Full-product linking and device validation remain
+  pending.
+- Gthread mutex bridge: `runtime/gthread.c` exports pthread mutex
+  init/destroy/lock/trylock/unlock over Maia mutexes, supports default
+  attributes and lazily registers static mutexes by address, and reports
+  unsupported attributes/capacity and ownership errors. Host tests cover
+  static/dynamic mutexes, contention/yield, self-lock, invalid unlock and
+  destroy-while-locked. The RV32 object exports the expected pthread symbols;
+  full-product linking and device validation remain pending.
+- Full-product flash-XIP image preflight (2026-11-18): the complete
+  `maia_m0.elf` links when `MAIA_USE_FLASH_PRODUCT_LINKER=ON`; the explicit
+  non-XIP SRAM-linker configuration still overflows. The initial `esptool elf2image` attempt exposed two
+  linker-script defects: the NOLOAD DROM reservation created an overlapping
+  LOAD segment, and uncollected `.gcc_except_table.*` sections produced too
+  many image segments. `flash_product.ld` now excludes the reservation from
+  program headers and collects exception tables in `.flash.rodata`. The new
+  optional `maia_m0_image` CMake target packages the ELF and runs
+  `f0_flash_image_test.py`. The initial 768,528-byte image passes esptool
+  checksum/hash checks and structural validation: five image segments, entry
+  at `0x40000020`, first DROM/app descriptor at `0x400A0020`, exactly two
+  flash-mapped segments, and SRAM load segments inside
+  `0x4FF00000..0x4FF28000`. `readelf` confirms separate IROM/DROM LOAD
+  addresses and no RWX segment.   This was an offline preflight image; subsequent display and boot-path fixes and
+  the controlled device test are recorded below. At that time, the flash-XIP
+  linker option was experimental and off by default; it was later promoted to
+  the default with native LCD, as recorded below.
+- Full-product XIP device smoke and recovery (2026-11-18): the first controlled
+  boot showed the legacy display probe reading `0x48100000` before native PSRAM
+  startup, causing a load-access fatal in `maia_display_init`. The product target
+  now explicitly uses the existing internal-SRAM band fallback while native
+  PSRAM startup is pending; it does not touch the uninitialized PSRAM window.
+  The next boot exposed an intentional `ebreak` in `boot_main.c`, incompatible
+  with the kernel's fail-closed unknown-breakpoint policy. The forced breakpoint
+  was removed; scheduler timer and ECALL paths now exercise the trap handler.
+  The final 766,672-byte image
+  (SHA-256 `575253a5a85c7e9f1532c194dd3bad40f2391a4a1e110fe13e4ed58d7f03e1f8`)
+  passed esptool packaging/structure checks and booted from the factory app
+  offset. UART evidence shows three tasks, 205 timer IRQs, 21 context switches,
+  shell `alloc`/`qtest` self-tests passing, and the `msh>` prompt. The runner
+  backed up the original 2,093,696-byte app, verified both flash writes by
+  esptool hash, restored it, and captured the original desktop boot. Evidence:
+  [runner log](../../../maia-rtos-recovery/native-full-product-xip-scheduler-20261118/run.log),
+  [native boot](../../../maia-rtos-recovery/native-full-product-xip-scheduler-20261118/probe-boot-1.log),
+  [restore boot](../../../maia-rtos-recovery/native-full-product-xip-scheduler-20261118/restore-boot.log),
+  and [report](../../../maia-rtos-recovery/native-full-product-xip-scheduler-20261118/report.json).
+  This was one warm reset, not a cold PSRAM startup or visual acceptance. The
+  framebuffer used SRAM fallback; PSRAM heap registration, cold initialization,
+  repeated boots and product screen validation remain open.
+- Product display visual observation (2026-11-18): the owner reported a stable,
+  uniform cyan screen with no text during the first 60-second SRAM-fallback
+  observation. The shell still reached `msh>` and passed `qtest`, but this is a
+  product display failure, not visual acceptance. The first runner stopped
+  after starting restoration without a completion record; the cause is not
+  established. An independent `verify_flash` reported a digest mismatch. The
+  preserved backup matched the known SHA-256, was rewritten with esptool hash
+  verification, and the owner confirmed the original desktop returned.
+  Evidence: [first run](../../../maia-rtos-recovery/native-product-visual-sram-20261118/run.log),
+  [verification](../../../maia-rtos-recovery/native-product-visual-sram-20261118/restore-verification.log),
+  and [manual restoration](../../../maia-rtos-recovery/native-product-visual-sram-20261118/restore-manual.log).
+  The flash runner now protects the restoration phase from catchable interrupt,
+  termination and hangup signals, checks that the backup covers all sectors
+  affected by the probe, requires the restored image hash confirmation, records
+  the restoration outcome and rejects fatal traps even after the marker. Host
+  tests cover these contracts; no software can guarantee restoration after
+  forced termination or loss of power/USB.
+  A second 60-second run used the same image and reached `msh>` without a
+  recorded fatal trap; automatic restoration was hash-verified and the captured
+  original boot launched the desktop. The follow-up visual confirmation was
+  cancelled, so the repeated image's appearance is not claimed. Evidence:
+  [repeat report](../../../maia-rtos-recovery/native-product-visual-sram-repeat-20261118/report.json),
+  [repeat boot](../../../maia-rtos-recovery/native-product-visual-sram-repeat-20261118/probe-boot-1.log),
+  and [repeat restoration](../../../maia-rtos-recovery/native-product-visual-sram-repeat-20261118/restore-boot.log).
+  No cold-boot or native PSRAM initialization/heap test was performed.
+
+## Product display diagnosis and LCD/touch regression — 2026-11-18
+
+A third product-image run (same SHA-256 `575253a5…`, 120 s observation) reached
+`msh>` without fatal; the owner saw a black screen followed by cyan. Restoration
+was hash-verified (`maia-rtos-recovery/native-product-visual-sram-observado-20261118`).
+
+Diagnosis at that point: the product boot (`boards/m5stack/tab5/boot_main.c`) calls the
+legacy terminal `maia_display_init` in `soc/espressif/esp32p4/soc_display.c`.
+It never used the validated native LCD/touch path (`dsi_lcd_async_impl.h`,
+`services/touch_input.c`, `drivers/input/st712x.c`). Since `c7591be`, no
+change touched those drivers; the only probe change is code behind F0 `#ifdef`s.
+The exact cause was not established then; the later shell experiment below
+showed that the partial video path, not the approved LCD service, produced the
+failed output.
+
+Regression: the validated `--touch-lcd --framebuffer-visual` RAM probe was rebuilt from
+HEAD `7a9f24f` plus local changes and run on the Tab5 (warm PSRAM, no flash write).
+`MAIA_NATIVE_TOUCH_LCD_PASS`: 843 reports, 10 downs/10 ups/82 moves, corners
+`0xF`, 0 bus/touch errors, 844 presented frames, no spurious LCD IRQs. The owner
+confirmed the cross tracked the finger and disappeared on release; the desktop returned.
+Evidence: `maia-rtos-recovery/native-touch-lcd-recheck-20261118` (`SHA256SUMS`).
+
+Next: integrate the native LCD/touch services into the product boot. A full
+720x1280 RGB565 framebuffer requires native cold PSRAM startup first.
+
+## Candidate product DSI video-mode correction — 2026-11-18
+
+The ST7121 product branch in `soc_display.c` programmed DSI host video-mode
+word `0xFF02`, while the native DPI path that passed the LCD/touch visual test
+programs `0xBF02`. The extra `0x4000` bit is also rejected by the native stage's
+`0x14000` guard. The 30-entry ST7121 DCS table itself matches the validated
+native table, so it was not changed.
+
+Both product panel branches and the native staging path now use the shared
+`MAIA_TAB5_DSI_VIDEO_MODE_CFG` (`0xBF02`) constant. A host `_Static_assert`
+pins this value and `dsi_dpi_test` passes. The full XIP product target builds
+and its packaged image passes structural validation (5 segments, entry
+`0x40000020`, app descriptor `0x400A0020`); image SHA-256:
+`108262989dc70b454ac1b8a192797807eb15ffa773875ee6e93aa6cc7dc27e23`.
+The preserved candidate is
+[maia_m0.bin](../../../maia-rtos-recovery/native-product-display-mode-candidate-20261118/maia_m0.bin).
+
+This correction was not sufficient. The candidate was flashed with the
+confirmed backup/restore runner; it reached `msh>` without a fatal trap, but
+the owner observed the same cyan screen. The runner verified restoration of
+the original firmware (`restore_verified=true`). Captures and report are in
+[native-product-display-mode-observation-20261118](../../../maia-rtos-recovery/native-product-display-mode-observation-20261118/).
+
+Comparing that outcome with the passing native visual probe exposed additional
+known differences, not yet proven as the cause: the native sequence explicitly
+reads COLMOD, writes DCS `0x3A 0x55` when needed, verifies four stable `0x05`
+readbacks, and only then enables the DPI clock (`0x223` to `0x2A3`). The product
+does not issue COLMOD and enables `0x2A3` before DSI command/panel setup. It also
+uses the legacy circular SRAM-band DMA path rather than the native LCD stream.
+The failed visual test disproves `0xBF02` alone as a fix; no further visual
+claim is made. The product still uses the SRAM fallback; native cold PSRAM
+startup and full LCD/touch service integration remain separate work.
+
+Further direct source comparison found a more fundamental panel-sequence gap:
+the product's inline table plus software reset sends 29 commands, omitting the
+ST7121 `SLPOUT (0x11)` and `DISPON (0x29)` commands and their 85 ms/805 ms
+waits. The passing shared program has 31 steps and 5 ms spacing. The legacy
+sender also returned `void`, so its callers could continue after FIFO timeout
+or `GEN_CMD_WR_ERR`. The current unflashed source change now calls the shared 31-step program for
+detected ST7121 panels, propagates bounded DSI send errors, sends COLMOD
+`0x3A 0x55`, and stages the DPI clock after timing/color setup. Host
+`st7121_program_test` and `dsi_dpi_test` pass; the XIP `maia_m0.elf` builds and
+the packaged image passes structural validation (767,584 bytes, 5 segments,
+entry `0x40000020`, app descriptor `0x400A0020`). The image is at
+`/tmp/maia-rtos-display-xip-check/maia_m0.bin`; it has not been flashed.
+It does not yet read back COLMOD or replace the legacy SRAM-band DMA path, and
+the product still bypasses the guarded native DSI API sequence. This is not a
+claim that the full native display procedure has been ported; do not request
+another visual observation until those differences are addressed.
+
+## Native PSRAM product-startup attempt — 2026-11-18
+
+Rebuilt the isolated native PSRAM boot plus framebuffer/LCD/touch RAM probe from
+the current tree (99,856-byte ESP image, SHA-256
+`bac487ed97e925944e8c7a5c9077f7bf3b839ee98235890e73a24c73b0b58ff5`).
+The image is entirely loaded at `0x4ff00000`, entry `0x4ff00100`; it does not
+write flash. Five focused host tests passed: PSRAM boot, native boot capture and
+connection gates, LCD output, and touch input.
+
+On-device DSI/MIPI setup and `DPI_FB_CACHE` passed. The strict native PSRAM
+initializer then returned `MAIA_PSRAM_BUSY` (`-5`), stage0, boot writes0; the
+framebuffer/DMA/LCD stream did not run. The runner reset to the preserved flash
+application; the owner confirmed the original desktop returned.
+
+A separate read-only snapshot after a standard reset recorded54 stable
+controller samples and VO2 at `0x501151d0 = 0x40200180` (enable bit `0x100`
+set), contrary to the required ROM-entry state. The snapshot is reset-state
+evidence only, not a physical cold-power observation. Since the failed probe
+did not print its call-time snapshot, the VO2 mismatch is consistent with, but
+not proven to be the sole cause of, its BUSY result.
+
+No product startup or driver code was changed. Do not weaken the native boot
+guard or call cache bootstrap from the current XIP boot: the qualified pipeline
+has so far run entirely from SRAM, while cache/MMU boot is a global ownership
+change. Next work must establish a safe SRAM-to-XIP cache/MMU handoff and a
+valid ROM-entry state before integrating PSRAM-backed LCD/touch services.
+Evidence, build configurations, exact images and UART captures:
+`maia-rtos-recovery/native-psram-product-startup-refusal-20261118/`.
+
+### Owner-observed repeat of the PSRAM refusal — 2026-11-18
+
+At the owner's request, repeated the exact native boot image (SHA-256
+`bac487ed97e925944e8c7a5c9077f7bf3b839ee98235890e73a24c73b0b58ff5`)
+with `--psram-native-boot --capture-seconds 30`, without flash writes.
+Cache bootstrap passed; PSRAM boot again returned BUSY (-5), stage0, writes0.
+The runner returned exit1 and reset to the preserved flash application.
+The owner reported only a black screen followed by the desktop and confirmed
+that the original desktop returned normally. No framebuffer/touch drawing was
+reached in this run. This is separate from the successful warm LCD/touch test
+showing bars and a cross tracking the finger.
+
+The cyan screen in the product experiment does not by itself identify a cause;
+display configuration/initialization faults remain possible. The earlier
+observation that product boot uses a different display path is not a proven
+explanation of the cyan color.
+
+Repeat captures: `maia-rtos-recovery/native-psram-boot-repeat-20261118-1524/`.
+
+## Integração do setup DSI nativo no produto — 2026-11-18
+
+O caminho de produto para ST7121 agora exige firmware touch `1` lido com
+sucesso; os demais painéis/firmwares preservam o caminho legado. Para esse
+painel, a inicialização usa as APIs guardadas de CSI/MIPI park e gate, aquisição
+VO3 calibrada, reset físico do painel com o transporte I2C nativo já testado,
+abertura/configuração DSI, referência de 20 MHz, PHY de 960 Mbps, modo de
+comando e o programa ST7121 compartilhado de 31 etapas. Em seguida, confirma
+leituras estáveis de ID/power mode, programa e relê COLMOD RGB565, configura
+timing DPI, habilita o clock e prepara a bridge. A detecção do firmware exato
+foi exposta pela board IO e é reconfirmada no barramento antes do reset, para não
+aplicar a sequência fw1 por suposição.
+
+O caminho preserva o DMA circular em bandas SRAM existente; não integra o DMA
+nativo nem a inicialização PSRAM a frio. A preparação DSI/MIPI pode parar com
+erro explícito nas guardas, sem tentativa de rollback de estados de hardware
+parcialmente escritos.
+
+Validação: build do ELF XIP e empacotamento estrutural passaram (795,536 bytes,
+5 segmentos, entrada `0x40000020`, descriptor `0x400B0020`); nove testes
+focados de DSI, ST7121, MIPI, VO3, I2C e reset de painel passaram (9/9);
+`git diff --check` passou. O candidato
+`/tmp/maia-rtos-display-xip-check/maia_m0.bin` (SHA-256
+`1bba29e0bbb08079f79039c263113e157203f67b152c52ae75437c840310179a`) foi
+gravado no dispositivo em teste controlado. Um boot alcançou o marcador
+`[DISPLAY] Initialized MIPI-DSI` sem fatal; a janela de observação visual durou
+60 s. O runner confirmou a restauração do app original por hash e capturou o
+boot restaurado. Registro: `../maia-rtos-recovery/native-product-display-native-dsi-20261118/`.
+O dono observou tela ciano durante a janela do candidato com setup DSI nativo;
+portanto, essa alteração isolada não corrigiu o sintoma visual. O log do boot
+mostra GDMA habilitado e `BRG flow_st=0 raw_buf=0`. O rótulo `raw_buf` é
+enganoso: o valor impresso vem do registro de interrupção bruta da bridge
+(`+0x58`), não do nível do FIFO (`+0x14`). Esses valores pontuais não comprovam
+falha nem sucesso na transferência de pixels. O refresh do produto ainda
+usa o anel circular legado em SRAM, enquanto o caminho DMA nativo/framebuffer
+validado permanece separado e não integrado. A comparação encontrou diferenças
+concretas nos descritores/configuração: o caminho legado usa CTL0 `0x001E1B41`,
+CTL1 `0x801080C0` e CFG1 `0x0A060001`; a lista espacial nativa validada usa
+CTL0 `0x001C1B41` para fonte incremental, CTL1 `0x800F8040` e CFG1
+`0x0A020001`. São diferenças a investigar, não causa confirmada. A lista
+espacial finita é outro teste: não é o serviço de framebuffer que mostrou
+barras e cruz. Copiar seus controles para o anel circular não reproduziu esse
+serviço nem comprovou o funcionamento do anel.
+O novo candidato aplica esses controles apenas ao perfil ST7121/fw1, preserva
+os demais perfis, verifica que DMA/bridge estão drenados e recompõe os campos
+de writeback antes de rearmar. Build XIP e empacotamento passaram (795,920 bytes,
+5 segmentos, entrada `0x40000020`, descriptor `0x400B0020`); SHA-256
+`fa55e0d75182cd886dd8e891f9daa525a96410163015583f1d4bc839b5af47b5`.
+Teste controlado no dispositivo: um boot alcançou o marcador de display sem
+fatal; o log confirmou CFG1 `0x0A020001`, GDMA ativo e `BRG flow_st=0
+raw_buf=0`. O dono observou tela preta, então esse ajuste também não resolveu o
+display; o backlight estava aceso. O runner confirmou a restauração do app original por hash. Captura:
+`../maia-rtos-recovery/native-product-display-dma-config-20261118/`. Investigar
+status/FIFO/writeback dos descritores e a diferença entre a lista finita nativa
+validada e o anel circular de dez blocos. O próximo candidato remove, apenas no
+perfil ST7121/fw1, os 5 ms entre habilitar DMA e alternar para vídeo; a sequência
+nativa validada alterna imediatamente após iniciar o DMA. Hipótese ainda não
+confirmada. O candidato XIP resultante foi empacotado e validado (795,920 bytes,
+5 segmentos, entrada `0x40000020`, descriptor `0x400B0020`); SHA-256
+`efa40624f4fdfb892650f31afd82cb6d24f3e85f275be601475f80ec0ebe1b39`.
+O candidato foi gravado e alcançou o marcador de display; o dono relatou tela
+ciano já quando começou a janela de observação. O runner foi interrompido e
+não produziu relatório de restauração. O backup foi restaurado manualmente;
+esptool verificou o hash, uma leitura independente dos 2 MiB foi idêntica ao
+backup (`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`)
+e o boot serial restaurado chegou ao `msh>` e ao carregamento de `desktop.mobj`.
+Evidências: [teste interrompido](../../../maia-rtos-recovery/native-product-display-dma-order-20261118/run.log),
+[leitura de verificação](../../../maia-rtos-recovery/native-product-display-dma-order-20261118/manual-restore-readback.log)
+e [boot restaurado](../../../maia-rtos-recovery/native-product-display-dma-order-20261118/manual-restore-boot.log).
+O CTest não está configurado no diretório XIP usado para build.
+
+### Diferença entre as barras/cruz e o candidato XIP
+
+- O [teste visual aprovado](../../tests/hardware/native_touch_lcd_probe.h)
+  executou em RAM, sem gravar a flash, com PSRAM em estado morno. Ele desenhou
+  um framebuffer RGB565 completo (720×1280, 1.843.200 bytes), incluindo barras
+  e marcadores de toque.
+- O teste usou o [serviço LCD nativo](../../services/lcd_output.c), DMA de um
+  framebuffer por vez com conclusão por IRQ, e o serviço touch nativo que
+  solicita os desenhos. A captura registrou 1.209 quadros DMA, 843 relatórios
+  touch e zero erros. Ao terminar, o runner reiniciou o firmware preservado;
+  o desktop visto em seguida não era o produto XIP candidato.
+- Naquele candidato XIP inicial, o produto ainda usava o terminal legado
+  ([código não-XIP](../../soc/espressif/esp32p4/soc_display.c)) com três bandas
+  SRAM e uma lista DMA circular; não iniciava os serviços LCD/touch nem usava o
+  framebuffer do teste. O teste shell posterior, registrado abaixo, corrigiu
+  essa diferença e confirmou a imagem no device.
+
+Restam touch no produto, desktop e inicialização de PSRAM a frio. O setup DSI ou
+um marcador serial isolado não validam a imagem apresentada; o shell posterior
+foi também conferido visualmente pelo dono.
+
+### Vídeo nativo do produto: promovido a padrão XIP (18/11)
+
+O build XIP do produto usa agora o serviço LCD nativo por padrão. O caminho de
+bandas SRAM/lista circular continua apenas na configuração explicitamente
+não-XIP; não é incluído no alvo de produto padrão.
+
+- Depois do setup nativo do ST7121, o [display do produto](../../soc/espressif/esp32p4/soc_display.c)
+  no build XIP é o [driver nativo de terminal](../../soc/espressif/esp32p4/soc_display_product.c)
+  e não executa a ponte/DMA legada. Repete a sequência PSRAM do teste aprovado:
+  `cache_adopt` → `snapshot` → `xtal20_start` → `x8_mode(0)` →
+  `fast_start(200)` → `window_start`, cada passo com `[DISPLAY] NATIVE_LCD step=`.
+  Em falha, informa e não usa vídeo alternativo.
+- `maia_esp32p4_psram_cache_adopt` ([janela PSRAM](../../soc/espressif/esp32p4/soc_psram_window.c))
+  é a única diferença: no XIP o bootloader já ligou os caches que executam a
+  imagem, então só consulta o modo do cache, sem reinicializá-lo pela ROM.
+- O framebuffer, a DMA e a IRQ são os do [serviço LCD](../../services/lcd_output.c).
+  `putc` só altera a grade de texto; uma tarefa pede `request_update` e o desenho
+  das linhas alteradas ocorre na tarefa dona do LCD. Touch ainda não entra.
+- Build: imagem de 806.720 bytes, 5 segmentos, entrada `0x40000020`; código PSRAM
+  em SRAM (16 KB), pilha termina em `0x4FF20640`. Testes de host
+  `psram_window`, `lcd_output`, `dw_dma_irq`, `dsi_lcd_async` e
+  `dsi_framebuffer` passaram, com casos novos para `cache_adopt`.
+- O CMake agora seleciona `soc_display_product.c`, `lcd_output.c` e o dono da
+  IRQ DMA automaticamente quando `MAIA_USE_FLASH_PRODUCT_LINKER=ON`, opção que
+  é ligada por padrão. A opção temporária `MAIA_PRODUCT_NATIVE_LCD` foi removida.
+  O linker também exige que `maia_esp32p4_psram_cache_adopt` fique na closure SRAM.
+- Resultado no device: todos os passos `NATIVE_LCD` retornaram OK, o shell
+  chegou a `msh>` e executou `ls`/`ps`. O dono viu o cabeçalho e o prompt em fundo
+  preto e executou comandos como `ps`. Imagem SHA `f9e6c308…6709`; firmware
+  original restaurado e conferido (`08cee753…6abc06`). Evidências em
+  `maia-rtos-recovery/native-product-shell-lcd-service-20261118/`.
+- Conclusão limitada: o serviço LCD nativo produz imagem no produto XIP. Os
+  candidatos anteriores com vídeo parcial falharam; os testes não estabeleceram
+  a causa exata da tela ciano nem excluem problemas no painel ou na sequência.
+- Após promoção: a imagem foi reconstruída pelo build padrão, sem definir uma
+  opção extra de display. A validação estrutural passou (5 segmentos,
+  entry `0x40000020`); no device, o shell apareceu e executou `ls`. Imagem SHA
+  `30df29cb…e9602`; o runner restaurou o backup e confirmou o SHA
+  `08cee753…6abc06`. Evidências em
+  `maia-rtos-recovery/native-product-shell-lcd-default-20261118/`.
+- O dono confirmou piscada lenta da tela inteira, incluindo cabeçalho e fundo,
+  e depois lembrou que o teste das barras também piscava. A confirmação anterior
+  comprovou imagem e resposta do touch, não estabilidade visual. O renderer do
+  shell só redesenha linhas alteradas; barras e shell compartilham o serviço LCD.
+  Ele inicia e finaliza uma transferência DMA por quadro, restaura os estados
+  DPI/DSI na conclusão e inicia o quadro seguinte. Isso é uma hipótese de
+  investigação, não uma causa comprovada: medir intervalos e transições entre
+  quadros, inclusive sem alterações, e comparar com o firmware preservado.
+  Touch e desktop no produto continuam fora deste escopo.
+
+### Comparação do reinício entre quadros (18/11)
+
+- O serviço nativo repete `maia_lcd_async_start` e `maia_lcd_async_finish`
+  para cada quadro. O início ativa vídeo/clock HS e saída DPI; após o DMA,
+  `frame_cleanup` desabilita o DMA, restaura a saída DPI desativada e retorna
+  o host ao modo de comando, antes do próximo quadro. Isso reinicia o caminho
+  de vídeo, não a alimentação nem o reset físico do painel.
+- Na referência ESP-IDF preservada (revisão `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`),
+  `dpi_panel_init` habilita vídeo e saída DPI; `dma_trans_done_cb` rearma o
+  descritor e o canal DMA sem desligar vídeo/DPI por quadro. A diferença é
+  consistente com a hipótese do dono, mas ainda não prova que causa a piscada.
+- Próximo experimento: medir a duração das transições e desenhar um fluxo nativo
+  sustentado, com ownership de framebuffer/cache e tratamento de erros
+  preservados; validar imagem estável no device. Não remover os guards nem
+  copiar dependências de runtime da ESP-IDF. Nenhuma alteração de código ou
+  novo teste físico foi feito nesta comparação.

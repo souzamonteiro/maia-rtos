@@ -18,28 +18,42 @@ a migração dele é um projeto posterior (ver final).
 - [x] I²C nativo e expansores PI4IOE
 - [x] Alimentação (LDO/PMU) e clocks
 - [x] PSRAM a 200 MHz e DMA
-- [x] LCD MIPI-DSI nativo com refresh contínuo 👀
+- [x] LCD MIPI-DSI nativo com quadros repetidos e imagem visível 👀 (estabilidade visual pendente: piscada também observada nas barras)
 - [x] Touch GT911 nativo 👀
 - [x] 77 testes de host passando (`e018c2c`)
 
 ## F0 — Firmware nativo gravado na flash
 
-🔧 **Em andamento:** em 17/11 dois probes sem FreeRTOS foram iniciados pelo
-bootloader do aparelho a partir da flash. O segundo executou kernel, duas tarefas
-e timer com XIP; observou PSRAM sem escrita e foi seguido pela restauração do
-firmware original e retorno do desktop. Falta a imagem de produto. O target
-completo `maia_m0.elf` continua bloqueado: `-ffreestanding` impede headers
-hosted do libstdc++; um ensaio temporário `-fhosted` expôs conflitos de includes
-e wrappers `malloc/free` no shell. Resolver a integração de runtime na F1.
+🔧 **Em andamento:** o build padrão do produto agora usa XIP e o serviço LCD
+nativo com framebuffer PSRAM. O dono confirmou visualmente o shell (`msh>`) e
+executou comandos na imagem de teste. A tela ciano dos candidatos anteriores
+ocorreu no caminho parcial de vídeo, que não usava o serviço LCD e o framebuffer
+aprovados. O dono lembrou que as barras também piscavam: a imagem e o toque
+foram confirmados, mas o refresh sem piscada não foi validado. O desktop
+completo ainda não foi integrado. A validação atual usa o estado morno da PSRAM;
+boot frio e recuperação segura de falhas continuam pendentes.
 
 - [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
 - [x] Kernel/scheduler e duas tarefas executando por XIP, com preempção por timer real (probe, 17/11; imagem de produto pendente)
 - [x] Base de linker flash-XIP testada no probe (IROM/DROM + estado em SRAM; PSRAM apenas como janela runtime, 18/11)
 - [x] Closure de inicialização PSRAM do probe colocada em segmento SRAM; referências relocáveis a XIP bloqueadas no link e imagem aceita no device (reset morno, 18/11; rotinas PSRAM não foram executadas)
+- [x] ELF completo linkado com o linker XIP experimental e imagem validada: IROM `0x40000020`, descriptor DROM `0x400A0020`, 5 segmentos (18/11)
+- [x] Boot XIP da imagem experimental do produto, 3 tarefas, timer e shell self-test até `msh>`; backup/restauração verificados (um reset morno, fallback de display em SRAM; PSRAM, desktop nativo e tela sem validação visual, 18/11)
+- [x] Regressão LCD + touch nativos com o código atual (`7a9f24f` + alterações locais): quatro cantos, arraste e soltura; 843 relatórios, 0 erros; confirmação visual do dono (RAM, PSRAM morna, 18/11)
+- [ ] Validar o caminho de display do produto sem piscada com framebuffer PSRAM e serviço LCD nativo (imagem XIP observada, mas tela inteira pisca, 18/11)
+  - [x] Preparar imagem só com shell usando o framebuffer PSRAM e serviço LCD nativos (testes de host OK, 18/11)
+  - [x] Observar essa imagem no device: cabeçalho e `msh>` em fundo preto, comandos executados (18/11)
+  - [x] Tornar esse o caminho de vídeo padrão do produto XIP e excluir o driver legado em bandas SRAM do alvo padrão (build/imagem XIP validada, 18/11)
+  - [x] Revalidar visualmente o binário do build padrão após a reorganização: cabeçalho, `msh>` e comandos visíveis (18/11)
+  - [ ] Eliminar piscada lenta de tela inteira: dono também a observou nas barras; código nativo para vídeo/DPI e volta ao modo de comando a cada quadro, diferentemente da referência preservada. Causa visual ainda não confirmada; medir intervalos e validar correção no device
+  - [ ] Integrar o serviço de touch no produto
+- [x] Integrar no produto o refresh/framebuffer nativo (imagem XIP observada, estabilidade visual pendente, 18/11)
+- [ ] Integrar no produto o serviço de touch; a inicialização PSRAM depende ainda de validação a frio e o handoff cache/MMU continua restrito ao boot morno testado
 - [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
 - [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU
-- [ ] Inicialização de PSRAM a frio em todo boot — snapshot de 54 leituras de controlador passou, mas não houve inicialização nem acesso à memória PSRAM
+- [ ] Inicialização nativa da PSRAM — probe RAM-only recusou o estado após reset normal (`BUSY`, estágio 0, 0 escritas de boot); repetição com a mesma imagem confirmou a recusa, tela preta e retorno ao desktop observado pelo dono, sem chegar ao framebuffer (18/11). Snapshot separado mostrou VO2 habilitado (`0x501151d0 & 0x100`), incompatível com a entrada ROM exigida. Não é teste a frio
+- [ ] Inicialização do produto XIP após cache/MMU — cache bootstrap ainda só foi executado no probe integralmente residente em SRAM
 - [ ] LCD, touch e console como serviços do kernel (fim das opções de teste encadeadas)
 - [x] Gravação com verificação e restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)
 - [ ] Boot a frio repetido no device (10×) sem falha
@@ -47,14 +61,14 @@ e wrappers `malloc/free` no shell. Resolver a integração de runtime na F1.
 ## F1 — Biblioteca C/C++ sobre o kernel
 
 - [x] Mutex do kernel protege aquisição/liberação contra preempção local (host tests + compilação RV32, 18/11)
-- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32 e prova de seleção do objeto; validação no produto/device pendente)
-- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests + compilação RV32; link final pendente)
-- [ ] Integrar e validar o runtime Newlib no ELF completo e no device
-- [ ] Chamadas de sistema (`_write`, `_read`, `_sbrk`, tempo)
-- [ ] Contexto `reent` por tarefa
-- [ ] Construtores globais e guardas de inicialização C++
-- [ ] `std::mutex` / gthread nativo
-- [ ] Testes C/C++ no device sem símbolos FreeRTOS
+- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32, seleção do objeto e link completo; validação no device pendente)
+- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32 e link completo; validação no device pendente)
+- 🔧 Integrar e validar o runtime Newlib no device (boot C++/shell e autoteste básico passaram; faltam testes específicos de syscalls, TLS e gthread)
+- 🔧 Chamadas de sistema (`_write`, `_read`, heap e tempo; implementação linkada, validação no device pendente)
+- 🔧 Contexto `reent` por tarefa (implementado, testado no host e linkado no ELF; validação no device pendente)
+- 🔧 Construtores globais e guardas de inicialização C++ (backend linkado; validação no device pendente)
+- 🔧 `std::mutex` / gthread nativo (backend implementado, testado no host e linkado no ELF; validação no device pendente)
+- 🔧 Smoke test C++ do shell no device passou; testes específicos de C/C++, TLS/gthread e auditoria de símbolos FreeRTOS continuam pendentes
 
 ## F2 — Armazenamento
 

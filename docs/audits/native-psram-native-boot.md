@@ -101,6 +101,22 @@ touch pipeline also remain NOT RUN. No elapsed time or host result substitutes
 for those facts. Existing prior physical LCD/touch evidence remains about its
 original warm profile/image.
 
+On 2026-11-18, the current native boot + framebuffer/LCD/touch RAM image
+(SHA-256 `bac487ed97e925944e8c7a5c9077f7bf3b839ee98235890e73a24c73b0b58ff5`)
+reached the cache bootstrap, which passed, then `boot_initialize200` returned
+`MAIA_PSRAM_BUSY` at stage0 with zero boot writes. The framebuffer path did not
+run; the runner reset to flash and the owner confirmed the original desktop.
+This is a safe refusal, not an initialization pass.
+
+A separate read-only 54-sample snapshot after a normal reset reported VO2
+register `0x501151d0 = 0x40200180`, with enable bit `0x100` set. That is
+incompatible with the native ROM-entry guard, which requires VO2 disabled, and
+is consistent with the refusal. The exact register snapshot at the failed call
+was not printed, so this is not claimed as a complete call-time diagnosis. The
+reset was not a physical power cycle and proves no cold-start behavior.
+Evidence and both images/logs are preserved in
+`../maia-rtos-recovery/native-psram-product-startup-refusal-20261118/`.
+
 For a future automatic target run from a suitable ROM state, configure the prior
 LCD/input/profile prerequisites plus `MAIA_NATIVE_PROBE_PSRAM_BOOT=ON` and
 `MAIA_NATIVE_PROBE_PSRAM_PARK=OFF`, build `maia_sched_probe_ram`/elf2image, then

@@ -86,6 +86,13 @@ int main(void){
     assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_OK&&r.stage==6&&r.restored);unchanged();
     assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK);assert(maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_OK);unchanged();
     for(unsigned i=0;i<4U;++i){setup();rom_fail=i;assert(maia_esp32p4_psram_cache_boot(&c)==MAIA_PSRAM_IO);n=reads;assert(maia_esp32p4_psram_cache_boot(&c)==MAIA_PSRAM_FAILED&&reads==n);}
+    /* XIP adopt: only the cache-mode query reaches ROM, then the window works. */
+    setup();context=0;assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_CONTEXT&&!reads&&!rom_calls);
+    setup();crypt_word=1U<<18U;assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_BUSY&&!rom_calls);
+    setup();assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_OK&&c.stage==3U&&c.size==131072U&&rom_calls==1U);
+    assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_BUSY&&maia_esp32p4_psram_cache_boot(&c)==MAIA_PSRAM_BUSY&&rom_calls==1U);
+    assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_OK&&maia_esp32p4_psram_window_stop(3,&r)==MAIA_PSRAM_OK);unchanged();
+    setup();rom_fail=3;assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_IO);assert(maia_esp32p4_psram_cache_adopt(&c)==MAIA_PSRAM_FAILED);
     setup();cache_ready();busy=1;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_TIMEOUT&&r.polls==3U);sticky();
     setup();cache_ready();drop_mmu=900;assert(maia_esp32p4_psram_window_start(3,&r)==MAIA_PSRAM_VERIFY&&!(reg[0][0x3C/4]&1U));sticky();
     for(unsigned i=0;i<28U;++i){

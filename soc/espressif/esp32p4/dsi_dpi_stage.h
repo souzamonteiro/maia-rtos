@@ -4,6 +4,7 @@
  * ESP-IDF f5c3654 HAL dpi timing/color and esp_lcd_panel_dpi setup.
  * LICENSES/Apache-2.0.txt. No SDK headers/runtime. Native staging guards,
  * checked RMW, failure claim and clock-gated policy original MaiaRTOS MIT. */
+#include <maia/soc/esp32p4_display.h>
 /* Private staged snapshot is ownership evidence, never supplied by a caller. */
 static reference_guard_t dpi_staged_guard;
 static uint32_t dpi_staged_phy[5],dpi_staged_mode,dpi_staged_words[MAIA_DSI_DPI_WORDS];
@@ -36,7 +37,7 @@ static int dpi_values(const maia_dsi_dpi_timing_t *t,uint32_t v[MAIA_DSI_DPI_WOR
      * Match SDK's individual float->integer conversions with exact3/2 arithmetic. */
     uint32_t ht=t->width+t->hsync+t->hback+t->hfront,vt=t->height+t->vsync+t->vback+t->vfront;
     if (ht>4095U || vt>4095U || t->hsync*3U/2U>4095U || t->hback*3U/2U>4095U) return 0;
-    v[0]=v[1]=v[2]=0;v[3]=0xBF02;v[4]=t->width;v[5]=v[6]=0;
+    v[0]=v[1]=v[2]=0;v[3]=MAIA_TAB5_DSI_VIDEO_MODE_CFG;v[4]=t->width;v[5]=v[6]=0;
     v[7]=t->hsync*3U/2U;v[8]=t->hback*3U/2U;
     v[9]=v[7]+v[8]+t->width*3U/2U+t->hfront*3U/2U;
     v[10]=t->vsync;v[11]=t->vback;v[12]=t->vfront;v[13]=t->height;

@@ -29,6 +29,7 @@ static int cache_call(unsigned op,cache_mode *mode){
 }
 #endif
 static unsigned encrypted(uint32_t word){unsigned n=(word>>18U)&7U;return (n^(n>>1U)^(n>>2U))&1U;}
+static maia_psram_result_t cache_finish(const maia_psram_snapshot_t *,maia_psram_cache_report_t *);
 maia_psram_result_t maia_esp32p4_psram_cache_boot(maia_psram_cache_report_t *r){
     if(!r)return MAIA_PSRAM_INVALID;
     r->stage=r->size=r->line=r->ways=0;
@@ -39,12 +40,29 @@ maia_psram_result_t maia_esp32p4_psram_cache_boot(maia_psram_cache_report_t *r){
     if(!psram_axi_quiet()||s.before[0]||s.before[16]||encrypted(psram_read(WINDOW_CRYPT)))return MAIA_PSRAM_BUSY;
     cache_state=FAULTED;r->stage=1;
     for(unsigned i=0;i<3U;++i)if(cache_call(i,0))return MAIA_PSRAM_IO;
+    return cache_finish(&s,r);
+}
+/* XIP boot: the bootloader already enabled L1/L2 caches that are executing this
+ * image, so ROM cache re-initialization is forbidden. Query/verify only. */
+maia_psram_result_t maia_esp32p4_psram_cache_adopt(maia_psram_cache_report_t *r){
+    if(!r)return MAIA_PSRAM_INVALID;
+    r->stage=r->size=r->line=r->ways=0;
+    if(!psram_context())return MAIA_PSRAM_CONTEXT;
+    if(cache_state!=FREE)return cache_state==OWNED?MAIA_PSRAM_BUSY:MAIA_PSRAM_FAILED;
+    maia_psram_snapshot_t s;maia_psram_result_t result=maia_esp32p4_psram_snapshot(&s);
+    if(result!=MAIA_PSRAM_OK)return result;
+    if(!psram_axi_quiet()||s.before[0]||s.before[16]||encrypted(psram_read(WINDOW_CRYPT)))return MAIA_PSRAM_BUSY;
+    cache_state=FAULTED;r->stage=1;
+    return cache_finish(&s,r);
+}
+static maia_psram_result_t cache_finish(const maia_psram_snapshot_t *sp,maia_psram_cache_report_t *r){
+    maia_psram_result_t result;
     cache_mode m={0,0,0,5};if(cache_call(3,&m))return MAIA_PSRAM_IO;
     r->size=m.size;r->line=m.line;r->ways=m.ways;r->stage=2;
     if((m.size!=131072U&&m.size!=262144U&&m.size!=524288U)||(m.line!=64U&&m.line!=128U)||(m.ways!=4U&&m.ways!=8U))return MAIA_PSRAM_VERIFY;
     maia_psram_snapshot_t after;result=maia_esp32p4_psram_snapshot(&after);if(result!=MAIA_PSRAM_OK)return result;
-    for(unsigned i=0;i<9U;++i)if(s.roots[i]!=after.roots[i])return MAIA_PSRAM_CHANGED;
-    for(unsigned i=0;i<27U;++i)if(s.before[i]!=after.before[i])return MAIA_PSRAM_CHANGED;
+    for(unsigned i=0;i<9U;++i)if(sp->roots[i]!=after.roots[i])return MAIA_PSRAM_CHANGED;
+    for(unsigned i=0;i<27U;++i)if(sp->before[i]!=after.before[i])return MAIA_PSRAM_CHANGED;
     if(!psram_axi_quiet())return MAIA_PSRAM_CHANGED;
     r->stage=3;cache_state=OWNED;return MAIA_PSRAM_OK;
 }
@@ -196,7 +214,8 @@ uint32_t maia_psram_window_edit_begin(void){
 int maia_psram_window_edit_publish(void){
     if(!psram_context()||window_state!=CPU_EDIT_OWNED)return 0;
     window_state=FAULTED;
-    maia_psram_window_report_t r={0};
+    /* Static scratch: a zero-initialized local would emit memset from flash. */
+    static maia_psram_window_report_t r;r.polls=0;
     if(!guards()||!dma_idle()||!table_matches(1)||cache_call(4,0)||!drained(10000,&r)||!dma_idle())return 0;
     window_state=DMA_OWNED;return 1;
 }

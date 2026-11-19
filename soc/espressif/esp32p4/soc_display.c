@@ -4,6 +4,8 @@
 #include <maia/soc/esp32p4_display.h>
 #include <maia/soc/esp32p4_regs.h>
 
+#include "soc_display_native.h"
+
 /*
  * M5Stack Tab5 Clean-Room Bare-Metal MIPI-DSI Display Driver
  * Target: ESP32-P4 rev v1.3 + M5Stack Tab5 5.0" (720x1280 MIPI-DSI RGB565)
@@ -85,7 +87,7 @@ static dw_gdma_lli_t s_lli_storage[TAB5_NUM_BLOCKS] __attribute__((aligned(64)))
 #define PROMPT_ROW_START     4
 
 #define PSRAM_FB_BASE        0x48100000UL
-static volatile uint16_t    *s_fb = (volatile uint16_t *)(uintptr_t)PSRAM_FB_BASE;
+static volatile uint16_t    *s_fb = L2MEM_BAND0_CPU;
 
 /* Terminal text buffers */
 static char     s_term_lines[TERM_ROWS][TERM_COLS + 1];
@@ -94,6 +96,9 @@ static uint8_t  s_term_cur_row = PROMPT_ROW_START;
 static uint8_t  s_term_cur_col = 0U;
 static uint8_t  s_display_ready = 0U;
 static uint8_t  s_has_psram = 0U;
+static uint8_t  s_fb_live = 0U;
+static uint8_t  s_native_lcd = 0U;
+static uint8_t  s_native_st7121 = 0U;
 
 /* Basic 8x16 font table for printable ASCII 32..126 (95 glyphs) */
 #include "font_8x16.h"
@@ -115,14 +120,14 @@ static void fb_sync(void) {
  * py = 1279 - x
  */
 static inline void put_pixel_rot3(int x, int y, uint16_t color) {
-    if (!s_has_psram || x < 0 || x >= TAB5_LOG_W || y < 0 || y >= TAB5_LOG_H) return;
+    if (!s_fb_live || x < 0 || x >= TAB5_LOG_W || y < 0 || y >= TAB5_LOG_H) return;
     int px = y;
     int py = 1279 - x;
     s_fb[py * TAB5_PHYS_W + px] = color;
 }
 
 static void fill_rect(int x, int y, int w, int h, uint16_t color) {
-    if (!s_has_psram) return;
+    if (!s_fb_live) return;
     int max_x = x + w;
     int max_y = y + h;
     if (x < 0) x = 0;
@@ -140,7 +145,7 @@ static void fill_rect(int x, int y, int w, int h, uint16_t color) {
 }
 
 static void draw_char_2x(int col, int row, char c, uint16_t fg, uint16_t bg) {
-    if (!s_has_psram || col < 0 || col >= (int)TERM_COLS || row < 0 || row >= (int)TERM_ROWS) return;
+    if (!s_fb_live || col < 0 || col >= (int)TERM_COLS || row < 0 || row >= (int)TERM_ROWS) return;
     int px_x = col * CHAR_W;
     int px_y = row * CHAR_H;
     if (c < 32 || c > 126) c = ' ';
@@ -162,7 +167,7 @@ static void draw_char_2x(int col, int row, char c, uint16_t fg, uint16_t bg) {
 }
 
 static void draw_str_2x(int col, int row, const char *str, uint16_t fg, uint16_t bg) {
-    if (!s_has_psram || str == NULL) return;
+    if (!s_fb_live || str == NULL) return;
     size_t len = 0;
     while (str[len] != '\0') len++;
     fill_rect(col * CHAR_W, row * CHAR_H, (int)len * CHAR_W, CHAR_H, bg);
@@ -239,6 +244,231 @@ static void term_scroll(void) {
 
 static int s_exclusive_mode = 0;
 
+#if defined(MAIA_PRODUCT_NATIVE_LCD)
+#include <maia/arch/irq.h>
+#include <maia/services/lcd_output.h>
+#include <maia/soc/esp32p4_psram.h>
+#include "dsi_framebuffer_probe.h"
+
+/* Experimental product path: the shell grid is rendered by the approved native
+ * LCD service. putc only edits the grid; drawing happens in the LCD owner task. */
+static volatile uint32_t s_dirty_rows;
+static uint8_t s_lcd_stack[8192] __attribute__((aligned(16)));
+static uint8_t s_term_stack[2048] __attribute__((aligned(16)));
+static volatile maia_status_t s_lcd_run_result = MAIA_OK;
+static void disp_print_hex32(uint32_t val);
+
+static uint16_t native_row_color(int row) {
+    switch (row) {
+    case 0: return COLOR_CYAN;
+    case 1: return COLOR_YELLOW;
+    case 2: return COLOR_GREEN;
+    case 3: return COLOR_GRAY;
+    default: return COLOR_WHITE;
+    }
+}
+
+static void native_term_scroll(void) {
+    for (int r = PROMPT_ROW_START; r < (int)TERM_ROWS - 1; ++r) {
+        for (int c = 0; c < (int)TERM_COLS; ++c) {
+            s_term_lines[r][c] = s_term_lines[r + 1][c];
+        }
+    }
+    for (int c = 0; c < (int)TERM_COLS; ++c) {
+        s_term_lines[TERM_ROWS - 1][c] = ' ';
+    }
+    s_term_cur_row = (uint8_t)(TERM_ROWS - 1U);
+    s_dirty_rows |= ((1UL << TERM_ROWS) - 1UL) & ~((1UL << PROMPT_ROW_START) - 1UL);
+}
+
+static void native_newline(void) {
+    s_dirty_rows |= 1UL << s_term_cur_row;
+    s_term_cur_col = 0U;
+    if (++s_term_cur_row >= (uint8_t)TERM_ROWS) {
+        native_term_scroll();
+    }
+    s_dirty_rows |= 1UL << s_term_cur_row;
+}
+
+static void native_term_putc(char c) {
+    uintptr_t irq = maia_arch_irq_save();
+    if (c == '\r') {
+        s_term_cur_col = 0U;
+    } else if (c == '\n') {
+        native_newline();
+    } else if (c == '\b' || c == 127) {
+        if (s_term_cur_col > 0U) {
+            s_term_lines[s_term_cur_row][--s_term_cur_col] = ' ';
+        }
+    } else if (c == '\t') {
+        uint8_t next_tab = (uint8_t)((s_term_cur_col + 4U) & ~3U);
+        while (s_term_cur_col < next_tab && s_term_cur_col < (uint8_t)TERM_COLS) {
+            s_term_lines[s_term_cur_row][s_term_cur_col++] = ' ';
+        }
+    } else if ((uint8_t)c >= 32U && (uint8_t)c <= 126U) {
+        if (s_term_cur_col >= (uint8_t)TERM_COLS) {
+            native_newline();
+        }
+        s_term_lines[s_term_cur_row][s_term_cur_col++] = c;
+    }
+    s_dirty_rows |= 1UL << s_term_cur_row;
+    maia_arch_irq_restore(irq);
+}
+
+static void native_draw_row(int row) {
+    char line[TERM_COLS];
+    uintptr_t irq = maia_arch_irq_save();
+    for (int c = 0; c < (int)TERM_COLS; ++c) {
+        line[c] = s_term_lines[row][c];
+    }
+    int cursor = (row == (int)s_term_cur_row) ? (int)s_term_cur_col : -1;
+    maia_arch_irq_restore(irq);
+    uint16_t fg = native_row_color(row);
+    for (int c = 0; c < (int)TERM_COLS; ++c) {
+        if (c == cursor) {
+            draw_char_2x(c, row, line[c], COLOR_BLACK, COLOR_WHITE);
+        } else {
+            draw_char_2x(c, row, line[c], fg, COLOR_BLACK);
+        }
+    }
+}
+
+static void native_render(volatile uint16_t *pixels, uint32_t rows) {
+    s_fb = pixels;
+    s_fb_live = 1U;
+    for (int r = 0; r < (int)TERM_ROWS; ++r) {
+        if (rows & (1UL << r)) {
+            native_draw_row(r);
+        }
+    }
+    s_fb_live = 0U;
+}
+
+static void native_draw(uint16_t *pixels, uint32_t width, uint32_t height, void *arg) {
+    (void)arg;
+    if (width != TAB5_PHYS_W || height != TAB5_PHYS_H) {
+        return;
+    }
+    uintptr_t irq = maia_arch_irq_save();
+    uint32_t rows = s_dirty_rows;
+    s_dirty_rows = 0U;
+    maia_arch_irq_restore(irq);
+    native_render(pixels, rows);
+}
+
+static void native_lcd_task(void *arg) {
+    (void)arg;
+    s_lcd_run_result = maia_lcd_output_run();
+    maia_console_puts("[DISPLAY] Native LCD service stopped result=");
+    disp_print_hex32((uint32_t)s_lcd_run_result);
+    maia_console_puts("\n");
+    for (;;) {
+        maia_task_delay_ticks(1000U);
+    }
+}
+
+static void native_term_task(void *arg) {
+    (void)arg;
+    for (;;) {
+        if (s_dirty_rows != 0U) {
+            (void)maia_lcd_output_request_update(native_draw, NULL);
+        }
+        maia_task_delay_ticks(20U);
+    }
+}
+
+static void native_report(const char *step, uint32_t result, uint32_t stage) {
+    maia_console_puts("[DISPLAY] NATIVE_LCD step=");
+    maia_console_puts(step);
+    maia_console_puts(" result=");
+    disp_print_hex32(result);
+    maia_console_puts(" stage=");
+    disp_print_hex32(stage);
+    maia_console_puts("\n");
+}
+
+static const char *const s_native_banner[PROMPT_ROW_START] = {
+    " === MaiaRTOS (M5Stack Tab5 1280x720) - native LCD service, sem FreeRTOS ===",
+    " Display: ST7121 MIPI-DSI | PSRAM framebuffer via servico LCD aprovado",
+    " Status: MaiaShell Ready. Type on physical keyboard or USB-Serial.",
+    "--------------------------------------------------------------------------------",
+};
+
+/* Same PSRAM/LCD sequence as the approved native touch/LCD probe, except the
+ * ROM cache is adopted instead of re-initialized (the image runs from XIP). */
+static int native_lcd_start(void) {
+    maia_psram_cache_report_t cache;
+    maia_psram_snapshot_t snapshot;
+    maia_psram_clock_report_t clock;
+    maia_psram_mode_switch_report_t mode;
+    maia_psram_fast_report_t fast;
+    maia_psram_window_report_t window;
+    maia_psram_result_t r;
+
+    r = maia_esp32p4_psram_cache_adopt(&cache);
+    native_report("cache_adopt", (uint32_t)r, cache.stage);
+    if (r != MAIA_PSRAM_OK) return -1;
+    r = maia_esp32p4_psram_snapshot(&snapshot);
+    native_report("snapshot", (uint32_t)r, 0U);
+    if (r != MAIA_PSRAM_OK) return -1;
+    r = maia_esp32p4_psram_xtal20_start(&clock);
+    native_report("xtal20_start", (uint32_t)r, clock.stage);
+    if (r != MAIA_PSRAM_OK) return -1;
+    r = maia_esp32p4_psram_x8_mode(0U, 10000U, &mode);
+    native_report("x8_mode", (uint32_t)r, mode.stage);
+    if (r != MAIA_PSRAM_OK) return -1;
+    r = maia_esp32p4_psram_fast_start(200U, 10000U, &fast);
+    native_report("fast_start", (uint32_t)r, fast.mhz);
+    if (r != MAIA_PSRAM_OK) return -1;
+    r = maia_esp32p4_psram_window_start(10000U, &window);
+    native_report("window_start", (uint32_t)r, window.stage);
+    if (r != MAIA_PSRAM_OK) return -1;
+
+    volatile uint16_t *fb = (volatile uint16_t *)(uintptr_t)DSI_FB_SOURCE;
+    for (uint32_t i = 0; i < TAB5_DISP_WIDTH * TAB5_DISP_HEIGHT; ++i) {
+        fb[i] = COLOR_BLACK;
+    }
+    for (int row = 0; row < (int)TERM_ROWS; ++row) {
+        for (int c = 0; c < (int)TERM_COLS; ++c) {
+            s_term_lines[row][c] = ' ';
+        }
+        s_term_lines[row][TERM_COLS] = '\0';
+    }
+    for (int row = 0; row < PROMPT_ROW_START; ++row) {
+        const char *text = s_native_banner[row];
+        for (int c = 0; c < (int)TERM_COLS && text[c] != '\0'; ++c) {
+            s_term_lines[row][c] = text[c];
+        }
+    }
+    s_term_cur_row = PROMPT_ROW_START;
+    s_term_cur_col = 0U;
+    native_render(fb, (1UL << TERM_ROWS) - 1UL);
+    r = maia_esp32p4_psram_window_sync(10000U, &window);
+    native_report("window_sync", (uint32_t)r, window.stage);
+    if (r != MAIA_PSRAM_OK) return -1;
+
+    maia_task_id_t lcd_id = -1;
+    maia_task_id_t term_id = -1;
+    maia_status_t st = maia_task_create("lcd", native_lcd_task, NULL, MAIA_PRIO_HIGH + 1U,
+                                        s_lcd_stack, sizeof(s_lcd_stack), &lcd_id);
+    native_report("lcd_task", (uint32_t)st, (uint32_t)lcd_id);
+    if (st != MAIA_OK) return -1;
+    st = maia_lcd_output_init(lcd_id);
+    native_report("lcd_output_init", (uint32_t)st, 0U);
+    if (st != MAIA_OK) return -1;
+    st = maia_task_create("lcd_term", native_term_task, NULL, MAIA_PRIO_HIGH,
+                          s_term_stack, sizeof(s_term_stack), &term_id);
+    native_report("term_task", (uint32_t)st, (uint32_t)term_id);
+    if (st != MAIA_OK) return -1;
+
+    maia_tab5_backlight_set_duty(4095U);
+    s_native_lcd = 1U;
+    s_display_ready = 1U;
+    maia_console_puts("[DISPLAY] Native LCD service ready (shell terminal on PSRAM framebuffer)\n");
+    return 0;
+}
+#endif
+
 void maia_display_set_exclusive(int exclusive) {
     s_exclusive_mode = exclusive;
 }
@@ -247,6 +477,12 @@ void maia_display_putc(char c) {
     if (s_exclusive_mode || !s_display_ready) {
         return;
     }
+#if defined(MAIA_PRODUCT_NATIVE_LCD)
+    if (s_native_lcd) {
+        native_term_putc(c);
+        return;
+    }
+#endif
     if (s_has_psram) {
         if (c == '\r') {
             s_term_cur_col = 0U;
@@ -390,23 +626,31 @@ static void dsi_phy_write_reg(uint8_t reg, uint8_t val) {
     MAIA_MMIO32(DSI_HOST_BASE + 0xB4UL) = 0U; /* clk=0 */
 }
 
-static void dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
+static int dsi_wait_fifo_room(uint32_t full_mask) {
+    for (uint32_t t = 0; t < 20000U; ++t) {
+        if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & full_mask) == 0U) {
+            return 0;
+        }
+        maia_udelay(2U);
+    }
+    return -1;
+}
+
+static int dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
+    if ((len != 0U && payload == NULL) || len > 79U) {
+        maia_console_puts("[DSI ERR] invalid DCS packet\n");
+        return -1;
+    }
+
     if (len == 0U) {
-        /* Wait until Command FIFO is not full (bit 1 is GEN_CMD_FULL) */
-        for (uint32_t t = 0; t < 20000U; ++t) {
-            if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & (1UL << 1U)) == 0U) {
-                break;
-            }
-            maia_udelay(2U);
+        if (dsi_wait_fifo_room(1UL << 1U) != 0) {
+            goto timeout;
         }
         /* DCS Short Write 0 parameters (DT=0x05, VC=0) */
         MAIA_MMIO32(DSI_HOST_BASE + 0x6CUL) = ((uint32_t)cmd << 8U) | 0x05UL;
     } else if (len == 1U) {
-        for (uint32_t t = 0; t < 20000U; ++t) {
-            if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & (1UL << 1U)) == 0U) {
-                break;
-            }
-            maia_udelay(2U);
+        if (dsi_wait_fifo_room(1UL << 1U) != 0) {
+            goto timeout;
         }
         /* DCS Short Write 1 parameter (DT=0x15, VC=0, LSB=cmd, MSB=payload[0]) */
         MAIA_MMIO32(DSI_HOST_BASE + 0x6CUL) = ((uint32_t)payload[0] << 16U) | ((uint32_t)cmd << 8U) | 0x15UL;
@@ -414,9 +658,6 @@ static void dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
         /* DCS Long Write (DT=0x39, VC=0). Word count = 1 (cmd) + len */
         uint32_t total_bytes = 1U + (uint32_t)len;
         uint8_t temp_buf[80];
-        if (total_bytes > sizeof(temp_buf)) {
-            return;
-        }
         temp_buf[0] = cmd;
         for (size_t i = 0; i < len; ++i) {
             temp_buf[1U + i] = payload[i];
@@ -428,11 +669,8 @@ static void dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
         while (remain >= 4U) {
             uint32_t word = (uint32_t)p[0] | ((uint32_t)p[1] << 8U) |
                             ((uint32_t)p[2] << 16U) | ((uint32_t)p[3] << 24U);
-            for (uint32_t t = 0; t < 20000U; ++t) {
-                if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & (1UL << 3U)) == 0U) { /* GEN_PLD_W_FULL */
-                    break;
-                }
-                maia_udelay(2U);
+            if (dsi_wait_fifo_room(1UL << 3U) != 0) {
+                goto timeout;
             }
             MAIA_MMIO32(DSI_HOST_BASE + 0x70UL) = word;
             p += 4U;
@@ -443,21 +681,15 @@ static void dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
             for (uint32_t i = 0; i < remain; ++i) {
                 word |= ((uint32_t)p[i] << (i * 8U));
             }
-            for (uint32_t t = 0; t < 20000U; ++t) {
-                if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & (1UL << 3U)) == 0U) {
-                    break;
-                }
-                maia_udelay(2U);
+            if (dsi_wait_fifo_room(1UL << 3U) != 0) {
+                goto timeout;
             }
             MAIA_MMIO32(DSI_HOST_BASE + 0x70UL) = word;
         }
 
         /* Write packet header to GEN_HDR (0x6C): DT=0x39, VC=0, LSB=total & 0xFF, MSB=(total>>8)&0xFF */
-        for (uint32_t t = 0; t < 20000U; ++t) {
-            if ((MAIA_MMIO32(DSI_HOST_BASE + 0x74UL) & (1UL << 1U)) == 0U) {
-                break;
-            }
-            maia_udelay(2U);
+        if (dsi_wait_fifo_room(1UL << 1U) != 0) {
+            goto timeout;
         }
         MAIA_MMIO32(DSI_HOST_BASE + 0x6CUL) = (((total_bytes >> 8U) & 0xFFUL) << 16U) |
                                               ((total_bytes & 0xFFUL) << 8U) | 0x39UL;
@@ -474,23 +706,54 @@ static void dsi_send_dcs_cmd(uint8_t cmd, const uint8_t *payload, size_t len) {
     }
     uint32_t st_after = MAIA_MMIO32(DSI_HOST_BASE + 0xC0UL);
     if ((st_after & (1UL << 8U)) != 0U) {
-        maia_console_puts("[DSI ERR] GEN_CMD_WR_ERR cmd=0x");
-        disp_print_hex32((uint32_t)cmd);
+        maia_console_puts("[DSI ERR] GEN_CMD_WR_ERR cmd=");
+        disp_print_hex32(cmd);
         maia_console_puts(" len=");
         disp_print_hex32((uint32_t)len);
-        maia_console_puts(" fifo=");
-        disp_print_hex32(MAIA_MMIO32(DSI_HOST_BASE + 0x74UL));
         maia_console_puts("\n");
+        return -1;
     }
     if (wait_t >= 20000U) {
-        maia_console_puts("[DSI ERR] timeout cmd=0x");
-        disp_print_hex32((uint32_t)cmd);
-        maia_console_puts(" st74=");
-        disp_print_hex32(MAIA_MMIO32(DSI_HOST_BASE + 0x74UL));
-        maia_console_puts(" st1=");
-        disp_print_hex32(st_after);
-        maia_console_puts("\n");
+        goto timeout;
     }
+    return 0;
+
+timeout:
+    maia_console_puts("[DSI ERR] DCS transfer timeout cmd=");
+    disp_print_hex32(cmd);
+    maia_console_puts(" len=");
+    disp_print_hex32((uint32_t)len);
+    maia_console_puts(" fifo=");
+    disp_print_hex32(MAIA_MMIO32(DSI_HOST_BASE + 0x74UL));
+    maia_console_puts(" status=");
+    disp_print_hex32(MAIA_MMIO32(DSI_HOST_BASE + 0xC0UL));
+    maia_console_puts("\n");
+    return -1;
+}
+
+static int dsi_enable_dpi_clock(void) {
+    const uintptr_t ref_div_address = HP_SYS_CLKRST_BASE + 0x28UL;
+    const uintptr_t dpi_clock_address = HP_SYS_CLKRST_BASE + 0x3CUL;
+    uint32_t ref_div = MAIA_MMIO32(ref_div_address);
+    uint32_t ref_div_enabled = ref_div | (1UL << 30U);
+    MAIA_MMIO32(ref_div_address) = ref_div_enabled;
+    if (MAIA_MMIO32(ref_div_address) != ref_div_enabled) {
+        maia_console_puts("[DISPLAY] DSI reference provider readback failed\n");
+        return -1;
+    }
+
+    uint32_t dpi_clock = MAIA_MMIO32(dpi_clock_address);
+    if ((dpi_clock & 0xFFF3UL) != 0x223UL) {
+        maia_console_puts("[DISPLAY] DSI DPI clock was not staged at 0x223\n");
+        return -1;
+    }
+    uint32_t dpi_clock_enabled = dpi_clock | (1UL << 7U);
+    MAIA_MMIO32(dpi_clock_address) = dpi_clock_enabled;
+    if (MAIA_MMIO32(dpi_clock_address) != dpi_clock_enabled) {
+        maia_console_puts("[DISPLAY] DSI DPI clock readback failed\n");
+        return -1;
+    }
+    return 0;
 }
 
 /* Sitronix ST7121 Vendor Initialization Sequence */
@@ -653,19 +916,40 @@ static void term_init_banner(void) {
 }
 
 void maia_display_refresh_dma_if_needed(void) {
-    if (!s_display_ready) {
+    if (!s_display_ready || s_native_lcd) {
         return;
     }
     /* If DW_GDMA channel 0 stopped unexpectedly, re-arm circular descriptors */
     if ((MAIA_MMIO32(GDMA_BASE + 0x18UL) & 1UL) == 0U) {
+        if (s_native_st7121 &&
+            (MAIA_MMIO32(GDMA_BASE + 0x10UL) != 1UL ||
+             (MAIA_MMIO32(GDMA_BASE + 0x18UL) & 0x0FUL) != 0U ||
+             MAIA_MMIO32(GDMA_BASE + 0x1CUL) != 0U ||
+             (MAIA_MMIO32(GDMA_BASE + 0x134UL) & 0x7FFFUL) != 0U ||
+             (MAIA_MMIO32(DSI_BRG_BASE + 0x14UL) & 0x3FFFUL) != 0U ||
+             MAIA_MMIO32(GDMA_BASE + 0x50UL) != 0U ||
+             (MAIA_MMIO32(GDMA_BASE + 0x188UL) & ~0x4000001BUL) != 0U ||
+             (MAIA_MMIO32(DSI_BRG_BASE + 0x58UL) & 1UL) != 0U)) {
+            return;
+        }
         volatile dw_gdma_lli_t *lli = (volatile dw_gdma_lli_t *)((uintptr_t)s_lli_storage + 0x40000000UL);
 
         for (uint32_t i = 0; i < TAB5_NUM_BLOCKS; ++i) {
             if (s_has_psram) {
                 lli[i].sar_lo = PSRAM_FB_BASE + i * (TAB5_BAND_WORDS64 * 8U);
             }
-            /* Keep last=0 (bit 30 cleared) for continuous autonomous circular streaming */
-            lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
+            if (s_native_st7121) {
+                lli[i].ctrl_lo = 0x001C1B41UL;
+                lli[i].ctrl_hi = 0x800F8040UL;
+                lli[i].sstat = 0U;
+                lli[i].dstat = 0U;
+                lli[i].status_lo = 0U;
+                lli[i].status_hi = 0U;
+            } else {
+                /* Keep last=0 (bit 30 cleared) for legacy circular streaming. */
+                lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) |
+                                 (16UL << 7U) | (1UL << 6U);
+            }
         }
 
         /* Reload DSI bridge block and frame counters */
@@ -673,7 +957,17 @@ void maia_display_refresh_dma_if_needed(void) {
         MAIA_MMIO32(DSI_BRG_BASE + 0x68UL) = TAB5_BAND_WORDS64 | (1UL << 31U);
 
         /* Clear channel 0 interrupts */
-        MAIA_MMIO32(GDMA_BASE + 0x198UL) = ~0UL;
+        MAIA_MMIO32(GDMA_BASE + 0x198UL) = s_native_st7121 ? 0x4000001BUL : ~0UL;
+        if (s_native_st7121) {
+            __asm__ volatile ("fence rw, rw" ::: "memory");
+            if (MAIA_MMIO32(GDMA_BASE + 0x188UL) != 0U ||
+                MAIA_MMIO32(GDMA_BASE + 0x50UL) != 0U ||
+                (MAIA_MMIO32(DSI_BRG_BASE + 0x58UL) & 1UL) != 0U ||
+                (MAIA_MMIO32(GDMA_BASE + 0x134UL) & 0x7FFFUL) != 0U ||
+                (MAIA_MMIO32(DSI_BRG_BASE + 0x14UL) & 0x3FFFUL) != 0U) {
+                return;
+            }
+        }
 
         uint32_t head_phys = (uint32_t)(uintptr_t)s_lli_storage;
         MAIA_MMIO32(GDMA_BASE + 0x128UL) = (head_phys & ~0x3FUL) | 1UL; /* loc0, lms=1 */
@@ -697,7 +991,31 @@ void maia_display_set_rgb_test_mode(void) {
 }
 
 void maia_display_init(uint32_t panel_type) {
-    (void)panel_type;
+    uint8_t panel_firmware = 0U;
+    s_native_st7121 = 0U;
+    if (panel_type == MAIA_TAB5_PANEL_ST7121 &&
+        maia_tab5_get_detected_touch_firmware(&panel_firmware) == 0 &&
+        panel_firmware == 1U) {
+        maia_console_puts("[DISPLAY] Using guarded native ST7121 DSI initialization\n");
+        if (maia_esp32p4_display_st7121_prepare(panel_firmware) != 0) {
+            return;
+        }
+        s_native_st7121 = 1U;
+#if defined(MAIA_PRODUCT_NATIVE_LCD)
+        if (native_lcd_start() != 0) {
+            maia_console_puts("[DISPLAY] NATIVE_LCD failed; no fallback video path\n");
+        }
+        return;
+#endif
+        MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) = 1UL;
+        MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) = 1UL;
+        if (MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) != 1UL ||
+            MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) != 1UL) {
+            maia_console_puts("[DISPLAY] DSI bridge clock readback failed\n");
+            return;
+        }
+        goto display_setup_complete;
+    }
 
     /* 1. Power up LDO_VO3 (2.5V for MIPI D-PHY) via PMU: dref=13, mul=3, en_vdet=1 (eFuse calibrated 2500mV) */
     MAIA_MMIO32(PMU_BASE + 0x1C4UL) = 0xD5800000UL;
@@ -723,7 +1041,8 @@ void maia_display_init(uint32_t panel_type) {
 
     /* DPHY refclk source (PLL_F20M 20MHz crystal) and DPI clk (PLL_F240M / 3 = 80MHz) */
     MAIA_MMIO32(HP_SYS_CLKRST_BASE + 0x38UL) &= ~(3UL << 30U); /* DPHY clk src = PLL_F20M */
-    MAIA_MMIO32(HP_SYS_CLKRST_BASE + 0x3CUL) = (2UL << 8U) | (1UL << 7U) | (1UL << 5U) | (1UL << 1U) | (1UL << 0U);
+    MAIA_MMIO32(HP_SYS_CLKRST_BASE + 0x3CUL) = (2UL << 8U) | (panel_type == MAIA_TAB5_PANEL_ST7121 ? 0UL : (1UL << 7U)) |
+                                                (1UL << 5U) | (1UL << 1U) | (1UL << 0U);
 
     /* 3. Configure DSI Host & D-PHY */
     MAIA_MMIO32(DSI_HOST_BASE + 0xA4UL) = 1UL;                 /* 2 data lanes, stop_wait_time=0 */
@@ -781,12 +1100,18 @@ void maia_display_init(uint32_t panel_type) {
     /* 4. Send Panel Wakeup & Initialization Sequence over DBI and Configure Video Timings */
     if (panel_type == MAIA_TAB5_PANEL_ST7121 || panel_type == MAIA_TAB5_PANEL_ST7123 || panel_type == MAIA_TAB5_PANEL_UNKNOWN) {
         maia_console_puts("[DISPLAY] Initializing ST7121 panel commands & timings...\n");
-        /* Software reset ST7121 and wait 120ms */
-        dsi_send_dcs_cmd(0x01U, NULL, 0U);
+        if (dsi_send_dcs_cmd(0x01U, NULL, 0U) != 0) {
+            maia_console_puts("[DISPLAY] legacy panel reset command failed\n");
+            return;
+        }
         maia_udelay(120000U);
-
         for (size_t i = 0; i < sizeof(s_st7121_init_cmds) / sizeof(s_st7121_init_cmds[0]); ++i) {
-            dsi_send_dcs_cmd(s_st7121_init_cmds[i].cmd, s_st7121_init_cmds[i].data, s_st7121_init_cmds[i].len);
+            if (dsi_send_dcs_cmd(s_st7121_init_cmds[i].cmd,
+                                 s_st7121_init_cmds[i].data,
+                                 s_st7121_init_cmds[i].len) != 0) {
+                maia_console_puts("[DISPLAY] Legacy ST7121-compatible command failed\n");
+                return;
+            }
             if (s_st7121_init_cmds[i].delay_ms > 0U) {
                 maia_udelay(s_st7121_init_cmds[i].delay_ms * 1000U);
             }
@@ -798,7 +1123,7 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x0CUL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x10UL) = 0UL; /* 16-bit RGB565 */
         MAIA_MMIO32(DSI_HOST_BASE + 0x14UL) = 0UL;
-        MAIA_MMIO32(DSI_HOST_BASE + 0x38UL) = 0xFF02UL; /* Video burst with sync pulses + frame ack */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x38UL) = MAIA_TAB5_DSI_VIDEO_MODE_CFG;
         MAIA_MMIO32(DSI_HOST_BASE + 0x3CUL) = 720UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x40UL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x44UL) = 0UL;
@@ -810,19 +1135,36 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x5CUL) = 200UL;  /* vfp lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x60UL) = 1280UL; /* vactive lines */
 
-        MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) = 1UL; /* clk_en = 1 */
-        MAIA_MMIO32(DSI_BRG_BASE + 0x04UL) = 1UL; /* dsi_en = 1 */
-        MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) = 1UL; /* host_ctrl: dsi_cfg_ref_clk_en = 1 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x18UL) = 2UL; /* pixel_type: RGB565 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x30UL) = (1280UL << 16U) | 1524UL; /* dpi_v_cfg0: vdisp=1280, vtotal=1524 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x34UL) = (20UL << 16U) | 24UL;      /* dpi_v_cfg1: vsync=20, vbank=24 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x38UL) = (720UL << 16U) | 802UL;   /* dpi_h_cfg0: hdisp=720, htotal=802 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x3CUL) = (2UL << 16U) | 40UL;      /* dpi_h_cfg1: hsync=2, hbank=40 */
+        if (panel_type == MAIA_TAB5_PANEL_ST7121) {
+            const uint8_t rgb565_colmod = 0x55U;
+            if (dsi_send_dcs_cmd(0x3AU, &rgb565_colmod, 1U) != 0) {
+                maia_console_puts("[DISPLAY] ST7121 COLMOD write failed\n");
+                return;
+            }
+            if (dsi_enable_dpi_clock() != 0) {
+                return;
+            }
+            maia_console_puts("[DISPLAY] ST7121 COLMOD RGB565 sent; panel readback is not yet integrated\n");
+        }
+        MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) = 1UL; /* clk_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x04UL) = 1UL; /* dsi_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) = 1UL; /* host_ctrl: dsi_cfg_ref_clk_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x44UL) = 1UL; /* dpi_config_update = 1 */
     } else {
         /* Default: ILI9881C panel */
         maia_console_puts("[DISPLAY] Initializing ILI9881C panel commands & timings...\n");
         for (size_t i = 0; i < sizeof(s_ili9881c_init_cmds) / sizeof(s_ili9881c_init_cmds[0]); ++i) {
-            dsi_send_dcs_cmd(s_ili9881c_init_cmds[i].cmd, s_ili9881c_init_cmds[i].data, s_ili9881c_init_cmds[i].len);
+            if (dsi_send_dcs_cmd(s_ili9881c_init_cmds[i].cmd,
+                                 s_ili9881c_init_cmds[i].data,
+                                 s_ili9881c_init_cmds[i].len) != 0) {
+                maia_console_puts("[DISPLAY] ILI9881C command failed\n");
+                return;
+            }
             if (s_ili9881c_init_cmds[i].delay_ms > 0U) {
                 maia_udelay(s_ili9881c_init_cmds[i].delay_ms * 1000U);
             }
@@ -840,7 +1182,7 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x0CUL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x10UL) = 0UL; /* 16-bit RGB565 */
         MAIA_MMIO32(DSI_HOST_BASE + 0x14UL) = 0UL;
-        MAIA_MMIO32(DSI_HOST_BASE + 0x38UL) = 0xBF02UL; /* Video burst with sync pulses */
+        MAIA_MMIO32(DSI_HOST_BASE + 0x38UL) = MAIA_TAB5_DSI_VIDEO_MODE_CFG;
         MAIA_MMIO32(DSI_HOST_BASE + 0x3CUL) = 720UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x40UL) = 0UL;
         MAIA_MMIO32(DSI_HOST_BASE + 0x44UL) = 0UL;
@@ -852,23 +1194,27 @@ void maia_display_init(uint32_t panel_type) {
         MAIA_MMIO32(DSI_HOST_BASE + 0x5CUL) = 20UL;   /* vfp lines */
         MAIA_MMIO32(DSI_HOST_BASE + 0x60UL) = 1280UL; /* vactive lines */
 
-        MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) = 1UL; /* clk_en = 1 */
-        MAIA_MMIO32(DSI_BRG_BASE + 0x04UL) = 1UL; /* dsi_en = 1 */
-        MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) = 1UL; /* host_ctrl: dsi_cfg_ref_clk_en = 1 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x18UL) = 2UL; /* pixel_type: RGB565 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x30UL) = (1280UL << 16U) | 1324UL; /* dpi_v_cfg0: vdisp=1280, vtotal=1324 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x34UL) = (4UL << 16U) | 20UL;       /* dpi_v_cfg1: vsync=4, vbank=20 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x38UL) = (720UL << 16U) | 940UL;    /* dpi_h_cfg0: hdisp=720, htotal=940 */
         MAIA_MMIO32(DSI_BRG_BASE + 0x3CUL) = (40UL << 16U) | 140UL;     /* dpi_h_cfg1: hsync=40, hbank=140 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x00UL) = 1UL; /* clk_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x04UL) = 1UL; /* dsi_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x80UL) = 1UL; /* host_ctrl: dsi_cfg_ref_clk_en = 1 */
+        MAIA_MMIO32(DSI_BRG_BASE + 0x44UL) = 1UL; /* dpi_config_update = 1 */
     }
+display_setup_complete:
     MAIA_MMIO32(DSI_BRG_BASE + 0x08UL) = 256UL;                     /* dma_req_cfg: dma_burst_len = 256 */
     MAIA_MMIO32(DSI_BRG_BASE + 0x0CUL) = TAB5_TOTAL_WORDS64 | (1UL << 31U); /* raw_num_cfg: total 64-bit words */
     MAIA_MMIO32(DSI_BRG_BASE + 0x88UL) = (10UL << 4U);             /* dma_flow_ctrl: multiblk_num=10, flow_ctrl=0(DMA) */
-    MAIA_MMIO32(DSI_BRG_BASE + 0x6CUL) = (1UL << 28U) | (1UL << 29U) | (9UL << 10U) | 9UL; /* dma_frame_interval: multiblk_en=1 */
+    MAIA_MMIO32(DSI_BRG_BASE + 0x6CUL) = s_native_st7121 ? (1UL << 28U) :
+        ((1UL << 28U) | (1UL << 29U) | (9UL << 10U) | 9UL);
     MAIA_MMIO32(DSI_BRG_BASE + 0x68UL) = TAB5_BAND_WORDS64 | (1UL << 31U); /* blk_raw_num_cfg */
     MAIA_MMIO32(DSI_BRG_BASE + 0x8CUL) = 768UL;                    /* raw_buf_almost_empty_thrd = 768 */
 
-    /* Check if PSRAM is accessible (initialized by bootloader) */
+#if !defined(MAIA_NATIVE_PSRAM_STARTUP_PENDING)
+    /* Check if PSRAM is accessible (initialized by the platform startup) */
     volatile uint32_t *p_test = (volatile uint32_t *)PSRAM_FB_BASE;
     uint32_t old_val = *p_test;
     *p_test = 0x55AA1234UL;
@@ -879,14 +1225,20 @@ void maia_display_init(uint32_t panel_type) {
         if (*p_test == 0xAA554321UL) {
             *p_test = old_val;
             s_has_psram = 1U;
+            s_fb_live = 1U;
         }
     }
+#endif
 
     if (s_has_psram) {
         maia_console_puts("[DISPLAY] PSRAM verified at 0x48100000! 1280x720 Landscape Framebuffer ACTIVE\n");
         s_fb = (volatile uint16_t *)(uintptr_t)PSRAM_FB_BASE;
     } else {
+#if defined(MAIA_NATIVE_PSRAM_STARTUP_PENDING)
+        maia_console_puts("[DISPLAY] Native PSRAM startup is pending; using internal SRAM band fallback\n");
+#else
         maia_console_puts("[DISPLAY] PSRAM not detected, using internal SRAM band fallback\n");
+#endif
         s_fb = L2MEM_BAND0_CPU;
     }
 
@@ -926,15 +1278,18 @@ void maia_display_init(uint32_t panel_type) {
         }
         lli[i].llp_hi = 0U;
 
-        /* ctrl_lo: dst_msize=7(256), src_msize=8(512), dst_tr_width=3(64b), src_tr_width=3(64b),
-         * dinc=1(fixed), sinc=0(inc), dms=0(DSI port 0), sms=1(Mem port 1) */
-        lli[i].ctrl_lo = (7UL << 18U) | (8UL << 14U) | (3UL << 11U) | (3UL << 8U) |
-                         (1UL << 6U)  | (0UL << 4U)  | (0UL << 2U)  | 1UL;
+        if (s_native_st7121) {
+            lli[i].ctrl_lo = 0x001C1B41UL;
+            lli[i].ctrl_hi = 0x800F8040UL;
+        } else {
+            /* Legacy transfer settings retained for non-ST7121 panels. */
+            lli[i].ctrl_lo = (7UL << 18U) | (8UL << 14U) | (3UL << 11U) | (3UL << 8U) |
+                             (1UL << 6U)  | (0UL << 4U)  | (0UL << 2U)  | 1UL;
 
-        /* ctrl_hi: valid=1, last=0 (CIRCULAR RING!), arlen=16, arlen_en=1, awlen=16, awlen_en=1 */
-        uint32_t hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) | (16UL << 7U) | (1UL << 6U);
-        /* DO NOT set shadowreg_or_lli_last (bit 30) - block 9 loops continuously back to block 0 */
-        lli[i].ctrl_hi = hi;
+            /* Circular ring: last=0, ARLEN/AWLEN=16. */
+            lli[i].ctrl_hi = (1UL << 31U) | (16UL << 16U) | (1UL << 15U) |
+                             (16UL << 7U) | (1UL << 6U);
+        }
 
         lli[i].sstat       = 0U;
         lli[i].dstat       = 0U;
@@ -948,10 +1303,10 @@ void maia_display_init(uint32_t panel_type) {
     __asm__ volatile ("fence rw, rw" ::: "memory");
 
     /* 8. Configure & Start DW_GDMA Channel 0 to prefill bridge FIFO */
-    MAIA_MMIO32(GDMA_BASE + 0x10UL)  = 3UL; /* dmac_en=1, int_en=1 */
+    MAIA_MMIO32(GDMA_BASE + 0x10UL)  = s_native_st7121 ? 1UL : 3UL;
     MAIA_MMIO32(GDMA_BASE + 0x120UL) = (3UL << 2U) | 3UL; /* List transfer */
-    /* cfg1: dst_osr_lmt=1, src_osr_lmt=4, ch_prior=3, dst_per=0, tt_fc=1 (M2P_DMAC) */
-    MAIA_MMIO32(GDMA_BASE + 0x124UL) = (1UL << 27U) | (4UL << 23U) | (3UL << 17U) | 1UL;
+    MAIA_MMIO32(GDMA_BASE + 0x124UL) = s_native_st7121 ? 0x0A020001UL :
+        ((1UL << 27U) | (4UL << 23U) | (3UL << 17U) | 1UL);
 
     uint32_t head_phys = (uint32_t)(uintptr_t)s_lli_storage;
     MAIA_MMIO32(GDMA_BASE + 0x128UL) = (head_phys & ~0x3FUL) | 1UL;
@@ -959,7 +1314,9 @@ void maia_display_init(uint32_t panel_type) {
 
     /* Start First Continuous Display Frame (prefill FIFO) */
     MAIA_MMIO32(GDMA_BASE + 0x18UL) = 0x101UL;
-    maia_udelay(5000U);
+    if (!s_native_st7121) {
+        maia_udelay(5000U);
+    }
 
     /* 9. Switch DSI Host to Video Mode and enable Bridge DPI output */
     MAIA_MMIO32(DSI_HOST_BASE + 0x34UL) = 0UL;               /* Video Mode */
@@ -1011,4 +1368,3 @@ void maia_display_init(uint32_t panel_type) {
     disp_print_hex32(MAIA_MMIO32(DSI_BRG_BASE + 0x78UL));
     maia_console_puts("\n");
 }
-

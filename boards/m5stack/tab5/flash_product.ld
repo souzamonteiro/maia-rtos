@@ -63,7 +63,7 @@ SECTIONS
         _flash_rodata_dummy_start = ABSOLUTE(.);
         . = ALIGN(ALIGNOF(.flash.text)) + SIZEOF(.flash.text);
         . = ALIGN(0x10000) + 0x20;
-    } > FLASH_DROM :flash_rodata
+    } > FLASH_DROM :NONE
 
     .flash.appdesc : ALIGN(16)
     {
@@ -79,6 +79,7 @@ SECTIONS
         KEEP(*(.flash.rodata))
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
+        *(.gcc_except_table .gcc_except_table.*)
         . = ALIGN(16);
         _flash_rodata_end = ABSOLUTE(.);
     } > FLASH_DROM :flash_rodata
@@ -134,6 +135,9 @@ ASSERT(maia_esp32p4_psram_boot_initialize200 >= _maia_psram_iram_start &&
 ASSERT(maia_esp32p4_psram_cache_boot >= _maia_psram_iram_start &&
        maia_esp32p4_psram_cache_boot < _maia_psram_iram_end,
        "PSRAM cache bootstrap must execute from internal SRAM")
+ASSERT(maia_esp32p4_psram_cache_adopt >= _maia_psram_iram_start &&
+       maia_esp32p4_psram_cache_adopt < _maia_psram_iram_end,
+       "PSRAM cache adoption must execute from internal SRAM")
 ASSERT(maia_esp32p4_psram_window_start >= _maia_psram_iram_start &&
        maia_esp32p4_psram_window_start < _maia_psram_iram_end,
        "PSRAM MMU window setup must execute from internal SRAM")

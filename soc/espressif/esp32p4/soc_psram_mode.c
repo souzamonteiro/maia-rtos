@@ -18,7 +18,7 @@ static int mode_bus(const maia_psram_snapshot_t *s){
         if(i==0U){if(word&~0xFFU)return 0;} /* shared arbitration status may move */
         else if(word!=s->before[i])return 0;
     }
-    const unsigned fixed[]={18,19,20,25,26};
+    static const unsigned fixed[]={18,19,20,25,26};
     for(unsigned i=0;i<5U;++i)if(psram_read(psram_address(fixed[i]))!=s->before[fixed[i]])return 0;
     return 1;
 }

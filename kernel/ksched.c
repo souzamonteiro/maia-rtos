@@ -102,9 +102,18 @@ static void copy_name(char dst[MAIA_TASK_NAME_MAX], const char *src) {
 }
 
 void maia_task_trampoline(uint32_t task_idx);
+__attribute__((weak)) void maia_newlib_task_reclaim(maia_task_id_t task_id) {
+    (void)task_id;
+}
+__attribute__((weak)) void maia_gthread_task_reclaim(maia_task_id_t task_id) {
+    (void)task_id;
+}
+
 void maia_task_trampoline(uint32_t task_idx) {
     if (task_idx < MAIA_MAX_TASKS && g_tasks[task_idx].entry != NULL) {
         g_tasks[task_idx].entry(g_tasks[task_idx].arg);
+        maia_gthread_task_reclaim((maia_task_id_t)task_idx);
+        maia_newlib_task_reclaim((maia_task_id_t)task_idx);
     }
     maia_arch_exit_trap();
 }
