@@ -2297,3 +2297,23 @@ the runner still restored and verified the original app. That diagnostic run
 is preserved separately in
 `../../../maia-rtos-recovery/native-f1-std-thread-20261120/`. The accepted
 two-boot result above sends the required `Maia` input.
+
+## `std::thread` sequential lifecycle churn — 2026-11-20
+
+Extended the F1 probe to create 16 sequential C++ threads per boot, alternating
+eight `join` and eight `detach` lifecycles. Joined workers verify stable
+`thread::id` and return data; detached workers must run to completion. The
+detached path waits after its result so the exit hook can reclaim the stack and
+record before the next iteration reuses scheduler resources.
+
+The 113,744-byte image passed structural validation (SHA-256
+`7c48c895f4949b6004fabf2f60b6074978543d78a7cb339d90808dd553d6fe39`). Both
+warm-reset Tab5 boots emitted `MAIA_F1_RUNTIME_PASS` without fatal markers and
+passed the required USB serial input check. The runner restored the original
+app and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The [probe artifacts](../../../maia-rtos-recovery/native-f1-std-thread-churn-20261120/)
+include the image, ELF, map, report, captures and restoration logs.
+
+This is bounded single-core lifecycle churn, not prolonged/high-volume stress
+or SMP validation. Cold boot and dynamic/non-trivial TLS remain untested.

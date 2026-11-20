@@ -2398,15 +2398,17 @@ Host: os testes focados `gthread_test`, `tls_runtime_test` e
 join do primeiro pthread. A suíte host completa passou (88/88). Os alvos
 `maia_f1_runtime_probe_image` e `maia_m0_image` compilaram/empacotaram.
 No Tab5, o probe passou em dois boots mornos com criação, ID, join e detach,
-incluindo a entrada serial esperada; o produto XIP chegou a `msh>` com
-`qtest PASS` e serviços LCD/touch anunciados. Ambos os runners restauraram o
-app original e verificaram seu SHA-256
+incluindo 16 criações sequenciais alternando `join`/`detach` em cada boot e a
+entrada serial esperada; o produto XIP chegou a `msh>` com `qtest PASS` e
+serviços LCD/touch anunciados. Ambos os runners restauraram o app original e
+verificaram seu SHA-256
 `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
 Capturas e binários:
-`../../../maia-rtos-recovery/native-f1-std-thread-20261120-with-input-detach/`
+`../../../maia-rtos-recovery/native-f1-std-thread-churn-20261120/`
 e `../../../maia-rtos-recovery/native-product-xip-pthread-20261120/`.
 
 O teste do produto foi eletrônico: não houve nova observação visual/touch nem
 validação de cold boot. TLS dinâmico, inicializadores/destrutores não triviais
 de `thread_local`, SMP e APIs POSIX além do subconjunto exercitado permanecem
-fora deste resultado.
+fora deste resultado. O ciclo sequencial é uma validação limitada, não um
+estresse prolongado/de alto volume nem prova de sincronização multicore.

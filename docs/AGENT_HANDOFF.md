@@ -1817,14 +1817,16 @@ IRQ stack, never from the pthread trampoline. The runtime depends on the
 current single-core IRQ-exclusion model and is not an SMP-safe POSIX layer.
 
 The host suite passed 88/88; focused gthread/TLS/pthread tests passed 3/3. The
-F1 probe passed two warm-reset Tab5 boots for C++ thread create, identity,
-join, detach, and detached completion. The canonical product image booted once
-to `qtest PASS`/`msh>` with LCD/touch services ready. Both test paths restored
-the original app and verified its SHA-256. Full reports, captures, binaries,
-ELFs and maps are preserved in
-`../../maia-rtos-recovery/native-f1-std-thread-20261120-with-input-detach/`
-and `../../maia-rtos-recovery/native-product-xip-pthread-20261120/`.
+F1 probe passed two warm-reset Tab5 boots with 16 sequential C++ thread
+lifecycles per boot, alternating join and detach while checking IDs, results,
+and detached completion. The canonical product image booted once to
+`qtest PASS`/`msh>` with LCD/touch services ready. Both test paths restored the
+original app and verified its SHA-256. Full reports, captures, binaries, ELFs
+and maps are preserved in
+`../../maia-rtos-recovery/native-f1-std-thread-churn-20261120/` and
+`../../maia-rtos-recovery/native-product-xip-pthread-20261120/`.
 
 Remaining: dynamic TLS and non-trivial `thread_local` initialization/destruction,
-high-churn task-slot stress, SMP synchronization, cold boot, and new visual/touch
-acceptance. The hardware pass proves only the tested basic thread paths.
+prolonged/high-volume task-slot stress, SMP synchronization, cold boot, and new
+visual/touch acceptance. The hardware pass proves only the tested single-core
+thread paths.

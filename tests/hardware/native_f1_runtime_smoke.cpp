@@ -20,6 +20,7 @@ constexpr uint32_t kRounds = 8U;
 constexpr uint32_t kGlobalConstructorValue = 0xF1C00101U;
 constexpr uint32_t kGuardConstructorValue = 0xF1C00202U;
 constexpr uint32_t kTlsInitializedValue = 0xF1C00303U;
+constexpr uint32_t kStdThreadChurnRounds = 16U;
 
 volatile uint32_t g_global_constructor_calls;
 thread_local uint32_t g_tls_initialized = kTlsInitializedValue;
@@ -256,6 +257,50 @@ void report_entry(void *) {
         g_std_thread_detached_result == 0xF17A0002U;
     maia_task_delay_ticks(2U);
 
+    bool std_thread_churn = true;
+    for (uint32_t i = 0U; i < kStdThreadChurnRounds; ++i) {
+        uint32_t expected_result = 0xF17A1000U + i;
+        if ((i & 1U) == 0U) {
+            g_std_thread_result = 0U;
+            g_std_thread_id = std::thread::id();
+            g_std_thread = new (g_std_thread_storage)
+                std::thread(std_thread_entry, expected_result);
+            bool joinable = g_std_thread->joinable();
+            std::thread::id expected_id = g_std_thread->get_id();
+            if (joinable) {
+                g_std_thread->join();
+            }
+            std_thread_churn = std_thread_churn &&
+                joinable && !g_std_thread->joinable() &&
+                g_std_thread_id == expected_id &&
+                g_std_thread_result == expected_result;
+        } else {
+            g_std_thread_detached_result = 0U;
+            g_std_thread = new (g_std_thread_storage)
+                std::thread(std_thread_detached_entry, expected_result);
+            bool joinable = g_std_thread->joinable();
+            if (joinable) {
+                g_std_thread->detach();
+            }
+            std_thread_churn = std_thread_churn &&
+                joinable && !g_std_thread->joinable();
+        }
+        g_std_thread->~thread();
+        g_std_thread = nullptr;
+
+        if ((i & 1U) != 0U) {
+            wait_ticks = 0U;
+            while (g_std_thread_detached_result != expected_result &&
+                   wait_ticks < 500U) {
+                maia_task_delay_ticks(1U);
+                ++wait_ticks;
+            }
+            std_thread_churn = std_thread_churn &&
+                g_std_thread_detached_result == expected_result;
+            maia_task_delay_ticks(2U);
+        }
+    }
+
     maia_task_delay_ticks(2U);
     maia_task_id_t reused_task_id = -1;
     bool reuse_task_created =
@@ -299,7 +344,7 @@ void report_entry(void *) {
     bool reent_reused = reuse_task_created &&
         g_reent_reuse_done != 0U && g_reent_reuse_error == 0U;
     bool pass = report_tls_initialized && std_thread_joined &&
-        std_thread_detached && std_thread_detached_ran &&
+        std_thread_detached && std_thread_detached_ran && std_thread_churn &&
         read_empty && input_ready_written &&
         read_input && reent_reused &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
