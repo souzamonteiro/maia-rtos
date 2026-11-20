@@ -2311,7 +2311,7 @@ Relatório, logs e backups estão em
 repetidos do probe estão em
 `../../maia-rtos-recovery/native-f1-cxx-init-repeat-20261120/`.
 Isso valida o caminho morno, não cold boot. Permanecem pendentes: TLS de
-compilador (`thread_local`/ELF TLS), reuso da slot `reent` e `std::thread`.
+compilador (`thread_local`/ELF TLS) e `std::thread`.
 
 ## Leitura serial positiva no F1 — 2026-11-20
 
@@ -2327,4 +2327,19 @@ Tab5 receberam o payload e emitiram `MAIA_F1_RUNTIME_PASS`, sem fatal. O runner
 restaurou o app original e confirmou o SHA-256 já registrado acima. Logs e
 relatório: `../../maia-rtos-recovery/native-f1-positive-read-20261120/`.
 Leitura positiva por UART0 e teclado não foi testada. F1 ainda tem pendentes
-TLS de compilador, reciclagem de slot `reent` e `std::thread`.
+TLS de compilador e `std::thread`.
+
+## Reciclagem do slot Newlib `reent` no F1 — 2026-11-20
+
+Após o retorno dos dois workers, o probe espera dois ticks e cria uma tarefa
+substituta. Ela precisa receber o ID reciclado do primeiro worker, o mesmo
+endereço de `__getreent()` com `_errno == 0` e `pthread_getspecific()` limpo.
+Isso cobre a reutilização real do slot EXITED e a limpeza feita no trampoline.
+
+A imagem de 108.944 bytes passou validação estrutural; quatro boots mornos no
+Tab5 emitiram `MAIA_F1_RUNTIME_PASS` sem fatal e repetiram a leitura USB
+positiva. O app original foi restaurado com hash verificado. Os testes host
+`newlib_reent_test`, `gthread_test` e `f0_flash_runner_test` passaram (3/3).
+Relatório e capturas: `../../maia-rtos-recovery/native-f1-reent-reuse-20261120/`.
+Isso valida uma reutilização; estresse repetido de slots, TLS de compilador e
+`std::thread` continuam pendentes.

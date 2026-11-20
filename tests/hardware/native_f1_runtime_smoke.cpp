@@ -51,13 +51,18 @@ alignas(std::mutex) unsigned char g_mutex_storage[sizeof(std::mutex)];
 std::mutex *g_mutex;
 pthread_key_t g_key;
 struct _reent *g_reent[2];
+volatile maia_task_id_t g_worker_task_ids[2];
 GuardConstructorProbe * volatile g_guard_instances[2];
 volatile uint32_t g_worker_errors[2];
 volatile uint32_t g_worker_done[2];
+volatile uint32_t g_reent_reuse_done;
+volatile uint32_t g_reent_reuse_error;
 volatile uint32_t g_destructor_seen[2];
 volatile uint32_t g_destructor_error;
 volatile uint32_t g_mutex_count;
 volatile uint32_t g_in_critical;
+void *g_reuse_stack;
+size_t g_reuse_stack_size;
 
 void record_error(uint32_t worker) {
     ++g_worker_errors[worker];
@@ -87,6 +92,7 @@ void worker_entry(void *arg) {
     g_guard_instances[worker] = &guarded;
     if (guarded.value != kGuardConstructorValue) record_error(worker);
 
+    g_worker_task_ids[worker] = maia_task_current_id();
     int expected_errno = 40 + static_cast<int>(worker);
     uintptr_t token = worker + 1U;
     g_reent[worker] = __getreent();
@@ -155,11 +161,35 @@ void worker_entry(void *arg) {
     g_worker_done[worker] = 1U;
 }
 
+void reent_reuse_entry(void *) {
+    maia_task_id_t task_id = maia_task_current_id();
+    struct _reent *reent = __getreent();
+    g_reent_reuse_error =
+        task_id != g_worker_task_ids[0] ||
+        reent != g_reent[0] ||
+        reent->_errno != 0 ||
+        pthread_getspecific(g_key) != nullptr;
+    g_reent_reuse_done = 1U;
+}
+
 void report_entry(void *) {
     uint32_t wait_ticks = 0U;
     while ((g_worker_done[0] == 0U || g_worker_done[1] == 0U ||
             g_destructor_seen[0] == 0U || g_destructor_seen[1] == 0U) &&
            wait_ticks < 500U) {
+        maia_task_delay_ticks(1U);
+        ++wait_ticks;
+    }
+
+    maia_task_delay_ticks(2U);
+    maia_task_id_t reused_task_id = -1;
+    bool reuse_task_created =
+        maia_task_create("f1_reent_reuse", reent_reuse_entry, nullptr,
+                         MAIA_PRIO_NORMAL, g_reuse_stack, g_reuse_stack_size,
+                         &reused_task_id) == MAIA_OK &&
+        reused_task_id == g_worker_task_ids[0];
+    wait_ticks = 0U;
+    while (reuse_task_created && g_reent_reuse_done == 0U && wait_ticks < 500U) {
         maia_task_delay_ticks(1U);
         ++wait_ticks;
     }
@@ -191,7 +221,9 @@ void report_entry(void *) {
     static const char expected_input[] = "Maia";
     bool read_input = input_received == sizeof(expected_input) - 1U &&
         memcmp(input_data, expected_input, sizeof(expected_input) - 1U) == 0;
-    bool pass = read_empty && input_ready_written && read_input &&
+    bool reent_reused = reuse_task_created &&
+        g_reent_reuse_done != 0U && g_reent_reuse_error == 0U;
+    bool pass = read_empty && input_ready_written && read_input && reent_reused &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
         g_guard_constructor_calls == 1U &&
         g_guard_instances[0] != nullptr &&
@@ -219,12 +251,15 @@ void report_entry(void *) {
 extern "C" int maia_f1_runtime_smoke_start(
     void *stack_a, size_t stack_a_size,
     void *stack_b, size_t stack_b_size,
-    void *stack_report, size_t stack_report_size) {
+    void *stack_report, size_t stack_report_size,
+    void *stack_reuse, size_t stack_reuse_size) {
     if (g_global_constructor_calls != 1U ||
         g_global_constructor_probe.value != kGlobalConstructorValue) {
         return 3;
     }
 
+    g_reuse_stack = stack_reuse;
+    g_reuse_stack_size = stack_reuse_size;
     g_mutex = new (g_mutex_storage) std::mutex();
     if (pthread_key_create(&g_key, key_destructor) != 0) return 1;
 

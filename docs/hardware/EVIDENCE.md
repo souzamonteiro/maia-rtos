@@ -2141,8 +2141,7 @@ and [restore log](../../../maia-rtos-recovery/native-product-xip-cxx-init-202611
 preserve the device result.
 
 This confirms C++ initialization on the tested warm-reset path, not cold boot.
-Compiler TLS (`thread_local`/ELF TLS), `reent` slot reuse and `std::thread`
-remain unvalidated.
+Compiler TLS (`thread_local`/ELF TLS) and `std::thread` remain unvalidated.
 
 ## F1 successful USB serial input — 2026-11-20
 
@@ -2170,3 +2169,29 @@ preserve the result.
 This validates successful USB Serial/JTAG input through Newlib `_read`; it
 does not validate UART0 input or the board keyboard path. Cold boot remains
 separate.
+
+## F1 Newlib `reent` slot reuse — 2026-11-20
+
+The F1 probe now waits until both workers return, delays two ticks for the
+trampoline to reclaim their runtime state, then creates a replacement task.
+The replacement must receive the first worker's reused task ID, the same
+`__getreent()` storage address with `_errno == 0`, and a cleared
+`pthread_getspecific()` value. These assertions run before the replacement
+exits, exercising the scheduler's real exited-slot reuse and Newlib/gthread
+cleanup path.
+
+The expanded 108,944-byte probe image passed structural validation (four
+segments, entry `0x40000020`), SHA-256
+`3d2225cbf8925734a5c7748dbec14f232488005087f452c4fe4f2d645e3999fd`. Four
+warm-reset Tab5 boots emitted `MAIA_F1_RUNTIME_PASS`, with no fatal marker;
+each also repeated the successful USB input check. The runner restored the
+original app and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Focused host tests `newlib_reent_test`, `gthread_test` and
+`f0_flash_runner_test` passed (3/3). The [report](../../../maia-rtos-recovery/native-f1-reent-reuse-20261120/report.json),
+[transcript](../../../maia-rtos-recovery/native-f1-reent-reuse-20261120/run.log)
+and [boot captures](../../../maia-rtos-recovery/native-f1-reent-reuse-20261120/)
+retain the evidence.
+
+This checks one recycled slot and its errno/key reset; repeated high-churn
+slot cycling, compiler TLS and `std::thread` remain open.

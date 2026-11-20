@@ -9,12 +9,14 @@ extern void maia_soc_systimer_init(uint32_t tick_hz);
 extern int maia_f1_runtime_smoke_start(
     void *stack_a, size_t stack_a_size,
     void *stack_b, size_t stack_b_size,
-    void *stack_report, size_t stack_report_size);
+    void *stack_report, size_t stack_report_size,
+    void *stack_reuse, size_t stack_reuse_size);
 
 static uint8_t g_heap_pool[32768] __attribute__((aligned(16)));
 static uint8_t g_stack_a[4096] __attribute__((aligned(16)));
 static uint8_t g_stack_b[4096] __attribute__((aligned(16)));
 static uint8_t g_stack_report[8192] __attribute__((aligned(16)));
+static uint8_t g_stack_reuse[4096] __attribute__((aligned(16)));
 
 void maia_display_putc(char c) {
     (void)c;
@@ -40,7 +42,8 @@ void maia_boot_main(void) {
     int start_result = maia_f1_runtime_smoke_start(
         g_stack_a, sizeof(g_stack_a),
         g_stack_b, sizeof(g_stack_b),
-        g_stack_report, sizeof(g_stack_report));
+        g_stack_report, sizeof(g_stack_report),
+        g_stack_reuse, sizeof(g_stack_reuse));
     if (start_result != 0) {
         if (start_result == 3) {
             maia_console_puts("[F1] C++ global constructor/init array failed\n");

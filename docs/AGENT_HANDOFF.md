@@ -1705,7 +1705,7 @@ The map and audit results are preserved beside the product image in
 
 This closes the common symbol-name/link-input scan, not the broad F10 review
 for renamed or otherwise embedded vendor code. Remaining F1 runtime work:
-compiler TLS, `reent` slot reuse, and `std::thread`.
+compiler TLS and `std::thread`.
 Cold boot/PSRAM acceptance also remains open.
 
 ## F1 C++ initialization and guards — 2026-11-20
@@ -1729,9 +1729,8 @@ also preserving zero-initialized-object behavior. Probe artifacts:
 boot/restore logs and verified backup:
 `../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/`.
 
-Remaining F1 items: compiler TLS (`thread_local`/ELF TLS), `reent` slot reuse,
-and `std::thread`. Cold boot/PSRAM and the broad F10 audit remain separate open
-work.
+Remaining F1 items: compiler TLS (`thread_local`/ELF TLS) and `std::thread`.
+Cold boot/PSRAM and the broad F10 audit remain separate open work.
 
 ## F1 successful serial input — 2026-11-20
 
@@ -1747,5 +1746,20 @@ Tab5 boots passed with the expected input, no fatal, and verified restoration
 of the original app (SHA-256
 `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`).
 Report and logs: `../../maia-rtos-recovery/native-f1-positive-read-20261120/`.
-This confirms USB Serial/JTAG input only; UART0/keyboard, compiler TLS,
-`reent` slot reuse and `std::thread` remain open.
+This confirms USB Serial/JTAG input only; UART0/keyboard, compiler TLS and
+`std::thread` remain open.
+
+## F1 Newlib `reent` slot reuse — 2026-11-20
+
+After both initial workers return, the probe waits two ticks and creates a
+replacement task. It asserts the replacement receives the first worker's
+reused task ID, the same `__getreent()` storage with `_errno == 0`, and a
+cleared pthread-key value. Four warm-reset Tab5 boots passed; each also passed
+the USB serial input check, had no fatal marker and restored the original app
+with its SHA-256 verified. The 108,944-byte image SHA-256 is
+`3d2225cbf8925734a5c7748dbec14f232488005087f452c4fe4f2d645e3999fd`.
+Host `newlib_reent_test`, `gthread_test` and `f0_flash_runner_test` passed 3/3.
+Artifacts: `../../maia-rtos-recovery/native-f1-reent-reuse-20261120/`.
+
+One slot-reuse lifecycle is covered; repeated high-churn recycling, compiler
+TLS (`thread_local`/ELF TLS), and `std::thread` remain open.
