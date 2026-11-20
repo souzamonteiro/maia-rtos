@@ -632,8 +632,12 @@ def evaluate_psram_profile(output):
 
 def evaluate_psram_native_boot(output):
     if not evaluate_mpll_initialize(output,boot=True):return False
+    clean=output.replace('\r','')
+    boot_pos=clean.find('PSRAM_BOOT ')
+    cache_pos=clean.find('DPI_FB_CACHE ')
+    if boot_pos<0 or cache_pos<0 or boot_pos>=cache_pos:return False
     keys='result stage writes supply_stage supply_writes adopted dref mul beforectl afterctl beforeana afterana clock_stage attempts beforeperi afterperi bus0 bus1 profile_stage profile_attempts profile_polls before0 after0 before4 after4 before8 after8'.split()
-    clean=output.replace('\r','');lines=[l for l in clean.splitlines() if l.startswith('PSRAM_BOOT ')]
+    lines=[l for l in clean.splitlines() if l.startswith('PSRAM_BOOT ')]
     if len(lines)!=1:return False
     row=re.fullmatch('PSRAM_BOOT'+''.join(' '+k+r'=([0-9a-f]{8})' for k in keys),lines[0])
     if row is None:return False

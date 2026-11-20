@@ -442,3 +442,10 @@ remaining memory/drivers and not permission to weaken warm guards.
   Probe-level boot/XIP compatibility is verified. Still open: product image
   and complete linker/heaps/services, true cold PSRAM startup and 10× cold
   repeated boot.
+
+2026-11-19 follow-up: the native PSRAM initializer is now ordered before cache
+bootstrap in the diagnostic. A warm-reset device run reached it and safely
+returned `MAIA_PSRAM_BUSY` (`-5`, stage0, zero writes); it did not reach cache,
+PSRAM data, DMA or LCD/touch. This is not a physical cold-start attempt and
+does not identify the exact call-time guard. See the
+[native PSRAM boot audit](../audits/native-psram-native-boot.md).

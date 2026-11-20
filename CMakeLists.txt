@@ -569,8 +569,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     ${MAIA_PROBE_APP}
   )
   if(MAIA_NATIVE_PROBE_PSRAM_BOOT)
-    target_sources(maia_sched_probe.elf PRIVATE soc/espressif/esp32p4/soc_psram_boot.c)
+    target_sources(maia_sched_probe.elf PRIVATE
+      soc/espressif/esp32p4/soc_psram_boot.c
+      tests/hardware/native_memcpy.c)
     target_compile_definitions(maia_sched_probe.elf PRIVATE MAIA_NATIVE_PROBE_PSRAM_BOOT=1)
+    set_property(SOURCE tests/hardware/native_scheduler_probe.c tests/hardware/native_mipi_park_probe.c
+      APPEND PROPERTY COMPILE_OPTIONS -Os -fno-tree-loop-distribute-patterns)
+    set_property(SOURCE tests/hardware/native_memcpy.c APPEND PROPERTY COMPILE_OPTIONS
+      -fno-tree-loop-distribute-patterns)
     set_property(SOURCE soc/espressif/esp32p4/soc_psram_boot.c soc/espressif/esp32p4/soc_psram_supply.c
       soc/espressif/esp32p4/soc_psram_mpll.c soc/espressif/esp32p4/soc_psram_array.c
       soc/espressif/esp32p4/soc_psram_clock.c APPEND PROPERTY COMPILE_OPTIONS -Os)
@@ -801,7 +807,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   target_include_directories(maia_sched_probe.elf PRIVATE include)
   target_compile_options(maia_sched_probe.elf PRIVATE -Wall -Wextra -Wpedantic -Werror -O2)
-  set(MAIA_PROBE_LINKER_SCRIPT "${MAIA_LINKER_SCRIPT}")
+  # The isolated probe is loaded with esptool load_ram, independent of product XIP.
+  set(MAIA_PROBE_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   if(MAIA_NATIVE_PROBE_DPI_DMA_CENTER OR MAIA_NATIVE_PROBE_DPI_DMA_TILE OR MAIA_NATIVE_PROBE_VDMA_TRANSFER)
     if(MAIA_NATIVE_PROBE_DPI_DMA_CENTER)
       set(MAIA_DMA_RESERVATION "tests/hardware/native_dpi_center_memory.ld.in")

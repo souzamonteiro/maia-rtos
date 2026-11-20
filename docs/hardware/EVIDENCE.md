@@ -1878,3 +1878,25 @@ These are source/host-qualified adaptations, not physical cold/default proofs.
 Seven source hashes and sanitizer/mutation checks preserved with
 [native boot audit](../audits/native-psram-native-boot.md). Operator-synchronized
 power/button acceptance remains NOT RUN by owner instruction; no guessed timing.
+
+## Native PSRAM order correction and warm refusal — 2026-11-19
+
+The full RAM-loaded diagnostic now attempts native supply/clock/MPLL/device
+initialization before cache bootstrap. Host tests verify this ordering and
+reject an inverted capture. CMake keeps the `load_ram` probe on `linker.ld`
+even when the product-XIP option is enabled. The final default-option image
+(97,760 bytes; SHA-256
+`903234a96dbbb00a6458490e399c3fb52850786f016e45f820e0ba9cb67a0ecc`) passed
+RAM-window validation and the no-foreign-runtime-symbol gate.
+
+On the Tab5, the automatic warm-reset capture passed MIPI/VO3, DSI, ST7121/panel
+and DPI bridge setup. At `DPI_FB_READY`, native boot returned
+`MAIA_PSRAM_BUSY` (`-5`, stage0, zero writes). No cache-bootstrap marker or
+downstream memory/DMA/LCD/touch acceptance was reached. The runner returned
+`FAIL / NOT DEMONSTRATED` and invoked reset to the preserved flash application.
+No flash image was written. Because this was not a physical power cycle and no
+call-time PSRAM register snapshot was captured, the result is only evidence of a
+safe refusal in the tested warm state; it is not cold-start evidence.
+
+Exact image, ELF, linker map, CMake cache and capture:
+[`default-product-option/`](../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/).

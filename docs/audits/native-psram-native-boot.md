@@ -115,7 +115,7 @@ is consistent with the refusal. The exact register snapshot at the failed call
 was not printed, so this is not claimed as a complete call-time diagnosis. The
 reset was not a physical power cycle and proves no cold-start behavior.
 Evidence and both images/logs are preserved in
-`../maia-rtos-recovery/native-psram-product-startup-refusal-20261118/`.
+`../../../maia-rtos-recovery/native-psram-product-startup-refusal-20261118/`.
 
 For a future automatic target run from a suitable ROM state, configure the prior
 LCD/input/profile prerequisites plus `MAIA_NATIVE_PROBE_PSRAM_BOOT=ON` and
@@ -128,3 +128,34 @@ is an unexecuted/failed acceptance case, never a reason to weaken guards.
 Continue remaining memory/driver work with this path explicitly unqualified.
 Full32MiB capacity, electrical/timing margins, fully independent CPU/cache startup,
 SMP/shared clients, native desktop and the rest of the drivers remain open.
+
+## Order correction and target result — 2026-11-19
+
+The diagnostic now calls `maia_esp32p4_psram_boot_initialize200` before
+`maia_esp32p4_psram_cache_boot`; the host capture validator requires that order.
+The RAM-loaded probe now always selects `linker.ld`, independently of the
+product XIP linker option. With the default product-XIP option enabled, the
+97,760-byte ESP32-P4 image passed `--validate-only` and the native runtime-symbol
+gate (project objects + libgcc; no foreign or unresolved symbols). The
+diagnostic translation unit uses `-Os` to fit the 160 KiB RAM-load window; a
+test-only freestanding `memcpy` resolves compiler-generated copies without
+linking libc.
+
+The 2026-11-19 warm-reset run on the Tab5 passed the preceding MIPI/VO3, DSI,
+ST7121/panel and DPI bridge checks, reached `DPI_FB_READY`, then printed
+`PSRAM_BOOT result=fffffffb stage=00000000 writes=00000000`
+(`MAIA_PSRAM_BUSY`, `-5`). It emitted no `DPI_FB_CACHE` marker and did not reach
+PSRAM memory transfer, DMA, LCD streaming or touch validation. The runner
+returned `FAIL / NOT DEMONSTRATED` and invoked its reset to the preserved flash
+application. This is a safe entry-guard refusal, not a cold-start pass.
+
+The run used a normal warm reset, not a physical power cycle, and did not print
+a call-time register snapshot. The separate prior warm-reset VO2 observation is
+consistent with this refusal but does not prove which predicate was decisive at
+the call. Keep the guards intact; cold PSRAM startup and the integrated
+framebuffer pipeline remain unqualified. Final default-option image SHA-256:
+`903234a96dbbb00a6458490e399c3fb52850786f016e45f820e0ba9cb67a0ecc`;
+capture SHA-256:
+`09d01cb73c0280f171a5aa567e10e814d219d39a51c9d46a1df6fe18fe865c21`.
+The final ELF, RAM image, map, CMake cache and UART capture are preserved in
+`../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/`.

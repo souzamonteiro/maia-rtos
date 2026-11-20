@@ -2131,3 +2131,25 @@ e [boot restaurado](../../../maia-rtos-recovery/native-product-touch-physical-20
 HARDWARE-TESTED limitado ao reset morno, ST7121 fw1 e teclado externo deste
 Tab5; boot frio, SMP, teclado no I²C de sistema, eventos sem perda e desktop
 nativo completo permanecem pendentes.
+
+## Probe nativo de cold boot PSRAM — 2026-11-19
+
+Corrigi a ordem do diagnóstico para executar `PSRAM_BOOT` antes de
+`DPI_FB_CACHE`; o teste host aceita a ordem correta e rejeita a inversa. O
+probe RAM foi recompilado com o linker de RAM, passou o gate de símbolos e a
+validação offline; a suíte host completa passou 86/86.
+
+No Tab5, a captura automática de reset morno passou MIPI/VO3, DSI,
+ST7121/power e bridge DPI, mas a inicialização nativa retornou
+`MAIA_PSRAM_BUSY` (`-5`), estágio0, zero escritas. Não houve marcador de cache
+nem execução de memória, DMA, stream LCD ou touch. O runner retornou
+`FAIL / NOT DEMONSTRATED` e acionou reset para o aplicativo em flash. Nenhuma
+imagem foi gravada na flash. Isso confirma a recusa segura no estado morno,
+não uma partida fria bem-sucedida; falta snapshot dos registradores no instante
+da chamada e nenhum ciclo físico de energia foi feito.
+
+Imagem final padrão (97.760 bytes, SHA-256
+`903234a96dbbb00a6458490e399c3fb52850786f016e45f820e0ba9cb67a0ecc`) e
+[captura/ELF/mapa/configuração](../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/).
+Continuar preservando as guards; aceitação de cold boot e pipeline completo
+PSRAM/LCD/touch permanecem pendentes.

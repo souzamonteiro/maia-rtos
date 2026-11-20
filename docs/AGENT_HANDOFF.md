@@ -1626,3 +1626,21 @@ report, backup and captures.
 This is not cold-start/PSRAM-array acceptance or a complete product linker:
 native PSRAM startup code still needs an SRAM-resident call graph, and product
 integration remains blocked on C++ runtime work in F1.
+
+## PSRAM boot-order follow-up — 2026-11-19
+
+The native framebuffer diagnostic now calls the composed PSRAM initializer
+before cache bootstrap. CMake keeps the `load_ram` probe on the RAM linker,
+independent of the product-XIP option. The updated probe builds, passes its
+runtime-symbol gate and RAM-image validation; host CTest is 86/86. A warm-reset
+device capture passed MIPI/DSI/panel/DPI setup, then returned
+`MAIA_PSRAM_BUSY` (`-5`, stage0,
+zero writes) before cache or framebuffer work. The runner reset to the flash
+application; no flash write or physical power cycle occurred. This is a
+guard-preserving refusal, not cold-start qualification, and the exact
+call-time register snapshot is still missing.
+
+See [native PSRAM boot audit](audits/native-psram-native-boot.md) and retained
+artifacts at `../../maia-rtos-recovery/native-psram-native-boot-order-20261119/`.
+Continue other driver work without weakening the entry guards; PSRAM cold
+startup and its LCD/touch pipeline remain unqualified.

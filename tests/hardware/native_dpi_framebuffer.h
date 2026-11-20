@@ -78,9 +78,7 @@ static void dpi_framebuffer(void){
 #ifdef MAIA_NATIVE_PROBE_LCD_STREAM
     frames=0; /* runtime session stopped by controller, not a frame batch */
 #endif
-    maia_psram_cache_report_t cache;maia_psram_result_t result=maia_esp32p4_psram_cache_boot(&cache);
-    field("DPI_FB_CACHE result=",(uint32_t)result);field(" stage=",cache.stage);field(" size=",cache.size);field(" line=",cache.line);maia_console_puts("\n");
-    if(result!=MAIA_PSRAM_OK)halt("fb-cache");
+    maia_psram_cache_report_t cache;maia_psram_result_t result;
 #ifdef MAIA_NATIVE_PROBE_PSRAM_BOOT
     maia_psram_boot_report_t boot;maia_psram_result_t booted=maia_esp32p4_psram_boot_initialize200(10000,&boot);
     field("PSRAM_BOOT result=",(uint32_t)booted);field(" stage=",boot.stage);field(" writes=",boot.writes);field(" supply_stage=",boot.supply.stage);field(" supply_writes=",boot.supply.writes);field(" adopted=",boot.supply.adopted);field(" dref=",boot.supply.dref);field(" mul=",boot.supply.mul);
@@ -89,7 +87,11 @@ static void dpi_framebuffer(void){
     maia_console_puts("\n");
     if(boot.stage>=5U)fb_mpll_report(boot.stage>=6U?MAIA_PSRAM_OK:booted,&boot.mpll);
     if(booted!=MAIA_PSRAM_OK)halt("fb-native-boot");
-#elif defined(MAIA_NATIVE_PROBE_PSRAM_SUPPLY)
+#endif
+    result=maia_esp32p4_psram_cache_boot(&cache);
+    field("DPI_FB_CACHE result=",(uint32_t)result);field(" stage=",cache.stage);field(" size=",cache.size);field(" line=",cache.line);maia_console_puts("\n");
+    if(result!=MAIA_PSRAM_OK)halt("fb-cache");
+#if defined(MAIA_NATIVE_PROBE_PSRAM_SUPPLY) && !defined(MAIA_NATIVE_PROBE_PSRAM_BOOT)
     maia_psram_supply_report_t supply;maia_psram_result_t supplied=maia_esp32p4_psram_supply1900(&supply);
     field("PSRAM_SUPPLY result=",(uint32_t)supplied);field(" stage=",supply.stage);field(" adopted=",supply.adopted);field(" writes=",supply.writes);field(" dref=",supply.dref);field(" mul=",supply.mul);
     for(unsigned i=0;i<2U;++i){field(i?" before1=":" before0=",supply.before[i]);field(i?" after1=":" after0=",supply.after[i]);}
