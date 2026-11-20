@@ -2256,6 +2256,12 @@ Este resultado supersede a afirmação anterior de que o caminho XIP/cache/MMU
 só havia sido executado no probe SRAM, mas vale apenas para um reset morno e
 para o caminho canônico do produto. O probe RAM-only continua recusando seu
 snapshot específico pelos guards `0x500`; nenhum guard foi alterado. Não houve
-observação visual, toque, boot a frio nem validação de conteúdo de framebuffer.
-Capturas, report e backup:
+toque, boot a frio nem validação de conteúdo de framebuffer neste primeiro
+boot. Capturas, report e backup:
 `../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/`.
+
+Uma segunda execução manteve o mesmo produto ativo por 60 s após `msh>`.
+O dono confirmou tela correta e estável, sem ciano, piscada ou artefatos
+visíveis; captura serial sem fatal, `probe_pass=true` e restauração verificada.
+Não houve interação touch nem boot a frio. Evidências:
+`../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/`.

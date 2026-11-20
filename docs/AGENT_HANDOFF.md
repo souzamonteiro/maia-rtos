@@ -1680,10 +1680,11 @@ passed the shell `qtest`, and reached `msh>` without fatal/stack-fault output.
 The runner restored the original app and verified its hash; see
 `../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/`.
 
-This is electronic warm-reset evidence only: no cold boot, user visual
-observation, or touch input test. The separate RAM-only PSRAM diagnostic still
-refuses its captured `0x500` entry guards; do not weaken them based on the
-different product startup path. A previous exploratory variant that added the
-probe-only smoke translation unit hit the SRAM assertion; the canonical target
-does not. Next: request the owner's visual observation of the product screen,
+This is warm-reset evidence. The owner then observed a second 60-second run and
+confirmed the screen was correct and stable, without cyan, flicker or visible
+artifacts. No touch input or cold boot was tested. The separate RAM-only PSRAM
+diagnostic still refuses its captured `0x500` entry guards; do not weaken them
+based on the different product startup path. A previous exploratory variant
+that added the probe-only smoke translation unit hit the SRAM assertion; the
+canonical target does not. Next: test touch interaction on this product image,
 then run cold-start/PSRAM and repeated-boot validation separately.

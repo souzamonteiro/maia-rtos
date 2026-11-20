@@ -2057,9 +2057,23 @@ see the [report](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1
 [product boot log](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/probe-boot-1.log)
 and [restore log](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/restore-boot.log).
 
-This is one electronic warm-reset boot only. No cold boot or visual observation
-was performed, and “service ready” is not proof of visible pixels or working
-touch input. It does establish that the canonical product's current native
-cache/PSRAM initialization path reaches the shell on this warm-reset state;
-the separate RAM-only probe's guarded refusal remains valid for its different
-entry snapshot.
+This first pass was one electronic warm-reset boot; it did not include visual
+observation or touch input. A second warm-reset boot with a 60-second visual
+observation is recorded next. The first pass establishes that the canonical
+product's current native cache/PSRAM initialization path reaches the shell on
+this warm-reset state; the separate RAM-only probe's guarded refusal remains
+valid for its different entry snapshot.
+
+### Owner visual observation — 60 seconds
+
+A second run used the same image and recovery runner with
+`--observe-seconds 60`. The owner reported the screen was correct and stable,
+with no cyan screen, flicker or visible artifacts throughout the observation.
+Serial capture again reached `msh>` without fatal/stack-fault output. The runner
+restored the original app and verified the same backup SHA-256. Report and
+captures are in
+[the visual-run directory](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/);
+see the [report](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/report.json)
+and [product log](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/probe-boot-1.log).
+This remains a warm-reset visual check only; no touch input or cold boot was
+tested.
