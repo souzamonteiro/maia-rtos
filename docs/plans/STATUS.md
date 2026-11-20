@@ -1632,7 +1632,8 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   `libc.a` confirms the default no-op `libc_a-lock.o` is not extracted because
   Maia supplies both the callbacks and Newlib's static lock symbols. The
   isolated Tab5 runtime probe now exercises contended `std::mutex` lock/unlock;
-  full-product integration is still pending.
+  the canonical product XIP target also linked with this backend on 20/11;
+  device boot acceptance remains pending.
 - Newlib heap bridge: `runtime/newlib_heap.c` routes global and reentrant
   `malloc/free/calloc/realloc` calls to the Maia allocator, serializes access
   with Newlib's recursive malloc lock, and reports allocation failures through
@@ -1641,17 +1642,18 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   zeroing, alignment-sized capacity, data preservation, OOM behavior and
   freeing; CTest passes 80/80. The allocator and shell C++ translation unit
   compile for RV32. The isolated Tab5 probe exercised `calloc/realloc/free`;
-  full-product integration remains pending. Shell-local `malloc/free` shims
-  were removed so C++ uses the same runtime heap.
+  the canonical product XIP target linked with the heap bridge on 20/11.
+  Device boot acceptance remains pending. Shell-local `malloc/free` shims were
+  removed so C++ uses the same runtime heap.
 - Per-task Newlib reentrancy: `runtime/newlib_reent.c` now provides
   `__getreent()` with isolated state for each Maia task and a separate
   boot/idle slot. The scheduler reclaims Newlib state when a task entry returns.
   Host tests cover slot isolation, stable pointers and reclaim/reinitialization;
   RV32 compilation passes. The isolated Tab5 runtime probe confirmed distinct
   task `errno`/`__getreent()` state in two workers over four warm-reset boots.
-  Slot reuse/reinitialization after task-ID recycling remains untested, and
-  linking the full product with these runtime changes remains pending; the
-  earlier product image preflight did not include this smoke integration.
+  The canonical product XIP target also linked and packaged with this runtime
+  on 20/11. Slot reuse/reinitialization after task-ID recycling and product
+  device boot remain untested.
 - Gthread mutex bridge: `runtime/gthread.c` exports pthread mutex
   init/destroy/lock/trylock/unlock over Maia mutexes, supports default
   attributes and lazily registers static mutexes by address, and reports
@@ -1659,8 +1661,9 @@ and otherdrivers remainopen. No shell/MaiaScript parser/EBNF/MaiaCC changes.
   static/dynamic mutexes, contention/yield, self-lock, invalid unlock and
   destroy-while-locked. The RV32 object exports the expected pthread symbols.
   The isolated device probe exercised contended `std::mutex`, task-specific
-  keys and destructors on task return; `std::thread`, ELF TLS and linking the
-  full product with these runtime changes remain pending.
+  keys and destructors on task return; the canonical product XIP target linked
+  and packaged on 20/11. `std::thread`, ELF TLS and product device boot remain
+  pending.
 - Full-product flash-XIP image preflight (2026-11-18): the complete
   `maia_m0.elf` links when `MAIA_USE_FLASH_PRODUCT_LINKER=ON`; the explicit
   non-XIP SRAM-linker configuration still overflows. The initial `esptool elf2image` attempt exposed two
@@ -2201,11 +2204,33 @@ encontrou FreeRTOS.
 
 Escopo limitado: o caminho de leitura com dados não foi exercitado no device;
 `thread_local`/ELF TLS, construtores/guards C++, reuso da slot `reent` após
-reciclagem de ID e `std::thread` não foram validados. O link do produto completo
-continua pendente: a tentativa exploratória atingiu a asserção de residência
-SRAM de `maia_esp32p4_psram_cache_adopt`, sem enfraquecer o guard. Nenhuma
-validação de display, touch ou PSRAM decorre deste teste.
+reciclagem de ID e `std::thread` não foram validados. A tentativa exploratória
+de incluir o smoke translation unit no ELF do produto atingiu a asserção de
+residência SRAM de `maia_esp32p4_psram_cache_adopt`, sem enfraquecer o guard;
+o alvo canônico do produto foi linkado e empacotado com sucesso em 20/11
+(detalhes abaixo). Nenhuma validação de boot do produto, display, touch ou
+PSRAM decorre deste smoke.
 
 Imagem, capturas, backup e relatório:
 `../../maia-rtos-recovery/native-f1-runtime-probe-repeat-20261120/`.
 Detalhes em [EVIDENCE.md](../hardware/EVIDENCE.md).
+
+## Link XIP canônico do produto com runtime F1 — 2026-11-20
+
+`cmake --build /tmp/maia-rtos-f1-runtime --target maia_m0_image -j4` passou:
+`maia_m0.elf` linkou com Newlib/gthread e o alvo empacotou/validou a imagem
+ESP32-P4. Binário de 804.144 bytes, entry `0x40000020`, cinco segmentos,
+descriptor `0x400B0020`, checksum/hash válidos; SHA-256
+`e9615cf79c2f1c910bbc5581896b8bd7f4db832a2f223081554850e44ca97f3d`.
+O ELF contém `__getreent`, `_read`, `_write`, `clock_gettime`, `nanosleep` e
+`pthread_mutex_lock`; `maia_esp32p4_psram_cache_adopt` está em `0x4ff03b1c`,
+dentro da SRAM interna. Busca rápida por nomes FreeRTOS comuns não encontrou
+correspondências; a auditoria final continua pendente.
+
+A imagem e o relatório estão em
+`../../maia-rtos-recovery/native-product-xip-link-20261120/`. Não foi gravada
+nem inicializada no device. A tentativa anterior que injetava o smoke
+probe-only no ELF do produto falhou nessa asserção; o build canônico atual
+passa sem alterar o guard. Próximo: boot controlado do produto com backup e
+restauração verificada; cold boot/PSRAM, display e touch continuam fora desta
+validação.

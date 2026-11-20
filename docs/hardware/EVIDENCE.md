@@ -1986,10 +1986,12 @@ was not tested on the device, and filesystem-related syscall stubs and broader
 syscall error paths remain unvalidated. This does not
 validate compiler `thread_local`/ELF TLS, C++ static constructors or guard
 variables, `std::thread`, or reent slot reuse after task-ID recycling. An
-exploratory attempt to include the smoke test in the full product ELF stopped
-at the linker assertion `PSRAM cache adoption must execute from internal
-SRAM`; the guard was not changed. Linking the full product with the current
-runtime changes, cold boot, display, touch and PSRAM acceptance remain open.
+earlier exploratory variant that included the probe-only smoke source in the
+product ELF stopped at the linker assertion
+`PSRAM cache adoption must execute from internal SRAM`; the guard was not
+changed. The canonical product target with its normal runtime sources now
+links and packages successfully, as recorded below; product device boot, cold
+boot, display, touch and PSRAM acceptance remain open.
 
 Build command from the repository root:
 
@@ -1997,3 +1999,35 @@ Build command from the repository root:
 cmake --build /tmp/maia-rtos-f1-probe \
   --target maia_f1_runtime_probe_image maia_f0_flash_probe_image -j4
 ```
+
+## Canonical product XIP link with F1 runtime — 2026-11-20
+
+The normal product target, whose source list includes `newlib_locks`,
+`newlib_heap`, `newlib_reent`, `newlib_syscalls` and `gthread`, now builds and
+packages successfully:
+
+```sh
+cmake --build /tmp/maia-rtos-f1-runtime --target maia_m0_image -j4
+```
+
+`maia_m0.elf` linked with `MAIA_USE_FLASH_PRODUCT_LINKER=ON`; the
+`maia_m0_image` target passed esptool 4.12.0 and
+`f0_flash_image_test.py`. The image is 804,144 bytes, entry `0x40000020`,
+five segments, app descriptor `0x400B0020`, valid checksum/hash, validation
+hash `99a22f67d9697c839ac949daeafb326391d4ccf29227620b67489a5fe821d650`.
+Image SHA-256:
+`e9615cf79c2f1c910bbc5581896b8bd7f4db832a2f223081554850e44ca97f3d`.
+ELF inspection confirms `__getreent`, `_read`, `_write`, `clock_gettime`,
+`nanosleep` and `pthread_mutex_lock`; the guarded
+`maia_esp32p4_psram_cache_adopt` symbol is at `0x4ff03b1c` in internal SRAM.
+A quick symbol-name scan for common FreeRTOS names found no matches, but the
+comprehensive final product audit remains pending.
+
+The exact image and build report are preserved in
+[the recovery directory](../../../maia-rtos-recovery/native-product-xip-link-20261120/).
+No image was flashed and no device boot was performed. An earlier exploratory
+variant that added the probe-only smoke source to the product ELF hit the
+`PSRAM cache adoption must execute from internal SRAM` assertion; the
+canonical product source list now links without changing that guard. This
+build proves link and image packaging only, not device boot, cold PSRAM, LCD,
+touch or full-runtime acceptance.

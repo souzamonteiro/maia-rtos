@@ -75,15 +75,16 @@ boot frio e recuperação segura de falhas continuam pendentes.
 ## F1 — Biblioteca C/C++ sobre o kernel
 
 - [x] Mutex do kernel protege aquisição/liberação contra preempção local (host tests + compilação RV32, 18/11)
-- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32 e contenção `std::mutex` no probe; link do produto pendente)
-- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32 e `calloc/realloc/free` no probe; link do produto pendente)
+- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32, contenção `std::mutex` no probe e link do produto XIP, 20/11)
+- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32, chamadas no probe e link do produto XIP, 20/11)
 - [x] Smoke de runtime Newlib/gthread no Tab5: quatro boots por reset morno passaram; runner restaurou o app original e verificou o hash (sem display/PSRAM)
 - [x] Syscalls/heap/tempo no device: libc `write`, `read` sem dados (`EAGAIN`), `clock_gettime`, `nanosleep`, `calloc/realloc/free`; leitura positiva não testada no device
 - [x] `reent` por tarefa: `errno` isolado e ponteiros `__getreent()` distintos em dois workers; reciclagem/reinicialização de slot ainda pendente
 - [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
 - [ ] Construtores estáticos e guardas de inicialização C++ no device
 - [ ] TLS de compilador (`thread_local`/ELF TLS); as chaves pthread testadas não significam TLS ELF
-- [ ] Link do produto com o runtime F1 atual e aceitação XIP completa; tentativa exploratória parou no guard SRAM de `maia_esp32p4_psram_cache_adopt`
+- [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; sem boot do produto no device)
+- [ ] Boot/aceitação do produto XIP no device; imagem de teste salva em `maia-rtos-recovery/native-product-xip-link-20261120/`
 - [ ] Auditoria final de símbolos FreeRTOS no ELF do produto (o scan sem FreeRTOS foi apenas no probe F1)
 
 ## F2 — Armazenamento

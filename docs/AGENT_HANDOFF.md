@@ -1670,8 +1670,12 @@ See [F1 evidence](hardware/EVIDENCE.md) and
 
 Do not treat this as compiler `thread_local`/ELF TLS, C++ constructor/guard,
 positive serial-read, task-ID slot-reuse, `std::thread`, or full-product
-acceptance. The exploratory full-product smoke link hit the existing
-`PSRAM cache adoption must execute from internal SRAM` assertion; the guard was
-not changed. Next: investigate that SRAM closure separately, then validate
-the full product runtime without inferring display/PSRAM acceptance from this
-probe.
+acceptance. The canonical `maia_m0_image` product target has now linked and
+passed structural packaging with the current Newlib/gthread sources; image and
+report are at
+`../../maia-rtos-recovery/native-product-xip-link-20261120/`. The preserved
+image has not been flashed or booted. A previous exploratory variant that
+added the probe-only smoke translation unit hit the SRAM assertion; do not
+weaken the guard. Next: perform a controlled product boot with backup and
+verified restore, then report only serial/boot facts observed; no cold PSRAM,
+display or touch acceptance is implied.
