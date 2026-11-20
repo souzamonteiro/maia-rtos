@@ -2025,9 +2025,41 @@ comprehensive final product audit remains pending.
 
 The exact image and build report are preserved in
 [the recovery directory](../../../maia-rtos-recovery/native-product-xip-link-20261120/).
-No image was flashed and no device boot was performed. An earlier exploratory
-variant that added the probe-only smoke source to the product ELF hit the
+The link-only run did not flash the image; its subsequent controlled warm-reset
+boot is recorded below. An earlier exploratory variant that added the probe-only
+smoke source to the product ELF hit the
 `PSRAM cache adoption must execute from internal SRAM` assertion; the
-canonical product source list now links without changing that guard. This
-build proves link and image packaging only, not device boot, cold PSRAM, LCD,
-touch or full-runtime acceptance.
+canonical product source list now links without changing that guard.
+
+## Canonical product XIP warm-reset boot — 2026-11-20
+
+The preserved 804,144-byte product image was run once through
+`tests/hardware/run_f0_flash_probe.py` on `/dev/cu.usbmodem1301`, using marker
+`msh>`. The runner read and validated the original factory app, confirmed
+coverage before writing at `0x10000`, captured 20 seconds, then restored the
+backup and verified its hash. The report says `probe_pass=true`,
+`restore_verified=true`, one boot with marker and no fatal, and original app
+SHA-256 `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+
+The warm-reset UART log reached the native cache/PSRAM sequence:
+`cache_adopt`, snapshot, `xtal20_start`, `x8_mode`, `fast_start`,
+`window_start` and `window_sync` all returned 0. It then reported the native
+LCD service ready on its PSRAM framebuffer and the ST7121 touch service ready.
+The scheduler started its three tasks; shell automatic self-test passed
+`qtest` (mutex, semaphore and queue), then reached `msh>`. No
+`MAIA_NATIVE_FATAL` or `MAIA_STACK_FAULT` was present.
+
+The restore capture returned to the original app, reached `msh>`, loaded
+`/sd/desktop.mobj` and applied `/sd/wallpaper.raw`. Report, original backup,
+product capture and restore capture are in
+[the recovery directory](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/);
+see the [report](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/report.json),
+[product boot log](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/probe-boot-1.log)
+and [restore log](../../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/restore-boot.log).
+
+This is one electronic warm-reset boot only. No cold boot or visual observation
+was performed, and “service ready” is not proof of visible pixels or working
+touch input. It does establish that the canonical product's current native
+cache/PSRAM initialization path reaches the shell on this warm-reset state;
+the separate RAM-only probe's guarded refusal remains valid for its different
+entry snapshot.

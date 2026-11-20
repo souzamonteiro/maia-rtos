@@ -62,13 +62,14 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Integrar o serviço de touch no produto XIP: dono confirmou cantos, arraste, soltura, teclado e ausência de piscada/faixa; boot e restauração verificados (19/11; reset morno, ST7121 fw1)
 - [x] Integrar no produto o refresh/framebuffer nativo (double buffering observado sem piscada ao teclar e sem faixa inferior; 19/11)
 - [x] Integrar no produto o serviço de touch ST7121 fw1 (validação física limitada, 19/11); PSRAM a frio e handoff cache/MMU continuam pendentes
-- [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
+- [x] Linker XIP do produto com closure crítica da PSRAM em SRAM; endereço do `cache_adopt` verificado e imagem aceita (20/11; boot morno, não qualifica cold boot)
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
 - [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU
-- [ ] Inicialização nativa da PSRAM — probe RAM-only recusou o estado após reset normal (`BUSY`, estágio 0, 0 escritas de boot); repetição com a mesma imagem confirmou a recusa, tela preta e retorno ao desktop observado pelo dono, sem chegar ao framebuffer (18/11). Snapshot separado mostrou VO2 habilitado (`0x501151d0 & 0x100`), incompatível com a entrada ROM exigida. Não é teste a frio
-  - [x] Instrumentar a recusa com snapshot no instante da chamada e bitmask dos guards; teste host 86/86 e captura de 20/11 identificaram `VO2_ENABLED` + `DIVIDER_NOT_XTAL` (`0x500`). A inicialização e o cold boot seguem pendentes.
-- [ ] Inicialização do produto XIP após cache/MMU — cache bootstrap ainda só foi executado no probe integralmente residente em SRAM
-- [ ] LCD, touch e console como serviços do kernel (fim das opções de teste encadeadas)
+- [x] Inicialização nativa da PSRAM no produto XIP após reset morno: cache-adopt, clock/modo e window-sync retornaram 0; serviço LCD anunciou framebuffer PSRAM pronto (20/11). Cold boot e validação visual/de dados ainda pendentes.
+  - [x] Probe RAM-only separado continua recusando aquele snapshot (`VO2_ENABLED` + `DIVIDER_NOT_XTAL`, `0x500`); guard preservado. Não substitui o resultado do caminho canônico do produto nem é teste a frio.
+- [x] Boot do produto XIP após cache/MMU: serviços LCD e touch iniciados, self-test do shell (`qtest`) passou e chegou a `msh>`; um reset morno, backup/restauração verificados (20/11).
+- [x] LCD, touch e console inicializados como serviços do produto; interação touch e observação visual não foram feitas neste boot.
+- [ ] Observação visual do boot XIP atual e teste de interação touch
 - [x] Gravação com verificação e restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)
 - [ ] Boot a frio repetido no device (10×) sem falha
 
@@ -84,7 +85,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [ ] Construtores estáticos e guardas de inicialização C++ no device
 - [ ] TLS de compilador (`thread_local`/ELF TLS); as chaves pthread testadas não significam TLS ELF
 - [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; sem boot do produto no device)
-- [ ] Boot/aceitação do produto XIP no device; imagem de teste salva em `maia-rtos-recovery/native-product-xip-link-20261120/`
+- [x] Boot eletrônico/aceitação básica do produto XIP no device: imagem em `maia-rtos-recovery/native-product-xip-link-20261120/`; captura/restauração em `native-product-xip-smoke-20261120-1218/`
 - [ ] Auditoria final de símbolos FreeRTOS no ELF do produto (o scan sem FreeRTOS foi apenas no probe F1)
 
 ## F2 — Armazenamento

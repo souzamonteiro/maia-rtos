@@ -1674,8 +1674,16 @@ acceptance. The canonical `maia_m0_image` product target has now linked and
 passed structural packaging with the current Newlib/gthread sources; image and
 report are at
 `../../maia-rtos-recovery/native-product-xip-link-20261120/`. The preserved
-image has not been flashed or booted. A previous exploratory variant that
-added the probe-only smoke translation unit hit the SRAM assertion; do not
-weaken the guard. Next: perform a controlled product boot with backup and
-verified restore, then report only serial/boot facts observed; no cold PSRAM,
-display or touch acceptance is implied.
+image then booted once on the Tab5 after a warm reset. It reported successful
+cache/PSRAM startup through `window_sync`, LCD and ST7121 touch service startup,
+passed the shell `qtest`, and reached `msh>` without fatal/stack-fault output.
+The runner restored the original app and verified its hash; see
+`../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/`.
+
+This is electronic warm-reset evidence only: no cold boot, user visual
+observation, or touch input test. The separate RAM-only PSRAM diagnostic still
+refuses its captured `0x500` entry guards; do not weaken them based on the
+different product startup path. A previous exploratory variant that added the
+probe-only smoke translation unit hit the SRAM assertion; the canonical target
+does not. Next: request the owner's visual observation of the product screen,
+then run cold-start/PSRAM and repeated-boot validation separately.

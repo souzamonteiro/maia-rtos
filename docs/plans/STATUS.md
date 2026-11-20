@@ -2229,8 +2229,33 @@ correspondências; a auditoria final continua pendente.
 
 A imagem e o relatório estão em
 `../../maia-rtos-recovery/native-product-xip-link-20261120/`. Não foi gravada
-nem inicializada no device. A tentativa anterior que injetava o smoke
+nem inicializada no device durante a validação de link; o boot controlado
+posterior está registrado abaixo. A tentativa anterior que injetava o smoke
 probe-only no ELF do produto falhou nessa asserção; o build canônico atual
-passa sem alterar o guard. Próximo: boot controlado do produto com backup e
-restauração verificada; cold boot/PSRAM, display e touch continuam fora desta
-validação.
+passa sem alterar o guard. O boot controlado com backup e restauração verificada
+está descrito abaixo; observação visual, cold boot/PSRAM e interação touch
+continuam pendentes.
+
+## Boot morno do produto XIP no Tab5 — 2026-11-20
+
+O runner `run_f0_flash_probe.py` fez backup e validação da app original,
+gravou a imagem canônica no offset `0x10000`, capturou um boot pelo marcador
+`msh>` e restaurou a app com hash verificado. Resultado: `probe_pass=true`,
+`restore_verified=true`, marker presente e `fatal=false`; SHA-256 da app
+restaurada `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+
+No boot morno, `cache_adopt`, snapshot, `xtal20_start`, `x8_mode`,
+`fast_start`, `window_start` e `window_sync` reportaram resultado zero. Os
+serviços nativos LCD/framebuffer PSRAM e touch ST7121 anunciaram inicialização;
+as três tarefas do scheduler iniciaram, o self-test de mutex/semaphore/queue
+passou e o shell chegou a `msh>`. A captura não contém fatal nem stack fault.
+O boot restaurado alcançou a app original, carregou `desktop.mobj` e aplicou
+`wallpaper.raw`.
+
+Este resultado supersede a afirmação anterior de que o caminho XIP/cache/MMU
+só havia sido executado no probe SRAM, mas vale apenas para um reset morno e
+para o caminho canônico do produto. O probe RAM-only continua recusando seu
+snapshot específico pelos guards `0x500`; nenhum guard foi alterado. Não houve
+observação visual, toque, boot a frio nem validação de conteúdo de framebuffer.
+Capturas, report e backup:
+`../../maia-rtos-recovery/native-product-xip-smoke-20261120-1218/`.
