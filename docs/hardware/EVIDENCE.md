@@ -1944,3 +1944,56 @@ directory, the target run was
 `run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image maia_sched_probe_ram.bin --log native-psram-entry-hardware.log --capture-seconds 30 --psram-native-boot`;
 it returned the expected `FAIL / NOT DEMONSTRATED` because the native
 initializer safely refused this warm entry.
+
+## F1 Newlib/gthread runtime smoke — 2026-11-20
+
+The separate `maia_f1_runtime_probe_image` target uses the Maia scheduler,
+1 kHz SYSTIMER, console and Newlib/gthread runtime; it does not initialize the
+display, touch or PSRAM. Two worker tasks each run eight rounds. They verify
+task-local `errno` against distinct `__getreent()` pointers, call
+`clock_gettime(CLOCK_MONOTONIC)` and `nanosleep`, contend on `std::mutex` while
+delaying inside the critical section, exercise `calloc/realloc/free`, and
+set/get separate `pthread_key_t` values. Key destructors are checked on task
+return. The report task verifies that an empty libc `read(STDIN_FILENO)` returns
+`EAGAIN`, then emits the result using libc `write`.
+
+The 102,752-byte P4 image (entry `0x40000020`) passed esptool 4.12.0 packaging
+and the image structural/SRAM-window validator (`0x4FF00000..0x4FF28000`).
+The linked-symbol scan found the expected Newlib/gthread/time functions and no
+FreeRTOS symbols. Image SHA-256:
+`a7c0048c6edcebf7a787a893f68a36dcd164cc3884f368b27807fbbe5e9e42f8`.
+
+The initial Tab5 boot and a separate three-boot repeat all emitted
+`MAIA_F1_RUNTIME_PASS`; none had a fatal/stack-fault marker. Both runs restored
+and verified the original app backup. Its SHA-256 is
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`; the
+restore capture reached `msh>` and loaded `desktop.mobj`. The repeat report,
+image, captures and backup are in
+[the recovery directory](../../../maia-rtos-recovery/native-f1-runtime-probe-repeat-20261120/);
+see its [report](../../../maia-rtos-recovery/native-f1-runtime-probe-repeat-20261120/report.json)
+and [restore capture](../../../maia-rtos-recovery/native-f1-runtime-probe-repeat-20261120/restore-boot.log).
+The initial single-boot artifacts are in
+[the initial recovery directory](../../../maia-rtos-recovery/native-f1-runtime-probe-20261120/).
+
+Host `newlib_syscalls_test`, `newlib_reent_test` and `gthread_test` passed (3/3).
+Both `maia_f1_runtime_probe_image` and the existing `maia_f0_flash_probe_image`
+packaged and passed structural validation. `flash_boot_probe.ld` now defines
+explicit flash/SRAM program headers and collects C++ exception tables into
+DROM, needed for this C++ runtime probe.
+
+Limits: hardware exercised only the no-input `_read` case; successful input
+was not tested on the device, and filesystem-related syscall stubs and broader
+syscall error paths remain unvalidated. This does not
+validate compiler `thread_local`/ELF TLS, C++ static constructors or guard
+variables, `std::thread`, or reent slot reuse after task-ID recycling. An
+exploratory attempt to include the smoke test in the full product ELF stopped
+at the linker assertion `PSRAM cache adoption must execute from internal
+SRAM`; the guard was not changed. Linking the full product with the current
+runtime changes, cold boot, display, touch and PSRAM acceptance remain open.
+
+Build command from the repository root:
+
+```sh
+cmake --build /tmp/maia-rtos-f1-probe \
+  --target maia_f1_runtime_probe_image maia_f0_flash_probe_image -j4
+```

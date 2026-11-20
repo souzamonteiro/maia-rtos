@@ -75,14 +75,16 @@ boot frio e recuperação segura de falhas continuam pendentes.
 ## F1 — Biblioteca C/C++ sobre o kernel
 
 - [x] Mutex do kernel protege aquisição/liberação contra preempção local (host tests + compilação RV32, 18/11)
-- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32, seleção do objeto e link completo; validação no device pendente)
-- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32 e link completo; validação no device pendente)
-- 🔧 Integrar e validar o runtime Newlib no device (boot C++/shell e autoteste básico passaram; faltam testes específicos de syscalls, TLS e gthread)
-- 🔧 Chamadas de sistema (`_write`, `_read`, heap e tempo; implementação linkada, validação no device pendente)
-- 🔧 Contexto `reent` por tarefa (implementado, testado no host e linkado no ELF; validação no device pendente)
-- 🔧 Construtores globais e guardas de inicialização C++ (backend linkado; validação no device pendente)
-- 🔧 `std::mutex` / gthread nativo (backend implementado, testado no host e linkado no ELF; validação no device pendente)
-- 🔧 Smoke test C++ do shell no device passou; testes específicos de C/C++, TLS/gthread e auditoria de símbolos FreeRTOS continuam pendentes
+- [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32 e contenção `std::mutex` no probe; link do produto pendente)
+- [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32 e `calloc/realloc/free` no probe; link do produto pendente)
+- [x] Smoke de runtime Newlib/gthread no Tab5: quatro boots por reset morno passaram; runner restaurou o app original e verificou o hash (sem display/PSRAM)
+- [x] Syscalls/heap/tempo no device: libc `write`, `read` sem dados (`EAGAIN`), `clock_gettime`, `nanosleep`, `calloc/realloc/free`; leitura positiva não testada no device
+- [x] `reent` por tarefa: `errno` isolado e ponteiros `__getreent()` distintos em dois workers; reciclagem/reinicialização de slot ainda pendente
+- [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
+- [ ] Construtores estáticos e guardas de inicialização C++ no device
+- [ ] TLS de compilador (`thread_local`/ELF TLS); as chaves pthread testadas não significam TLS ELF
+- [ ] Link do produto com o runtime F1 atual e aceitação XIP completa; tentativa exploratória parou no guard SRAM de `maia_esp32p4_psram_cache_adopt`
+- [ ] Auditoria final de símbolos FreeRTOS no ELF do produto (o scan sem FreeRTOS foi apenas no probe F1)
 
 ## F2 — Armazenamento
 

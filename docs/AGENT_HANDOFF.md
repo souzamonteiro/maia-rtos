@@ -1656,3 +1656,22 @@ The runner reset to the preserved flash application without writing flash.
 This diagnoses the warm-state refusal only; do not weaken the guards or claim
 cold PSRAM, memory, DMA, LCD or touch acceptance. Artifacts:
 `../../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/`.
+
+## F1 Newlib/gthread device smoke — 2026-11-20
+
+`maia_f1_runtime_probe_image` is a separate flash probe, not the full product.
+On the Tab5 it exercised libc `write`, empty `read`/`EAGAIN`, monotonic time,
+`nanosleep`, heap calls, task-local `errno`/`__getreent`, contended
+`std::mutex`, pthread keys and task-return destructors. One initial and three
+repeat warm-reset boots passed; the original app backup was restored and
+verified, with the restored log reaching `msh>` and `desktop.mobj`.
+See [F1 evidence](hardware/EVIDENCE.md) and
+`../../maia-rtos-recovery/native-f1-runtime-probe-repeat-20261120/`.
+
+Do not treat this as compiler `thread_local`/ELF TLS, C++ constructor/guard,
+positive serial-read, task-ID slot-reuse, `std::thread`, or full-product
+acceptance. The exploratory full-product smoke link hit the existing
+`PSRAM cache adoption must execute from internal SRAM` assertion; the guard was
+not changed. Next: investigate that SRAM closure separately, then validate
+the full product runtime without inferring display/PSRAM acceptance from this
+probe.

@@ -138,6 +138,42 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
   )
 
+  add_executable(maia_f1_runtime_probe.elf
+    arch/riscv/start.S
+    arch/riscv/trap_context.S
+    soc/espressif/esp32p4/soc_early_init.c
+    soc/espressif/esp32p4/soc_console.c
+    soc/espressif/esp32p4/soc_serial_rx.c
+    soc/espressif/esp32p4/soc_serial_tx.c
+    soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_panic.c
+    arch/riscv/stack.c
+    kernel/kmem.c
+    kernel/ksync.c
+    kernel/ksched.c
+    runtime/newlib_locks.c
+    runtime/newlib_heap.c
+    runtime/newlib_reent.c
+    runtime/newlib_syscalls.c
+    runtime/gthread.c
+    boards/m5stack/tab5/app_desc.c
+    tests/hardware/native_f1_runtime_boot.c
+    tests/hardware/native_f1_runtime_smoke.cpp
+  )
+  target_include_directories(maia_f1_runtime_probe.elf PRIVATE include)
+  target_compile_definitions(maia_f1_runtime_probe.elf PRIVATE
+    MAIA_FLASH_PROBE_RECOVERABLE=1
+  )
+  target_compile_options(maia_f1_runtime_probe.elf PRIVATE -Wall -Wextra -O2)
+  target_link_options(maia_f1_runtime_probe.elf PRIVATE
+    "-T${MAIA_F0_FLASH_LINKER_SCRIPT}"
+    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_f1_runtime_probe.map"
+  )
+  target_link_libraries(maia_f1_runtime_probe.elf PRIVATE stdc++ c m gcc)
+  set_target_properties(maia_f1_runtime_probe.elf PROPERTIES
+    LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
+  )
+
   # Independent scheduler diagnostic; does not link the shell/vendor platform.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(MAIA_ESPTOOL_EXECUTABLE "" CACHE FILEPATH "Standalone esptool.py executable for native image packaging")
@@ -188,6 +224,27 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       VERBATIM
     )
     add_custom_target(maia_f0_flash_probe_image DEPENDS "${MAIA_F0_FLASH_PROBE_IMAGE}")
+
+    set(MAIA_F1_RUNTIME_PROBE_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f1_runtime_probe.bin")
+    add_custom_command(
+      OUTPUT "${MAIA_F1_RUNTIME_PROBE_IMAGE}"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 elf2image
+        --flash_mode dio
+        --flash_freq 80m
+        --flash_size 16MB
+        --flash-mmu-page-size 64KB
+        --output "${MAIA_F1_RUNTIME_PROBE_IMAGE}"
+        "$<TARGET_FILE:maia_f1_runtime_probe.elf>"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 image_info
+        "${MAIA_F1_RUNTIME_PROBE_IMAGE}"
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+        "${MAIA_F1_RUNTIME_PROBE_IMAGE}" --sram-window 0x4FF00000:0x4FF28000
+      DEPENDS maia_f1_runtime_probe.elf
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+      VERBATIM
+    )
+    add_custom_target(maia_f1_runtime_probe_image DEPENDS "${MAIA_F1_RUNTIME_PROBE_IMAGE}")
 
     add_executable(maia_f0_kernel_psram_probe.elf
       arch/riscv/start.S

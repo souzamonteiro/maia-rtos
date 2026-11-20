@@ -14,6 +14,13 @@ MEMORY
     SRAM_LOW   (rwx) : ORIGIN = 0x4FF00000, LENGTH = 0x28000
 }
 
+PHDRS
+{
+    flash_text PT_LOAD FLAGS(5);
+    flash_rodata PT_LOAD FLAGS(4);
+    sram_data PT_LOAD FLAGS(6);
+}
+
 SECTIONS
 {
     .flash.text ORIGIN(FLASH_IROM) : SUBALIGN(16)
@@ -27,14 +34,14 @@ SECTIONS
         . += 16;
         . = ALIGN(16);
         _text_end = ABSOLUTE(.);
-    } > FLASH_IROM
+    } > FLASH_IROM :flash_text
 
     .flash_rodata_dummy ORIGIN(FLASH_DROM) (NOLOAD) : SUBALIGN(16)
     {
         _flash_rodata_dummy_start = ABSOLUTE(.);
         . = ALIGN(ALIGNOF(.flash.text)) + SIZEOF(.flash.text);
         . = ALIGN(0x10000) + 0x20;
-    } > FLASH_DROM
+    } > FLASH_DROM :NONE
 
     .flash.appdesc : ALIGN(16)
     {
@@ -42,7 +49,7 @@ SECTIONS
         KEEP(*(.rodata_desc .rodata_desc.*))
         KEEP(*(.rodata_custom_desc .rodata_custom_desc.*))
         . = ALIGN(16);
-    } > FLASH_DROM
+    } > FLASH_DROM :flash_rodata
 
     .flash.rodata : ALIGN(16)
     {
@@ -50,9 +57,10 @@ SECTIONS
         KEEP(*(.flash.rodata))
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
+        *(.gcc_except_table .gcc_except_table.*)
         . = ALIGN(16);
         _flash_rodata_end = ABSOLUTE(.);
-    } > FLASH_DROM
+    } > FLASH_DROM :flash_rodata
 
     ASSERT(ADDR(.flash.rodata) == ADDR(.flash.appdesc) + SIZEOF(.flash.appdesc),
            "Application descriptor must be contiguous with DROM read-only data")
@@ -66,7 +74,7 @@ SECTIONS
         *(.sdata .sdata.*)
         . = ALIGN(16);
         _data_end = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     .bss (NOLOAD) : ALIGN(16)
     {
@@ -77,7 +85,7 @@ SECTIONS
         *(COMMON)
         . = ALIGN(16);
         __bss_end = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     .stack (NOLOAD) : ALIGN(16)
     {
@@ -85,7 +93,7 @@ SECTIONS
         . += 16384;
         . = ALIGN(16);
         __stack_top = ABSOLUTE(.);
-    } > SRAM_LOW
+    } > SRAM_LOW :sram_data
 
     /DISCARD/ :
     {
