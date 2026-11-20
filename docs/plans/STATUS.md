@@ -2439,3 +2439,21 @@ O próximo passo é levantar e portar a alimentação, pinagem, clock e transpor
 SDMMC nativos, com comandos e testes de leitura delimitados. Ver
 [evidências](../hardware/EVIDENCE.md) e
 [questões de hardware](../hardware/OPEN_QUESTIONS.md).
+
+## F2 observação SDMMC no Tab5 — 2026-11-20
+
+Uma sonda independente, carregada em RAM, observou duas vezes o estado de VO4,
+os pinos e o controlador SDMMC depois da entrada automática no ROM loader.
+Ambos os boots mornos passaram, com oito amostras estáveis cada. VO4 estava
+habilitado e em bypass, mas isso não mede a tensão física. O clock do cartão
+estava desabilitado e a função dos pinos não era a função SDMMC nativa: o
+transporte precisará configurar esses recursos em vez de presumir herança do
+firmware original. Esta sonda não enviou comandos SD nem leu setores.
+
+A sonda não gravou na flash; após os testes, o firmware original montou `/sd`,
+sincronizou arquivos e carregou o desktop e o wallpaper. O proprietário
+confirmou que o cartão é para testes; não foi formatado. A suíte host passou
+90/90, incluindo os testes negativos do diagnóstico e de seu validador;
+os dois testes SD também passaram com ASan/UBSan. Capturas e imagem estão em
+`maia-rtos-recovery/native-sdmmc-state-20261120/`; detalhes e limites em
+[evidências](../hardware/EVIDENCE.md).

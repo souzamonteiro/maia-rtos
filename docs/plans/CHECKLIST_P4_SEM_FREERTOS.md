@@ -94,6 +94,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 ## F2 — Armazenamento
 
 - [ ] Driver SDMMC host nativo
+  - 🔧 Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos; ainda não envia comandos nem lê setores (20/11).
 - [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
   - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e verificação de endereço para `CMD17` testadas no host; falta transporte SDMMC e validação no Tab5 (20/11).
 - [ ] FatFs integrado

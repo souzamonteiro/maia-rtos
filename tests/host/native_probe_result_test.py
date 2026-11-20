@@ -39,6 +39,41 @@ assert not evaluate(stack + stack, 11, 0x4ff00836, 1)
 assert not evaluate('MAIA_NATIVE_PREEMPT_PASS MAIA_STACK_FAULT')
 assert not evaluate(good.replace(' sp=4ff02000',''), 2)
 
+def sdmmc_capture(sys_clock=0x4000, reset=0):
+    valid = int(bool(sys_clock & 0x4000) and not bool(reset & 0x10000000))
+    capture = 'MAIA_SDMMC_STATE_PROBE schema=1 read-only\n'
+    for i in range(8):
+        capture += (f'SDMMC_SAMPLE i={i:08x} sys={sys_clock:08x} clock=01000000 div=00000001 '
+                    f'reset={reset:08x} ldo=00004180 analog=00000000 sys_after={sys_clock:08x} '
+                    f'clock_after=01000000 reset_after={reset:08x} ldo_after=00004180 '
+                    f'analog_after=00000000 valid={valid:08x} stable=00000001\n')
+        capture += f'SDMMC_PINS i={i:08x} d0=00000000 d1=00000000 d2=00000000 d3=00000000 clk=00000000 cmd=00000000\n'
+        capture += (f'SDMMC_HOST i={i:08x} ctrl={valid:08x} clkdiv=00000000 clksrc=00000000 '
+                    'clkena=00000000 tmout=00000000 ctype=00000000 cmd=00000000 rint=00000000 '
+                    'status=00000000 cdetect=00000000 fifoth=00000000 bmod=00000000 '
+                    'verid=00000000 hcon=00000000\n')
+    return capture + 'MAIA_NATIVE_SDMMC_STATE_PASS\n'
+
+
+sd_observed = sdmmc_capture()
+sd_skipped = sdmmc_capture(sys_clock=0)
+sd_reset = sdmmc_capture(reset=0x10000000)
+assert runner.evaluate_sdmmc_state(sd_observed)
+assert runner.evaluate_sdmmc_state(sd_skipped)
+assert runner.evaluate_sdmmc_state(sd_reset)
+for old, new in [('stable=00000001', 'stable=00000000'),
+                 ('sys_after=00004000', 'sys_after=00000000'),
+                 ('valid=00000001', 'valid=00000000'),
+                 ('i=00000007', 'i=00000008'),
+                 ('MAIA_NATIVE_SDMMC_STATE_PASS', 'MAIA_NATIVE_SDMMC_STATE_FAIL'),
+                 ('SDMMC_HOST i=00000000', 'SDMMC_OTHER i=00000000')]:
+    assert not runner.evaluate_sdmmc_state(sd_observed.replace(old, new, 1))
+assert not runner.evaluate_sdmmc_state(sd_observed + sd_observed)
+assert not runner.evaluate_sdmmc_state(sd_observed + 'MAIA_NATIVE_FATAL\n')
+assert not runner.evaluate_sdmmc_state(sd_skipped.replace('ctrl=00000000', 'ctrl=00000001', 1))
+assert not runner.evaluate_sdmmc_state(sd_reset.replace('valid=00000000', 'valid=00000001', 1))
+print('PASS: SDMMC observations require eight ordered stable samples and guarded host access')
+
 
 class FakePort:
     def __init__(self):

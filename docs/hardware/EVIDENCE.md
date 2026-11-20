@@ -2371,10 +2371,65 @@ The earlier
 [restored boot](../../../maia-rtos-recovery/native-f1-std-thread-churn-20261120/restore-boot.log)
 reports an SDHC card and `/sd` mounted, then automatically synchronizes files
 onto the card. That is evidence of the legacy application, not the native
-driver. Before physical validation, first establish a way to avoid automatic
-writes on restoration or independently back up the card. Once a native
-transport exists, use a protected test card or verified backup, send only
-initialization and `CMD17` reads, compare known sector contents against an
-independent reference, include timeout/removal/error tests, and capture the
-actual UART results. Do not mark the SDMMC or protocol checklist items done
-until those tests pass.
+driver. The owner clarified on 2026-11-20 that this microSD is test media.
+Restoration may therefore perform its normal sync; do not format it. Once a
+native transport exists, send initialization and `CMD17` reads, compare known
+sector contents against an independent reference, include timeout/removal/error
+tests, and capture actual UART results. Do not mark the SDMMC or protocol
+checklist items done until those tests pass.
+
+## SDMMC and VO4 warm-reset state — 2026-11-20
+
+Sources, all pinned to ESP-IDF commit `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`:
+
+- [`reg_base.h`, peripheral bases](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/reg_base.h),
+  [`sdmmc_reg.h`, controller registers](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/sdmmc_reg.h),
+  [`hp_sys_clkrst_reg.h`, SOC_CLK_CTRL1/PERI_CLK_CTRL01/02](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h)
+  and [`lp_clkrst_reg.h`, HP_SDMMC_EMAC_RST_CTRL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/lp_clkrst_reg.h).
+- [`io_mux_reg.h`, GPIO39–44 and MCU_SEL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/io_mux_reg.h)
+  and [`sdmmc_pins.h`, slot 0 pins/function](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/include/soc/sdmmc_pins.h).
+- [`ldo_ll.h`, channel mapping and bypass](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/ldo_ll.h)
+  and [`pmu_struct.h`, ext_ldo field layout](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/pmu_struct.h):
+  VO4 maps to `ext_ldo[4]`; `tieh=1` bypasses the regulator to its input.
+  The BSP uses LDO4 and the [SDMMC host default](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_driver_sdmmc/include/driver/sdmmc_default_configs.h)
+  specifies 3.3 V. This is a requested nominal setting, not a voltage measurement.
+
+The private RAM probe reads an explicit whitelist, skips SDHOST when its bus
+clock is gated or reset is asserted, and rechecks clocks/reset/VO4 for changes.
+It never reads the data FIFO, writes SDMMC/IO-mux/VO4 registers, or issues SD
+commands. The ordinary probe startup still initializes console/watchdog state.
+The host test checks the whitelist, all clock/reset combinations, skipped
+registers and changed-state rejection; the Python capture validator rejects
+missing, duplicate, inconsistent and malformed records.
+
+Two automatic ROM-loader/warm-reset observations on the connected Tab5 passed,
+each with eight stable samples. Observed: bus clock enabled, reset deasserted,
+VO4 control `0x40204180` (software selection, enabled, bypass), host clock
+enable `0`, and GPIO39–44 IO-mux values `0x1800` (`MCU_SEL=1`, not SDMMC
+function 0). The SDHOST version was `0x5342270a`. These observations do not
+establish physical voltage, electrical routing, card state or successful SD
+communication; no cold boot was tested.
+
+No flash writes were made by the RAM runner. After the second observation, an
+additional normal reset was captured using `run_f0_flash_probe.capture`:
+the legacy firmware mounted `/sd`, synchronized files, loaded
+`/sd/desktop.mobj` and displayed its wallpaper. The USB pendrive was not
+accessed by the diagnostic. Image, ELF, map and real UART logs are at
+`../../../maia-rtos-recovery/native-sdmmc-state-20261120/`; image SHA-256
+`9276a07be9b6c963dd7853173d55707d576563e07d0be002d00e927b15d44dfc`.
+
+Validation on macOS/AppleClang 21: full host CTest 90/90; SD tests 2/2 with
+ASan/UBSan. The RISC-V GCC 14.2 build passed the native-runtime and RAM-window
+gates. Conflicting probe build/runner options were rejected before device
+access. Commands:
+
+```sh
+cmake -S . -B /tmp/maia-native-sdmmc-state-20261120 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake -DMAIA_NATIVE_PROBE_SDMMC_STATE=ON
+cmake --build /tmp/maia-native-sdmmc-state-20261120 --target maia_sched_probe_ram -j4
+/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python -m esptool --chip esp32p4 elf2image /tmp/maia-native-sdmmc-state-20261120/maia_sched_probe_ram.elf
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image ../maia-rtos-recovery/native-sdmmc-state-20261120/maia_sched_probe_ram.bin --log ../maia-rtos-recovery/native-sdmmc-state-20261120/probe-boot2.log --sdmmc-state --capture-seconds 8
+cmake --build /tmp/maia-rtos-host -j4
+PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-rtos-host --output-on-failure
+cmake --build /tmp/maia-sd-sanitized --target sdmmc_snapshot_test sd_read_test -j4
+PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-sd-sanitized --output-on-failure -R '^(sdmmc_snapshot_test|sd_read_test)$'
+```

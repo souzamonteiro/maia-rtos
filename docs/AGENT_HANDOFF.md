@@ -1840,8 +1840,23 @@ The host suite passed 89/89; the focused test passed ASan/UBSan and the public
 header passed C++98. Sources and actual scope are in `hardware/EVIDENCE.md`.
 
 No hardware was touched in this step. Earlier restored-boot logs show the
-legacy app synchronizes files to `/sd`; protect media before future device
-tests, including the recovery reboot, rather than assuming restoration is
-read-only. SD slot power, LDO4 ownership, pinmux, clock/reset, and DMA/cache
-still need primary-source review and validation. The owner's USB pendrive is
-reserved for a later TinyUSB host phase; leave it untouched during SD work.
+legacy app synchronizes files to `/sd`. The owner subsequently confirmed that
+the microSD is test media; recovery boot may perform its normal sync, but do
+not format it. The owner's USB pendrive is reserved for a later TinyUSB host
+phase; leave it untouched during SD work.
+
+## SDMMC/VO4 warm-state observation — 2026-11-20
+
+The read-only RAM probe passed on two automatic warm-reset boots, eight stable
+samples each. VO4 was enabled and bypassed, without a physical voltage
+measurement; SD card clock was off and GPIO39–44 were not in SDMMC function.
+The preserved legacy firmware subsequently mounted `/sd`, synchronized files
+and loaded the desktop/wallpaper. Evidence, pinned register sources and logs:
+`hardware/EVIDENCE.md`, `../../maia-rtos-recovery/native-sdmmc-state-20261120/`.
+No native card command, sector read, FatFs or product integration is claimed.
+The host suite passed 90/90; the two SD tests passed ASan/UBSan.
+
+Next: port a guarded, bounded slot-0 host initialization/command transport,
+including real pinmux/clock and power ownership checks. Establish the initial
+SD protocol and a verified `CMD17` read before attempting writes; keep DMA,
+cache coherency, cold boot, removal, VFS and FatFs explicitly open until tested.

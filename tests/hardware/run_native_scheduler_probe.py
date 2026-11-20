@@ -12,6 +12,51 @@ import time
 import re
 
 
+def evaluate_sdmmc_state(output):
+    """Validate a read-only observation, not an SD transfer or readiness."""
+    lines = output.replace('\r', '').splitlines()
+    if (lines.count('MAIA_SDMMC_STATE_PROBE schema=1 read-only') != 1 or
+            lines.count('MAIA_NATIVE_SDMMC_STATE_PASS') != 1 or
+            any(word in output for word in ('FAIL', 'MAIA_NATIVE_FATAL', 'MAIA_STACK_FAULT'))):
+        return False
+    schemas = {
+        'SDMMC_SAMPLE': 'i sys clock div reset ldo analog sys_after clock_after reset_after ldo_after analog_after valid stable'.split(),
+        'SDMMC_PINS': 'i d0 d1 d2 d3 clk cmd'.split(),
+        'SDMMC_HOST': 'i ctrl clkdiv clksrc clkena tmout ctype cmd rint status cdetect fifoth bmod verid hcon'.split(),
+    }
+    rows = {kind: {} for kind in schemas}
+    observed_order = []
+    for line in lines:
+        if not line.startswith('SDMMC_'):
+            continue
+        kind = line.split()[0]
+        if kind not in schemas:
+            return False
+        match = re.fullmatch(kind + ''.join(' ' + key + r'=([0-9a-f]{8})' for key in schemas[kind]), line)
+        if match is None:
+            return False
+        row = dict(zip(schemas[kind], (int(value, 16) for value in match.groups())))
+        index = row['i']
+        if index >= 8 or index in rows[kind]:
+            return False
+        rows[kind][index] = row
+        observed_order.append((kind, index))
+    expected_order = [(kind, index) for index in range(8) for kind in schemas]
+    if observed_order != expected_order:
+        return False
+    for index in range(8):
+        sample = rows['SDMMC_SAMPLE'][index]
+        if sample['stable'] != 1 or any(sample[key] != sample[key + '_after']
+                                       for key in ('sys', 'clock', 'reset', 'ldo', 'analog')):
+            return False
+        valid = bool(sample['sys'] & (1 << 14)) and not bool(sample['reset'] & (1 << 28))
+        if sample['valid'] != int(valid):
+            return False
+        if not valid and any(value for key, value in rows['SDMMC_HOST'][index].items() if key != 'i'):
+            return False
+    return True
+
+
 def evaluate_capture(output, expected_fatal=None, expected_pc=None, expected_stack=None,
                      expected_guard=None, expected_sp=None):
     if expected_fatal is None:
@@ -1608,6 +1653,7 @@ def main():
     parser.add_argument('--vdma-stop', action='store_true', help='verify stopped VDMA adoption')
     parser.add_argument('--vdma-arm-empty', action='store_true', help='arm empty VDMA and verify native global stop; no transfers')
     parser.add_argument('--mipi-state', action='store_true', help='verify read-only inherited MIPI/DW-GDMA state')
+    parser.add_argument('--sdmmc-state', action='store_true', help='observe SDMMC clocks, VO4, pins and gated host registers without SD commands')
     parser.add_argument('--ldo3-acquire', action='store_true', help='verify boot LDO3 active-state adoption')
     parser.add_argument('--ldo3-cycle', action='store_true', help='verify guarded VO3 disable/enable through native acquire')
     parser.add_argument('--ldo3', action='store_true', help='verify read-only VO3 trim/planning and unchanged hardware')
@@ -1756,6 +1802,12 @@ def main():
         for name,value in vars(args).items():
             if name not in ('psram_state','psram_boot_state','psram_id','psram_clock','psram_array','psram_window','psram_dma') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
         if args.expect_fatal_cause is not None:parser.error('PSRAM state excludes fatal profile')
+    if args.sdmmc_state:
+        for name, value in vars(args).items():
+            if name not in ('sdmmc_state', 'validate_only') and isinstance(value, bool) and value:
+                parser.error('SDMMC state requires an isolated profile')
+        if args.expect_fatal_cause is not None or args.psram_fast is not None:
+            parser.error('SDMMC state requires an isolated profile')
 
     import esptool
     from esptool.bin_image import LoadFirmwareImage
@@ -1898,6 +1950,8 @@ def main():
             passed = evaluate_mipi(output)
         if args.psram_state:
             passed = evaluate_psram_fast(output,args.psram_fast) if args.psram_fast else evaluate_psram_dma(output) if args.psram_dma else evaluate_psram_window(output) if args.psram_window else evaluate_psram_array(output) if args.psram_array else evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
+        if args.sdmmc_state:
+            passed = evaluate_sdmmc_state(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
         if args.ldo3_acquire:
@@ -1908,6 +1962,9 @@ def main():
             passed = passed and evaluate_serial_output(output)
         if args.serial_output_event:
             passed = passed and evaluate_serial_output_event(output)
+        if args.sdmmc_state:
+            print('[HOST] SDMMC state observation (not driver readiness):', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+            return 0 if passed else 1
         print('[HOST] Native LCD task/IRQ service:' if args.lcd_stream else '[HOST] Full PSRAM framebuffer transfer/recovery:' if args.dpi_framebuffer else '[HOST] Operational PSRAM clock/window/DMA:' if args.psram_fast else '[HOST] PSRAM source DMA burst bytes:' if args.psram_dma else '[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
 
