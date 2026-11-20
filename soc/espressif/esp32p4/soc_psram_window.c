@@ -2,16 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  * Native adaptation of pinned ESP-IDF f5c3654 HEX s_config_mspi_for_psram,
  * mspi_timing LL pad/CS setup, mmu_hal_map_region/mmu_ll and cache_hal_init.
- * Modified: fixed owned2MiB window, exact native guards/readback/restoration,
+ * Modified: fixed owned4MiB window, exact native guards/readback/restoration,
  * bounded FIFO waits, private boot claims, no allocator/SDK/RTOS dependencies.
  * Immutable ROM cache API bindings from esp32p4.rom.ld/cache.h; no ROM SPI calls.
  * License: LICENSES/Apache-2.0.txt. */
 #include "psram_window_internal.h"
 typedef struct {uint32_t size;uint16_t line;uint8_t ways;uint32_t type;} cache_mode;
-enum { FREE,OWNED,FAULTED,DMA_OWNED,CPU_EDIT_OWNED };
+enum { FREE,OWNED,FAULTED,DMA_OWNED,DMA_EDIT_OWNED };
 static unsigned cache_state,window_state;
 static maia_psram_snapshot_t reference;
-static uint32_t saved[WINDOW_REGS],current[WINDOW_REGS],table[32],saved_index,crypt,ecc,pms[4],pms_base,pms_size;
+static uint32_t saved[WINDOW_REGS],current[WINDOW_REGS],table[WINDOW_MMU_PAGES],saved_index,crypt,ecc,pms[4],pms_base,pms_size;
 #ifdef MAIA_PSRAM_TEST
 int maia_psram_window_test_rom(unsigned,void *);
 void maia_psram_window_test_reset(void);
@@ -28,6 +28,14 @@ static int cache_call(unsigned op,cache_mode *mode){
     return 0;
 }
 #endif
+static int cache_range(uint32_t address,uint32_t bytes){
+#ifdef MAIA_PSRAM_TEST
+    maia_psram_cache_range_test_t range={address,bytes};
+    return maia_psram_window_test_rom(6U,&range);
+#else
+    return ((int(*)(uint32_t,uint32_t,uint32_t))(uintptr_t)0x4FC003FCU)(0x30U,address,bytes);
+#endif
+}
 static unsigned encrypted(uint32_t word){unsigned n=(word>>18U)&7U;return (n^(n>>1U)^(n>>2U))&1U;}
 static maia_psram_result_t cache_finish(const maia_psram_snapshot_t *,maia_psram_cache_report_t *);
 maia_psram_result_t maia_esp32p4_psram_cache_boot(maia_psram_cache_report_t *r){
@@ -94,12 +102,12 @@ static int select_entry(unsigned i){
     return guards()&&psram_read(WINDOW_MMU_INDEX)==896U+i;
 }
 static int table_matches(unsigned mapped){
-    for(unsigned i=0;i<32U;++i){if(!select_entry(i)||psram_read(WINDOW_MMU_CONTENT)!=(mapped?0xC00U+i:table[i]))return 0;}
+    for(unsigned i=0;i<WINDOW_MMU_PAGES;++i){if(!select_entry(i)||psram_read(WINDOW_MMU_CONTENT)!=(mapped?0xC00U+i:table[i]))return 0;}
     return 1;
 }
 static void report(maia_psram_window_report_t *r,unsigned mapped){
     r->vaddr=MAIA_PSRAM_WINDOW_VADDR;r->bytes=MAIA_PSRAM_WINDOW_BYTES;r->physical=0;
-    for(unsigned i=0;i<32U;++i){r->mmu_before[i]=table[i];r->mmu_after[i]=mapped?0xC00U+i:table[i];}
+    for(unsigned i=0;i<WINDOW_MMU_PAGES;++i){r->mmu_before[i]=table[i];r->mmu_after[i]=mapped?0xC00U+i:table[i];}
 }
 static maia_psram_result_t init_report(uint32_t budget,maia_psram_window_report_t *r){
     if(!r)return MAIA_PSRAM_INVALID;
@@ -147,13 +155,13 @@ maia_psram_result_t maia_esp32p4_psram_window_start(uint32_t budget,maia_psram_w
     if(!guards())return MAIA_PSRAM_CHANGED;
     window_state=FAULTED;r->stage=1;
     if(!drained(budget,r))return MAIA_PSRAM_TIMEOUT;
-    for(unsigned i=0;i<32U;++i){if(!select_entry(i))return MAIA_PSRAM_VERIFY;table[i]=psram_read(WINDOW_MMU_CONTENT);}
+    for(unsigned i=0;i<WINDOW_MMU_PAGES;++i){if(!select_entry(i))return MAIA_PSRAM_VERIFY;table[i]=psram_read(WINDOW_MMU_CONTENT);}
     for(unsigned i=0;i<WINDOW_REGS-1U;++i){
         uint32_t v=(saved[i]&~window_plan[i].mask)|window_plan[i].value;
         if(!reg_write(i,v))return MAIA_PSRAM_VERIFY;
     }
     r->stage=2;
-    for(unsigned i=0;i<32U;++i){
+    for(unsigned i=0;i<WINDOW_MMU_PAGES;++i){
         if(!select_entry(i))return MAIA_PSRAM_VERIFY;
         psram_write(WINDOW_MMU_CONTENT,0xC00U+i);
         if(!guards()||psram_read(WINDOW_MMU_CONTENT)!=0xC00U+i)return MAIA_PSRAM_VERIFY;
@@ -176,7 +184,7 @@ maia_psram_result_t maia_esp32p4_psram_window_stop(uint32_t budget,maia_psram_wi
     maia_psram_result_t result=maia_esp32p4_psram_window_sync(budget,r);if(result!=MAIA_PSRAM_OK)return result;
     window_state=FAULTED;
     if(!reg_write(27,saved[27]))return MAIA_PSRAM_VERIFY;
-    for(unsigned i=0;i<32U;++i){
+    for(unsigned i=0;i<WINDOW_MMU_PAGES;++i){
         if(!select_entry(i))return MAIA_PSRAM_VERIFY;
         psram_write(WINDOW_MMU_CONTENT,table[i]);
         if(!guards()||psram_read(WINDOW_MMU_CONTENT)!=table[i])return MAIA_PSRAM_VERIFY;
@@ -205,18 +213,27 @@ uint32_t maia_psram_window_dma_acquire(void){
     if(!dma_idle())return 0;
     window_state=DMA_OWNED;return MAIA_PSRAM_WINDOW_VADDR+128U;
 }
-int maia_psram_window_dma_live(void){return psram_context()&&window_state==DMA_OWNED&&guards();}
-uint32_t maia_psram_window_edit_begin(void){
-    if(!psram_context()||window_state!=DMA_OWNED)return 0;
-    if(!guards()||!dma_idle()||!table_matches(1))return 0;
-    window_state=CPU_EDIT_OWNED;return MAIA_PSRAM_WINDOW_VADDR+128U;
+int maia_psram_window_dma_live(void){return psram_context()&&(window_state==DMA_OWNED||window_state==DMA_EDIT_OWNED)&&guards();}
+uint32_t maia_psram_window_edit_begin(uint32_t source,uint32_t bytes){
+    uint32_t first=MAIA_PSRAM_WINDOW_VADDR+128U;
+    if(!psram_context()||window_state!=DMA_OWNED||!bytes||(source&127U)||(bytes&127U)||
+       source<first||source>MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES||
+       bytes>MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES-source)return 0;
+    if(!guards()||!table_matches(1))return 0;
+    window_state=DMA_EDIT_OWNED;return source;
 }
-int maia_psram_window_edit_publish(void){
-    if(!psram_context()||window_state!=CPU_EDIT_OWNED)return 0;
-    window_state=FAULTED;
-    /* Static scratch: a zero-initialized local would emit memset from flash. */
-    static maia_psram_window_report_t r;r.polls=0;
-    if(!guards()||!dma_idle()||!table_matches(1)||cache_call(4,0)||!drained(10000,&r)||!dma_idle())return 0;
+int maia_psram_window_edit_publish(uint32_t source,uint32_t bytes){
+    if(!psram_core0_context()||window_state!=DMA_EDIT_OWNED||!bytes||(source&127U)||(bytes&127U)||
+       source<MAIA_PSRAM_WINDOW_VADDR+128U||source>MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES||
+       bytes>MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES-source)return 0;
+    if(!guards()||!table_matches(1)||cache_range(source,bytes)||!guards()||!table_matches(1)){
+        window_state=FAULTED;return 0;
+    }
+#ifdef MAIA_PSRAM_TEST
+    __asm__ volatile("" ::: "memory");
+#else
+    __asm__ volatile("fence iorw, iorw" ::: "memory");
+#endif
     window_state=DMA_OWNED;return 1;
 }
 int maia_psram_window_dma_release(void){

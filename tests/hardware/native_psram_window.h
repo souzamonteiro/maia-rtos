@@ -1,4 +1,4 @@
-/* Native fixed2MiB CPU window; buffers/code in internal SRAM. */
+/* Native fixed4MiB CPU window; buffers/code in internal SRAM. */
 static int window_cache_boot(void){
     extern void maia_soc_trap_init(void);maia_soc_trap_init();
     maia_console_puts("PSRAM_CACHE_BOOT_START\n");
@@ -19,7 +19,7 @@ static int window_raw(unsigned phase,void *data,unsigned write){
 static uint32_t window_value(uint32_t index){return (0x9E3779B9U*(index+1U))^0xA55A1234U;}
 static void window_report(unsigned phase,maia_psram_result_t result,const maia_psram_window_report_t *r){
     field("PSRAM_WINDOW phase=",phase);field(" result=",(uint32_t)result);field(" stage=",r->stage);field(" vaddr=",r->vaddr);field(" bytes=",r->bytes);field(" physical=",r->physical);field(" restored=",r->restored);field(" polls=",r->polls);maia_console_puts("\n");
-    if(result==MAIA_PSRAM_OK)for(unsigned i=0;i<32U;++i){field("PSRAM_WINDOW_MMU phase=",phase);field(" index=",i);field(" before=",r->mmu_before[i]);field(" after=",r->mmu_after[i]);maia_console_puts("\n");}
+    if(result==MAIA_PSRAM_OK)for(unsigned i=0;i<64U;++i){field("PSRAM_WINDOW_MMU phase=",phase);field(" index=",i);field(" before=",r->mmu_before[i]);field(" after=",r->mmu_after[i]);maia_console_puts("\n");}
 }
 #ifdef MAIA_NATIVE_PROBE_PSRAM_DMA
 #include "native_psram_dma.h"

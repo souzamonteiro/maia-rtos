@@ -13,7 +13,7 @@ int main(void){uint32_t p[12];
  }
  assert(psram_dma_plan(0x4B9FF000,0x4FF26F80,16,p));
  uint32_t before=p[0];
- assert(!psram_dma_plan(0x4B9FF008,0x4FF10080,16,p)&&p[0]==before);
+ assert(!psram_dma_plan(0x4BBFF008,0x4FF10080,16,p)&&p[0]==before);
  assert(!psram_dma_plan(0x4B7FFFF8,0x4FF10080,16,p)&&p[0]==before);
  assert(!psram_dma_plan(0x4B800004,0x4FF10080,16,p)&&p[0]==before);
  assert(!psram_dma_plan(0x4B800000,0x4FF10088,16,p)&&p[0]==before);

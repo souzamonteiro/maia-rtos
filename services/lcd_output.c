@@ -9,11 +9,37 @@ static unsigned editing;
 static maia_lcd_draw_fn pending_draw;
 static void *pending_arg;
 static void wake(void *arg){(void)arg;(void)maia_task_notify(stats.owner);}
+static maia_dsi_access_result_t wait_frame(void){
+    uint64_t began=maia_tick_get();
+    for(;;){
+        if(maia_tick_get()-began>=100U)return MAIA_DSI_ACCESS_TIMEOUT;
+        uintptr_t irq=maia_arch_irq_save();
+        int pending=maia_lcd_async_pending();
+        maia_dsi_access_result_t result=pending?maia_lcd_async_finish():MAIA_DSI_ACCESS_BUSY;
+        if(result==MAIA_DSI_ACCESS_OK){
+            maia_lcd_async_report_t report;
+            maia_lcd_async_report(&report);
+            stats.frames=report.frames;
+            stats.presented=report.presented;
+        }
+        maia_arch_irq_restore(irq);
+        if(result==MAIA_DSI_ACCESS_OK)return result;
+        if(result!=MAIA_DSI_ACCESS_BUSY)return result;
+        if(pending)maia_task_delay_ticks(1);
+        else{
+            uint64_t elapsed=maia_tick_get()-began;
+            if(elapsed>=100U)continue;
+            irq=maia_arch_irq_save();++stats.waits;maia_arch_irq_restore(irq);
+            maia_status_t waited=maia_task_wait_notification(100U-(uint32_t)elapsed);
+            if(waited!=MAIA_OK&&waited!=MAIA_ERR_TIMEOUT)return MAIA_DSI_ACCESS_IO;
+        }
+    }
+}
 maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn draw,void *arg){
     if(!draw)return MAIA_ERR_INVALID;
     uintptr_t irq=maia_arch_irq_save();maia_status_t result=MAIA_OK;
     if(!initialized||stats.stopped||stats.stop_requested)result=MAIA_ERR_INVALID;
-    else if(pending_draw||editing)result=MAIA_ERR_BUSY;
+    else if(pending_draw||editing||stats.presented<stats.updates)result=MAIA_ERR_BUSY;
     else {pending_arg=arg;pending_draw=draw;(void)maia_task_notify(stats.owner);}
     maia_arch_irq_restore(irq);return result;
 }
@@ -49,35 +75,58 @@ maia_status_t maia_lcd_output_stats(maia_lcd_output_stats_t *out){
 maia_status_t maia_lcd_output_run(void){
     uintptr_t irq=maia_arch_irq_save();
     if(!initialized||running||stats.stopped||!irq||maia_task_current_id()!=stats.owner){maia_arch_irq_restore(irq);return MAIA_ERR_PERM;}
-    running=1;maia_arch_irq_restore(irq);unsigned failed=0;
+    running=1;maia_arch_irq_restore(irq);unsigned failed=0,started=0;
     for(;;){
-        irq=maia_arch_irq_save();unsigned stop=stats.stop_requested;maia_arch_irq_restore(irq);if(stop)break;
-        irq=maia_arch_irq_save();maia_lcd_draw_fn draw=pending_draw;void *arg=pending_arg;
-        if(draw){pending_draw=0;pending_arg=0;editing=1;}
-        uint16_t *pixels=draw?maia_lcd_async_edit_begin():0;maia_arch_irq_restore(irq);
+        irq=maia_arch_irq_save();unsigned stop=stats.stop_requested;
+        if(stop){pending_draw=0;pending_arg=0;}
+        unsigned paused=started&&maia_lcd_async_is_paused();
+        maia_lcd_draw_fn draw=stop?0:pending_draw;
+        maia_arch_irq_restore(irq);
         if(draw){
+            irq=maia_arch_irq_save();
+            draw=pending_draw;void *arg=pending_arg;pending_draw=0;pending_arg=0;editing=1;
+            uint16_t *pixels=draw?maia_lcd_async_edit_begin():0;
+            maia_arch_irq_restore(irq);
+            if(!draw)continue;
             if(!pixels){failed=1;break;}
-            draw(pixels,720U,1280U,arg); /* owner thread, IRQs enabled, DMA idle */
-            irq=maia_arch_irq_save();maia_dsi_access_result_t published=maia_lcd_async_edit_publish();editing=0;
+            draw(pixels,720U,1280U,arg);
+            maia_dsi_access_result_t published=maia_lcd_async_edit_publish();
+            irq=maia_arch_irq_save();editing=0;
             if(published==MAIA_DSI_ACCESS_OK)++stats.updates;
             maia_arch_irq_restore(irq);if(published!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+            continue;
         }
-        irq=maia_arch_irq_save();maia_dsi_access_result_t result=maia_lcd_async_start();maia_arch_irq_restore(irq);
+        if(stop){
+            irq=maia_arch_irq_save();unsigned needs_present=stats.presented<stats.updates;maia_arch_irq_restore(irq);
+            if(needs_present){
+                if(!started||paused){
+                    irq=maia_arch_irq_save();maia_dsi_access_result_t result=maia_lcd_async_start();maia_arch_irq_restore(irq);
+                    if(result!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+                    started=1;
+                }
+                maia_dsi_access_result_t result=wait_frame();
+                if(result==MAIA_DSI_ACCESS_TIMEOUT){irq=maia_arch_irq_save();++stats.timeouts;maia_arch_irq_restore(irq);}
+                if(result!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+                continue;
+            }
+            if(started&&!paused){
+                irq=maia_arch_irq_save();maia_dsi_access_result_t requested=maia_lcd_async_request_pause();maia_arch_irq_restore(irq);
+                if(requested!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+                maia_dsi_access_result_t result=wait_frame();
+                if(result==MAIA_DSI_ACCESS_TIMEOUT){irq=maia_arch_irq_save();++stats.timeouts;maia_arch_irq_restore(irq);}
+                if(result!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+                continue;
+            }
+            break;
+        }
+        if(!started||paused){
+            irq=maia_arch_irq_save();maia_dsi_access_result_t result=maia_lcd_async_start();maia_arch_irq_restore(irq);
+            if(result!=MAIA_DSI_ACCESS_OK){failed=1;break;}
+            started=1;
+        }
+        maia_dsi_access_result_t result=wait_frame();
+        if(result==MAIA_DSI_ACCESS_TIMEOUT){irq=maia_arch_irq_save();++stats.timeouts;maia_arch_irq_restore(irq);}
         if(result!=MAIA_DSI_ACCESS_OK){failed=1;break;}
-        uint64_t began=maia_tick_get();
-        for(;;){
-            if(maia_tick_get()-began>=100U){++stats.timeouts;failed=1;break;}
-            irq=maia_arch_irq_save();int pending=maia_lcd_async_pending();
-            result=pending?maia_lcd_async_finish():MAIA_DSI_ACCESS_BUSY;maia_arch_irq_restore(irq);
-            if(result==MAIA_DSI_ACCESS_OK){++stats.frames;stats.presented=stats.updates;break;}
-            if(result!=MAIA_DSI_ACCESS_BUSY){failed=1;break;}
-            if(pending)maia_task_delay_ticks(1);
-            else {uint64_t elapsed=maia_tick_get()-began;if(elapsed>=100U)continue;
-                ++stats.waits;uint32_t left=100U-(uint32_t)elapsed;
-                maia_status_t waited=maia_task_wait_notification(left);
-                if(waited!=MAIA_OK&&waited!=MAIA_ERR_TIMEOUT){failed=1;break;}}
-        }
-        if(failed)break;
     }
     irq=maia_arch_irq_save();
     if(failed){++stats.errors;(void)maia_lcd_async_cancel();}

@@ -161,6 +161,11 @@ static void draw_row(int row) {
 
 static void draw_terminal(uint16_t *pixels, uint32_t rows) {
     s_fb = pixels;
+    for (int y = (int)TERM_ROWS * CHAR_H; y < TAB5_LOG_H; ++y) {
+        for (int x = 0; x < TAB5_LOG_W; ++x) {
+            put_pixel_rot3(x, y, COLOR_BLACK);
+        }
+    }
     for (int row = 0; row < (int)TERM_ROWS; ++row) {
         if (rows & (1UL << row)) {
             draw_row(row);
@@ -174,10 +179,9 @@ static void lcd_draw(uint16_t *pixels, uint32_t width, uint32_t height, void *ar
         return;
     }
     uintptr_t irq = maia_arch_irq_save();
-    uint32_t rows = s_dirty_rows;
     s_dirty_rows = 0U;
     maia_arch_irq_restore(irq);
-    draw_terminal(pixels, rows);
+    draw_terminal(pixels, (1UL << TERM_ROWS) - 1UL);
 }
 
 static void lcd_task(void *arg) {

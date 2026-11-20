@@ -2000,3 +2000,84 @@ não-XIP; não é incluído no alvo de produto padrão.
   preservados; validar imagem estável no device. Não remover os guards nem
   copiar dependências de runtime da ESP-IDF. Nenhuma alteração de código ou
   novo teste físico foi feito nesta comparação.
+
+### Candidato de refresh sustentado (18/11)
+
+- O serviço agora rearma o DMA no callback de conclusão: confirma DMA-done,
+  contagem bruta `0x383FF`, erros e estado do host/bridge; limpa apenas o status
+  GDMA já qualificado, reposiciona o SAR e reinicia canal/IRQ. DPI, modo de vídeo
+  e LP clock permanecem ativos nos quadros sem atualização.
+- Uma solicitação de desenho ou parada pede pausa no limite do próximo quadro.
+  Só depois de DMA/FIFOs drenarem o owner pode editar/publicar o framebuffer; a
+  retomada religa DMA sem repetir a transição DSI/DPI. O desligamento normal
+  continua usando a recuperação/restauração guardada existente. O buffer único
+  nunca é escrito enquanto o DMA o lê.
+- Testes host `lcd_output_test` e `dsi_lcd_async_test` passam com cobertura de
+  rearmamento repetido, pausa para edição, retomada, parada, drain, timeout e
+  falha de status/underrun e preservação dos estados. Suíte completa: 84/84.
+- Build XIP/linker e empacotamento passam: 801200bytes,5 segmentos,
+  entry`0x40000020`; imagem SHA256
+  `d0a222b1ce0782a2a585cb3465657c16ab2f307347534b23d94775b13550d603`.
+- Boot eletrônico controlado no Tab5 chegou a `msh>` com todos os passos
+  `NATIVE_LCD` em OK e sem marcador fatal. O runner restaurou o app original e
+  verificou novamente o hash `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+- Observação visual do dono por 60 s: a tela permaneceu estável em repouso e
+  piscou a cada tecla pressionada. Isso valida visualmente o refresh contínuo
+  estático neste teste, mas a atualização acionada pela entrada continua com
+  interrupção perceptível. A observação não determina a causa; medir a cadência
+  e eliminar a piscada durante atualizações seguem pendentes. Não há garantia
+  tear-free durante atualizações nem medição de WCET.
+
+### Candidato de atualização com double buffering (19/11)
+
+- Implementado um segundo framebuffer na janela virtual de PSRAM, ampliada para
+  4 MiB. O DMA lê o buffer frontal enquanto o owner redesenha o quadro completo
+  no traseiro; a origem do DMA é trocada somente na IRQ de fim de quadro.
+  Publicar o traseiro inclui write-back de cache antes de ele poder ser lido.
+- O serviço só conta uma atualização como apresentada depois de um quadro
+  completo do novo buffer. A parada ainda ocorre em limite de quadro e mantém o
+  drain; os caminhos de terminal, toque e probe passam a desenhar quadros
+  completos, sem escrever no buffer que o DMA está lendo.
+- Validação host: build completo e 84/84 testes CTest passam. Verificação de
+  sintaxe Pylance dos dois scripts Python alterados também passou.
+- Build XIP e empacotamento passam. Imagem: 801.488 bytes, cinco segmentos,
+  entry `0x40000020`, descriptor `0x400B0020`; teste estrutural de imagem PASS.
+  Arquivo `/tmp/maia-product-xip-stream-build/maia_m0.bin`, SHA-256
+  `5dbc5b10e7efdb958991c2621048ffb9ab8f38abc69d2b84c2f5aafcb06e92dd`.
+- Primeira gravação: a captura de 8 s terminou após `window_start`, sem prompt
+  nem fatal; o firmware original foi restaurado com hash verificado. O dono viu
+  tela preta e depois o desktop. Isso não comprovou travamento.
+- Repetição da mesma imagem com captura de inicialização de 30 s: chegou a
+  `msh>`, sem fatal; janela visual de 60 s concluída e restauração verificada.
+  O dono confirmou que não pisca ao teclar, mas relatou faixa suja de
+  aproximadamente 5 pixels na borda inferior durante a entrada.
+  Evidência: [relatório](../../../maia-rtos-recovery/native-product-double-buffer-repeat-20261119/report.json)
+  e [boot capturado](../../../maia-rtos-recovery/native-product-double-buffer-repeat-20261119/probe-boot-1.log).
+  Cadência/WCET, boot frio e certificação tear-free continuam pendentes.
+- Comparação direta: o BSP original configura `num_fbs = 1`, e a referência
+  ESP-IDF permite um ou mais buffers (zero seleciona um). Seu `draw_bitmap`
+  copia/sincroniza os pixels sem parar o refresh; a IRQ rearma o DMA. Portanto,
+  double buffering não é necessário para evitar piscada no driver original.
+  A pausa explícita para edição do nosso candidato de buffer único era uma
+  diferença de implementação, não um requisito imposto pelo painel.
+
+### Correção candidata da margem inferior do terminal (19/11)
+
+- O renderer preenche 22 linhas de 32 pixels (704 pixels lógicos), deixando os
+  16 pixels restantes sem desenho no backbuffer. O primeiro framebuffer era
+  zerado no boot; o segundo não tinha essa região preenchida.
+- Os dois caminhos de terminal agora preenchem essa margem em preto a cada
+  desenho, sem alterar DMA, cache, clocks ou inicialização do display.
+- Novo `product_terminal_test` usa o renderer real, dois buffers com sentinelas,
+  quatro atualizações e verificação de todos os pixels, margem preta e limites.
+  Falhou antes da correção e passou depois. Suíte host: 85/85.
+- Nova imagem XIP: 801.536 bytes, cinco segmentos; validação estrutural PASS.
+  SHA-256 `e619152d3b4e5b26e234244a1cc19bf248a147dee008d19f7dbc5ba5a1194ecb`.
+  Gravada em teste controlado: chegou ao shell, sem marcador fatal, com
+  observação de 60 s após o prompt. O dono confirmou: “Sem piscada e sem faixa
+  suja”. O firmware original foi restaurado com hash verificado
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  Evidências: [relatório](../../../maia-rtos-recovery/native-product-terminal-margin-20261119/report.json)
+  e [boot capturado](../../../maia-rtos-recovery/native-product-terminal-margin-20261119/probe-boot-1.log).
+  Aceitação visual limitada a este teste morno; medição de cadência/WCET, boot
+  frio, touch integrado e desktop completo permanecem pendentes.

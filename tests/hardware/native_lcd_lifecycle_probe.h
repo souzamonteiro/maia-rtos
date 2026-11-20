@@ -18,15 +18,16 @@ extern void maia_soc_systimer_init(uint32_t);
 static void life_draw(uint16_t *pixels,uint32_t width,uint32_t height,void *arg){
     (void)arg;unsigned n=life_draws;uint64_t began=maia_tick_get();unsigned beats=life_beats;
     uintptr_t irq=maia_arch_irq_save();
-    if(!irq||pixels!=(uint16_t *)(uintptr_t)DSI_FB_SOURCE||width!=720U||height!=1280U||n>=6U||
-       rd(MAIA_ESP32P4_GDMA_BASE+0x10U)||rd(MAIA_ESP32P4_GDMA_BASE+0x18U))++life_errors;
+    uint32_t expected=(n&1U)?DSI_FB_SOURCE:DSI_FB_BACK_SOURCE;
+    if(!irq||pixels!=(uint16_t *)(uintptr_t)expected||width!=720U||height!=1280U||n>=6U||
+       rd(MAIA_ESP32P4_GDMA_BASE+0x10U)!=3U||!(rd(MAIA_ESP32P4_GDMA_BASE+0x18U)&1U))++life_errors;
     maia_psram_window_report_t check;
     if(maia_esp32p4_psram_window_sync(1,&check)!=MAIA_PSRAM_BUSY||
        maia_esp32p4_psram_window_stop(1,&check)!=MAIA_PSRAM_BUSY)++life_errors;
     maia_arch_irq_restore(irq);
     if(n>=6U)return;
-    for(unsigned i=0;i<720U*1280U;++i)pixels[i]^=0xFFFFU;
-    /* Deliberately yield during CPU ownership to prove the edit lease survives
+    for(unsigned i=0;i<720U*1280U;++i)pixels[i]=(n&1U)?0xF800U:0x001FU;
+    /* Deliberately yield during backbuffer ownership to prove the edit lease survives
      * actual scheduling, rather than relying on a frame-long IRQ exclusion. */
     maia_task_delay_ticks(3);
     life_hashes[n]=fb_hash((const volatile uint8_t *)pixels,FB_BYTES);

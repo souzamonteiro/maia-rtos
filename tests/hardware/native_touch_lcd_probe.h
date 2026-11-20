@@ -44,7 +44,7 @@ static void ti_marker(uint16_t *p,unsigned x,unsigned y,unsigned erase){
 }
 static void ti_draw(uint16_t *p,uint32_t w,uint32_t h,void *arg){
     (void)arg;if(w!=720U||h!=1280U){++ti_errors;return;}
-    for(unsigned i=0;i<ti_old.count;++i)ti_marker(p,ti_old.points[i].x,ti_old.points[i].y,1);
+    for(unsigned y=0;y<1280U;++y)for(unsigned x=0;x<720U;++x)p[y*720U+x]=fb_native_pixel(x,y);
     ti_old.count=0;maia_touch_snapshot_t s;
     if(!ti_finish_input&&maia_touch_input_snapshot(&s)==MAIA_OK){
         ti_old=s.frame;

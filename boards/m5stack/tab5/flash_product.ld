@@ -15,7 +15,7 @@ MEMORY
 }
 
 __maia_psram_window_start = 0x4B800000;
-__maia_psram_window_end = 0x4BA00000;
+__maia_psram_window_end = 0x4BC00000;
 
 PHDRS
 {
@@ -165,8 +165,8 @@ ASSERT(maia_psram_x8_claimed >= _maia_psram_iram_start &&
 ASSERT(__bss_end <= __stack_bottom, "BSS overlaps the primary boot stack")
 ASSERT(__stack_top <= ORIGIN(SRAM_LOW) + LENGTH(SRAM_LOW),
        "Internal SRAM image exceeds the validated low-memory window")
-ASSERT(__maia_psram_window_end - __maia_psram_window_start == 0x200000,
-       "PSRAM runtime window must remain the qualified 2 MiB CPU mapping")
+ASSERT(__maia_psram_window_end - __maia_psram_window_start == 0x400000,
+       "PSRAM runtime window must reserve 4 MiB for LCD double buffering")
 
 NOCROSSREFS_TO(.flash.text .maia_psram_iram)
 NOCROSSREFS_TO(.flash.rodata .maia_psram_iram)

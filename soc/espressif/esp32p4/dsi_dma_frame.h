@@ -1,4 +1,4 @@
-/* Original MaiaRTOS MIT bounded single-frame policy. Facts: pinned SDKf5c3654
+/* Original MaiaRTOS MIT bounded framebuffer policy. Facts: pinned SDKf5c3654
  * DPI init ordering/host+bridge LL, DW-GDMA LL and chip1.3 TRM5.5.7/5.7.4.
  * docs/audits/native-dpi-dma-frame.md. No foreign runtime or ISR imported. */
 #define FRAME_ERRORS 0x023F7FE0U
@@ -49,7 +49,7 @@ static int frame_guard(uint32_t mode,uint32_t lp,uint32_t dpi,uint32_t cfg){
 #ifdef MAIA_DSI_FRAMEBUFFER_PROBE
         if(framebuffer_claim&&i==0U){
             uint32_t v=dsi_read(dma_stage_address(i));
-            if((v&7U)||v<DSI_FB_SOURCE||v>DSI_FB_SOURCE+DSI_FB_BYTES)return 0;
+            if((v&7U)||v<DSI_FB_SOURCE||v>DSI_FB_BACK_SOURCE+DSI_FB_BYTES)return 0;
             continue;
         }
 #endif

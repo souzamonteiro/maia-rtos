@@ -9,8 +9,10 @@
 #define WINDOW_MMU_INDEX (PSRAM_MSPI0+0x380U)
 #define WINDOW_MMU_CONTENT (PSRAM_MSPI0+0x37CU)
 #define WINDOW_FIFO (PSRAM_MSPI0+0x178U)
+#define WINDOW_MMU_PAGES (MAIA_PSRAM_WINDOW_BYTES/0x10000U)
 #define WINDOW_ECC (PSRAM_MSPI0+0x174U)
 #define WINDOW_CRYPT (MAIA_ESP32P4_EFUSE_BASE+0x34U)
+typedef struct {uint32_t address,bytes;} maia_psram_cache_range_test_t;
 static const struct {uintptr_t address;uint32_t mask,value;} window_plan[WINDOW_REGS]={
     {0x500E121CU,0x00003000U,0x00002000U}, /* D */
     {0x500E1220U,0x00003000U,0x00002000U}, /* Q */

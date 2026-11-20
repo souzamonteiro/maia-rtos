@@ -336,6 +336,11 @@ static void native_draw_row(int row) {
 static void native_render(volatile uint16_t *pixels, uint32_t rows) {
     s_fb = pixels;
     s_fb_live = 1U;
+    for (int y = (int)TERM_ROWS * CHAR_H; y < TAB5_LOG_H; ++y) {
+        for (int x = 0; x < TAB5_LOG_W; ++x) {
+            put_pixel_rot3(x, y, COLOR_BLACK);
+        }
+    }
     for (int r = 0; r < (int)TERM_ROWS; ++r) {
         if (rows & (1UL << r)) {
             native_draw_row(r);
@@ -350,10 +355,9 @@ static void native_draw(uint16_t *pixels, uint32_t width, uint32_t height, void 
         return;
     }
     uintptr_t irq = maia_arch_irq_save();
-    uint32_t rows = s_dirty_rows;
     s_dirty_rows = 0U;
     maia_arch_irq_restore(irq);
-    native_render(pixels, rows);
+    native_render(pixels, (1UL << TERM_ROWS) - 1UL);
 }
 
 static void native_lcd_task(void *arg) {

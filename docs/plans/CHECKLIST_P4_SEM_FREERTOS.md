@@ -18,7 +18,7 @@ a migração dele é um projeto posterior (ver final).
 - [x] I²C nativo e expansores PI4IOE
 - [x] Alimentação (LDO/PMU) e clocks
 - [x] PSRAM a 200 MHz e DMA
-- [x] LCD MIPI-DSI nativo com quadros repetidos e imagem visível 👀 (estabilidade visual pendente: piscada também observada nas barras)
+- [x] LCD MIPI-DSI nativo com quadros repetidos e imagem visível 👀 (candidato de refresh contínuo estável em repouso; piscada observada a cada tecla)
 - [x] Touch GT911 nativo 👀
 - [x] 77 testes de host passando (`e018c2c`)
 
@@ -29,8 +29,12 @@ nativo com framebuffer PSRAM. O dono confirmou visualmente o shell (`msh>`) e
 executou comandos na imagem de teste. A tela ciano dos candidatos anteriores
 ocorreu no caminho parcial de vídeo, que não usava o serviço LCD e o framebuffer
 aprovados. O dono lembrou que as barras também piscavam: a imagem e o toque
-foram confirmados, mas o refresh sem piscada não foi validado. O desktop
-completo ainda não foi integrado. A validação atual usa o estado morno da PSRAM;
+foram confirmados. O candidato de refresh contínuo com buffer único ficou
+estável parado, mas piscava a cada tecla. No candidato com double buffering,
+o dono confirmou ausência de piscada ao teclar. Após corrigir o preenchimento
+da margem inferior, confirmou também ausência da faixa suja (19/11).
+O desktop completo ainda não
+foi integrado. A validação atual usa o estado morno da PSRAM;
 boot frio e recuperação segura de falhas continuam pendentes.
 
 - [x] Imagem nativa no formato do app ESP-IDF, inicializada pelo bootloader de 2º estágio (probe, 17/11)
@@ -40,14 +44,22 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] ELF completo linkado com o linker XIP experimental e imagem validada: IROM `0x40000020`, descriptor DROM `0x400A0020`, 5 segmentos (18/11)
 - [x] Boot XIP da imagem experimental do produto, 3 tarefas, timer e shell self-test até `msh>`; backup/restauração verificados (um reset morno, fallback de display em SRAM; PSRAM, desktop nativo e tela sem validação visual, 18/11)
 - [x] Regressão LCD + touch nativos com o código atual (`7a9f24f` + alterações locais): quatro cantos, arraste e soltura; 843 relatórios, 0 erros; confirmação visual do dono (RAM, PSRAM morna, 18/11)
-- [ ] Validar o caminho de display do produto sem piscada com framebuffer PSRAM e serviço LCD nativo (imagem XIP observada, mas tela inteira pisca, 18/11)
+- [x] Validar visualmente o caminho de display do produto com framebuffer PSRAM e serviço LCD nativo: sem piscada ao teclar e sem faixa suja inferior, confirmado pelo dono (19/11; reset morno)
   - [x] Preparar imagem só com shell usando o framebuffer PSRAM e serviço LCD nativos (testes de host OK, 18/11)
   - [x] Observar essa imagem no device: cabeçalho e `msh>` em fundo preto, comandos executados (18/11)
   - [x] Tornar esse o caminho de vídeo padrão do produto XIP e excluir o driver legado em bandas SRAM do alvo padrão (build/imagem XIP validada, 18/11)
   - [x] Revalidar visualmente o binário do build padrão após a reorganização: cabeçalho, `msh>` e comandos visíveis (18/11)
-  - [ ] Eliminar piscada lenta de tela inteira: dono também a observou nas barras; código nativo para vídeo/DPI e volta ao modo de comando a cada quadro, diferentemente da referência preservada. Causa visual ainda não confirmada; medir intervalos e validar correção no device
+  - [x] Implementar rearmamento do DMA na IRQ de conclusão sem desativar DPI/DSI entre quadros; atualizações e parada pausam no limite do quadro e só liberam o framebuffer depois do drain (84/84 testes host)
+  - [x] Gerar e validar a imagem XIP candidata (801.200 bytes, 5 segmentos, entry `0x40000020`)
+  - [x] Fazer boot eletrônico até `msh>` sem fatal e restaurar o firmware original com hash verificado
+  - [x] Observar o candidato de refresh contínuo por 60 s: estável em repouso, mas pisca a cada tecla pressionada
+  - [x] Implementar candidato com double buffering: desenho no buffer traseiro e troca no limite do quadro (84/84 testes host; imagem XIP de 801.488 bytes validada)
+  - [x] Observar no device o double buffering: dono confirmou ausência de piscada ao teclar; relatou faixa suja de aproximadamente 5 pixels embaixo (19/11; boot e restauração verificados)
+  - [x] Corrigir preenchimento incompleto da margem inferior nos dois caminhos de terminal: 22 linhas cobriam 704 dos 720 pixels; teste de raster reproduziu o defeito e passou após a correção (85/85 testes host; nova imagem XIP validada)
+  - [x] Confirmar visualmente a eliminação da faixa inferior na nova imagem: dono confirmou “Sem piscada e sem faixa suja” (19/11; boot e restauração verificados)
+  - [ ] Medir intervalos de refresh no device; a observação anterior não determina a causa da piscada
   - [ ] Integrar o serviço de touch no produto
-- [x] Integrar no produto o refresh/framebuffer nativo (imagem XIP observada, estabilidade visual pendente, 18/11)
+- [x] Integrar no produto o refresh/framebuffer nativo (double buffering observado sem piscada ao teclar e sem faixa inferior; 19/11)
 - [ ] Integrar no produto o serviço de touch; a inicialização PSRAM depende ainda de validação a frio e o handoff cache/MMU continua restrito ao boot morno testado
 - [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)

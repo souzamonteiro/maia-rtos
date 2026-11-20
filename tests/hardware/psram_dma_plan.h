@@ -6,7 +6,7 @@
 #define PSRAM_DMA_BYTES 4096U
 #define PSRAM_DMA_TOTAL 4352U
 static inline int psram_dma_plan(uint32_t source,uint32_t destination,unsigned burst,uint32_t out[12]){
-    if(!out||(source&7U)||source<0x4B800000U||source>0x4BA00000U-PSRAM_DMA_BYTES||
+    if(!out||(source&7U)||source<0x4B800000U||source>0x4BC00000U-PSRAM_DMA_BYTES||
        (destination&127U)||destination<0x4FF00080U||destination>0x4FF27F80U-PSRAM_DMA_BYTES||
        (burst!=1U&&burst!=4U&&burst!=16U))return 0;
     unsigned size=burst==1U?0U:burst==4U?1U:3U;

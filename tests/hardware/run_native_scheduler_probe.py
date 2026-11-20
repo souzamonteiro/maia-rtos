@@ -1167,7 +1167,7 @@ def evaluate_psram_window(output):
     modes=rows('PSRAM_WINDOW_MODE','phase result stage before after'.split(),2)
     raw=rows('PSRAM_WINDOW_RAW','phase result write completed chunks restored'.split(),4)
     window=rows('PSRAM_WINDOW','phase result stage vaddr bytes physical restored polls'.split(),3)
-    mmu=rows('PSRAM_WINDOW_MMU','phase index before after'.split(),96)
+    mmu=rows('PSRAM_WINDOW_MMU','phase index before after'.split(),192)
     data=rows('PSRAM_WINDOW_DATA','words matched expected actual'.split(),1)
     direct=rows('PSRAM_WINDOW_DIRECT',['matched'],1);restore=rows('PSRAM_WINDOW_RESTORE',['matched'],1)
     if any(r is None for r in (cache,modes,raw,window,mmu,data,direct,restore)):return False
@@ -1177,15 +1177,15 @@ def evaluate_psram_window(output):
     if any(t!=dict(phase=i,result=0,write=int(i==2),completed=4096,chunks=64,restored=1) for i,t in enumerate(raw)):return False
     for i,w in enumerate(window):
         if not(w['phase']==i and w['result']==0 and w['stage']==(4,5,6)[i] and w['vaddr']==0x4b800000 and
-               w['bytes']==0x200000 and w['physical']==0 and w['restored']==int(i==2) and 1<=w['polls']<=20000):return False
-        for j in range(32):
-            m=mmu[i*32+j]
+               w['bytes']==0x400000 and w['physical']==0 and w['restored']==int(i==2) and 1<=w['polls']<=20000):return False
+        for j in range(64):
+            m=mmu[i*64+j]
             if m['phase']!=i or m['index']!=j or m['before']!=mmu[j]['before'] or m['after']!=(m['before'] if i==2 else 0xc00+j):return False
-    if data[0]!=dict(words=0x80000,matched=0x80000,expected=0x2e4e04fe,actual=0x2e4e04fe):return False
+    if data[0]!=dict(words=0x100000,matched=0x100000,expected=0x3e80e5d7,actual=0x3e80e5d7):return False
     if direct!=[dict(matched=4096)] or restore!=[dict(matched=4096)]:return False
     names=[l.split()[0] for l in lines if l.startswith('PSRAM_WINDOW')]
-    expected=['PSRAM_WINDOW_MODE','PSRAM_WINDOW_RAW','PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*32
-    expected+=['PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*32+['PSRAM_WINDOW_DATA','PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*32
+    expected=['PSRAM_WINDOW_MODE','PSRAM_WINDOW_RAW','PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*64
+    expected+=['PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*64+['PSRAM_WINDOW_DATA','PSRAM_WINDOW']+['PSRAM_WINDOW_MMU']*64
     expected+=['PSRAM_WINDOW_RAW','PSRAM_WINDOW_DIRECT','PSRAM_WINDOW_RAW','PSRAM_WINDOW_RAW','PSRAM_WINDOW_RESTORE','PSRAM_WINDOW_MODE']
     if names!=expected:return False
     positions=[i for i,l in enumerate(lines) if l.startswith('PSRAM_WINDOW')]

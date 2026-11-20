@@ -25,12 +25,17 @@ static inline int psram_accessible(const uint32_t roots[MAIA_PSRAM_ROOT_WORDS]){
 }
 #ifdef MAIA_PSRAM_TEST
 int maia_psram_test_context(void);
+int maia_psram_test_core0(void);
 uint32_t maia_psram_test_read(uintptr_t);
 void maia_psram_test_write(uintptr_t,uint32_t);
 #define psram_context maia_psram_test_context
+static inline int psram_core0_context(void){return maia_psram_test_core0();}
 #define psram_read maia_psram_test_read
 #define psram_write maia_psram_test_write
 #else
+static inline int psram_core0_context(void){
+    uint32_t hart;__asm__ volatile("csrr %0,mhartid":"=r"(hart));return !hart;
+}
 static inline int psram_context(void){
     uint32_t hart,status;__asm__ volatile("csrr %0,mhartid":"=r"(hart));__asm__ volatile("csrr %0,mstatus":"=r"(status));return !hart&&!(status&8U);
 }

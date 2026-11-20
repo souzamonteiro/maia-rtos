@@ -10,18 +10,20 @@ typedef struct maia_lcd_output_stats {
     uint32_t updates,presented;
     maia_task_id_t owner;
 } maia_lcd_output_stats_t;
-/* Borrowed packed native-orientation RGB565 buffer; pitch=width pixels. Executed
- * only by owner thread with IRQs enabled and DMA idle. Do not retain the pointer,
- * touch outside width*height, throw, or call other PSRAM/cache/lifecycle APIs.
+/* Borrowed packed native-orientation RGB565 backbuffer; pitch=width pixels.
+ * The callback must produce a complete frame and runs on the owner thread with
+ * IRQs enabled while DMA scans the other buffer. Do not retain the pointer, touch
+ * outside width*height, throw, or call other PSRAM/cache/lifecycle APIs.
  * The callback must return; scheduling remains enabled but its duration is not
  * covered by the DMA timeout. Callback and arg must live until publication/stop.
  * No SMP or unrelated PSRAM/cache clients are supported in this warm service. */
 typedef void (*maia_lcd_draw_fn)(uint16_t *,uint32_t width,uint32_t height,void *);
 /* Core0 task/ISR, one pending request. OK queued (not yet visible), BUSY if a
- * request/edit exists; INVALID null callback or stopped/stopping/uninitialized.
- * Stop cancels requests not yet taken; a callback already started publishes and
- * completes one frame before stopping. updates counts cache publication;
- * presented counts updates whose subsequent DMA frame finished successfully. */
+ * request/edit/presentation exists; INVALID null callback or stopped/stopping/
+ * uninitialized. Stop cancels requests not yet taken; a callback already started
+ * publishes and presents one frame before stopping. Updates swap buffers at a
+ * frame boundary without pausing DMA or reinitializing DPI/DSI video. updates
+ * counts cache publication; presented counts completed frames after each swap. */
 maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn,void *);
 /* Owner thread, IRQs enabled, only after run returned a clean graceful stop.
  * Reclaims the same warm panel/window/config; clears per-session counters.
@@ -33,15 +35,17 @@ maia_status_t maia_lcd_output_restart(void);
  * OK; BUSY if already initialized/backend refuses; PERM for wrong context;
  * INVALID for a missing/non-ready owner. Backend partial failure is reset-only. */
 maia_status_t maia_lcd_output_init(maia_task_id_t owner);
-/* Owner thread only, IRQs enabled: repeat frames until stop request or fault.
- * Waits on actual completion IRQ notification; finite100tick transfer timeout,
- *1tick sleeps only for residual FIFO drain. Other tasks remain schedulable.
+/* Owner thread only, IRQs enabled: continuously refresh the framebuffer until
+ * stop request or fault. The completion IRQ rearms DMA without disabling video;
+ * CPU updates swap buffers at a frame boundary, shutdown pauses there. Waits on actual completion
+ * IRQ notification; finite100tick frame timeout,1tick sleeps only for residual
+ * FIFO drain. Other tasks remain schedulable.
  * Local IRQ exclusion covers short hardware transitions, never the frame wait.
  * ROM cache claim at boot and bounded32poll error cleanup have no measured WCET.
  * OK after graceful stop; PERM for wrong context/reentry; BUSY on hardware fault
  * or uncertain recovery. Failed stop retains source ownership. */
 maia_status_t maia_lcd_output_run(void);
-/* Nonblocking task/ISR request, native core0. Graceful current-frame completion;
+/* Nonblocking task/ISR request, native core0. Graceful next-frame-boundary stop;
  * timeout invokes guarded cancel. Does not revoke source ownership by itself.
  * OK when queued; INVALID before init/after stop. */
 maia_status_t maia_lcd_output_request_stop(void);
