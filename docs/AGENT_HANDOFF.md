@@ -1690,3 +1690,20 @@ refuses its captured `0x500` entry guards; do not weaken them based on the
 different product startup path. A previous exploratory variant that added the
 probe-only smoke translation unit hit the SRAM assertion; the canonical target
 does not. Next: pursue cold-start/PSRAM and repeated-boot validation separately.
+
+## Canonical product ELF symbol/link-map audit — 2026-11-20
+
+The canonical XIP product ELF was scanned for common FreeRTOS API families and
+ESP-IDF runtime symbols: zero matches. `nm -u` reported zero undefined symbols,
+and the linker map contained no matching FreeRTOS/ESP-IDF runtime archive paths.
+ELF SHA-256:
+`5148207b3c81bd298885735ccb92c200c99cc2c4271d035b451bceb6f76dcb89`; map
+SHA-256:
+`84f9785aa61199acaeceec772ef88ef14ba84622507c7a3b11b317caf6c310b8`.
+The map and audit results are preserved beside the product image in
+`../../maia-rtos-recovery/native-product-xip-link-20261120/`.
+
+This closes the common symbol-name/link-input scan, not the broad F10 review
+for renamed or otherwise embedded vendor code. Remaining F1 runtime work:
+constructors/guards, compiler TLS, positive serial read, `reent` slot reuse,
+and `std::thread`. Cold boot/PSRAM acceptance also remains open.

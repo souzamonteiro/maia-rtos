@@ -85,9 +85,9 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
 - [ ] Construtores estáticos e guardas de inicialização C++ no device
 - [ ] TLS de compilador (`thread_local`/ELF TLS); as chaves pthread testadas não significam TLS ELF
-- [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; sem boot do produto no device)
-- [x] Boot eletrônico/aceitação básica do produto XIP no device: imagem em `maia-rtos-recovery/native-product-xip-link-20261120/`; captura/restauração em `native-product-xip-smoke-20261120-1218/`
-- [ ] Auditoria final de símbolos FreeRTOS no ELF do produto (o scan sem FreeRTOS foi apenas no probe F1)
+- [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; boot do produto registrado abaixo)
+- [x] Boot morno do produto XIP no device: shell `msh>`, `qtest`, serviços LCD/touch; tela estável e interação touch confirmadas visualmente (20/11; cold boot pendente)
+- [x] Auditoria de símbolos/runtime no ELF e mapa de link do produto: zero nomes proibidos, zero símbolos indefinidos e zero caminhos de runtimes FreeRTOS/ESP-IDF (20/11; ELF, mapa e relatório preservados em `maia-rtos-recovery/native-product-xip-link-20261120/`)
 
 ## F2 — Armazenamento
 
@@ -164,7 +164,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 
 ## F10 — Entrega final do P4
 
-- [ ] Auditoria do ELF: nenhum código FreeRTOS ou runtime ESP-IDF
+- [ ] Auditoria ampla do ELF/link completo: nenhum código FreeRTOS ou runtime ESP-IDF (a varredura de símbolos e caminhos de arquivos passou; revisão ampla restante)
 - [ ] Testes longos de estabilidade
 - [ ] Documentação atualizada
 - [ ] Build ESP-IDF aposentado

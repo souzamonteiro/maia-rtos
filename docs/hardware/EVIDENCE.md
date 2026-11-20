@@ -2020,11 +2020,25 @@ Image SHA-256:
 ELF inspection confirms `__getreent`, `_read`, `_write`, `clock_gettime`,
 `nanosleep` and `pthread_mutex_lock`; the guarded
 `maia_esp32p4_psram_cache_adopt` symbol is at `0x4ff03b1c` in internal SRAM.
-A quick symbol-name scan for common FreeRTOS names found no matches, but the
-comprehensive final product audit remains pending.
+The product ELF symbol audit found zero matches for the common FreeRTOS API
+families (`xTask`, `vTask`, `uxTask`, `xQueue`, `vQueue`, `xSemaphore`,
+`vSemaphore`, `xTimer`, `vTimer`, `pvPortMalloc`, `vPortMalloc`,
+`xPortStartScheduler`, `portYIELD`, `heap_2/3/4`) and runtime symbols
+(`esp_timer`, `esp_event`, `esp_log`, `esp_system`, `esp_heap_caps`, `esp_cache`,
+`esp_task_wdt`, `esp_pthread`, `esp_newlib`, `esp_pm`). `nm -u` reports zero
+undefined symbols. The linker map has no matching FreeRTOS/ESP-IDF runtime
+archive paths. This is a symbol-name/link-input audit, not the broader final
+review that rules out all embedded vendor code; that F10 audit remains open.
+ELF SHA-256 is
+`5148207b3c81bd298885735ccb92c200c99cc2c4271d035b451bceb6f76dcb89`;
+linker-map SHA-256 is
+`84f9785aa61199acaeceec772ef88ef14ba84622507c7a3b11b317caf6c310b8`.
 
-The exact image and build report are preserved in
-[the recovery directory](../../../maia-rtos-recovery/native-product-xip-link-20261120/).
+The audited [product ELF](../../../maia-rtos-recovery/native-product-xip-link-20261120/maia_m0.elf),
+[image](../../../maia-rtos-recovery/native-product-xip-link-20261120/maia_m0.bin),
+[linker map](../../../maia-rtos-recovery/native-product-xip-link-20261120/maia_m0.map),
+and [build/audit report](../../../maia-rtos-recovery/native-product-xip-link-20261120/report.json)
+are preserved in the recovery directory.
 The link-only run did not flash the image; its subsequent controlled warm-reset
 boot is recorded below. An earlier exploratory variant that added the probe-only
 smoke source to the product ELF hit the
@@ -2075,8 +2089,8 @@ captures are in
 [the visual-run directory](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/);
 see the [report](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/report.json)
 and [product log](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/probe-boot-1.log).
-This remains a warm-reset visual check only; no touch input or cold boot was
-tested.
+This remains a warm-reset visual check only; touch input was tested in the
+following run, while cold boot was not tested.
 
 ### Touch interaction — owner confirmation
 

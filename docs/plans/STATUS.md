@@ -2224,17 +2224,28 @@ descriptor `0x400B0020`, checksum/hash válidos; SHA-256
 `e9615cf79c2f1c910bbc5581896b8bd7f4db832a2f223081554850e44ca97f3d`.
 O ELF contém `__getreent`, `_read`, `_write`, `clock_gettime`, `nanosleep` e
 `pthread_mutex_lock`; `maia_esp32p4_psram_cache_adopt` está em `0x4ff03b1c`,
-dentro da SRAM interna. Busca rápida por nomes FreeRTOS comuns não encontrou
-correspondências; a auditoria final continua pendente.
+dentro da SRAM interna. A auditoria de símbolos não encontrou nomes das
+famílias comuns FreeRTOS (`xTask`, `vTask`, `uxTask`, `xQueue`, `vQueue`,
+`xSemaphore`, `vSemaphore`, `xTimer`, `vTimer`, `pvPortMalloc`, `vPortMalloc`,
+`xPortStartScheduler`, `portYIELD`, `heap_2/3/4`) nem símbolos de runtime
+`esp_timer`, `esp_event`, `esp_log`, `esp_system`, `esp_heap_caps`, `esp_cache`,
+`esp_task_wdt`, `esp_pthread`, `esp_newlib` ou `esp_pm`. `nm -u` encontrou zero
+símbolos indefinidos; o mapa de link não contém caminhos de archives
+FreeRTOS/ESP-IDF correspondentes. ELF SHA-256:
+`5148207b3c81bd298885735ccb92c200c99cc2c4271d035b451bceb6f76dcb89`;
+mapa SHA-256:
+`84f9785aa61199acaeceec772ef88ef14ba84622507c7a3b11b317caf6c310b8`.
+Isso conclui a auditoria de nomes/caminhos, mas não a revisão ampla para excluir
+código vendor renomeado ou embutido; o item F10 permanece aberto.
 
-A imagem e o relatório estão em
+A imagem, ELF auditado, mapa e relatório estão em
 `../../maia-rtos-recovery/native-product-xip-link-20261120/`. Não foi gravada
 nem inicializada no device durante a validação de link; o boot controlado
 posterior está registrado abaixo. A tentativa anterior que injetava o smoke
 probe-only no ELF do produto falhou nessa asserção; o build canônico atual
 passa sem alterar o guard. O boot controlado com backup e restauração verificada
-está descrito abaixo; observação visual, cold boot/PSRAM e interação touch
-continuam pendentes.
+está descrito abaixo; a observação visual e a interação touch foram confirmadas
+em execuções posteriores. Cold boot/PSRAM continuam pendentes.
 
 ## Boot morno do produto XIP no Tab5 — 2026-11-20
 
