@@ -55,34 +55,35 @@ int main(void) {
     for (size_t i = 0U; i < sizeof(initial_data); ++i) {
         template_data[i] = initial_data[i];
     }
-    maia_tls_test_configure(template_data, sizeof(template_data), 16U, 16U);
+    maia_tls_test_configure(template_data, sizeof(template_data), 80U, 64U);
     if (maia_tls_boot_init() != 0) return 1;
 
     uint8_t *boot_tp = (uint8_t *)maia_tls_test_boot_thread_pointer();
     uint8_t *idle_tp = (uint8_t *)maia_tls_idle_thread_pointer();
     if (boot_tp == NULL || idle_tp == NULL || boot_tp == idle_tp ||
+        ((uintptr_t)boot_tp & 63U) != 0U || ((uintptr_t)idle_tp & 63U) != 0U ||
         boot_tp[0] != initial_data[0] || boot_tp[3] != initial_data[3] ||
         idle_tp[0] != initial_data[0] || idle_tp[3] != initial_data[3] ||
         !bytes_are(boot_tp + sizeof(initial_data), 0U,
-                   16U - sizeof(initial_data)) ||
+                   80U - sizeof(initial_data)) ||
         !bytes_are(idle_tp + sizeof(initial_data), 0U,
-                   16U - sizeof(initial_data))) return 2;
+                   80U - sizeof(initial_data))) return 2;
 
     template_data[0] = 0U;
     uint8_t *first = (uint8_t *)maia_tls_task_create(2);
     uint8_t *second = (uint8_t *)maia_tls_task_create(3);
     if (first == NULL || second == NULL || first == second ||
-        ((uintptr_t)first & 15U) != 0U || ((uintptr_t)second & 15U) != 0U ||
+        ((uintptr_t)first & 63U) != 0U || ((uintptr_t)second & 63U) != 0U ||
         first[0] != initial_data[0] || second[0] != initial_data[0] ||
-        !bytes_are(first + sizeof(initial_data), 0U, 12U) ||
-        !bytes_are(second + sizeof(initial_data), 0U, 12U)) return 3;
+        !bytes_are(first + sizeof(initial_data), 0U, 76U) ||
+        !bytes_are(second + sizeof(initial_data), 0U, 76U)) return 3;
 
     first[0] = 0xA5U;
     if (second[0] != initial_data[0]) return 4;
     maia_tls_task_reclaim(2);
     uint8_t *reused = (uint8_t *)maia_tls_task_create(2);
     if (reused != first || reused[0] != initial_data[0] ||
-        !bytes_are(reused + sizeof(initial_data), 0U, 12U)) return 5;
+        !bytes_are(reused + sizeof(initial_data), 0U, 76U)) return 5;
 
     maia_tls_task_reclaim(2);
     maia_tls_task_reclaim(3);

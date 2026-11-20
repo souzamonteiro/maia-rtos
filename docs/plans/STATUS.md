@@ -2357,8 +2357,9 @@ verifica cópia do template, zero-fill, alinhamento, isolamento e reuso.
 O probe de 110.048 bytes passou validação estrutural; quatro boots mornos no
 Tab5 emitiram `MAIA_F1_RUNTIME_PASS` sem fatal e repetiram a leitura USB
 positiva. A imagem foi restaurada após o teste e o SHA-256 do app original foi
-confirmado. A suíte host completa passou (87/87). ELF, imagem, mapa, relatório
-e logs estão no [diretório de evidências](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/).
+confirmado. A suíte host completa passou (87/87). Relatório, backups e logs
+estão no [diretório de evidências](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/);
+o ELF, a imagem e o mapa dessa execução não foram preservados.
 
 O suporte atual cobre TLS estático local-exec com variáveis triviais e
 inicialização constante; TLS dinâmico e construtores/destrutores não triviais
@@ -2366,3 +2367,46 @@ não estão implementados. `std::thread`, cold boot e estresse de alto volume
 de reciclagem de slots seguem pendentes. A tentativa de linkar a configuração
 alternativa sem XIP não passou: `.text` excedeu `L2MEM_LOW` em 692.752 bytes;
 esse layout não foi validado e requer uma redução de imagem independente.
+
+## TLS com alinhamento máximo e boot do produto — 2026-11-20
+
+O probe agora contém uma variável `thread_local` alinhada a 64 bytes e confere
+seu endereço, valor inicial, isolamento e reutilização. O ELF resultante tem
+`PT_TLS` com alinhamento de 64 bytes e a variável no offset `0x40`. Quatro boots
+mornos passaram; os testes host focados TLS, gthread e scheduler passaram
+(4/4). A imagem de 110.160 bytes, ELF, mapa e logs estão em
+[evidências do probe](../../../maia-rtos-recovery/native-f1-tls-align64-20261120/).
+
+O produto XIP com TLS integrado passou por um boot morno até `msh>`, com
+`qtest PASS` e serviços LCD/touch anunciados; não houve nova conferência visual.
+O app original foi restaurado com hash verificado após ambos os testes.
+Imagem, ELF, mapa e logs: [evidências do produto](../../../maia-rtos-recovery/native-product-xip-tls-20261120/).
+
+## F1 suporte básico a `std::thread` — 2026-11-20
+
+Implementados `pthread_create`, `pthread_join`, `pthread_detach`, identidade
+estável independente do ID reciclável do scheduler, atributos básicos de stack
+e retorno/`pthread_exit`. Registros joinable sobrevivem à saída até o `join`;
+threads detached removem o registro ao sair. A stack própria só é liberada no
+hook de conclusão, depois do estado `EXITED`, no caminho de trap que já usa a
+stack de IRQ. O runtime usa exclusão por IRQ local e, portanto, permanece
+limitado ao scheduler single-core atual; isto não é uma implementação POSIX
+completa nem evidência de SMP.
+
+Host: os testes focados `gthread_test`, `tls_runtime_test` e
+`pthread_runtime_test` passaram (3/3), incluindo task-ID reutilizado antes do
+join do primeiro pthread. A suíte host completa passou (88/88). Os alvos
+`maia_f1_runtime_probe_image` e `maia_m0_image` compilaram/empacotaram.
+No Tab5, o probe passou em dois boots mornos com criação, ID, join e detach,
+incluindo a entrada serial esperada; o produto XIP chegou a `msh>` com
+`qtest PASS` e serviços LCD/touch anunciados. Ambos os runners restauraram o
+app original e verificaram seu SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas e binários:
+`../../../maia-rtos-recovery/native-f1-std-thread-20261120-with-input-detach/`
+e `../../../maia-rtos-recovery/native-product-xip-pthread-20261120/`.
+
+O teste do produto foi eletrônico: não houve nova observação visual/touch nem
+validação de cold boot. TLS dinâmico, inicializadores/destrutores não triviais
+de `thread_local`, SMP e APIs POSIX além do subconjunto exercitado permanecem
+fora deste resultado.

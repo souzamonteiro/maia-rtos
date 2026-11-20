@@ -1,5 +1,6 @@
 #include <maia/kernel.h>
 #include <maia/arch/riscv_stack.h>
+#include <maia/runtime/pthread.h>
 #include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_trap_policy.h>
 #include <maia/soc/esp32p4_panic.h>
@@ -84,6 +85,10 @@ void maia_soc_systimer_init(uint32_t tick_hz) {
 int maia_soc_external_irq_dispatch(uint32_t id);
 __attribute__((weak)) int maia_soc_external_irq_dispatch(uint32_t id){(void)id;return 0;}
 
+__attribute__((weak)) void maia_pthread_task_exit_complete(maia_task_id_t task_id) {
+    (void)task_id;
+}
+
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval);
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval) {
     uint32_t *frame = (uint32_t *)sp;
@@ -116,7 +121,11 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
         } else if (mepc == (uint32_t)(uintptr_t)maia_arch_wait_notification_ecall) {
             status = maia_sched_wait_notification_isr(frame[6]);
         } else if (mepc == (uint32_t)(uintptr_t)maia_arch_exit_ecall) {
+            maia_task_id_t exited_task = maia_task_current_id();
             status = maia_sched_exit_current_isr();
+            if (status == MAIA_OK) {
+                maia_pthread_task_exit_complete(exited_task);
+            }
         }
         if (status != MAIA_OK) maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
         frame[28] = resume_pc;

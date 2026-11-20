@@ -12,6 +12,7 @@
 
 #include <mutex>
 #include <new>
+#include <thread>
 
 namespace {
 
@@ -23,6 +24,12 @@ constexpr uint32_t kTlsInitializedValue = 0xF1C00303U;
 volatile uint32_t g_global_constructor_calls;
 thread_local uint32_t g_tls_initialized = kTlsInitializedValue;
 thread_local uint32_t g_tls_zero_initialized;
+alignas(64) thread_local volatile uint32_t g_tls_aligned;
+volatile uint32_t g_std_thread_result;
+volatile uint32_t g_std_thread_detached_result;
+std::thread::id g_std_thread_id;
+alignas(std::thread) unsigned char g_std_thread_storage[sizeof(std::thread)];
+std::thread *g_std_thread;
 
 struct GlobalConstructorProbe {
     uint32_t value;
@@ -71,6 +78,15 @@ void record_error(uint32_t worker) {
     ++g_worker_errors[worker];
 }
 
+void std_thread_entry(uint32_t value) {
+    g_std_thread_result = value;
+    g_std_thread_id = std::this_thread::get_id();
+}
+
+void std_thread_detached_entry(uint32_t value) {
+    g_std_thread_detached_result = value;
+}
+
 bool check_errno(uint32_t worker, int expected) {
     if (errno == expected && __getreent()->_errno == expected) return true;
     record_error(worker);
@@ -105,12 +121,14 @@ void worker_entry(void *arg) {
         record_error(worker);
     }
     if (g_tls_initialized != kTlsInitializedValue ||
-        g_tls_zero_initialized != 0U) {
+        g_tls_zero_initialized != 0U || g_tls_aligned != 0U ||
+        (reinterpret_cast<uintptr_t>(&g_tls_aligned) & 63U) != 0U) {
         record_error(worker);
     }
     const uint32_t tls_value = 0xF1C10000U | worker;
     g_tls_initialized = tls_value;
     g_tls_zero_initialized = tls_value ^ 0xFFFFFFFFU;
+    g_tls_aligned = tls_value;
 
     for (uint32_t round = 0U; round < kRounds; ++round) {
         errno = expected_errno;
@@ -141,7 +159,8 @@ void worker_entry(void *arg) {
                 record_error(worker);
             }
             if (g_tls_initialized != tls_value ||
-                g_tls_zero_initialized != (tls_value ^ 0xFFFFFFFFU)) {
+                g_tls_zero_initialized != (tls_value ^ 0xFFFFFFFFU) ||
+                g_tls_aligned != tls_value) {
                 record_error(worker);
             }
             g_in_critical = 0U;
@@ -184,14 +203,16 @@ void reent_reuse_entry(void *) {
         reent->_errno != 0 ||
         pthread_getspecific(g_key) != nullptr ||
         g_tls_initialized != kTlsInitializedValue ||
-        g_tls_zero_initialized != 0U;
+        g_tls_zero_initialized != 0U || g_tls_aligned != 0U ||
+        (reinterpret_cast<uintptr_t>(&g_tls_aligned) & 63U) != 0U;
     g_reent_reuse_done = 1U;
 }
 
 void report_entry(void *) {
     bool report_tls_initialized =
         g_tls_initialized == kTlsInitializedValue &&
-        g_tls_zero_initialized == 0U;
+        g_tls_zero_initialized == 0U && g_tls_aligned == 0U &&
+        (reinterpret_cast<uintptr_t>(&g_tls_aligned) & 63U) == 0U;
     uint32_t wait_ticks = 0U;
     while ((g_worker_done[0] == 0U || g_worker_done[1] == 0U ||
             g_destructor_seen[0] == 0U || g_destructor_seen[1] == 0U) &&
@@ -199,6 +220,41 @@ void report_entry(void *) {
         maia_task_delay_ticks(1U);
         ++wait_ticks;
     }
+
+    bool std_thread_created = g_std_thread != nullptr &&
+        g_std_thread->joinable();
+    std::thread::id expected_std_thread_id;
+    if (std_thread_created) {
+        expected_std_thread_id = g_std_thread->get_id();
+        g_std_thread->join();
+    }
+    bool std_thread_joined = std_thread_created &&
+        !g_std_thread->joinable() &&
+        g_std_thread_id == expected_std_thread_id &&
+        g_std_thread_result == 0xF17A0001U;
+    if (g_std_thread != nullptr) {
+        g_std_thread->~thread();
+        g_std_thread = nullptr;
+    }
+    g_std_thread_detached_result = 0U;
+    g_std_thread = new (g_std_thread_storage)
+        std::thread(std_thread_detached_entry, 0xF17A0002U);
+    bool std_thread_detached = g_std_thread->joinable();
+    if (std_thread_detached) {
+        g_std_thread->detach();
+        std_thread_detached = !g_std_thread->joinable();
+    }
+    g_std_thread->~thread();
+    g_std_thread = nullptr;
+    wait_ticks = 0U;
+    while (g_std_thread_detached_result != 0xF17A0002U &&
+           wait_ticks < 500U) {
+        maia_task_delay_ticks(1U);
+        ++wait_ticks;
+    }
+    bool std_thread_detached_ran =
+        g_std_thread_detached_result == 0xF17A0002U;
+    maia_task_delay_ticks(2U);
 
     maia_task_delay_ticks(2U);
     maia_task_id_t reused_task_id = -1;
@@ -242,7 +298,9 @@ void report_entry(void *) {
         memcmp(input_data, expected_input, sizeof(expected_input) - 1U) == 0;
     bool reent_reused = reuse_task_created &&
         g_reent_reuse_done != 0U && g_reent_reuse_error == 0U;
-    bool pass = report_tls_initialized && read_empty && input_ready_written &&
+    bool pass = report_tls_initialized && std_thread_joined &&
+        std_thread_detached && std_thread_detached_ran &&
+        read_empty && input_ready_written &&
         read_input && reent_reused &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
         g_guard_constructor_calls == 1U &&
@@ -278,11 +336,16 @@ extern "C" int maia_f1_runtime_smoke_start(
         return 3;
     }
     if (g_tls_initialized != kTlsInitializedValue ||
-        g_tls_zero_initialized != 0U) {
+        g_tls_zero_initialized != 0U || g_tls_aligned != 0U ||
+        (reinterpret_cast<uintptr_t>(&g_tls_aligned) & 63U) != 0U) {
         return 4;
     }
     g_tls_initialized = 0xF1C0B007U;
     g_tls_zero_initialized = 0xF1C0B007U;
+    g_tls_aligned = 0xF1C0B007U;
+    g_std_thread_result = 0U;
+    g_std_thread_detached_result = 0U;
+    g_std_thread_id = std::thread::id();
 
     g_reuse_stack = stack_reuse;
     g_reuse_stack_size = stack_reuse_size;
@@ -300,5 +363,7 @@ extern "C" int maia_f1_runtime_smoke_start(
                          stack_report, stack_report_size, &task_id) != MAIA_OK) {
         return 2;
     }
+    g_std_thread = new (g_std_thread_storage)
+        std::thread(std_thread_entry, 0xF17A0001U);
     return 0;
 }

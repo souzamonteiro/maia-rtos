@@ -206,6 +206,8 @@ maia_status_t  maia_task_create(const char *name,
  */
 void           maia_task_yield(void);
 void           maia_task_delay_ticks(uint32_t ticks);
+/* Clean up the current task's runtime state and terminate it. Never returns. */
+void           maia_task_exit_current(void) __attribute__((noreturn));
 /* Single-core sticky, coalescing notification per task; no payload/count/heap.
  * notify: boot/thread/ISR-safe, preserves IRQ state. OK for a live task, INVALID
  * for negative/out-of-range/UNUSED/EXITED id. ID slots are reusable: caller must

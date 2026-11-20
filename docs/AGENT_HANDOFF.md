@@ -1787,3 +1787,44 @@ unsupported; `std::thread`, cold boot and high-churn slot-reuse stress remain
 open. The alternative non-XIP full product link remains unvalidated: its
 `.text` exceeds `L2MEM_LOW` by 692,752 bytes. Do not equate this TLS support
 with a complete C++ threading runtime.
+
+## TLS alignment and product regression — 2026-11-20
+
+The F1 probe now checks a 64-byte-aligned trivial TLS variable in boot, worker,
+report and recycled contexts, including worker isolation. Its ELF has a 64-byte
+`PT_TLS` alignment and an aligned variable at offset `0x40`. Four warm-reset
+boots passed; host TLS/gthread and integer/FP scheduler tests passed 4/4.
+Image, ELF, map, logs and report:
+`../../maia-rtos-recovery/native-f1-tls-align64-20261120/`.
+
+The canonical XIP product with TLS integrated passed one warm boot to `msh>`
+with `qtest PASS` and LCD/touch service-ready messages; no new visual or touch
+check was performed. Both controlled runs restored the original app with its
+SHA-256 verified. Product image, ELF, map, logs and report:
+`../../maia-rtos-recovery/native-product-xip-tls-20261120/`.
+
+The basic `std::thread` subset is now implemented and exercised on hardware;
+see the evidence below. This does not claim full POSIX, SMP, dynamic TLS,
+cold-boot, or visual/touch acceptance.
+
+## Basic `std::thread` runtime — 2026-11-20
+
+Added `runtime/pthread.c` and the internal exit-completion hook. Stable pthread
+handles do not alias reusable Maia task IDs. `join` preserves return values;
+`detach` releases the record at exit. An owned stack is reclaimed only after
+the task is marked `EXITED` and the synchronous exit trap has switched to the
+IRQ stack, never from the pthread trampoline. The runtime depends on the
+current single-core IRQ-exclusion model and is not an SMP-safe POSIX layer.
+
+The host suite passed 88/88; focused gthread/TLS/pthread tests passed 3/3. The
+F1 probe passed two warm-reset Tab5 boots for C++ thread create, identity,
+join, detach, and detached completion. The canonical product image booted once
+to `qtest PASS`/`msh>` with LCD/touch services ready. Both test paths restored
+the original app and verified its SHA-256. Full reports, captures, binaries,
+ELFs and maps are preserved in
+`../../maia-rtos-recovery/native-f1-std-thread-20261120-with-input-detach/`
+and `../../maia-rtos-recovery/native-product-xip-pthread-20261120/`.
+
+Remaining: dynamic TLS and non-trivial `thread_local` initialization/destruction,
+high-churn task-slot stress, SMP synchronization, cold boot, and new visual/touch
+acceptance. The hardware pass proves only the tested basic thread paths.

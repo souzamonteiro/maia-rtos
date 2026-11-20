@@ -2225,3 +2225,75 @@ Support is limited to statically linked local-exec TLS with constant-initialized
 trivial variables. Dynamic TLS modules and non-trivial `thread_local`
 initialization/destruction are not implemented; `std::thread`, cold boot and
 high-churn task-slot stress remain open.
+
+## TLS 64-byte alignment and product warm boot — 2026-11-20
+
+Extended the F1 probe with a volatile 64-byte-aligned `thread_local` variable.
+Boot, worker, report and recycled task contexts assert the alignment and zero
+initialization; workers also verify isolation across scheduling. The ELF has
+`PT_TLS` alignment 64, `.tdata` at `0x4ff00140`, and the aligned variable at
+TLS offset `0x40`. The 110,160-byte image passed structural validation and four
+warm-reset boots emitted `MAIA_F1_RUNTIME_PASS` without fatal/stack-fault
+markers. Its SHA-256 is
+`71e2d1bab2ce613b64f0c5c094d181c04b286694441152c05bca7b7dcaf990d0`.
+Host `tls_runtime_test`, `gthread_test`, `kernel_mvp_test` and
+`kernel_fp_frame_test` passed (4/4). The
+[probe artifacts](../../../maia-rtos-recovery/native-f1-tls-align64-20261120/)
+include the image, ELF, map, report and logs.
+
+The canonical XIP product with TLS runtime integrated also reached `msh>` in
+one warm-reset boot, with `qtest PASS` and LCD/touch service-ready messages;
+no new visual or touch interaction was performed. The 807,328-byte image
+passed structural validation and has SHA-256
+`42fc5b74b12a775da14a06dd075f0d6f501f8697cc59a1df3e587030a9a0edf9`.
+For both runs the runner restored the original app and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The [product artifacts](../../../maia-rtos-recovery/native-product-xip-tls-20261120/)
+include the image, ELF, map, report and logs. These results do not qualify cold
+boot.
+
+## Basic `std::thread` on Tab5 — 2026-11-20
+
+The pthread runtime supplies the libstdc++-required create/join/detach path,
+stable thread handles separate from reusable scheduler IDs, basic stack
+attributes, and return values. Owned stacks are reclaimed only after the
+scheduler marks the task `EXITED` and the exit trap has switched off that
+stack. Host `pthread_runtime_test` covers join, detach, explicit exit, external
+stacks, allocation failure, stack release and reuse of a scheduler task ID
+while an earlier pthread remains joinable. The F1 C++ probe checks
+`std::thread` creation, `get_id` against `this_thread::get_id`, join, detach
+and detached worker completion.
+
+`maia_f1_runtime_probe_image` passed image validation (113,216 bytes, SHA-256
+`3c520339e84114fbb03653a8f36be2db1d5a0ec100e1784f94c6e63ca6b30065`). Two
+warm-reset Tab5 boots emitted `MAIA_F1_RUNTIME_PASS`; both also passed the
+serial input check. The original 2,093,696-byte app was restored and its SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`
+verified. The full host suite passed 88/88.
+
+The product XIP image with pthread linked passed structural validation
+(807,824 bytes, SHA-256
+`f35554a45aa7c6d9bee5295743f6bb8cbfbfe8d78971f22ad7375c55f685ccbc`) and one
+warm-reset boot reached `qtest PASS` and `msh>`, with native LCD and ST7121
+touch services reporting ready. No new visual/touch acceptance was performed.
+The original app restoration/hash check also passed, and the restored boot
+reached `msh>` and loaded `desktop.mobj`. Probe and product reports, captures,
+backups, ELF files, maps and images are preserved in
+[F1 evidence](../../../maia-rtos-recovery/native-f1-std-thread-20261120-with-input-detach/)
+and [product evidence](../../../maia-rtos-recovery/native-product-xip-pthread-20261120/).
+
+The current product ELF has zero undefined symbols; its symbol table and link
+map contain no matches for the scanned common FreeRTOS/ESP-IDF runtime names.
+This targeted regression check does not replace the broader F10 source audit.
+
+Scope: this is the basic single-core libstdc++ thread subset exercised above,
+not full POSIX or SMP support. Dynamic TLS and non-trivial `thread_local`
+initialization/destruction, cold boot, and visual/touch regression remain
+separate work.
+
+A preliminary probe invocation omitted the positive serial-input injection and
+therefore failed its existing input assertion after emitting the ready marker;
+the runner still restored and verified the original app. That diagnostic run
+is preserved separately in
+`../../../maia-rtos-recovery/native-f1-std-thread-20261120/`. The accepted
+two-boot result above sends the required `Maia` input.

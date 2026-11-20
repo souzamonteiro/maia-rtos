@@ -123,10 +123,16 @@ __attribute__((weak)) void maia_tls_task_reclaim(maia_task_id_t task_id) {
 void maia_task_trampoline(uint32_t task_idx) {
     if (task_idx < MAIA_MAX_TASKS && g_tasks[task_idx].entry != NULL) {
         g_tasks[task_idx].entry(g_tasks[task_idx].arg);
-        maia_gthread_task_reclaim((maia_task_id_t)task_idx);
-        maia_newlib_task_reclaim((maia_task_id_t)task_idx);
-        maia_tls_task_reclaim((maia_task_id_t)task_idx);
     }
+    maia_task_exit_current();
+}
+
+void maia_task_exit_current(void) {
+    maia_task_id_t task_id = maia_task_current_id();
+    if (task_id < 0 || (uint32_t)task_id >= MAIA_MAX_TASKS) __builtin_trap();
+    maia_gthread_task_reclaim(task_id);
+    maia_newlib_task_reclaim(task_id);
+    maia_tls_task_reclaim(task_id);
     maia_arch_exit_trap();
 }
 

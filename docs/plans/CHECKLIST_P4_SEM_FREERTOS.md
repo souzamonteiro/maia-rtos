@@ -82,11 +82,13 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Smoke de runtime Newlib/gthread no Tab5: quatro boots por reset morno passaram; runner restaurou o app original e verificou o hash (sem display/PSRAM)
 - [x] Syscalls/heap/tempo no device: `write`, `read` vazio (`EAGAIN`) e positivo (4 bytes `Maia` por USB Serial/JTAG, 4 boots), `clock_gettime`, `nanosleep`, `calloc/realloc/free` (20/11)
 - [x] `reent` por tarefa: `errno` isolado e ponteiros `__getreent()` distintos; slot/ID reciclado com `errno` reinicializado e chave pthread limpa (4 boots mornos, 20/11)
-- [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
+- [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas
 - [x] Construtores estáticos e guardas C++ no device: probe com construtor global e guarda local concorrente (4 boots mornos); produto XIP chegou a `msh>` (1 boot morno, restauração verificada, 20/11)
-- [x] TLS estático local-exec por tarefa (`thread_local` ELF): isolamento em workers, inicialização no boot, inicialização zero e reuso de slot; 4 boots mornos no Tab5 (20/11). TLS dinâmico, inicializadores/destrutores não triviais e `std::thread` continuam pendentes.
+- [x] TLS estático local-exec por tarefa (`thread_local` ELF): isolamento em workers, inicialização no boot, inicialização zero, alinhamento de 64 bytes e reuso de slot; 4 boots mornos no Tab5 (20/11). TLS dinâmico e inicializadores/destrutores não triviais continuam pendentes.
+- [x] Subconjunto `std::thread`: criação, `get_id`/`this_thread::get_id`, `join` e `detach`; stack liberada após estado `EXITED` e troca para a stack de IRQ; host com reuso de ID e dois boots mornos no Tab5 (20/11)
 - [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; boot do produto registrado abaixo)
 - [x] Boot morno do produto XIP no device: shell `msh>`, `qtest`, serviços LCD/touch; tela estável e interação touch confirmadas visualmente (20/11; cold boot pendente)
+  - [x] Repetir boot eletrônico do produto XIP com o runtime TLS integrado: `msh>`, `qtest`, serviços LCD/touch; restauração verificada (20/11; 1 boot morno, sem nova observação visual)
 - [x] Auditoria de símbolos/runtime no ELF e mapa de link do produto: zero nomes proibidos, zero símbolos indefinidos e zero caminhos de runtimes FreeRTOS/ESP-IDF (20/11; ELF, mapa e relatório preservados em `maia-rtos-recovery/native-product-xip-link-20261120/`)
 
 ## F2 — Armazenamento
