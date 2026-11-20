@@ -65,12 +65,12 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Linker XIP do produto com closure crítica da PSRAM em SRAM; endereço do `cache_adopt` verificado e imagem aceita (20/11; boot morno, não qualifica cold boot)
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
 - [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU
-- [x] Inicialização nativa da PSRAM no produto XIP após reset morno: cache-adopt, clock/modo e window-sync retornaram 0; serviço LCD anunciou framebuffer PSRAM pronto (20/11). Cold boot, integridade de dados e toque ainda pendentes.
+- [x] Inicialização nativa da PSRAM no produto XIP após reset morno: cache-adopt, clock/modo e window-sync retornaram 0; serviço LCD anunciou framebuffer PSRAM pronto (20/11). Cold boot e integridade de dados ainda pendentes.
   - [x] Probe RAM-only separado continua recusando aquele snapshot (`VO2_ENABLED` + `DIVIDER_NOT_XTAL`, `0x500`); guard preservado. Não substitui o resultado do caminho canônico do produto nem é teste a frio.
 - [x] Boot do produto XIP após cache/MMU: serviços LCD e touch iniciados, self-test do shell (`qtest`) passou e chegou a `msh>`; um reset morno, backup/restauração verificados (20/11).
-- [x] LCD, touch e console iniciaram como serviços do produto (20/11); observação visual foi confirmada em execução posterior, mas não houve interação touch.
+- [x] LCD, touch e console iniciaram como serviços do produto (20/11); observação visual e interação touch foram confirmadas em execuções posteriores.
 - [x] Observação visual do produto XIP por 60 s: dono confirmou tela correta e estável, sem ciano, piscada ou artefatos (reset morno, 20/11)
-- [ ] Interação touch no produto XIP atual; o serviço anunciou inicialização, mas não houve teste de entrada nesta execução
+- [x] Interação touch no produto XIP atual: dono confirmou cruz seguindo o dedo e sumindo ao soltar (reset morno, 20/11)
 - [x] Gravação com verificação e restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)
 - [ ] Boot a frio repetido no device (10×) sem falha
 

@@ -2263,5 +2263,11 @@ boot. Capturas, report e backup:
 Uma segunda execução manteve o mesmo produto ativo por 60 s após `msh>`.
 O dono confirmou tela correta e estável, sem ciano, piscada ou artefatos
 visíveis; captura serial sem fatal, `probe_pass=true` e restauração verificada.
-Não houve interação touch nem boot a frio. Evidências:
+Não houve interação touch nessa segunda execução nem boot a frio. Evidências:
 `../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/`.
+
+Na terceira execução de 60 s, o dono confirmou visualmente a cruz branca
+seguindo o dedo e desaparecendo ao soltar. UART confirmou serviço ST7121
+iniciado, prompt `msh>` e ausência de fatal; o runner restaurou novamente o
+app original com hash verificado. Não houve boot a frio. Evidências:
+`../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/`.

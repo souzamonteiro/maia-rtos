@@ -1682,9 +1682,11 @@ The runner restored the original app and verified its hash; see
 
 This is warm-reset evidence. The owner then observed a second 60-second run and
 confirmed the screen was correct and stable, without cyan, flicker or visible
-artifacts. No touch input or cold boot was tested. The separate RAM-only PSRAM
-diagnostic still refuses its captured `0x500` entry guards; do not weaken them
-based on the different product startup path. A previous exploratory variant
-that added the probe-only smoke translation unit hit the SRAM assertion; the
-canonical target does not. Next: test touch interaction on this product image,
-then run cold-start/PSRAM and repeated-boot validation separately.
+artifacts. A third 60-second run confirmed the white touch cross followed the
+owner's finger and disappeared on release. Both runs restored the original app
+and verified its hash. Touch and display are verified on the warm-reset product
+path; cold boot remains open. The separate RAM-only PSRAM diagnostic still
+refuses its captured `0x500` entry guards; do not weaken them based on the
+different product startup path. A previous exploratory variant that added the
+probe-only smoke translation unit hit the SRAM assertion; the canonical target
+does not. Next: pursue cold-start/PSRAM and repeated-boot validation separately.

@@ -2077,3 +2077,17 @@ see the [report](../../../maia-rtos-recovery/native-product-xip-visual-20261120-
 and [product log](../../../maia-rtos-recovery/native-product-xip-visual-20261120-1220/probe-boot-1.log).
 This remains a warm-reset visual check only; no touch input or cold boot was
 tested.
+
+### Touch interaction — owner confirmation
+
+A third run kept the same product image active for a 60-second observation.
+The owner confirmed the white cross appeared, followed the finger, and
+disappeared on release. The product log reached `msh>` with the ST7121 service
+ready and no fatal/stack-fault marker; the runner restored the original app
+and verified its hash. The UART does not emit per-contact coordinates, so the
+movement/release result is the owner's visual observation. Report and capture:
+[touch-run directory](../../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/),
+[report](../../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/report.json),
+[product log](../../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/probe-boot-1.log).
+This validates touch on the warm-reset product path only; cold-start touch
+remains untested.
