@@ -39,6 +39,59 @@ assert not evaluate(stack + stack, 11, 0x4ff00836, 1)
 assert not evaluate('MAIA_NATIVE_PREEMPT_PASS MAIA_STACK_FAULT')
 assert not evaluate(good.replace(' sp=4ff02000',''), 2)
 
+
+def sdmmc_cmd8_capture():
+    divider = (9 << 9) | (4 << 13) | (9 << 17) | (1 << 23) | (7 << 27)
+    return ('MAIA_SDMMC_CMD8_PROBE schema=1 slot=0 no-data\n'
+            'SDMMC_CMD8 result=00000000 completed=00000007 command=00000008 '
+            'cmd0=00000004 raw=00000004 response=000001aa status=00004106\n'
+            f'SDMMC_CONFIG sys=00004000 source=01000000 divider={divider:08x} ldo=00004180 '
+            'clkdiv=00000014 clksrc=00000000 clkena=00000001 tmout=009c40ff '
+            'ctype=00000000 cdetect=00000000 d0=00000e00 d3=00001e00 '
+            'clk=00000e00 cmd=00000e00 out=00000400 enable=00000400 input=00000400\n'
+            'MAIA_NATIVE_SDMMC_CMD8_PASS\n')
+
+
+cmd8 = sdmmc_cmd8_capture()
+assert runner.evaluate_sdmmc_cmd8(cmd8) is True
+assert runner.evaluate_sdmmc_cmd8(cmd8.replace('\n', '\r\n')) is True
+for old, new in [
+        ('result=00000000', 'result=ffffffff'),
+        ('completed=00000007', 'completed=00000006'),
+        ('command=00000008', 'command=00000000'),
+        ('cmd0=00000004', 'cmd0=00000000'),
+        ('cmd0=00000004', 'cmd0=00000044'),
+        ('raw=00000004', 'raw=00000104'),
+        ('raw=00000004', 'raw=00008004'),
+        ('response=000001aa', 'response=000002aa'),
+        ('status=00004106', 'status=00003906'),
+        ('sys=00004000', 'sys=00000000'),
+        ('source=01000000', 'source=01800000'),
+        ('ldo=00004180', 'ldo=00000180'),
+        ('clkdiv=00000014', 'clkdiv=00000015'),
+        ('clksrc=00000000', 'clksrc=00000001'),
+        ('clkena=00000001', 'clkena=00010001'),
+        ('tmout=009c40ff', 'tmout=00000000'),
+        ('ctype=00000000', 'ctype=00000001'),
+        ('cdetect=00000000', 'cdetect=00000001'),
+        ('d0=00000e00', 'd0=00001e00'),
+        ('d3=00001e00', 'd3=00000e00'),
+        ('out=00000400', 'out=00000000'),
+        ('enable=00000400', 'enable=00000000'),
+        ('input=00000400', 'input=00000000'),
+        ('SDMMC_CONFIG', 'SDMMC_OTHER'),
+        ('MAIA_NATIVE_SDMMC_CMD8_PASS', 'MAIA_NATIVE_SDMMC_CMD8_FAIL'),
+]:
+    assert not runner.evaluate_sdmmc_cmd8(cmd8.replace(old, new, 1)), (old, new)
+assert not runner.evaluate_sdmmc_cmd8(cmd8.replace('divider=', 'divider=1', 1))
+assert not runner.evaluate_sdmmc_cmd8(cmd8 + cmd8)
+assert not runner.evaluate_sdmmc_cmd8(cmd8 + 'MAIA_NATIVE_FATAL\n')
+assert not runner.evaluate_sdmmc_cmd8(cmd8 + 'SDMMC_EXTRA unrecognized\n')
+lines = cmd8.splitlines()
+assert not runner.evaluate_sdmmc_cmd8('\n'.join((lines[0], lines[2], lines[1], lines[3])))
+print('PASS: CMD8 evidence requires ordered command/status, clock, pin and supply records')
+
+
 def sdmmc_capture(sys_clock=0x4000, reset=0):
     valid = int(bool(sys_clock & 0x4000) and not bool(reset & 0x10000000))
     capture = 'MAIA_SDMMC_STATE_PROBE schema=1 read-only\n'

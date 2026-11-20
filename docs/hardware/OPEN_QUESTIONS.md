@@ -9,13 +9,16 @@
 - [ ] **UQ-007 (Cache, PSRAM & DMA Coherency):** Octal PSRAM initialization sequence (MSPI controller + cache MMU mapping) and DMA alignment/cacheline constraints. Preserved sdkconfig sets L2 lines to128B (L1 64B); native cache configuration must be established independently. ROM writeback address/signature/mask verified, coherency policy still open; see ../audits/display-baseline-audit.md.
 - [ ] **UQ-008 (Tab5 Peripheral Power & Reset Sequencing):** Exact `PI4IOE5V6408` I2C0 (GPIO31/GPIO32) expander I2C addresses and bit masks for LCD backlight, MIPI-DSI bridge (`ILI9881C` / `ST7123`), touch (`GT911` / `ST7123`), audio (`ES8388` / `ES7210`), and SD card slot power rails.
 - [ ] **SDMMC native bring-up and media safety:** Verify Tab5 slot power routing,
-  LDO4 voltage and ownership, pinmux/clock/reset sequencing and DMA/cache
-  requirements from primary sources before native MMIO. Two warm-reset
-  read-only observations found LDO4 enabled in bypass but did not measure its
-  voltage; card clock/pinmux were not ready for SDMMC. The owner confirmed the
-  microSD is test media; legacy restoration synchronizes files to `/sd`, but
-  do not format it. CSD decoding and `CMD17` address checks are host-tested
-  only; no native SD transfer has run.
+  physical LDO4 voltage and cold power-on sequence, runtime ownership, and
+  DMA/cache requirements. The boot-only RAM diagnostic configured the
+  controller and received `CMD8` `0x1aa` in two warm resets; it only accepts
+  inherited VO4 enabled in bypass, does not measure voltage, and forces card
+  presence. Complete `ACMD41`, identification/CSD and selection, then compare
+  native `CMD17` data against an independent reference before claiming read
+  support. CSD decoding and `CMD17` address checks remain host-tested only.
+  The owner confirmed the microSD is test media; legacy restoration synchronizes
+  files to `/sd`, but do not format it. No native sector transfer, write,
+  FatFs or VFS has been tested.
 - [x] **UQ-009 (Toolchain Installation & Verification — RESOLVED):** Verified `riscv32-esp-elf-gcc` (`esp-14.2.0_20241119`, `14.2.0`, SHA-256 `2bc6b93e97fbe3b5662655bafab65377a84c2850fff1f2abda97abeb91f5690b`) and `esptool.py` (`v4.12.0`, SHA-256 `8ec1e4d5736e97248bc0eac713d94fba5a002b725d74d9d4c850d570e50ded5a`) in `/Users/roberto/.espressif` and configured `cmake/toolchains/riscv32-esp32p4-elf.cmake`.
 - [x] **UQ-010 (Hardware Recovery Path — RESOLVED):** Verified non-destructive RAM execution (`esptool.py load_ram`) and automatic USB-Serial/JTAG reset (`default_reset`) on `/dev/cu.usbmodem1301`, plus early watchdog disarm (`TIMG0_WDT`, `TIMG1_WDT`, `LP_WDT`, `SWD`) in `soc/espressif/esp32p4/soc_early_init.c`.
 

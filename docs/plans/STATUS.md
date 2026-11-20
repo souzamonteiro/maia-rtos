@@ -2457,3 +2457,29 @@ confirmou que o cartão é para testes; não foi formatado. A suíte host passou
 os dois testes SD também passaram com ASan/UBSan. Capturas e imagem estão em
 `maia-rtos-recovery/native-sdmmc-state-20261120/`; detalhes e limites em
 [evidências](../hardware/EVIDENCE.md).
+
+## F2 diagnóstico SDMMC CMD0/CMD8 — 2026-11-20
+
+Uma sonda exclusiva de boot, carregada em RAM e separada do produto, configurou
+o slot 0 em 1 bit, com clock nominal de 400 kHz. Em dois boots mornos, o
+controlador concluiu `CMD0` e a resposta de `CMD8` foi `0x1aa`, sem erro
+reportado pelo controlador. `CMD0` não possui resposta; `CMD8` sozinho não
+identifica nem certifica um cartão SDHC. A primeira captura, anterior ao
+handshake host–sonda, tinha o cabeçalho truncado e foi corretamente rejeitada
+pelo validador, apesar da resposta observada. O handshake foi adicionado e
+validado nas duas capturas posteriores.
+
+O diagnóstico exige propriedade exclusiva do controlador, pinos, VO4 e
+SYSTIMER UNIT0, além de core 0, interrupções desabilitadas e outro core parado.
+Ele verifica VO4 já habilitado e em bypass, mas não mede tensão nem inicializa
+a alimentação. A presença do cartão é forçada; não há detecção física.
+Não houve leitura ou escrita de setores pela sonda, nem gravação de flash.
+Após os testes, o firmware original montou `/sd`, sincronizou arquivos e
+carregou o desktop/wallpaper; não houve nova comparação do hash da flash.
+
+A suíte host passou 92/92; os três testes SD passaram com ASan/UBSan.
+Referências, comandos, hashes e capturas estão em
+[evidências](../hardware/EVIDENCE.md) e
+`maia-rtos-recovery/native-sdmmc-cmd8-20261120/`.
+Permanecem pendentes `ACMD41`, identificação/CSD, seleção, leitura `CMD17`,
+DMA/coerência, escrita, FatFs, VFS e boot frio.

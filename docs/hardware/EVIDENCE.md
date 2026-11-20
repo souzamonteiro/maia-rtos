@@ -2433,3 +2433,102 @@ PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-rtos-host --output-on-failu
 cmake --build /tmp/maia-sd-sanitized --target sdmmc_snapshot_test sd_read_test -j4
 PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-sd-sanitized --output-on-failure -R '^(sdmmc_snapshot_test|sd_read_test)$'
 ```
+
+## SDMMC boot-only CMD0/CMD8 diagnostic — 2026-11-20
+
+Primary sources and provenance:
+
+- Espressif's [ESP32-P4 Technical Reference Manual, section 59.9](https://documentation.espressif.com/esp32-p4_technical_reference_manual_en.pdf#page=3421)
+  describes SDHOST register initialization and command submission. This is the
+  online edition; the register definitions used by this diagnostic are pinned
+  to the SDK revision below.
+- ESP-IDF revision `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`:
+  [`sdmmc_host.c`, slot/clock setup](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_driver_sdmmc/src/sdmmc_host.c),
+  [`sdmmc_transaction.c`, command and response handling](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_driver_sdmmc/src/sdmmc_transaction.c),
+  [`sdmmc_ll.h`, controller operations](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/sdmmc_ll.h),
+  [`sdmmc_reg.h`, SDHOST register fields](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/sdmmc_reg.h),
+  [`sd_protocol_defs.h`, command and response definitions](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/sdmmc/include/sd_protocol_defs.h),
+  and [`sdmmc_common.h`, idle delay](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/sdmmc/include/esp_private/sdmmc_common.h).
+  Pin, clock and VO4 register sources and the Tab5 BSP pin inventory are in the
+  two preceding sections. The board-specific source retains the Apache-2.0
+  attribution for adapted Espressif material; no ESP-IDF/FreeRTOS runtime is
+  linked into the diagnostic.
+- Espressif's [ESP-IDF v5.4.2 SDMMC host documentation, Configuring Voltage Level](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-reference/peripherals/sdmmc_host.html#configuring-voltage-level)
+  states the VDDPST_5 IO-voltage requirement. It does not establish this
+  particular board's physical voltage.
+
+The private boot-only routine requires core 0, interrupts disabled, core 1
+stopped and exclusive ownership of SDHOST, GPIO39/42/43/44, VO4 and SYSTIMER
+UNIT0. Guards check the inherited software-selected, enabled, bypassed VO4 and
+an idle, clocked host. They neither configure the supply nor measure it. It
+configures slot 0 as 1-bit `CLK=GPIO43`, `CMD=GPIO44`, `D0=GPIO39`, drives
+`D3=GPIO42` high and samples its input. D1/D2 are not used; card detect is
+forced present, not physically observed. The nominal divider is
+`PLL160M / 10 / (2 * 20) = 400 kHz`, not a measured frequency.
+
+The controller sends only `CMD0` with the initial clocks and `CMD8` with
+argument `0x1aa`, with a 20 ms delay between them. Polling, timer and handshake
+waits are bounded. The code checks the R7 response index, voltage/pattern and
+controller status/CRC; `RINTSTS` is write-one-to-clear and residual status is
+checked. A failure after configuration begins is sticky until reset, and a
+successful call also retains ownership until reset. No teardown, retry, sector
+transfer, filesystem or runtime-safe/SMP use is provided.
+
+The initial unsynchronized [capture](../../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/probe-boot1.log)
+lost the beginning of its schema header. It showed controller completion and
+`0x1aa`, but the validator rejected it because the record was incomplete.
+The host and probe were changed to exchange a ready byte before output or
+SDHOST access. Two subsequent warm-reset captures passed the unchanged strict
+record validation:
+
+| Capture | CMD0 raw | CMD8 raw | R7 | Host status |
+|---|---:|---:|---:|---:|
+| [boot 2](../../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/probe-boot2.log) | `0x4` | `0x4` | `0x1aa` | `0x41e6` |
+| [boot 3](../../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/probe-boot3.log) | `0x4` | `0x4` | `0x1aa` | `0x41e6` |
+
+`CMD0` has no response: `0x4` is completion reported by the controller.
+`CMD8` is an actual response consistent with the requested R7 pattern, but does
+not prove SDHC capacity or establish that a complete card initialization or
+read occurred. Captured settings included VO4 `0x40204180`, peripheral divider
+`0x38929200`, `CLKDIV=0x14` and `CLKENA=1`. These are warm-reset observations,
+not cold-boot, waveform, frequency or voltage measurements.
+
+The runner used RAM loading and did not write flash; the probe did not read or
+write card sectors and did not access the USB pendrive. After the tests, a
+separately captured normal reset of the existing firmware showed `/sd` mounted,
+files synchronized, desktop loaded and wallpaper applied. Legacy firmware's
+normal synchronization can write to the test card; do not format it. No fresh
+flash-hash comparison was performed, and this result makes no claim about
+legacy firmware USB enumeration.
+
+The [evidence directory](../../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/)
+contains both images, ELFs, maps and all serial logs. The synchronized image
+SHA-256 is `17f57479346caba3cdd6d774e1519c4d4461b27f2403f106014b1c12dace8b99`;
+the rejected first image is
+`164093bfa76276bfcc21c6361ca91e940ad89a18947562d4a11b89ecccf9cdfb`.
+The original firmware's [restored boot](../../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/restore-boot.log)
+also reports an SDHC card, but that is legacy evidence, not native
+identification.
+
+Host CTest passed 92/92 on macOS/AppleClang 21; the three SD tests passed with
+ASan/UBSan. Tests cover register guards, bounded failures, status/response
+errors, corrupted readbacks and invalid/incomplete/duplicate serial captures.
+The public header compiled as C++98. The RISC-V GCC Espressif 14.2 build passed
+the native-runtime and RAM-window gates. Conflicting probe options were rejected
+before opening the device. Representative commands:
+
+```sh
+cmake -S . -B /tmp/maia-native-sdmmc-cmd8-20261120 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake -DMAIA_NATIVE_PROBE_SDMMC_CMD8=ON
+cmake --build /tmp/maia-native-sdmmc-cmd8-20261120 --target maia_sched_probe_ram -j4
+/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python -m esptool --chip esp32p4 elf2image /tmp/maia-native-sdmmc-cmd8-20261120/maia_sched_probe_ram.elf
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image ../maia-rtos-recovery/native-sdmmc-cmd8-20261120/maia_sched_probe_ram.bin --log ../maia-rtos-recovery/native-sdmmc-cmd8-20261120/probe-boot2.log --sdmmc-cmd8 --capture-seconds 8
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image ../maia-rtos-recovery/native-sdmmc-cmd8-20261120/maia_sched_probe_ram.bin --log ../maia-rtos-recovery/native-sdmmc-cmd8-20261120/probe-boot3.log --sdmmc-cmd8 --capture-seconds 8
+cmake --build /tmp/maia-rtos-host -j4
+PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-rtos-host --output-on-failure
+cmake --build /tmp/maia-sd-sanitized --target tab5_sdmmc_boot_test sdmmc_snapshot_test sd_read_test -j4
+PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-sd-sanitized --output-on-failure -R '^(tab5_sdmmc_boot_test|sdmmc_snapshot_test|sd_read_test)$'
+```
+
+Outstanding: `ACMD41`, actual identification/CSD and selection, `CMD17` with
+independent comparison, failure/removal behavior, physical power/cold boot,
+DMA/cache coherence, writes, FatFs/VFS and integration into the product.

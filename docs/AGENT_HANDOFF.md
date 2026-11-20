@@ -1860,3 +1860,31 @@ Next: port a guarded, bounded slot-0 host initialization/command transport,
 including real pinmux/clock and power ownership checks. Establish the initial
 SD protocol and a verified `CMD17` read before attempting writes; keep DMA,
 cache coherency, cold boot, removal, VFS and FatFs explicitly open until tested.
+
+## SDMMC CMD0/CMD8 boot-only diagnostic — 2026-11-20
+
+The next step above has started, not completed: `sdmmc_boot.c` and a private
+RAM probe configure slot 0 for nominal 400 kHz, one-bit commands and send only
+`CMD0`/`CMD8`. The contract requires exclusive SDHOST, pin, VO4 and SYSTIMER
+UNIT0 ownership, core 0 with interrupts disabled and the other core stopped.
+Already-enabled software-selected VO4 in bypass and an idle, clocked controller
+are required; physical voltage is not measured. D3 is driven and sampled high.
+Failure after MMIO changes is sticky until reset, and success also retains
+ownership until reset. Card presence is forced, not detected. Do not call this
+from the product or a concurrent runtime as a storage driver.
+
+Two synchronized warm-reset captures passed: controller completion for `CMD0`
+and `CMD8` R7 `0x1aa` with no reported command error. The first unsynchronized
+capture contained those fields but lost its header and was rejected; the probe
+now waits for a bounded host-ready byte before reporting or touching SDHOST.
+No sector transfer or flash write occurred in the probe. Afterward the existing
+firmware mounted `/sd`, synchronized files, and loaded desktop/wallpaper; no
+new flash-hash comparison was performed. Full host CTest passed 92/92; three
+SD tests passed ASan/UBSan. Image, ELF, map and all captures:
+`../../maia-rtos-recovery/native-sdmmc-cmd8-20261120/`. Pinned sources, exact
+results, commands and limitations are in `hardware/EVIDENCE.md`.
+
+Next: bounded `ACMD41` negotiation, actual identification/CSD and selection,
+then `CMD17` with independent sector comparison and negative cases. `CMD8`
+does not prove SDHC capacity. Writes, FatFs/VFS, DMA/cache coherency, cold boot,
+media removal and a runtime-safe ownership model are still separate work.

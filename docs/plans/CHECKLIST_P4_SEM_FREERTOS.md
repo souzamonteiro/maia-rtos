@@ -94,9 +94,10 @@ boot frio e recuperação segura de falhas continuam pendentes.
 ## F2 — Armazenamento
 
 - [ ] Driver SDMMC host nativo
-  - 🔧 Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos; ainda não envia comandos nem lê setores (20/11).
+  - [x] Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos, sem enviar comandos (20/11).
+  - [x] Diagnóstico isolado em RAM configurou o slot 0 e executou `CMD0`/`CMD8`: conclusão de `CMD0` e resposta `CMD8` `0x1aa` em dois boots mornos (20/11). Ainda não lê setores nem está integrado ao produto.
 - [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
-  - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e verificação de endereço para `CMD17` testadas no host; falta transporte SDMMC e validação no Tab5 (20/11).
+  - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e verificação de endereço para `CMD17` testadas no host; falta completar inicialização, transporte de dados e validação da leitura no Tab5 (20/11).
 - [ ] FatFs integrado
 - [ ] VFS do Maia com `/sd`
 - [ ] Configurações persistentes na flash

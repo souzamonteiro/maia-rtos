@@ -12,6 +12,47 @@ import time
 import re
 
 
+def evaluate_sdmmc_cmd8(output):
+    """Validate CMD0/CMD8 evidence, not sector access or full card initialization."""
+    lines = output.replace('\r', '').splitlines()
+    header = 'MAIA_SDMMC_CMD8_PROBE schema=1 slot=0 no-data'
+    passed = 'MAIA_NATIVE_SDMMC_CMD8_PASS'
+    if (lines.count(header) != 1 or lines.count(passed) != 1 or
+            any(word in output for word in ('FAIL', 'MAIA_NATIVE_FATAL', 'MAIA_STACK_FAULT'))):
+        return False
+    records = [line for line in lines if line.startswith('SDMMC_')]
+    if len(records) != 2:
+        return False
+    schemas = (
+        ('SDMMC_CMD8', 'result completed command cmd0 raw response status'.split()),
+        ('SDMMC_CONFIG', 'sys source divider ldo clkdiv clksrc clkena tmout ctype cdetect d0 d3 clk cmd out enable input'.split()),
+    )
+    rows = []
+    for line, (kind, keys) in zip(records, schemas):
+        match = re.fullmatch(kind + ''.join(' ' + key + r'=([0-9a-f]{8})' for key in keys), line)
+        if match is None:
+            return False
+        rows.append(dict(zip(keys, (int(value, 16) for value in match.groups()))))
+    if not lines.index(header) < lines.index(records[0]) < lines.index(records[1]) < lines.index(passed):
+        return False
+    cmd, config = rows
+    error_mask = 0xBFC2
+    divider_mask = ((15 << 9) | (15 << 13) | (15 << 17) |
+                    (3 << 21) | (3 << 23) | (3 << 25) | (7 << 27))
+    divider_value = (9 << 9) | (4 << 13) | (9 << 17) | (1 << 23) | (7 << 27)
+    return (cmd['result'] == 0 and cmd['completed'] == 7 and cmd['command'] == 8 and
+            all(cmd[key] & 4 and not cmd[key] & error_mask for key in ('cmd0', 'raw')) and
+            cmd['response'] & 0xFFF == 0x1AA and (cmd['status'] >> 11) & 0x3F == 8 and
+            config['sys'] & (1 << 14) and config['source'] & (7 << 22) == 1 << 24 and
+            config['divider'] & divider_mask == divider_value and config['ldo'] & 0x4F80 == 0x4180 and
+            config['clkdiv'] & 0xFF == 20 and config['clksrc'] & 3 == 0 and
+            config['clkena'] & 0x10001 == 1 and config['tmout'] == 0x009C40FF and
+            config['ctype'] & 0x10001 == 0 and config['cdetect'] & 1 == 0 and
+            all(config[key] & 0x7E80 == 0x0E00 for key in ('d0', 'clk', 'cmd')) and
+            config['d3'] & 0x7E80 == 0x1E00 and
+            all(config[key] & (1 << 10) for key in ('out', 'enable', 'input')))
+
+
 def evaluate_sdmmc_state(output):
     """Validate a read-only observation, not an SD transfer or readiness."""
     lines = output.replace('\r', '').splitlines()
@@ -1654,6 +1695,7 @@ def main():
     parser.add_argument('--vdma-arm-empty', action='store_true', help='arm empty VDMA and verify native global stop; no transfers')
     parser.add_argument('--mipi-state', action='store_true', help='verify read-only inherited MIPI/DW-GDMA state')
     parser.add_argument('--sdmmc-state', action='store_true', help='observe SDMMC clocks, VO4, pins and gated host registers without SD commands')
+    parser.add_argument('--sdmmc-cmd8', action='store_true', help='verify boot-only Tab5 CMD0/CMD8 without sector access')
     parser.add_argument('--ldo3-acquire', action='store_true', help='verify boot LDO3 active-state adoption')
     parser.add_argument('--ldo3-cycle', action='store_true', help='verify guarded VO3 disable/enable through native acquire')
     parser.add_argument('--ldo3', action='store_true', help='verify read-only VO3 trim/planning and unchanged hardware')
@@ -1802,12 +1844,13 @@ def main():
         for name,value in vars(args).items():
             if name not in ('psram_state','psram_boot_state','psram_id','psram_clock','psram_array','psram_window','psram_dma') and isinstance(value,bool) and value and name!='validate_only':parser.error('PSRAM state requires isolated profile')
         if args.expect_fatal_cause is not None:parser.error('PSRAM state excludes fatal profile')
-    if args.sdmmc_state:
+    if args.sdmmc_state or args.sdmmc_cmd8:
+        selected = 'sdmmc_state' if args.sdmmc_state else 'sdmmc_cmd8'
         for name, value in vars(args).items():
-            if name not in ('sdmmc_state', 'validate_only') and isinstance(value, bool) and value:
-                parser.error('SDMMC state requires an isolated profile')
+            if name not in (selected, 'validate_only') and isinstance(value, bool) and value:
+                parser.error('SDMMC requires an isolated profile')
         if args.expect_fatal_cause is not None or args.psram_fast is not None:
-            parser.error('SDMMC state requires an isolated profile')
+            parser.error('SDMMC requires an isolated profile')
 
     import esptool
     from esptool.bin_image import LoadFirmwareImage
@@ -1860,6 +1903,10 @@ def main():
             if args.mipi_park:
                 if port.write(b'P') != 1:
                     raise RuntimeError('short MIPI park host-ready write')
+                port.flush()
+            if args.sdmmc_cmd8:
+                if port.write(b'S') != 1:
+                    raise RuntimeError('short SDMMC CMD8 host-ready write')
                 port.flush()
             stimulus = FramebufferStimulus(port,args.framebuffer_visual,stream=args.lcd_stream) if args.dpi_framebuffer else Vo3CycleStimulus(port) if args.vo3_cycle else SerialInputStimulus(port) if args.serial_input else None
             deadline = time.monotonic() + args.capture_seconds
@@ -1952,6 +1999,8 @@ def main():
             passed = evaluate_psram_fast(output,args.psram_fast) if args.psram_fast else evaluate_psram_dma(output) if args.psram_dma else evaluate_psram_window(output) if args.psram_window else evaluate_psram_array(output) if args.psram_array else evaluate_psram_clock(output) if args.psram_clock else evaluate_psram_identity(output) if args.psram_id else evaluate_psram_state(output)
         if args.sdmmc_state:
             passed = evaluate_sdmmc_state(output)
+        if args.sdmmc_cmd8:
+            passed = evaluate_sdmmc_cmd8(output)
         if args.ldo3:
             passed = evaluate_ldo3(output.replace("\r", ""))
         if args.ldo3_acquire:
@@ -1964,6 +2013,9 @@ def main():
             passed = passed and evaluate_serial_output_event(output)
         if args.sdmmc_state:
             print('[HOST] SDMMC state observation (not driver readiness):', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
+            return 0 if passed else 1
+        if args.sdmmc_cmd8:
+            print('[HOST] SDMMC CMD0/CMD8 (not card initialization or sector access):', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
             return 0 if passed else 1
         print('[HOST] Native LCD task/IRQ service:' if args.lcd_stream else '[HOST] Full PSRAM framebuffer transfer/recovery:' if args.dpi_framebuffer else '[HOST] Operational PSRAM clock/window/DMA:' if args.psram_fast else '[HOST] PSRAM source DMA burst bytes:' if args.psram_dma else '[HOST] Native CPU2MiB PSRAM window/data/restore:' if args.psram_window else '[HOST] Ported HEX PSRAM array patterns/restore:' if args.psram_array else '[HOST] Native XTAL20 PSRAM clock/identity/restore:' if args.psram_clock else '[HOST] Inherited HEX PSRAM identity and restore:' if args.psram_id else '[HOST] PSRAM state observation (not memory readiness):' if args.psram_state else '[HOST] Central32-row native DMA pixels:' if args.dpi_dma_center else '[HOST] Finite five-block spatial DMA pixels:' if args.dpi_dma_spatial else '[HOST] Bounded solid DMA refresh and recovery:' if args.dpi_dma_refresh else '[HOST] Single solid DMA frame and recovery:' if args.dpi_dma_frame else '[HOST] Inactive DMA channel/DSI flow stage:' if args.dpi_dma_stage else '[HOST] Owned SRAM tile/descriptors, DMA inactive:' if args.dpi_dma_tile else '[HOST] Native inactive bridge and update publication:' if args.dpi_bridge else '[HOST] Native host color bars and command recovery:' if args.dpi_pattern else '[HOST] RGB565 and inactive native DPI clock:' if args.dpi_clock else '[HOST] Inactive native DPI configuration:' if args.dpi_stage else '[HOST] Native panel power transition:' if args.panel_power else '[HOST] Native ST7121 program:' if args.st7121 else '[HOST] Quiet panel reset and DSI response:' if args.dsi_reset else '[HOST] DSI RDDID response:' if args.dsi_read else '[HOST] DSI LP long framing:' if args.dsi_long else '[HOST] DSI LP short packets:' if args.dsi_short else '[HOST] DSI command config:' if args.dsi_command else '[HOST] DSI PHY:' if args.dsi_phy else '[HOST] DSI reference:' if args.dsi_reference else '[HOST] DSI config access:' if args.dsi_access else '[HOST] Guarded VO3 cycle:' if args.vo3_cycle else '[HOST] MIPI clock gating:' if args.mipi_gate else '[HOST] MIPI reset parking:' if args.mipi_park else '[HOST] Finite two-block SRAM list copy:' if args.vdma_list else '[HOST] SRAM completion counter qualification:' if args.vdma_count else '[HOST] Active VDMA transfer:' if args.vdma_transfer else '[HOST] VDMA stop:' if args.vdma_stop else '[HOST] MIPI observation:' if args.mipi_state else '[HOST] LDO3 planning:' if args.ldo3 else '[HOST] Touch identity:' if args.touch_identify else '[HOST] Expected fatal trap:' if args.expect_fatal_cause is not None else '[HOST] Native preemption:', 'PASS' if passed else 'FAIL / NOT DEMONSTRATED')
     return 0 if passed else 1
