@@ -2412,3 +2412,30 @@ validação de cold boot. TLS dinâmico, inicializadores/destrutores não trivia
 de `thread_local`, SMP e APIs POSIX além do subconjunto exercitado permanecem
 fora deste resultado. O ciclo sequencial é uma validação limitada, não um
 estresse prolongado/de alto volume nem prova de sincronização multicore.
+
+## F2 leitura SDHC — base portátil HOST-TESTED — 2026-11-20
+
+Adicionada uma biblioteca separada para decodificar a geometria CSD v2 de
+cartões SDHC/SDXC e validar o endereço de uma leitura de 512 bytes antes de
+delegá-la a um transporte `CMD17`. O transporte deve conferir resposta R1,
+comprimento e CRC, aplicar seus requisitos de DMA/cache e informar falhas;
+eventuais dados parciais em caso de erro devem ser descartados. SDSC, SDUC e
+outros formatos não são suportados por esta etapa. Não há escrita, formatação,
+montagem ou inicialização de cartão nesta biblioteca.
+
+`sd_read_test` cobre campos CSD entre palavras, capacidade até 2^32 blocos,
+último bloco válido, endereços fora do limite, OCR/CSD incompatíveis, argumentos
+inválidos e propagação de erros do transporte simulado. No macOS/AppleClang
+21, CTest completo passou 89/89 e o teste focado passou com ASan/UBSan; o
+cabeçalho compilou em C++98. A biblioteca também compilou com GCC
+RISC-V Espressif 14.2; `maia_m0_image` continuou compilando. A biblioteca é
+um alvo independente e ainda não está ligada ao produto nem a um controlador.
+
+**Hardware NOT RUN:** esta etapa não acessou o Tab5, o microSD nem o pendrive.
+O log anterior da restauração do firmware funcional mostra sincronização de
+arquivos para `/sd` no boot: antes de um futuro teste físico, resolver como
+evitar essa escrita automática ou preservar os dados independentemente.
+O próximo passo é levantar e portar a alimentação, pinagem, clock e transporte
+SDMMC nativos, com comandos e testes de leitura delimitados. Ver
+[evidências](../hardware/EVIDENCE.md) e
+[questões de hardware](../hardware/OPEN_QUESTIONS.md).

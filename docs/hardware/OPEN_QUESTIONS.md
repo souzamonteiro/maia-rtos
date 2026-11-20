@@ -8,6 +8,12 @@
 - [ ] **UQ-006 (Secondary Core Bring-Up & IPI):** Exact register sequence in `HP_SYS_CLKRST` (`HP_SYS_CLKRST_SOC_CLK_CTRL0_REG` bit 4 `CORE1_CPU_CLK_EN`, `HP_SYS_CLKRST_HP_RST_EN0_REG` bit 8 `RST_EN_CORE1_GLOBAL`) and `ets_set_appcpu_boot_addr` to boot HP Core 1 and trigger cross-core Software Interrupts (IPI) via CLIC.
 - [ ] **UQ-007 (Cache, PSRAM & DMA Coherency):** Octal PSRAM initialization sequence (MSPI controller + cache MMU mapping) and DMA alignment/cacheline constraints. Preserved sdkconfig sets L2 lines to128B (L1 64B); native cache configuration must be established independently. ROM writeback address/signature/mask verified, coherency policy still open; see ../audits/display-baseline-audit.md.
 - [ ] **UQ-008 (Tab5 Peripheral Power & Reset Sequencing):** Exact `PI4IOE5V6408` I2C0 (GPIO31/GPIO32) expander I2C addresses and bit masks for LCD backlight, MIPI-DSI bridge (`ILI9881C` / `ST7123`), touch (`GT911` / `ST7123`), audio (`ES8388` / `ES7210`), and SD card slot power rails.
+- [ ] **SDMMC native bring-up and media safety:** Verify Tab5 slot power routing,
+  LDO4 voltage and ownership, pinmux/clock/reset sequencing and DMA/cache
+  requirements from primary sources before native MMIO. The legacy restored app
+  automatically synchronizes files to `/sd`; establish a non-writing restoration
+  path or independent card backup before device tests. CSD decoding and
+  `CMD17` address checks are host-tested only; no native SD transfer has run.
 - [x] **UQ-009 (Toolchain Installation & Verification — RESOLVED):** Verified `riscv32-esp-elf-gcc` (`esp-14.2.0_20241119`, `14.2.0`, SHA-256 `2bc6b93e97fbe3b5662655bafab65377a84c2850fff1f2abda97abeb91f5690b`) and `esptool.py` (`v4.12.0`, SHA-256 `8ec1e4d5736e97248bc0eac713d94fba5a002b725d74d9d4c850d570e50ded5a`) in `/Users/roberto/.espressif` and configured `cmake/toolchains/riscv32-esp32p4-elf.cmake`.
 - [x] **UQ-010 (Hardware Recovery Path — RESOLVED):** Verified non-destructive RAM execution (`esptool.py load_ram`) and automatic USB-Serial/JTAG reset (`default_reset`) on `/dev/cu.usbmodem1301`, plus early watchdog disarm (`TIMG0_WDT`, `TIMG1_WDT`, `LP_WDT`, `SWD`) in `soc/espressif/esp32p4/soc_early_init.c`.
 

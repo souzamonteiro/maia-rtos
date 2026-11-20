@@ -95,6 +95,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 
 - [ ] Driver SDMMC host nativo
 - [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
+  - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e verificação de endereço para `CMD17` testadas no host; falta transporte SDMMC e validação no Tab5 (20/11).
 - [ ] FatFs integrado
 - [ ] VFS do Maia com `/sd`
 - [ ] Configurações persistentes na flash

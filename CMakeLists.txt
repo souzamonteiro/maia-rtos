@@ -4,6 +4,12 @@ project(MaiaRTOS VERSION 0.1.0 LANGUAGES C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+add_library(maia_sd_read STATIC drivers/storage/sd_read.c)
+target_include_directories(maia_sd_read PUBLIC include)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(maia_sd_read PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
@@ -999,6 +1005,13 @@ else()
       target_compile_options(esp32p4_regs_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME esp32p4_regs_test COMMAND esp32p4_regs_test)
+
+    add_executable(sd_read_test tests/host/sd_read_test.c)
+    target_link_libraries(sd_read_test PRIVATE maia_sd_read)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(sd_read_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME sd_read_test COMMAND sd_read_test)
 
     add_executable(kernel_mvp_test
       tests/host/kernel_mvp_test.c

@@ -1830,3 +1830,18 @@ Remaining: dynamic TLS and non-trivial `thread_local` initialization/destruction
 prolonged/high-volume task-slot stress, SMP synchronization, cold boot, and new
 visual/touch acceptance. The hardware pass proves only the tested single-core
 thread paths.
+
+## F2 SD read groundwork — 2026-11-20
+
+`maia_sd_read` is an independent, host-tested portable library for SDHC/SDXC
+CSD v2 geometry and bounded single-block read dispatch. It compiles for P4 but
+is not linked to the product and has no SDMMC transport or card initialization.
+The host suite passed 89/89; the focused test passed ASan/UBSan and the public
+header passed C++98. Sources and actual scope are in `hardware/EVIDENCE.md`.
+
+No hardware was touched in this step. Earlier restored-boot logs show the
+legacy app synchronizes files to `/sd`; protect media before future device
+tests, including the recovery reboot, rather than assuming restoration is
+read-only. SD slot power, LDO4 ownership, pinmux, clock/reset, and DMA/cache
+still need primary-source review and validation. The owner's USB pendrive is
+reserved for a later TinyUSB host phase; leave it untouched during SD work.

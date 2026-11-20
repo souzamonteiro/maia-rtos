@@ -2317,3 +2317,64 @@ include the image, ELF, map, report, captures and restoration logs.
 
 This is bounded single-core lifecycle churn, not prolonged/high-volume stress
 or SMP validation. Cold boot and dynamic/non-trivial TLS remain untested.
+
+## SDHC read-only protocol groundwork — 2026-11-20
+
+References:
+
+- Espressif ESP-IDF v5.4.2
+  [SDMMC host documentation](https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32p4/api-reference/peripherals/sdmmc_host.html),
+  sections Overview and Configuring Voltage Level, documents the P4 host slots
+  and the SD VDDPST_5 power requirement.
+- Pinned ESP-IDF revision `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`:
+  [`sdmmc_sd.c`, `sdmmc_decode_csd`](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/sdmmc/sdmmc_sd.c)
+  and [`sd_protocol_defs.h`, SD R2 CSD definitions and `MMC_RSP_BITS`](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/sdmmc/include/sd_protocol_defs.h);
+  [`sdmmc_transaction.c`, response handling](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_driver_sdmmc/src/sdmmc_transaction.c)
+  copies the four long-response registers into the CSD response array.
+  The port retains the original permissive copyright and license in the source;
+  no ESP-IDF or FreeRTOS headers or runtime are linked.
+- The project BSP snapshot at revision `1775c0dab0fac2b1658c68f017bd62182631554b`
+  uses slot 0, GPIO 43/44 for CLK/CMD, GPIO 39–42 for D0–D3, and requests LDO
+  channel 4 in `bsp_sdcard_init`. This is a source inventory, not independent
+  proof of the electrical circuit or a safe native power sequence.
+  [M5Stack Tab5 documentation](https://docs.m5stack.com/en/core/Tab5),
+  specification section, confirms a microSD slot.
+
+The independent `maia_sd_read` library decodes a validated SDHC/SDXC CSD v2
+and checks block address bounds for a single-block read callback. It is not yet
+connected to the P4 controller or the product image. CSD v1/SDSC, SDUC,
+initialization, physical transport and writing are not implemented. The host
+fixture is synthetic; it uses the block count from an earlier legacy firmware
+boot and is not a captured raw CSD.
+
+Validation on macOS, AppleClang 21: full host CTest 89/89; `sd_read_test`
+passed ASan/UBSan; public header compiled with C++98 and warnings as errors.
+`maia_sd_read` cross-compiled with Espressif GCC 14.2 and the existing product
+image target built. Hardware **NOT RUN**: no serial access, flash/reset, SD
+commands or USB operations were performed for this step.
+
+Commands executed with the existing configured build directories:
+
+```sh
+cmake --build /tmp/maia-rtos-host -j4
+PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-rtos-host --output-on-failure
+cmake --build /tmp/maia-sd-sanitized --target sd_read_test -j4
+ctest --test-dir /tmp/maia-sd-sanitized --output-on-failure -R '^sd_read_test$'
+cmake --build /tmp/maia-rtos-f1-runtime --target maia_sd_read maia_m0_image -j4
+printf '#include <maia/drivers/sd_read.h>\n' | c++ -std=c++98 -Wall -Wextra -Wpedantic -Werror -I /Volumes/External_SSD/Documentos/Projects/maia-rtos/include -x c++ -fsyntax-only -
+```
+
+The sanitizer configuration used
+`-fsanitize=address,undefined -fno-omit-frame-pointer` for C.
+
+The earlier
+[restored boot](../../../maia-rtos-recovery/native-f1-std-thread-churn-20261120/restore-boot.log)
+reports an SDHC card and `/sd` mounted, then automatically synchronizes files
+onto the card. That is evidence of the legacy application, not the native
+driver. Before physical validation, first establish a way to avoid automatic
+writes on restoration or independently back up the card. Once a native
+transport exists, use a protected test card or verified backup, send only
+initialization and `CMD17` reads, compare known sector contents against an
+independent reference, include timeout/removal/error tests, and capture the
+actual UART results. Do not mark the SDMMC or protocol checklist items done
+until those tests pass.
