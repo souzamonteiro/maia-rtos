@@ -3,6 +3,7 @@
 #include <maia/scheduler_internal.h>
 #include <maia/arch/riscv_context.h>
 #include <maia/arch/riscv_stack.h>
+#include <maia/runtime/tls.h>
 
 typedef struct maia_tcb {
     maia_task_id_t     id;
@@ -108,24 +109,36 @@ __attribute__((weak)) void maia_newlib_task_reclaim(maia_task_id_t task_id) {
 __attribute__((weak)) void maia_gthread_task_reclaim(maia_task_id_t task_id) {
     (void)task_id;
 }
+__attribute__((weak)) uintptr_t maia_tls_idle_thread_pointer(void) {
+    return 0U;
+}
+__attribute__((weak)) uintptr_t maia_tls_task_create(maia_task_id_t task_id) {
+    (void)task_id;
+    return 0U;
+}
+__attribute__((weak)) void maia_tls_task_reclaim(maia_task_id_t task_id) {
+    (void)task_id;
+}
 
 void maia_task_trampoline(uint32_t task_idx) {
     if (task_idx < MAIA_MAX_TASKS && g_tasks[task_idx].entry != NULL) {
         g_tasks[task_idx].entry(g_tasks[task_idx].arg);
         maia_gthread_task_reclaim((maia_task_id_t)task_idx);
         maia_newlib_task_reclaim((maia_task_id_t)task_idx);
+        maia_tls_task_reclaim((maia_task_id_t)task_idx);
     }
     maia_arch_exit_trap();
 }
 
-static uintptr_t init_task_stack(void *stack_mem, size_t stack_size, uint32_t task_idx) {
+static uintptr_t init_task_stack(void *stack_mem, size_t stack_size,
+                                 uint32_t task_idx, uintptr_t thread_pointer) {
     maia_stack_guard_init((uintptr_t)stack_mem);
     uintptr_t top = ((uintptr_t)stack_mem + stack_size) & ~(uintptr_t)0xFU;
     uint32_t *frame = (uint32_t *)(top - MAIA_RISCV_CONTEXT_BYTES);
     for (uint32_t i = 0U; i < MAIA_RISCV_CONTEXT_WORDS; ++i) {
         frame[i] = 0U;
     }
-    /* frame[31] (tp) remains zero until a task/runtime establishes its TLS. */
+    frame[31] = (uint32_t)thread_pointer;
     frame[6]  = task_idx;                                    /* a0 (x10) = task_idx */
     frame[28] = (uint32_t)(uintptr_t)&maia_task_trampoline;  /* mepc */
     /* MPP=M, MPIE=1; FS=Initial for RV32F. */
@@ -201,7 +214,8 @@ static maia_status_t sched_init_locked(void) {
     g_idle_running = 0;
     g_idle_stats.ticks = 0U;
     g_idle_stats.entries = 0U;
-    g_idle_sp = init_task_stack(g_idle_stack, sizeof g_idle_stack, 0U);
+    g_idle_sp = init_task_stack(g_idle_stack, sizeof g_idle_stack, 0U,
+                                maia_tls_idle_thread_pointer());
     uint32_t *idle_frame = (uint32_t *)g_idle_sp;
     idle_frame[28] = (uint32_t)(uintptr_t)idle_entry;
     idle_frame[29] &= ~MAIA_RISCV_FS_MASK; /* Internal idle never uses FP. */
@@ -249,6 +263,10 @@ static maia_status_t task_create_locked(const char *name,
                     return MAIA_ERR_INVALID;
                 }
             }
+            uintptr_t thread_pointer = maia_tls_task_create((maia_task_id_t)i);
+            if (thread_pointer == MAIA_TLS_TASK_CREATE_FAILED) {
+                return MAIA_ERR_NOMEM;
+            }
             int fresh_slot = g_tasks[i].state == MAIA_TASK_UNUSED;
             copy_name(g_tasks[i].name, name);
             g_tasks[i].entry      = entry;
@@ -256,7 +274,8 @@ static maia_status_t task_create_locked(const char *name,
             g_tasks[i].priority   = priority;
             g_tasks[i].stack_base = (uintptr_t)stack_mem;
             g_tasks[i].stack_size = stack_size;
-            g_tasks[i].sp         = init_task_stack(stack_mem, stack_size, i);
+            g_tasks[i].sp         = init_task_stack(stack_mem, stack_size, i,
+                                                    thread_pointer);
             g_tasks[i].run_ticks  = 0U;
             g_tasks[i].switches   = 0U;
             g_tasks[i].wake_tick  = 0ULL;

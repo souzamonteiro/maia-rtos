@@ -79,9 +79,25 @@ SECTIONS
         _data_end = ABSOLUTE(.);
     } > L2MEM_LOW
 
-    .bss (NOLOAD) : ALIGN(16)
+    .tdata : ALIGN(16)
+    {
+        __maia_tls_tdata_start = ABSOLUTE(.);
+        *(.tdata .tdata.*)
+        . = ALIGN(16);
+        __maia_tls_tdata_end = ABSOLUTE(.);
+    } > L2MEM_LOW
+
+    .tbss (NOLOAD) : ALIGN(16)
     {
         __bss_start = ABSOLUTE(.);
+        *(.tbss .tbss.*)
+        *(.tcommon)
+        . = ALIGN(16);
+        __maia_tls_block_end = ABSOLUTE(.);
+    } > L2MEM_LOW
+
+    .bss (NOLOAD) : ALIGN(16)
+    {
         __global_pointer$ = . + 0x800;
         *(.sbss .sbss.*)
         *(.bss .bss.*)
@@ -104,3 +120,11 @@ SECTIONS
         *(.comment)
     }
 }
+
+__maia_tls_alignment = MAX(ALIGNOF(.tdata), ALIGNOF(.tbss));
+ASSERT(__maia_tls_tdata_end - __maia_tls_tdata_start <= 1024,
+       "TLS initialized template exceeds 1024 bytes")
+ASSERT(__maia_tls_block_end - __maia_tls_tdata_start <= 1024,
+       "TLS block exceeds 1024 bytes")
+ASSERT(__maia_tls_alignment <= 64,
+       "TLS alignment exceeds the supported 64-byte limit")

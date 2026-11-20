@@ -2343,3 +2343,26 @@ positiva. O app original foi restaurado com hash verificado. Os testes host
 Relatório e capturas: `../../maia-rtos-recovery/native-f1-reent-reuse-20261120/`.
 Isso valida uma reutilização; estresse repetido de slots, TLS de compilador e
 `std::thread` continuam pendentes.
+
+## TLS estático de compilador por tarefa no F1 — 2026-11-20
+
+Implementado TLS ELF estático com modelo local-exec. Os linkers delimitam
+`.tdata`/`.tbss` e publicam `PT_TLS`; o contexto RISC-V salva/restaura `tp`,
+e cada tarefa recebe uma cópia inicializada e alinhada. Boot, idle e tarefas
+possuem blocos independentes; o bloco é zerado e liberado ao terminar uma
+tarefa. O probe testa TLS inicializado e zero-inicializado, isolamento entre
+workers durante preempção e reset após reciclar o ID. `tls_runtime_test`
+verifica cópia do template, zero-fill, alinhamento, isolamento e reuso.
+
+O probe de 110.048 bytes passou validação estrutural; quatro boots mornos no
+Tab5 emitiram `MAIA_F1_RUNTIME_PASS` sem fatal e repetiram a leitura USB
+positiva. A imagem foi restaurada após o teste e o SHA-256 do app original foi
+confirmado. A suíte host completa passou (87/87). ELF, imagem, mapa, relatório
+e logs estão no [diretório de evidências](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/).
+
+O suporte atual cobre TLS estático local-exec com variáveis triviais e
+inicialização constante; TLS dinâmico e construtores/destrutores não triviais
+não estão implementados. `std::thread`, cold boot e estresse de alto volume
+de reciclagem de slots seguem pendentes. A tentativa de linkar a configuração
+alternativa sem XIP não passou: `.text` excedeu `L2MEM_LOW` em 692.752 bytes;
+esse layout não foi validado e requer uma redução de imagem independente.

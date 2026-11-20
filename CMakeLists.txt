@@ -45,6 +45,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     runtime/newlib_reent.c
     runtime/newlib_syscalls.c
     runtime/gthread.c
+    runtime/tls.c
     shell/maia_shell_engine.cpp
     components/exec/elf_validator.c
     components/exec/elf_loader.c
@@ -108,6 +109,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   target_compile_definitions(maia_m0.elf PRIVATE
     MAIA_NATIVE_PSRAM_STARTUP_PENDING=1
     MAIA_ENABLE_CXX_INIT_ARRAY=1
+    MAIA_ENABLE_COMPILER_TLS=1
+  )
+  target_compile_options(maia_m0.elf PRIVATE
+    $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
   )
   target_link_options(maia_m0.elf PRIVATE
     "-T${MAIA_LINKER_SCRIPT}"
@@ -159,6 +164,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     runtime/newlib_reent.c
     runtime/newlib_syscalls.c
     runtime/gthread.c
+    runtime/tls.c
     boards/m5stack/tab5/app_desc.c
     tests/hardware/native_f1_runtime_boot.c
     tests/hardware/native_f1_runtime_smoke.cpp
@@ -167,8 +173,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   target_compile_definitions(maia_f1_runtime_probe.elf PRIVATE
     MAIA_FLASH_PROBE_RECOVERABLE=1
     MAIA_ENABLE_CXX_INIT_ARRAY=1
+    MAIA_ENABLE_COMPILER_TLS=1
   )
-  target_compile_options(maia_f1_runtime_probe.elf PRIVATE -Wall -Wextra -O2)
+  target_compile_options(maia_f1_runtime_probe.elf PRIVATE
+    -Wall -Wextra -O2
+    $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
+  )
   target_link_options(maia_f1_runtime_probe.elf PRIVATE
     "-T${MAIA_F0_FLASH_LINKER_SCRIPT}"
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_f1_runtime_probe.map"
@@ -1065,6 +1075,16 @@ else()
       target_compile_options(gthread_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME gthread_test COMMAND gthread_test)
+    add_executable(tls_runtime_test
+      tests/host/tls_runtime_test.c
+      runtime/tls.c
+    )
+    target_include_directories(tls_runtime_test PRIVATE include)
+    target_compile_definitions(tls_runtime_test PRIVATE MAIA_COMPILER_TLS_TEST=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(tls_runtime_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME tls_runtime_test COMMAND tls_runtime_test)
     add_executable(kmem_regions_test tests/host/kmem_regions_test.c kernel/kmem.c)
     target_include_directories(kmem_regions_test PRIVATE include)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

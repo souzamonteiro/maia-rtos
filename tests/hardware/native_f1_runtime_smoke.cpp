@@ -18,8 +18,11 @@ namespace {
 constexpr uint32_t kRounds = 8U;
 constexpr uint32_t kGlobalConstructorValue = 0xF1C00101U;
 constexpr uint32_t kGuardConstructorValue = 0xF1C00202U;
+constexpr uint32_t kTlsInitializedValue = 0xF1C00303U;
 
 volatile uint32_t g_global_constructor_calls;
+thread_local uint32_t g_tls_initialized = kTlsInitializedValue;
+thread_local uint32_t g_tls_zero_initialized;
 
 struct GlobalConstructorProbe {
     uint32_t value;
@@ -101,6 +104,13 @@ void worker_entry(void *arg) {
         pthread_getspecific(g_key) != reinterpret_cast<void *>(token)) {
         record_error(worker);
     }
+    if (g_tls_initialized != kTlsInitializedValue ||
+        g_tls_zero_initialized != 0U) {
+        record_error(worker);
+    }
+    const uint32_t tls_value = 0xF1C10000U | worker;
+    g_tls_initialized = tls_value;
+    g_tls_zero_initialized = tls_value ^ 0xFFFFFFFFU;
 
     for (uint32_t round = 0U; round < kRounds; ++round) {
         errno = expected_errno;
@@ -128,6 +138,10 @@ void worker_entry(void *arg) {
             g_mutex_count = count + 1U;
             maia_task_delay_ticks(1U);
             if (g_in_critical != 1U || g_mutex_count != count + 1U) {
+                record_error(worker);
+            }
+            if (g_tls_initialized != tls_value ||
+                g_tls_zero_initialized != (tls_value ^ 0xFFFFFFFFU)) {
                 record_error(worker);
             }
             g_in_critical = 0U;
@@ -168,11 +182,16 @@ void reent_reuse_entry(void *) {
         task_id != g_worker_task_ids[0] ||
         reent != g_reent[0] ||
         reent->_errno != 0 ||
-        pthread_getspecific(g_key) != nullptr;
+        pthread_getspecific(g_key) != nullptr ||
+        g_tls_initialized != kTlsInitializedValue ||
+        g_tls_zero_initialized != 0U;
     g_reent_reuse_done = 1U;
 }
 
 void report_entry(void *) {
+    bool report_tls_initialized =
+        g_tls_initialized == kTlsInitializedValue &&
+        g_tls_zero_initialized == 0U;
     uint32_t wait_ticks = 0U;
     while ((g_worker_done[0] == 0U || g_worker_done[1] == 0U ||
             g_destructor_seen[0] == 0U || g_destructor_seen[1] == 0U) &&
@@ -223,7 +242,8 @@ void report_entry(void *) {
         memcmp(input_data, expected_input, sizeof(expected_input) - 1U) == 0;
     bool reent_reused = reuse_task_created &&
         g_reent_reuse_done != 0U && g_reent_reuse_error == 0U;
-    bool pass = read_empty && input_ready_written && read_input && reent_reused &&
+    bool pass = report_tls_initialized && read_empty && input_ready_written &&
+        read_input && reent_reused &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
         g_guard_constructor_calls == 1U &&
         g_guard_instances[0] != nullptr &&
@@ -257,6 +277,12 @@ extern "C" int maia_f1_runtime_smoke_start(
         g_global_constructor_probe.value != kGlobalConstructorValue) {
         return 3;
     }
+    if (g_tls_initialized != kTlsInitializedValue ||
+        g_tls_zero_initialized != 0U) {
+        return 4;
+    }
+    g_tls_initialized = 0xF1C0B007U;
+    g_tls_zero_initialized = 0xF1C0B007U;
 
     g_reuse_stack = stack_reuse;
     g_reuse_stack_size = stack_reuse_size;

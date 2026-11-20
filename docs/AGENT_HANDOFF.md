@@ -1763,3 +1763,27 @@ Artifacts: `../../maia-rtos-recovery/native-f1-reent-reuse-20261120/`.
 
 One slot-reuse lifecycle is covered; repeated high-churn recycling, compiler
 TLS (`thread_local`/ELF TLS), and `std::thread` remain open.
+
+## Static compiler TLS per task — 2026-11-20
+
+Implemented static local-exec ELF TLS. All three Tab5 linkers delimit
+`.tdata`/`.tbss` and enforce 1 KiB block / 64-byte alignment limits; the two
+flash-XIP linkers expose a writable `PT_TLS` segment. Startup initializes the
+boot thread; idle and task frames receive separate `tp` values. Task exit zeros
+and releases its TLS block. F1 coverage checks initialized and zero-initialized
+values, per-worker isolation across preemption, and initialization after task-ID
+reuse.
+
+Validation: `tls_runtime_test` passed, the complete host suite passed 87/87,
+both the F1 probe image and canonical XIP product image built and passed
+structural image validation, and four warm-reset Tab5 probe boots emitted
+`MAIA_F1_RUNTIME_PASS` without fatal/stack-fault markers. The runner restored
+the original app and verified its SHA-256. Artifacts:
+`../../maia-rtos-recovery/native-f1-compiler-tls-20261120/`.
+
+Scope is static local-exec TLS with trivial, constant-initialized variables.
+Dynamic TLS and non-trivial `thread_local` constructors/destructors remain
+unsupported; `std::thread`, cold boot and high-churn slot-reuse stress remain
+open. The alternative non-XIP full product link remains unvalidated: its
+`.text` exceeds `L2MEM_LOW` by 692,752 bytes. Do not equate this TLS support
+with a complete C++ threading runtime.

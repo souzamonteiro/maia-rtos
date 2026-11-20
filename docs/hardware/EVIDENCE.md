@@ -2195,3 +2195,33 @@ retain the evidence.
 
 This checks one recycled slot and its errno/key reset; repeated high-churn
 slot cycling, compiler TLS and `std::thread` remain open.
+
+## Static compiler TLS per task — 2026-11-20
+
+Added static local-exec ELF TLS support for the boot thread, idle context and
+scheduler tasks. The two flash-XIP linker scripts delimit `.tdata`/`.tbss` and
+expose a `PT_TLS` segment; the RISC-V context saves/restores `tp`, and new task
+frames start with their own TLS block. The F1 probe checks initialized and
+zero-filled TLS in the boot/report/reused task contexts, and verifies that two
+workers keep different values across preemption. The host `tls_runtime_test`
+checks template copying, zero-fill, alignment, isolation, reclamation and slot
+reuse.
+
+The F1 image (110,048 bytes; SHA-256
+`dfda87ca4484f4dbd4b573cafa87812243e36db0eeb58fd95568174a1f9ee655`) passed
+structural validation. Its ELF has a writable `PT_TLS` segment with 16-byte
+`.tdata` and `.tbss`; the worker uses TP-relative accesses. The complete host
+suite passed (87/87). Four warm-reset Tab5 boots emitted
+`MAIA_F1_RUNTIME_PASS` without fatal/stack-fault markers; each also passed the
+serial-input assertion. The runner restored the original 2,093,696-byte app
+and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The [report](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/report.json),
+[transcript](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/run.log)
+and [boot captures](../../../maia-rtos-recovery/native-f1-compiler-tls-20261120/)
+preserve the device result.
+
+Support is limited to statically linked local-exec TLS with constant-initialized
+trivial variables. Dynamic TLS modules and non-trivial `thread_local`
+initialization/destruction are not implemented; `std::thread`, cold boot and
+high-churn task-slot stress remain open.

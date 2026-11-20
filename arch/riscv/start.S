@@ -6,7 +6,7 @@
  * 2. Park secondary hardware thread (mhartid != 0) until M3 SMP milestone.
  * 3. Initialize global pointer (gp) and 16-byte aligned stack pointer (sp).
  * 4. Zero the .bss section in internal L2MEM.
- * 5. Call maia_soc_early_init(), optional C++ initialization, and maia_boot_main().
+ * 5. Initialize optional compiler TLS/C++ state before entering the boot main.
  */
 
     .section .text.entry, "ax"
@@ -39,15 +39,33 @@ _start:
     j .Lbss_loop
 
 .Lbss_done:
-    /* 5. Early SoC init (disable ROM flashboot watchdogs) & enter C main */
+    /* Early SoC init (disable ROM flashboot watchdogs). */
     call maia_soc_early_init
+#ifdef MAIA_ENABLE_COMPILER_TLS
+    call maia_tls_boot_init
+    beqz a0, .Ltls_init_done
+    la a0, .Ltls_boot_failure_message
+    call maia_console_puts
+    j .Lstartup_failed
+.Ltls_init_done:
+#endif
 #ifdef MAIA_ENABLE_CXX_INIT_ARRAY
     call __libc_init_array
 #endif
     call maia_boot_main
+
+.Lstartup_failed:
+    wfi
+    j .Lstartup_failed
 
 .Lsecondary_park:
     wfi
     j .Lsecondary_park
 
     .size _start, . - _start
+
+#ifdef MAIA_ENABLE_COMPILER_TLS
+    .section .rodata.tls_boot_failure, "a"
+.Ltls_boot_failure_message:
+    .asciz "[MaiaRTOS] compiler TLS bootstrap failed\n"
+#endif

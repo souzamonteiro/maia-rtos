@@ -47,6 +47,8 @@ void maia_boot_main(void) {
     if (start_result != 0) {
         if (start_result == 3) {
             maia_console_puts("[F1] C++ global constructor/init array failed\n");
+        } else if (start_result == 4) {
+            maia_console_puts("[F1] boot-thread compiler TLS initialization failed\n");
         } else {
             maia_console_puts("[F1] runtime smoke task setup failed\n");
         }
