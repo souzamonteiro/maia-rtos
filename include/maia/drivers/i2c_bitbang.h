@@ -52,6 +52,10 @@ maia_i2c_result_t maia_i2c_read_register16_block(const maia_i2c_lines_t *bus,
  * have accepted data: caller must resynchronize, never assume rollback/retry. */
 maia_i2c_result_t maia_i2c_read_register8(const maia_i2c_lines_t *bus,
                                        uint8_t address, uint8_t reg, uint8_t *out);
+/* Repeated-START read of 1..70 bytes. The device controls register progression
+ * (including FIFO registers); output is committed only after successful STOP. */
+maia_i2c_result_t maia_i2c_read_register8_block(const maia_i2c_lines_t *bus,
+    uint8_t address, uint8_t reg, uint8_t *out, uint32_t bytes);
 maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *bus,
                                         uint8_t address, uint8_t reg, uint8_t value);
 #ifdef __cplusplus

@@ -19,6 +19,10 @@
 
 static maia_esp32p4_boot_i2c_t s_display_reset_bus;
 
+const maia_i2c_lines_t *maia_esp32p4_display_reset_i2c_lines(void) {
+    return &s_display_reset_bus.lines;
+}
+
 static void display_native_print_hex32(uint32_t value) {
     static const char digits[] = "0123456789ABCDEF";
     for (int shift = 28; shift >= 0; shift -= 4) {

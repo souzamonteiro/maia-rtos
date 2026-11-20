@@ -77,7 +77,6 @@ static maia_i2c_result_t receive_byte(const maia_i2c_lines_t *b, uint8_t *out,un
     if (r == MAIA_I2C_OK) *out = byte;
     return r;
 }
-static maia_i2c_result_t receive(const maia_i2c_lines_t *b,uint8_t *out){return receive_byte(b,out,0);}
 static maia_i2c_result_t finish(const maia_i2c_lines_t *b, maia_i2c_result_t r) {
     if (r == MAIA_I2C_OK || r == MAIA_I2C_NACK) {
         maia_i2c_result_t s = stop(b);
@@ -129,16 +128,21 @@ static maia_i2c_result_t restart(const maia_i2c_lines_t *b) {
 }
 maia_i2c_result_t maia_i2c_read_register8(const maia_i2c_lines_t *b,
                                        uint8_t address, uint8_t reg, uint8_t *out) {
-    if (!valid(b, address) || !out) return MAIA_I2C_INVALID;
+    return maia_i2c_read_register8_block(b, address, reg, out, 1U);
+}
+maia_i2c_result_t maia_i2c_read_register8_block(const maia_i2c_lines_t *b,
+                                       uint8_t address, uint8_t reg, uint8_t *out, uint32_t bytes) {
+    if (!valid(b, address) || !out || !bytes || bytes > 70U) return MAIA_I2C_INVALID;
     maia_i2c_result_t r = start(b);
     if (r == MAIA_I2C_OK) r = send(b, (uint8_t)(address << 1U));
     if (r == MAIA_I2C_OK) r = send(b, reg);
     if (r == MAIA_I2C_OK) r = restart(b);
     if (r == MAIA_I2C_OK) r = send(b, (uint8_t)((address << 1U) | 1U));
-    uint8_t value = 0U;
-    if (r == MAIA_I2C_OK) r = receive(b, &value);
+    uint8_t value[70];
+    for (uint32_t i = 0; i < bytes && r == MAIA_I2C_OK; ++i)
+        r = receive_byte(b, &value[i], i + 1U < bytes);
     r = finish(b, r);
-    if (r == MAIA_I2C_OK) *out = value;
+    if (r == MAIA_I2C_OK) for (uint32_t i = 0; i < bytes; ++i) out[i] = value[i];
     return r;
 }
 maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *b,

@@ -2,12 +2,14 @@
 #include <maia/console.h>
 #include <maia/kernel.h>
 #include <maia/services/lcd_output.h>
+#include <maia/services/touch_input.h>
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/soc/esp32p4_psram.h>
 
 #include "dsi_framebuffer_probe.h"
 #include "soc_display_native.h"
+#include "../../../boards/m5stack/tab5/product_touch.h"
 
 #define TAB5_DISP_WIDTH  720U
 #define TAB5_DISP_HEIGHT 1280U
@@ -182,6 +184,23 @@ static void lcd_draw(uint16_t *pixels, uint32_t width, uint32_t height, void *ar
     s_dirty_rows = 0U;
     maia_arch_irq_restore(irq);
     draw_terminal(pixels, (1UL << TERM_ROWS) - 1UL);
+    maia_touch_snapshot_t touch;
+    if (maia_touch_input_snapshot(&touch) == MAIA_OK) {
+        for (unsigned i = 0; i < touch.frame.count; ++i) {
+            int x = touch.frame.points[i].x;
+            int y = touch.frame.points[i].y;
+            for (int d = -16; d <= 16; ++d) {
+                put_pixel_rot3(x + d, y, COLOR_WHITE);
+                put_pixel_rot3(x, y + d, COLOR_WHITE);
+            }
+        }
+    }
+}
+
+void maia_product_display_touch_changed(void) {
+    uintptr_t irq = maia_arch_irq_save();
+    s_dirty_rows |= 1U;
+    maia_arch_irq_restore(irq);
 }
 
 static void lcd_task(void *arg) {
@@ -306,7 +325,9 @@ void maia_display_init(uint32_t panel_type) {
     }
     if (native_lcd_start() != 0) {
         maia_console_puts("[DISPLAY] Native LCD startup failed; no fallback video path\n");
+        return;
     }
+    maia_tab5_product_touch_start(maia_esp32p4_display_reset_i2c_lines());
 }
 
 void maia_display_set_exclusive(int exclusive) {

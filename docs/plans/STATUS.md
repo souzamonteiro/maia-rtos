@@ -2081,3 +2081,53 @@ não-XIP; não é incluído no alvo de produto padrão.
   e [boot capturado](../../../maia-rtos-recovery/native-product-terminal-margin-20261119/probe-boot-1.log).
   Aceitação visual limitada a este teste morno; medição de cadência/WCET, boot
   frio, touch integrado e desktop completo permanecem pendentes.
+
+### Touch nativo no produto: candidato eletrônico (19/11)
+
+- O produto XIP inicializa o serviço ST7121 já testado no probe, após o reset
+  e a inicialização do LCD. O barramento preparado para reset é adotado pelo
+  serviço I²C; acessos do teclado no I²C de sistema passam pelo mesmo dono,
+  incluindo leitura de blocos e escrita de registradores de 8 bits. O teclado
+  no barramento externo permanece no caminho existente. O touch é uma task
+  própria, com polling a cada 5 ticks e snapshot com rotação de 90 graus.
+- O terminal redesenha o quadro completo no backbuffer e sobrepõe uma cruz
+  branca em cada contato válido. Falhas invalidam o snapshot e removem o
+  marcador sem inventar uma soltura; não há fila de eventos nem desktop
+  integrado. Controladores e dimensões diferentes do ST7121 firmware 1 com
+  raster 720×1280 são recusados.
+- Suíte host: 86/86. Os testes cobrem handoff, falhas de inicialização,
+  invalidação, arbitragem entre chamadas de 8 e 16 bits, leitura de 1 a 70
+  bytes com START repetido, falhas em cada pausa, e marcador nos limites dos
+  dois buffers. O teclado conectado ao I²C de sistema ainda não foi exercitado
+  no hardware; no Tab5 testado ele está no barramento externo.
+- Imagem XIP validada: 804.144 bytes, cinco segmentos, entry `0x40000020`,
+  SHA-256 `6950909917ec8371d22a49749b35bedfda7593721c8f8dc18743dc9f9b6a4485`.
+  Boot morno chegou a `msh>` com `[TOUCH] Native ST7121 service ready`,
+  task `touch` com nove trocas de contexto e sem erro de polling ou fatal
+  na captura. Isso não comprova contatos físicos.
+  [Boot capturado](../../../maia-rtos-recovery/native-product-touch-electronic-20261119/probe-boot-1.log);
+  [relatório](../../../maia-rtos-recovery/native-product-touch-electronic-20261119/report.json).
+  O firmware original foi restaurado com verificação de hash
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`
+  e boot até o desktop no log.
+- A validação física do produto foi iniciada após esse boot eletrônico.
+  Boot frio, SMP, teclado no I²C de sistema e desktop completo continuam fora
+  desta evidência.
+
+**Teste físico no produto, 19/11:** a mesma imagem iniciou com o serviço touch
+pronto, chegou a `msh>` e permaneceu em observação por 60 s. O dono confirmou
+que a cruz acompanhou o dedo inclusive nos cantos, desapareceu ao soltar, o
+teclado funcionou e a tela ficou sem piscada ou faixa suja. A captura contém
+os comandos `ls` e `ps`; neste último a task touch registra 2368 trocas de
+contexto. Não foram registrados erros de polling ou fatal; o runner não mede
+quantidade de contatos, latência ou cadência de quadros.
+
+O firmware original foi restaurado com verificação do hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`;
+o log registra a inicialização do desktop original.
+[Relatório](../../../maia-rtos-recovery/native-product-touch-physical-20261119/report.json),
+[boot do candidato](../../../maia-rtos-recovery/native-product-touch-physical-20261119/probe-boot-1.log)
+e [boot restaurado](../../../maia-rtos-recovery/native-product-touch-physical-20261119/restore-boot.log).
+HARDWARE-TESTED limitado ao reset morno, ST7121 fw1 e teclado externo deste
+Tab5; boot frio, SMP, teclado no I²C de sistema, eventos sem perda e desktop
+nativo completo permanecem pendentes.

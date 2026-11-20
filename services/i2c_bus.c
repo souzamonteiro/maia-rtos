@@ -9,15 +9,29 @@ maia_status_t maia_i2c_bus_init(maia_i2c_bus_t *b,const maia_i2c_lines_t *lines)
     else {b->lines=lines;b->initialized=1;}
     maia_arch_irq_restore(irq);return r;
 }
-maia_i2c_result_t maia_i2c_bus_read16(maia_i2c_bus_t *b,uint8_t address,uint16_t reg,uint8_t *out,uint32_t count){
+static maia_i2c_result_t begin(maia_i2c_bus_t *b){
     if(!b)return MAIA_I2C_INVALID;
     uintptr_t irq=maia_arch_irq_save();
     if(b->initialized!=1U){maia_arch_irq_restore(irq);return MAIA_I2C_INVALID;}
     if(!irq||maia_task_current_id()<0){maia_arch_irq_restore(irq);return MAIA_I2C_BUSY;}
     if(b->busy){++b->contentions;maia_arch_irq_restore(irq);return MAIA_I2C_BUSY;}
     b->busy=1;++b->transactions;maia_arch_irq_restore(irq);
-    maia_i2c_result_t r=maia_i2c_read_register16_block(b->lines,address,reg,out,count);
-    irq=maia_arch_irq_save();if(r!=MAIA_I2C_OK)++b->errors;b->busy=0;maia_arch_irq_restore(irq);return r;
+    return MAIA_I2C_OK;
+}
+static maia_i2c_result_t end(maia_i2c_bus_t *b,maia_i2c_result_t r){
+    uintptr_t irq=maia_arch_irq_save();if(r!=MAIA_I2C_OK)++b->errors;b->busy=0;maia_arch_irq_restore(irq);return r;
+}
+maia_i2c_result_t maia_i2c_bus_read16(maia_i2c_bus_t *b,uint8_t address,uint16_t reg,uint8_t *out,uint32_t count){
+    maia_i2c_result_t r=begin(b);if(r!=MAIA_I2C_OK)return r;
+    return end(b,maia_i2c_read_register16_block(b->lines,address,reg,out,count));
+}
+maia_i2c_result_t maia_i2c_bus_read8(maia_i2c_bus_t *b,uint8_t address,uint8_t reg,uint8_t *out,uint32_t count){
+    maia_i2c_result_t r=begin(b);if(r!=MAIA_I2C_OK)return r;
+    return end(b,maia_i2c_read_register8_block(b->lines,address,reg,out,count));
+}
+maia_i2c_result_t maia_i2c_bus_write8(maia_i2c_bus_t *b,uint8_t address,uint8_t reg,uint8_t value){
+    maia_i2c_result_t r=begin(b);if(r!=MAIA_I2C_OK)return r;
+    return end(b,maia_i2c_write_register8(b->lines,address,reg,value));
 }
 static maia_status_t transition(maia_i2c_bus_t *b,unsigned from,unsigned to){
     if(!b)return MAIA_ERR_INVALID;

@@ -19,7 +19,7 @@ a migração dele é um projeto posterior (ver final).
 - [x] Alimentação (LDO/PMU) e clocks
 - [x] PSRAM a 200 MHz e DMA
 - [x] LCD MIPI-DSI nativo com quadros repetidos e imagem visível 👀 (candidato de refresh contínuo estável em repouso; piscada observada a cada tecla)
-- [x] Touch GT911 nativo 👀
+- [x] Touch ST7121 nativo 👀 (device com firmware 1; GT911 não validado neste caminho)
 - [x] 77 testes de host passando (`e018c2c`)
 
 ## F0 — Firmware nativo gravado na flash
@@ -57,10 +57,11 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Observar no device o double buffering: dono confirmou ausência de piscada ao teclar; relatou faixa suja de aproximadamente 5 pixels embaixo (19/11; boot e restauração verificados)
   - [x] Corrigir preenchimento incompleto da margem inferior nos dois caminhos de terminal: 22 linhas cobriam 704 dos 720 pixels; teste de raster reproduziu o defeito e passou após a correção (85/85 testes host; nova imagem XIP validada)
   - [x] Confirmar visualmente a eliminação da faixa inferior na nova imagem: dono confirmou “Sem piscada e sem faixa suja” (19/11; boot e restauração verificados)
+  - [x] Comparar com o driver original: o painel DPI usa 1 framebuffer de scanout (`num_fbs = 1`), mas o LVGL desenha em 2 buffers de PSRAM (`double_buffer = true`) e copia no flush sem pausar o vídeo/DMA
   - [ ] Medir intervalos de refresh no device; a observação anterior não determina a causa da piscada
-  - [ ] Integrar o serviço de touch no produto
+  - [x] Integrar o serviço de touch no produto XIP: dono confirmou cantos, arraste, soltura, teclado e ausência de piscada/faixa; boot e restauração verificados (19/11; reset morno, ST7121 fw1)
 - [x] Integrar no produto o refresh/framebuffer nativo (double buffering observado sem piscada ao teclar e sem faixa inferior; 19/11)
-- [ ] Integrar no produto o serviço de touch; a inicialização PSRAM depende ainda de validação a frio e o handoff cache/MMU continua restrito ao boot morno testado
+- [x] Integrar no produto o serviço de touch ST7121 fw1 (validação física limitada, 19/11); PSRAM a frio e handoff cache/MMU continuam pendentes
 - [ ] Linker final do produto com seções críticas de inicialização em SRAM e integração PSRAM
 - [x] Allocator multi-região — duas regiões SRAM exercitadas no probe XIP (18/11)
 - [ ] Inicializar e registrar heap PSRAM após validar boot frio e mapeamento da CPU

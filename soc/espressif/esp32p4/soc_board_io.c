@@ -2,6 +2,25 @@
 #include <maia/kernel.h>
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_regs.h>
+#ifdef MAIA_PRODUCT_TOUCH
+#include <maia/services/touch_input.h>
+static maia_i2c_bus_t *g_system_bus;
+static unsigned g_system_bus_error_reported;
+void maia_tab5_system_i2c_adopt(maia_i2c_bus_t *bus) {
+    g_system_bus = bus;
+}
+static int system_bus_result(maia_i2c_result_t result) {
+    if (result == MAIA_I2C_OK) {
+        g_system_bus_error_reported = 0U;
+        return 0;
+    }
+    if (result != MAIA_I2C_BUSY && !g_system_bus_error_reported) {
+        maia_console_puts("[I2C] System bus transaction failed\n");
+        g_system_bus_error_reported = 1U;
+    }
+    return -1;
+}
+#endif
 
 #define TAB5_SYS_SDA_PIN 31U
 #define TAB5_SYS_SCL_PIN 32U
@@ -218,6 +237,12 @@ static uint8_t i2c_read_byte(uint32_t sda, uint32_t scl, int send_ack) {
 }
 
 int maia_i2c_write_bytes(uint32_t sda_pin, uint32_t scl_pin, uint8_t addr7, const uint8_t *data, size_t len) {
+#ifdef MAIA_PRODUCT_TOUCH
+    if (g_system_bus && sda_pin == TAB5_SYS_SDA_PIN && scl_pin == TAB5_SYS_SCL_PIN) {
+        if (!data || len != 2U) return system_bus_result(MAIA_I2C_INVALID);
+        return system_bus_result(maia_i2c_bus_write8(g_system_bus, addr7, data[0], data[1]));
+    }
+#endif
     i2c_start(sda_pin, scl_pin);
     if (!i2c_write_byte(sda_pin, scl_pin, (uint8_t)(addr7 << 1U))) {
         i2c_stop(sda_pin, scl_pin);
@@ -235,6 +260,13 @@ int maia_i2c_write_bytes(uint32_t sda_pin, uint32_t scl_pin, uint8_t addr7, cons
 
 int maia_i2c_write_read(uint32_t sda_pin, uint32_t scl_pin, uint8_t addr7,
                         const uint8_t *tx, size_t tx_len, uint8_t *rx, size_t rx_len) {
+#ifdef MAIA_PRODUCT_TOUCH
+    if (g_system_bus && sda_pin == TAB5_SYS_SDA_PIN && scl_pin == TAB5_SYS_SCL_PIN) {
+        if (!tx || tx_len != 1U || !rx || !rx_len || rx_len > 70U)
+            return system_bus_result(MAIA_I2C_INVALID);
+        return system_bus_result(maia_i2c_bus_read8(g_system_bus, addr7, tx[0], rx, (uint32_t)rx_len));
+    }
+#endif
     if (tx_len > 0U) {
         i2c_start(sda_pin, scl_pin);
         if (!i2c_write_byte(sda_pin, scl_pin, (uint8_t)(addr7 << 1U))) {
@@ -554,6 +586,16 @@ int maia_tab5_keyboard_getc_nonblocking(void) {
 }
 
 int maia_tab5_touch_get(int32_t *x, int32_t *y, int32_t *pressed) {
+#ifdef MAIA_PRODUCT_TOUCH
+    maia_touch_snapshot_t snapshot;
+    if (!x || !y || !pressed || maia_touch_input_snapshot(&snapshot) != MAIA_OK) return -1;
+    *pressed = snapshot.frame.count != 0U;
+    if (*pressed) {
+        *x = snapshot.frame.points[0].x;
+        *y = snapshot.frame.points[0].y;
+    }
+    return 0;
+#else
     if (pressed) *pressed = 0;
     /* Check ST7121 / ST7123 capacitive touch controller on SysI2C @ 0x55 */
     uint8_t reg_adv[2] = {0x00U, 0x10U};
@@ -578,6 +620,7 @@ int maia_tab5_touch_get(int32_t *x, int32_t *y, int32_t *pressed) {
         }
     }
     return 0;
+#endif
 }
 
 uint32_t maia_tab5_get_detected_panel(void) {

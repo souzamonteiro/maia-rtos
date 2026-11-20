@@ -5,6 +5,13 @@
 #include "../../soc/espressif/esp32p4/soc_display_product.c"
 
 static uintptr_t irq_state = 8U;
+static maia_touch_snapshot_t touch_snapshot;
+static maia_status_t touch_status = MAIA_ERR_BUSY;
+
+maia_status_t maia_touch_input_snapshot(maia_touch_snapshot_t *out) {
+    *out = touch_snapshot;
+    return touch_status;
+}
 
 uintptr_t maia_arch_irq_save(void) {
     uintptr_t saved = irq_state;
@@ -45,5 +52,23 @@ int main(void) {
             }
         }
     }
+    touch_status = MAIA_OK;
+    touch_snapshot.frame.count = 2;
+    touch_snapshot.frame.points[0].x = 0;
+    touch_snapshot.frame.points[0].y = 0;
+    touch_snapshot.frame.points[1].x = 1279;
+    touch_snapshot.frame.points[1].y = 719;
+    lcd_draw(&frames[0][1], TAB5_PHYS_W, TAB5_PHYS_H, NULL);
+    assert(frames[0][1 + 1279 * TAB5_PHYS_W] == COLOR_WHITE);
+    assert(frames[0][1 + 719] == COLOR_WHITE);
+    touch_status = MAIA_ERR_BUSY;
+    lcd_draw(&frames[1][1], TAB5_PHYS_W, TAB5_PHYS_H, NULL);
+    assert(frames[1][1 + 1279 * TAB5_PHYS_W] != COLOR_WHITE);
+    assert(frames[1][1 + 719] == COLOR_BLACK);
+    assert(frames[0][0] == poison && frames[0][TAB5_PHYS_W * TAB5_PHYS_H + 1U] == poison);
+    assert(frames[1][0] == poison && frames[1][TAB5_PHYS_W * TAB5_PHYS_H + 1U] == poison);
+    s_dirty_rows = 0;
+    maia_product_display_touch_changed();
+    assert(s_dirty_rows != 0);
     assert(irq_state == 8U);
 }

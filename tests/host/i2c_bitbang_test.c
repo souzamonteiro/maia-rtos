@@ -142,6 +142,25 @@ int main(void) {
     const uint8_t read8[]={0x86U,0x05U,0x87U};
     CHECK(s.bytes == 3U && !memcmp(s.wire,read8,3) && s.starts == 2U && s.stops == 1U);
     unsigned read8_pauses=s.pauses;
+    for(unsigned count=1;count<=70;++count){
+        b=setup(&s);s.response_bytes=count;
+        for(unsigned i=0;i<count;++i)s.responses[i]=expected_block[i]=(uint8_t)(i*13U+7U);
+        if(count==1)s.reply=s.responses[0];
+        memset(block,0xCC,sizeof block);
+        CHECK(maia_i2c_read_register8_block(&b,0x34,0x50,block,count)==MAIA_I2C_OK);
+        CHECK(!memcmp(block,expected_block,count)&&s.master_acks==count-1U&&s.master_nacks==1);
+        CHECK(s.starts==2U&&s.stops==1U);
+    }
+    unsigned read8_block_pauses=s.pauses;
+    for(unsigned n=1;n<=read8_block_pauses;++n){
+        b=setup(&s);s.response_bytes=70;s.fail_pause=n;memset(block,0xCC,sizeof block);
+        CHECK(maia_i2c_read_register8_block(&b,0x34,0x50,block,70)==MAIA_I2C_TIMEOUT);
+        for(unsigned i=0;i<70;++i)CHECK(block[i]==0xCC);
+        CHECK(s.master==MAIA_I2C_BOTH);
+    }
+    b=setup(&s);
+    CHECK(maia_i2c_read_register8_block(&b,0x34,0,block,0)==MAIA_I2C_INVALID&&!s.pauses);
+    CHECK(maia_i2c_read_register8_block(&b,0x34,0,block,71)==MAIA_I2C_INVALID&&!s.pauses);
     b=setup(&s);
     CHECK(maia_i2c_write_register8(&b,0x44U,0x05U,0xABU) == MAIA_I2C_OK);
     const uint8_t write8[]={0x88U,0x05U,0xABU};

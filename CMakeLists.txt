@@ -62,7 +62,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
     target_sources(maia_m0.elf PRIVATE
       soc/espressif/esp32p4/soc_display_product.c
+      boards/m5stack/tab5/product_touch.c
       services/lcd_output.c
+      services/i2c_bus.c
+      services/touch_input.c
+      drivers/input/st712x.c
       soc/espressif/esp32p4/soc_dw_dma_irq.c
       soc/espressif/esp32p4/soc_psram_boot.c
       soc/espressif/esp32p4/soc_psram_clock.c
@@ -76,6 +80,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     target_compile_definitions(maia_m0.elf PRIVATE
       MAIA_DSI_LCD_STREAM=1
       MAIA_DSI_FRAMEBUFFER_PROBE=1
+      MAIA_PRODUCT_TOUCH=1
     )
     set_property(SOURCE
       soc/espressif/esp32p4/soc_psram_boot.c
@@ -1034,6 +1039,11 @@ else()
       target_link_options(product_terminal_test PRIVATE "-Wl,--gc-sections")
     endif()
     add_test(NAME product_terminal_test COMMAND product_terminal_test)
+    add_executable(product_touch_test tests/host/product_touch_test.c)
+    target_include_directories(product_touch_test PRIVATE include)
+    target_compile_definitions(product_touch_test PRIVATE MAIA_PRODUCT_TOUCH=1)
+    target_compile_options(product_touch_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME product_touch_test COMMAND product_touch_test)
     add_executable(dw_dma_irq_test tests/host/dw_dma_irq_test.c soc/espressif/esp32p4/soc_dw_dma_irq.c)
     target_include_directories(dw_dma_irq_test PRIVATE include soc/espressif/esp32p4)
     target_compile_definitions(dw_dma_irq_test PRIVATE MAIA_PSRAM_TEST=1)

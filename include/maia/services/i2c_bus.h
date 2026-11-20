@@ -28,6 +28,10 @@ maia_status_t maia_i2c_bus_reopen(maia_i2c_bus_t *);
  * releases ownership on every exit. No ISR/SMP/retry/recovery pulses. Same block
  * read atomic output/error contract as bitbang; other callers may retry later. */
 maia_i2c_result_t maia_i2c_bus_read16(maia_i2c_bus_t *,uint8_t address,uint16_t reg,uint8_t *,uint32_t);
+/* Same ownership and context rules for 8-bit register reads and writes.
+ * Writes may have reached the device even if a later phase fails. */
+maia_i2c_result_t maia_i2c_bus_read8(maia_i2c_bus_t *,uint8_t address,uint8_t reg,uint8_t *,uint32_t);
+maia_i2c_result_t maia_i2c_bus_write8(maia_i2c_bus_t *,uint8_t address,uint8_t reg,uint8_t value);
 #ifdef __cplusplus
 }
 #endif

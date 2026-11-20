@@ -19,10 +19,17 @@ void maia_tab5_board_io_init(void);
  */
 int maia_tab5_keyboard_getc_nonblocking(void);
 
-/* Poll capacitive touchscreen (ST7121/ST7123 @ 0x55 or GT911 on SysI2C).
- * Sets *pressed to 1 and outputs landscape 1280x720 coordinates (*x, *y).
+/* Latest native touch snapshot in the product build; 0 means valid and outputs
+ * landscape coordinates/pressed, -1 means unavailable or stale, not release.
+ * The legacy non-product build retains its original polling implementation.
  */
 int maia_tab5_touch_get(int32_t *x, int32_t *y, int32_t *pressed);
+
+#ifdef MAIA_PRODUCT_TOUCH
+#include <maia/services/i2c_bus.h>
+/* Boot-only handoff after all raw system-I2C clients have finished. */
+void maia_tab5_system_i2c_adopt(maia_i2c_bus_t *bus);
+#endif
 
 /* Microsecond busy-wait delay using SYSTIMER. */
 void maia_udelay(uint32_t us);
