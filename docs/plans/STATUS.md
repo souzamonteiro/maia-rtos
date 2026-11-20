@@ -2153,3 +2153,29 @@ Imagem final padrão (97.760 bytes, SHA-256
 [captura/ELF/mapa/configuração](../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/).
 Continuar preservando as guards; aceitação de cold boot e pipeline completo
 PSRAM/LCD/touch permanecem pendentes.
+
+## Diagnóstico dos guards de entrada da PSRAM — 2026-11-20
+
+O relatório do boot agora preserva o snapshot usado na avaliação dos guards,
+a palavra AXI, a amostra MPLL condicional e um bitmask nomeado das recusas. O
+probe imprime a linha `PSRAM_BOOT_ENTRY`; os caminhos inválidos, fora de
+contexto e duplicados continuam sem MMIO. A suíte host passou 86/86, incluindo
+testes positivos e negativos de todos os guards de entrada, claims de clock/X8,
+duplicação, falha anterior e MPLL ocupado. O probe RV32 passou o gate de
+símbolos e a validação de imagem RAM.
+
+Na captura automática de reset morno do Tab5, o boot retornou
+`MAIA_PSRAM_BUSY` (`-5`), estágio0, zero escritas. O bitmask `0x500` identifica
+`VO2_ENABLED` (`0x100`) e `DIVIDER_NOT_XTAL` (`0x400`); a amostra estável foi
+VO2 `0x40200180`, root1 `0x0000D00C`, máscara do divisor `0x00FF3000`. AXI,
+controllers e eFuse passaram seus guards. O runner acionou reset para o
+firmware em flash, sem gravar flash. Nenhum ciclo físico de energia foi feito e
+não houve execução de cache, memória PSRAM, DMA, LCD ou touch. A causa da
+recusa morna está identificada, mas cold boot e o pipeline integrado continuam
+pendentes.
+
+[Imagem e captura UART](../../../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/):
+99.008 bytes, SHA-256
+`67ccae80de64d55fc5ec9340ac71d4248c2f78045700271e3f735b36178e06ac`;
+captura SHA-256
+`f2dcd2494f89227e6c96486534cd17bf10b1eaf56b1ad624c7694ee198391607`.

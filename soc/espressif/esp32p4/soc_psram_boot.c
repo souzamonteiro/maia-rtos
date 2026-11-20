@@ -11,7 +11,8 @@ maia_psram_result_t maia_esp32p4_psram_boot_initialize200(uint32_t budget,maia_p
     for(unsigned i=0;i<sizeof *r;++i)((volatile unsigned char *)r)[i]=0;
     if(!budget||budget>100000U)return MAIA_PSRAM_INVALID;
     if(!psram_context())return MAIA_PSRAM_CONTEXT;
-    if(boot_state)return boot_state==2U?MAIA_PSRAM_FAILED:MAIA_PSRAM_BUSY;
+    if(boot_state==1U){r->failed_guards=MAIA_PSRAM_BOOT_GUARD_ALREADY_STARTED;return MAIA_PSRAM_BUSY;}
+    if(boot_state==2U){r->failed_guards=MAIA_PSRAM_BOOT_GUARD_PREVIOUS_FAILURE;return MAIA_PSRAM_FAILED;}
     maia_psram_result_t result=maia_psram_boot20(r);if(result!=MAIA_PSRAM_OK)return result;
     boot_state=2;
     result=maia_esp32p4_psram_mpll_initialize400(budget,&r->mpll);if(result!=MAIA_PSRAM_OK)return result;

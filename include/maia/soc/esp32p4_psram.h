@@ -150,10 +150,28 @@ typedef struct maia_psram_transfer_report {
 typedef struct maia_psram_profile_report {
     uint32_t stage,write_attempts,polls,restored,before[3],after[3];
 } maia_psram_profile_report_t;
+typedef enum maia_psram_boot_guard {
+    MAIA_PSRAM_BOOT_GUARD_CLOCK_CLAIMED = 1U << 0,
+    MAIA_PSRAM_BOOT_GUARD_X8_CLAIMED = 1U << 1,
+    MAIA_PSRAM_BOOT_GUARD_ALREADY_STARTED = 1U << 2,
+    MAIA_PSRAM_BOOT_GUARD_PREVIOUS_FAILURE = 1U << 3,
+    MAIA_PSRAM_BOOT_GUARD_MSPI0_ACTIVE = 1U << 4,
+    MAIA_PSRAM_BOOT_GUARD_MSPI1_ACTIVE = 1U << 5,
+    MAIA_PSRAM_BOOT_GUARD_AXI_OPEN = 1U << 6,
+    MAIA_PSRAM_BOOT_GUARD_MSPI0_FSM_BUSY = 1U << 7,
+    MAIA_PSRAM_BOOT_GUARD_VO2_ENABLED = 1U << 8,
+    MAIA_PSRAM_BOOT_GUARD_EFUSE_INVALID = 1U << 9,
+    MAIA_PSRAM_BOOT_GUARD_DIVIDER_NOT_XTAL = 1U << 10,
+    MAIA_PSRAM_BOOT_GUARD_MSPI0_CLK_CONFIG = 1U << 11,
+    MAIA_PSRAM_BOOT_GUARD_MSPI1_CLK_CONFIG = 1U << 12,
+    MAIA_PSRAM_BOOT_GUARD_MPLL_BUSY = 1U << 13
+} maia_psram_boot_guard_t;
 typedef struct maia_psram_boot_report {
     /* LP master clock/reset, MPLL power/output, CAL, analog source selector.
      * Slot5 sampled only after master access is enabled/reset released. */
     uint32_t stage,writes,before[6],after[6];
+    maia_psram_snapshot_t entry_snapshot;
+    uint32_t failed_guards,entry_axi,entry_axi_valid,entry_mpll[2],entry_mpll_valid;
     maia_psram_clock_report_t clock;
     maia_psram_supply_report_t supply;
     maia_psram_mpll_init_report_t mpll;
@@ -174,7 +192,11 @@ typedef struct maia_psram_boot_report {
  * INVALID/CONTEXT/duplicate/prior FAILED refuse before I/O; post-store failure
  * remains sticky in owning layer until reset, no blind rollback. stage1..7 is
  * progress, writes counts boot power/analog-root stores; other counts embedded.
- * Not thread/ISR/SMP-safe. Reports are observations, never ownership tokens. */
+ * On BUSY/FAILED ownership or entry-guard refusal, failed_guards identifies
+ * the rejected predicates; entry_snapshot and valid AXI/MPLL samples preserve
+ * the observations used. Early invalid/context/duplicate paths still perform
+ * no MMIO. Not thread/ISR/SMP-safe. Reports are observations, never ownership
+ * tokens. */
 maia_psram_result_t maia_esp32p4_psram_boot_initialize200(uint32_t,maia_psram_boot_report_t *);
 /* Boot/core0/IRQs-off/exclusive native XTAL20 claim, closed AXI/idle controllers,
  * powered/readable AP32MiB HEX device; warm entry requires X16, genuine native

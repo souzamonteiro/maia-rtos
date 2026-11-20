@@ -7,6 +7,7 @@ void maia_psram_clock_test_reset(void);
 void maia_psram_supply_test_reset(void);
 void maia_psram_mpll_test_reset(void);
 void maia_psram_boot_test_reset(void);
+void maia_psram_clock_test_claim(void);
 static uint32_t roots[9],words[27],extra[6],route[2],control,regs[4],axi;
 static unsigned context,reads,writes,drop,mutation,busy,stuck,profile_calls,x8,profile_fail;
 static unsigned changed[256];
@@ -86,12 +87,36 @@ int main(void){
     setup();assert(maia_esp32p4_psram_boot_initialize200(10,0)==MAIA_PSRAM_INVALID&&!reads&&!writes);
     assert(maia_esp32p4_psram_boot_initialize200(0,&r)==MAIA_PSRAM_INVALID&&!reads);
     context=0;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_CONTEXT&&!reads);
-    for(unsigned variant=0;variant<7U;++variant){setup();
+    const uint32_t rejected[10]={
+        MAIA_PSRAM_BOOT_GUARD_VO2_ENABLED,MAIA_PSRAM_BOOT_GUARD_DIVIDER_NOT_XTAL,
+        MAIA_PSRAM_BOOT_GUARD_EFUSE_INVALID,MAIA_PSRAM_BOOT_GUARD_AXI_OPEN,
+        MAIA_PSRAM_BOOT_GUARD_MSPI0_ACTIVE,MAIA_PSRAM_BOOT_GUARD_MSPI0_CLK_CONFIG,
+        MAIA_PSRAM_BOOT_GUARD_EFUSE_INVALID,MAIA_PSRAM_BOOT_GUARD_MSPI1_ACTIVE,
+        MAIA_PSRAM_BOOT_GUARD_MSPI0_FSM_BUSY,MAIA_PSRAM_BOOT_GUARD_MSPI1_CLK_CONFIG};
+    for(unsigned variant=0;variant<10U;++variant){setup();
         switch(variant){case 0:roots[4]|=0x100;break;case 1:roots[1]|=0x1000;break;
         case 2:roots[6]&=0xFFFFFFF;break;case 3:axi|=1;break;case 4:words[0]=1;break;
-        case 5:words[7]=0x10001;break;default:roots[8]=8;break;}
+        case 5:words[7]=0x10001;break;case 6:roots[8]=8;break;case 7:words[16]=1;break;
+        case 8:words[2]=1;break;default:words[20]=0x10001;break;}
         assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&!writes&&!profile_calls);
+        assert(r.failed_guards==rejected[variant]&&r.entry_snapshot.roots_valid&&
+               r.entry_snapshot.controller_samples==54U&&r.entry_axi_valid&&r.entry_axi==axi);
+        assert(r.entry_snapshot.roots[4]==roots[4]&&r.entry_snapshot.roots_after[4]==roots[4]);
     }
+    setup();roots[1]|=0x1000;roots[4]|=0x100;
+    assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&!writes&&
+           r.failed_guards==(MAIA_PSRAM_BOOT_GUARD_VO2_ENABLED|
+                             MAIA_PSRAM_BOOT_GUARD_DIVIDER_NOT_XTAL));
+    setup();maia_psram_clock_test_claim();
+    assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&!reads&&
+           r.failed_guards==MAIA_PSRAM_BOOT_GUARD_CLOCK_CLAIMED&&!r.entry_snapshot.roots_valid);
+    setup();x8=1;
+    assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&!reads&&
+           r.failed_guards==MAIA_PSRAM_BOOT_GUARD_X8_CLAIMED&&!r.entry_snapshot.roots_valid);
+    setup();extra[0]=0x8000000;extra[1]=0;control=MPLL_BUSY;
+    assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&
+           r.failed_guards==MAIA_PSRAM_BOOT_GUARD_MPLL_BUSY&&r.entry_mpll_valid&&
+           r.entry_mpll[0]==MPLL_BUSY&&r.entry_mpll[1]==MPLL_BUSY&&!writes);
     setup();assert(maia_psram_boot20(&r)==MAIA_PSRAM_OK&&r.stage==5&&r.writes==8&&r.supply.writes==3&&extra[5]==0xA5);
     x8=1;unsigned n=reads;maia_psram_fast_report_t f;
     assert(maia_esp32p4_psram_fast_start(200,10,&f)==MAIA_PSRAM_BUSY&&reads==n);
@@ -100,7 +125,8 @@ int main(void){
         assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_OK&&r.stage==7&&profile_calls==1&&r.mpll.mhz==400&&r.mpll.saw_not_done);
         assert(roots[1]==0xC00C&&roots[4]==0x40200180&&roots[5]==0x76800000&&words[7]==0x10001&&words[20]==0x10001);
         assert(route[0]==0xA5123456&&route[1]==0x5A654321);
-        n=reads;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&reads==n);
+        n=reads;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_BUSY&&reads==n&&
+                       r.failed_guards==MAIA_PSRAM_BOOT_GUARD_ALREADY_STARTED&&!r.entry_snapshot.roots_valid);
     }
     setup();assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_OK);unsigned total=writes,sensitive[256];memcpy(sensitive,changed,sizeof changed);
     for(unsigned failure=1;failure<=total;++failure){
@@ -109,7 +135,8 @@ int main(void){
         setup();mutation=failure;assert(maia_esp32p4_psram_boot_initialize200(4,&r)!=MAIA_PSRAM_OK&&!profile_calls);
     }
     setup();profile_fail=1;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_IO&&r.stage==6&&profile_calls==1);
-    n=reads;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_FAILED&&reads==n);
+    n=reads;assert(maia_esp32p4_psram_boot_initialize200(10,&r)==MAIA_PSRAM_FAILED&&reads==n&&
+                   r.failed_guards==MAIA_PSRAM_BOOT_GUARD_PREVIOUS_FAILURE);
     setup();stuck=1;assert(maia_esp32p4_psram_boot_initialize200(3,&r)==MAIA_PSRAM_TIMEOUT&&!profile_calls);
     return 0;
 }

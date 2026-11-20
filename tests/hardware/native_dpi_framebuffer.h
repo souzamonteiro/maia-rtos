@@ -38,6 +38,23 @@ static void fb_mpll_report(maia_psram_result_t result,const maia_psram_mpll_init
     field(" mhz=",r->mhz);maia_console_puts("\n");
 }
 #endif
+static void fb_boot_entry_report(const maia_psram_boot_report_t *r){
+    const maia_psram_snapshot_t *s=&r->entry_snapshot;
+    field("PSRAM_BOOT_ENTRY guards=",r->failed_guards);field(" roots_valid=",s->roots_valid);
+    field(" samples=",s->controller_samples);field(" axi_valid=",r->entry_axi_valid);field(" axi=",r->entry_axi);
+    field(" root1=",s->roots[1]);field(" root1_after=",s->roots_after[1]);
+    field(" vo2=",s->roots[4]);field(" vo2_after=",s->roots_after[4]);
+    field(" efuse2=",s->roots[6]);field(" efuse2_after=",s->roots_after[6]);
+    field(" efuse3=",s->roots[7]);field(" efuse3_after=",s->roots_after[7]);
+    field(" efuse_error=",s->roots[8]);field(" efuse_error_after=",s->roots_after[8]);
+    field(" mspi0=",s->before[0]);field(" mspi0_after=",s->after[0]);
+    field(" mspi0_fsm=",s->before[2]);field(" mspi0_fsm_after=",s->after[2]);
+    field(" mspi0_clk=",s->before[7]);field(" mspi0_clk_after=",s->after[7]);
+    field(" mspi1=",s->before[16]);field(" mspi1_after=",s->after[16]);
+    field(" mspi1_clk=",s->before[20]);field(" mspi1_clk_after=",s->after[20]);
+    field(" mpll_valid=",r->entry_mpll_valid);field(" mpll0=",r->entry_mpll[0]);field(" mpll1=",r->entry_mpll[1]);
+    maia_console_puts("\n");
+}
 static void fb_finish(uint32_t hash,const maia_psram_snapshot_t *initial){
     volatile uint8_t *memory=(volatile uint8_t *)(uintptr_t)MAIA_PSRAM_WINDOW_VADDR;
     maia_psram_snapshot_t before=*initial,after;
@@ -84,7 +101,7 @@ static void dpi_framebuffer(void){
     field("PSRAM_BOOT result=",(uint32_t)booted);field(" stage=",boot.stage);field(" writes=",boot.writes);field(" supply_stage=",boot.supply.stage);field(" supply_writes=",boot.supply.writes);field(" adopted=",boot.supply.adopted);field(" dref=",boot.supply.dref);field(" mul=",boot.supply.mul);
     field(" beforectl=",boot.supply.before[0]);field(" afterctl=",boot.supply.after[0]);field(" beforeana=",boot.supply.before[1]);field(" afterana=",boot.supply.after[1]);field(" clock_stage=",boot.clock.stage);field(" attempts=",boot.clock.attempts);field(" beforeperi=",boot.clock.before[0]);field(" afterperi=",boot.clock.after[0]);field(" bus0=",boot.clock.after[1]);field(" bus1=",boot.clock.after[2]);field(" profile_stage=",boot.profile.stage);field(" profile_attempts=",boot.profile.write_attempts);field(" profile_polls=",boot.profile.polls);
     for(unsigned i=0;i<3U;++i){field(i==0U?" before0=":i==1U?" before4=":" before8=",boot.profile.before[i]);field(i==0U?" after0=":i==1U?" after4=":" after8=",boot.profile.after[i]);}
-    maia_console_puts("\n");
+    maia_console_puts("\n");fb_boot_entry_report(&boot);
     if(boot.stage>=5U)fb_mpll_report(boot.stage>=6U?MAIA_PSRAM_OK:booted,&boot.mpll);
     if(booted!=MAIA_PSRAM_OK)halt("fb-native-boot");
 #endif

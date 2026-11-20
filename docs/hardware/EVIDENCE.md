@@ -1900,3 +1900,47 @@ safe refusal in the tested warm state; it is not cold-start evidence.
 
 Exact image, ELF, linker map, CMake cache and capture:
 [`default-product-option/`](../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/).
+
+## Native PSRAM entry-guard diagnostic — 2026-11-20
+
+The boot report and RAM probe now preserve/print the snapshot used by the
+entry guards and identify failed predicates. Automated host coverage exercises
+all hardware-entry guards, software clock/X8 claims, duplicate/prior failure,
+and the conditional MPLL-busy refusal. Host CTest passed 86/86. The RV32
+diagnostic passed the native runtime-symbol gate; esptool 4.12.0 packaged the
+RAM image, and runner `--validate-only` confirmed all load segments and the
+entry point are within L2MEM_LOW.
+
+The automatic 30-second Tab5 warm-reset run reached `DPI_FB_READY`, then
+returned `MAIA_PSRAM_BUSY` (`-5`), stage 0, zero boot writes. Its stable
+read-only snapshot reports `guards=00000500`: `VO2_ENABLED` (`0x100`) and
+`DIVIDER_NOT_XTAL` (`0x400`). Corresponding observed values were VO2
+`0x40200180` and PSRAM root word 1 `0x0000D00C` (native guard mask
+`0x00FF3000`). AXI was `0xC0000000` and passed the quiet predicate; sampled
+controller and eFuse predicates passed. Register naming/layout follows the
+pinned ESP-IDF `f5c3654` sources documented in the
+[native PSRAM state audit](../audits/native-psram-state.md).
+
+No cache bootstrap, PSRAM array transfer, DMA, LCD stream or touch validation
+followed. The runner issued a reset to the preserved flash application; it did
+not write flash. This was not a physical power cycle and is not cold-start
+acceptance. Image (99,008 bytes) and actual UART capture:
+[`native-psram-entry-diagnostics-20261120/`](../../../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/).
+Image SHA-256:
+`67ccae80de64d55fc5ec9340ac71d4248c2f78045700271e3f735b36178e06ac`;
+capture SHA-256:
+`f2dcd2494f89227e6c96486534cd17bf10b1eaf56b1ad624c7694ee198391607`.
+
+Validation record: macOS host build with AppleClang 21 and Python 3.14.5 used
+`cmake --build /tmp/maia-rtos-diagnostic-build -j4` and
+`ctest --test-dir /tmp/maia-rtos-diagnostic-build --output-on-failure`
+(86/86 passed); the focused `psram_boot_test` also passed. The public header
+compiled with the ESP32-P4 GCC 14.2 C++98 cross-compiler. From the repository
+root, the device probe build command was
+`cmake --build ../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/build --target maia_sched_probe_ram -j4`;
+its post-link runtime gate passed. esptool 4.12.0 packaged the image, and the
+runner's image/entry-point `--validate-only` check passed. From the recovery
+directory, the target run was
+`run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image maia_sched_probe_ram.bin --log native-psram-entry-hardware.log --capture-seconds 30 --psram-native-boot`;
+it returned the expected `FAIL / NOT DEMONSTRATED` because the native
+initializer safely refused this warm entry.

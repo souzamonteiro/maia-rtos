@@ -1644,3 +1644,15 @@ See [native PSRAM boot audit](audits/native-psram-native-boot.md) and retained
 artifacts at `../../maia-rtos-recovery/native-psram-native-boot-order-20261119/`.
 Continue other driver work without weakening the entry guards; PSRAM cold
 startup and its LCD/touch pipeline remain unqualified.
+
+## PSRAM entry diagnosis — 2026-11-20
+
+The native boot report now captures the exact read-only entry snapshot and a
+named guard-failure mask. Host CTest passed 86/86; the updated RAM probe passed
+its runtime-symbol gate and `--validate-only`. The automatic warm-reset Tab5
+capture returned `MAIA_PSRAM_BUSY` at stage0 with zero writes and identified
+`VO2_ENABLED | DIVIDER_NOT_XTAL` (`0x500`): VO2 `0x40200180`, root1 `0xD00C`.
+The runner reset to the preserved flash application without writing flash.
+This diagnoses the warm-state refusal only; do not weaken the guards or claim
+cold PSRAM, memory, DMA, LCD or touch acceptance. Artifacts:
+`../../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/`.

@@ -159,3 +159,32 @@ capture SHA-256:
 `09d01cb73c0280f171a5aa567e10e814d219d39a51c9d46a1df6fe18fe865c21`.
 The final ELF, RAM image, map, CMake cache and UART capture are preserved in
 `../../../maia-rtos-recovery/native-psram-native-boot-order-20261119/default-product-option/`.
+
+## Entry guard diagnosis — 2026-11-20
+
+The boot report now retains the read-only entry snapshot, the AXI word used by
+the entry predicate, the conditional MPLL busy sample, and a named
+`failed_guards` bitmask. The runner prints these observations on a separate
+`PSRAM_BOOT_ENTRY` line; early invalid/context/duplicate paths still perform no
+MMIO. Host tests exercise every hardware-entry guard, both software ownership
+guards, the prior-boot guard and the MPLL-busy guard.
+
+The updated 99,008-byte RAM image passed the native runtime-symbol gate and
+runner `--validate-only`. On the Tab5, the automatic warm-reset run again
+returned `MAIA_PSRAM_BUSY` (`-5`), stage 0, zero boot writes. This capture
+identifies two rejected predicates: `VO2_ENABLED` (`0x100`) and
+`DIVIDER_NOT_XTAL` (`0x400`), combined as `guards=0x500`. The stable sampled
+values were VO2 `0x40200180` and `root1=0x0000D00C`; the recorded divider mask
+was `0x00FF3000`. AXI quiet, controller idle/configuration, and eFuse predicates
+did not fail. No cache, PSRAM data, DMA, LCD stream or touch work followed.
+
+This proves why this warm-reset entry is refused; it does not establish a
+successful cold start or justify adopting this powered state as a cold boot.
+No flash image was written, no physical power cycle was performed, and the
+runner reset to the preserved flash application. The image and raw UART capture
+are preserved in
+`../../../maia-rtos-recovery/native-psram-entry-diagnostics-20261120/`.
+Image SHA-256:
+`67ccae80de64d55fc5ec9340ac71d4248c2f78045700271e3f735b36178e06ac`;
+capture SHA-256:
+`f2dcd2494f89227e6c96486534cd17bf10b1eaf56b1ad624c7694ee198391607`.

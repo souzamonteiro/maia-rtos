@@ -26,6 +26,8 @@ static maia_psram_snapshot_t original,current;
 #ifdef MAIA_PSRAM_TEST
 void maia_psram_clock_test_reset(void);
 void maia_psram_clock_test_reset(void){clock_state=CLOCK_FREE;fast_mhz=pad_owned=park_owned=boot_owned=boot_pll_ready=boot_ana_clock_owned=0;}
+void maia_psram_clock_test_claim(void);
+void maia_psram_clock_test_claim(void){clock_state=CLOCK_OWNED;}
 #endif
 static int roots_match(void){
     for(unsigned i=0;i<9U;++i)if(psram_read(psram_roots[i])!=current.roots[i])return 0;
@@ -136,16 +138,41 @@ static int boot_store(unsigned index,uint32_t value,maia_psram_boot_report_t *r)
     boot_current[index]=r->after[index];return boot_live();
 }
 maia_psram_result_t maia_psram_boot20(maia_psram_boot_report_t *r){
-    maia_psram_result_t result=initialize_report(&r->clock);if(result!=MAIA_PSRAM_OK)return result;
-    if(clock_state!=CLOCK_FREE||maia_psram_x8_claimed())return MAIA_PSRAM_BUSY;
-    maia_psram_snapshot_t s;result=maia_esp32p4_psram_snapshot(&s);if(result!=MAIA_PSRAM_OK)return result;
-    if(s.before[0]||s.before[16]||!psram_axi_quiet()||(s.before[2]&1U)||
-       (s.roots[4]&0x100U)||!psram_supply_trim_valid(s.roots[6],s.roots[7],s.roots[8])||
-       (s.roots[1]&CLOCK_SELECT_DIV)||s.before[7]!=0x30103U||s.before[20]!=0x30103U)return MAIA_PSRAM_BUSY;
+    r->failed_guards=0;r->entry_axi=0;r->entry_axi_valid=0;
+    r->entry_mpll[0]=r->entry_mpll[1]=0;r->entry_mpll_valid=0;
+    for(unsigned i=0;i<sizeof r->entry_snapshot;++i)
+        ((volatile unsigned char *)&r->entry_snapshot)[i]=0;
+    maia_psram_result_t result=initialize_report(&r->clock);
+    if(result!=MAIA_PSRAM_OK){
+        if(result==MAIA_PSRAM_FAILED)r->failed_guards=MAIA_PSRAM_BOOT_GUARD_PREVIOUS_FAILURE;
+        return result;
+    }
+    if(clock_state!=CLOCK_FREE)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_CLOCK_CLAIMED;
+    if(maia_psram_x8_claimed())r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_X8_CLAIMED;
+    if(r->failed_guards)return MAIA_PSRAM_BUSY;
+    result=maia_esp32p4_psram_snapshot(&r->entry_snapshot);if(result!=MAIA_PSRAM_OK)return result;
+    const maia_psram_snapshot_t *s=&r->entry_snapshot;
+    r->entry_axi=psram_read(PSRAM_MSPI0+0x3CU);r->entry_axi_valid=1;
+    if(s->before[0])r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MSPI0_ACTIVE;
+    if(s->before[16])r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MSPI1_ACTIVE;
+    if((r->entry_axi&0x80000001U)!=0x80000000U)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_AXI_OPEN;
+    if(s->before[2]&1U)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MSPI0_FSM_BUSY;
+    if(s->roots[4]&0x100U)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_VO2_ENABLED;
+    if(!psram_supply_trim_valid(s->roots[6],s->roots[7],s->roots[8]))
+        r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_EFUSE_INVALID;
+    if(s->roots[1]&CLOCK_SELECT_DIV)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_DIVIDER_NOT_XTAL;
+    if(s->before[7]!=0x30103U)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MSPI0_CLK_CONFIG;
+    if(s->before[20]!=0x30103U)r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MSPI1_CLK_CONFIG;
+    if(r->failed_guards)return MAIA_PSRAM_BUSY;
     for(unsigned i=0;i<5U;++i)r->before[i]=r->after[i]=boot_current[i]=psram_read(boot_address[i]);
-    if((boot_current[0]&0x8000000U)&&!(boot_current[1]&0x4000000U)&&
-       ((psram_read(MPLL_ANA)|psram_read(MPLL_ANA+4U))&MPLL_BUSY))return MAIA_PSRAM_BUSY;
-    save_snapshot(&s);evidence(&r->clock);if(!boot_live())return MAIA_PSRAM_CHANGED;
+    if((boot_current[0]&0x8000000U)&&!(boot_current[1]&0x4000000U)){
+        r->entry_mpll[0]=psram_read(MPLL_ANA);r->entry_mpll[1]=psram_read(MPLL_ANA+4U);
+        r->entry_mpll_valid=1;
+        if((r->entry_mpll[0]|r->entry_mpll[1])&MPLL_BUSY){
+            r->failed_guards|=MAIA_PSRAM_BOOT_GUARD_MPLL_BUSY;return MAIA_PSRAM_BUSY;
+        }
+    }
+    save_snapshot(s);evidence(&r->clock);if(!boot_live())return MAIA_PSRAM_CHANGED;
     r->stage=1;clock_state=CLOCK_FAULTED;
     uint32_t peri=current.roots[1];
     if(!change(0,0,peri&~0x8000U,&r->clock)||!change(1,0,peri&~0xC000U,&r->clock)||

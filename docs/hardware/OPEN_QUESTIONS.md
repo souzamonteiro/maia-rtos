@@ -449,3 +449,10 @@ returned `MAIA_PSRAM_BUSY` (`-5`, stage0, zero writes); it did not reach cache,
 PSRAM data, DMA or LCD/touch. This is not a physical cold-start attempt and
 does not identify the exact call-time guard. See the
 [native PSRAM boot audit](../audits/native-psram-native-boot.md).
+
+2026-11-20: the diagnostic now records the call-time snapshot and guard mask.
+The warm-reset capture identified `VO2_ENABLED` and `DIVIDER_NOT_XTAL`
+(`guards=0x500`, VO2 `0x40200180`, root1 `0x0000D00C`), with zero boot writes.
+This explains the warm-state refusal only; it does not validate the required
+cold-entry profile, electrical startup, PSRAM contents or the LCD/touch
+pipeline. Keep the entry guards unchanged.
