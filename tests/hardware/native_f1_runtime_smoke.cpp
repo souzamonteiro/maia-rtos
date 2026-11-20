@@ -16,11 +16,42 @@
 namespace {
 
 constexpr uint32_t kRounds = 8U;
+constexpr uint32_t kGlobalConstructorValue = 0xF1C00101U;
+constexpr uint32_t kGuardConstructorValue = 0xF1C00202U;
+
+volatile uint32_t g_global_constructor_calls;
+
+struct GlobalConstructorProbe {
+    uint32_t value;
+
+    GlobalConstructorProbe() : value(kGlobalConstructorValue) {
+        ++g_global_constructor_calls;
+    }
+};
+
+GlobalConstructorProbe g_global_constructor_probe;
+volatile uint32_t g_guard_constructor_calls;
+
+struct GuardConstructorProbe {
+    uint32_t value;
+
+    GuardConstructorProbe() : value(0U) {
+        ++g_guard_constructor_calls;
+        maia_task_delay_ticks(5U);
+        value = kGuardConstructorValue;
+    }
+};
+
+GuardConstructorProbe &guard_constructor_probe() {
+    static GuardConstructorProbe probe;
+    return probe;
+}
 
 alignas(std::mutex) unsigned char g_mutex_storage[sizeof(std::mutex)];
 std::mutex *g_mutex;
 pthread_key_t g_key;
 struct _reent *g_reent[2];
+GuardConstructorProbe * volatile g_guard_instances[2];
 volatile uint32_t g_worker_errors[2];
 volatile uint32_t g_worker_done[2];
 volatile uint32_t g_destructor_seen[2];
@@ -52,6 +83,10 @@ void key_destructor(void *value) {
 void worker_entry(void *arg) {
     uint32_t worker = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(arg));
     if (worker >= 2U) return;
+    GuardConstructorProbe &guarded = guard_constructor_probe();
+    g_guard_instances[worker] = &guarded;
+    if (guarded.value != kGuardConstructorValue) record_error(worker);
+
     int expected_errno = 40 + static_cast<int>(worker);
     uintptr_t token = worker + 1U;
     g_reent[worker] = __getreent();
@@ -134,13 +169,17 @@ void report_entry(void *) {
     bool read_empty = read(STDIN_FILENO, &input, 1U) == -1 && errno == EAGAIN;
     bool pass = read_empty &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
+        g_guard_constructor_calls == 1U &&
+        g_guard_instances[0] != nullptr &&
+        g_guard_instances[0] == g_guard_instances[1] &&
         g_destructor_seen[0] != 0U && g_destructor_seen[1] != 0U &&
         g_destructor_error == 0U &&
         g_worker_errors[0] == 0U && g_worker_errors[1] == 0U &&
         g_reent[0] != nullptr && g_reent[1] != nullptr && g_reent[0] != g_reent[1] &&
         g_mutex_count == 2U * kRounds && g_in_critical == 0U;
 
-    if (pthread_key_delete(g_key) != 0) pass = false;
+    bool key_deleted = pthread_key_delete(g_key) == 0;
+    if (!key_deleted) pass = false;
     g_mutex->~mutex();
 
     static const char pass_message[] = "MAIA_F1_RUNTIME_PASS\n";
@@ -157,6 +196,11 @@ extern "C" int maia_f1_runtime_smoke_start(
     void *stack_a, size_t stack_a_size,
     void *stack_b, size_t stack_b_size,
     void *stack_report, size_t stack_report_size) {
+    if (g_global_constructor_calls != 1U ||
+        g_global_constructor_probe.value != kGlobalConstructorValue) {
+        return 3;
+    }
+
     g_mutex = new (g_mutex_storage) std::mutex();
     if (pthread_key_create(&g_key, key_destructor) != 0) return 1;
 

@@ -125,6 +125,9 @@ int main(void) {
     pthread_once_t once = PTHREAD_ONCE_INIT;
     if (maia_gthread_once(&once, test_once_initializer) != 0 ||
         maia_gthread_once(&once, test_once_initializer) != 0 || once_calls != 1U) return 24;
+    pthread_once_t zero_once = {0, 0};
+    if (maia_gthread_once(&zero_once, test_once_initializer) != 0 ||
+        maia_gthread_once(&zero_once, test_once_initializer) != 0 || once_calls != 2U) return 32;
     if (maia_gthread_cancel(1U) != ENOTSUP) return 25;
 
     pthread_cond_t condition = PTHREAD_COND_INITIALIZER;

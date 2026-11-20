@@ -58,6 +58,15 @@ SECTIONS
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
         *(.gcc_except_table .gcc_except_table.*)
+        . = ALIGN(4);
+        PROVIDE_HIDDEN (__preinit_array_start = .);
+        KEEP (*(.preinit_array))
+        KEEP (*(SORT_BY_INIT_PRIORITY(.preinit_array.*)))
+        PROVIDE_HIDDEN (__preinit_array_end = .);
+        PROVIDE_HIDDEN (__init_array_start = .);
+        KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+        KEEP (*(.init_array))
+        PROVIDE_HIDDEN (__init_array_end = .);
         . = ALIGN(16);
         _flash_rodata_end = ABSOLUTE(.);
     } > FLASH_DROM :flash_rodata

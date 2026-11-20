@@ -105,7 +105,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     lib/maiaglob
   )
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
-  target_compile_definitions(maia_m0.elf PRIVATE MAIA_NATIVE_PSRAM_STARTUP_PENDING=1)
+  target_compile_definitions(maia_m0.elf PRIVATE
+    MAIA_NATIVE_PSRAM_STARTUP_PENDING=1
+    MAIA_ENABLE_CXX_INIT_ARRAY=1
+  )
   target_link_options(maia_m0.elf PRIVATE
     "-T${MAIA_LINKER_SCRIPT}"
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_m0.map"
@@ -163,6 +166,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   target_include_directories(maia_f1_runtime_probe.elf PRIVATE include)
   target_compile_definitions(maia_f1_runtime_probe.elf PRIVATE
     MAIA_FLASH_PROBE_RECOVERABLE=1
+    MAIA_ENABLE_CXX_INIT_ARRAY=1
   )
   target_compile_options(maia_f1_runtime_probe.elf PRIVATE -Wall -Wextra -O2)
   target_link_options(maia_f1_runtime_probe.elf PRIVATE

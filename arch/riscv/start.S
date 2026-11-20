@@ -6,7 +6,7 @@
  * 2. Park secondary hardware thread (mhartid != 0) until M3 SMP milestone.
  * 3. Initialize global pointer (gp) and 16-byte aligned stack pointer (sp).
  * 4. Zero the .bss section in internal L2MEM.
- * 5. Call maia_soc_early_init() and maia_boot_main().
+ * 5. Call maia_soc_early_init(), optional C++ initialization, and maia_boot_main().
  */
 
     .section .text.entry, "ax"
@@ -41,6 +41,9 @@ _start:
 .Lbss_done:
     /* 5. Early SoC init (disable ROM flashboot watchdogs) & enter C main */
     call maia_soc_early_init
+#ifdef MAIA_ENABLE_CXX_INIT_ARRAY
+    call __libc_init_array
+#endif
     call maia_boot_main
 
 .Lsecondary_park:

@@ -2105,3 +2105,41 @@ movement/release result is the owner's visual observation. Report and capture:
 [product log](../../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/probe-boot-1.log).
 This validates touch on the warm-reset product path only; cold-start touch
 remains untested.
+
+## F1 C++ static initialization and guards — 2026-11-20
+
+The Newlib toolchain defines `PTHREAD_ONCE_INIT` as `{1, 0}`. The Maia
+gthread backend had treated `is_initialized == 1` as an in-progress state,
+so a static once object could wait forever. The backend now accepts both the
+Newlib initializer and a zero-initialized object, uses state `2` while the
+initializer is running, and publishes completion as state `1` with
+`init_executed` set. The host regression checks the Newlib initializer,
+zero-initialized object and single execution.
+
+The RISC-V startup now calls `__libc_init_array` after SoC early initialization
+and before `maia_boot_main`; product and F1 C++ targets enable this path. All
+three Tab5 linker scripts retain and delimit `.preinit_array` and `.init_array`.
+The F1 device probe checks a global constructor and a function-local static
+guard contended by two tasks. Its initial boot and three repeats passed; the
+original app was restored and its hash verified. The artifacts and reports are
+in the [four-boot recovery directory](../../../maia-rtos-recovery/native-f1-cxx-init-repeat-20261120/)
+and [initial run](../../../maia-rtos-recovery/native-f1-cxx-init-fixed-20261120/).
+
+The canonical `maia_m0_image` product also built and passed structural image
+validation: 806,592 bytes, five segments, entry `0x40000020`, app descriptor
+`0x400B0020`, image SHA-256
+`3cb55a05b31776e31fffbe54b78aa6a9eab86166830094b7657583751f3281ac`.
+The ELF has no undefined symbols; its map shows `__libc_init_array` and
+`.init_array` entries, including the shell and libstdc++ constructors. The
+controlled warm-reset run reached `msh>` with no fatal marker
+(`probe_pass=true`); the original 2,093,696-byte app was restored and its
+SHA-256 verified as
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The [product report](../../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/report.json),
+[boot log](../../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/probe-boot-1.log)
+and [restore log](../../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/restore-boot.log)
+preserve the device result.
+
+This confirms C++ initialization on the tested warm-reset path, not cold boot.
+Compiler TLS (`thread_local`/ELF TLS), successful device serial input,
+`reent` slot reuse and `std::thread` remain unvalidated.

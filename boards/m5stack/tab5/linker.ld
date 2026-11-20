@@ -57,6 +57,15 @@ SECTIONS
         _rodata_start = ABSOLUTE(.);
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
+        . = ALIGN(4);
+        PROVIDE_HIDDEN (__preinit_array_start = .);
+        KEEP (*(.preinit_array))
+        KEEP (*(SORT_BY_INIT_PRIORITY(.preinit_array.*)))
+        PROVIDE_HIDDEN (__preinit_array_end = .);
+        PROVIDE_HIDDEN (__init_array_start = .);
+        KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+        KEEP (*(.init_array))
+        PROVIDE_HIDDEN (__init_array_end = .);
         . = ALIGN(16);
         _rodata_end = ABSOLUTE(.);
     } > L2MEM_LOW

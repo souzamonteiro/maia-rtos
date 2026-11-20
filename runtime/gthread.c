@@ -236,20 +236,25 @@ int maia_gthread_once(pthread_once_t *once, void (*initializer)(void)) {
     if (once == NULL || initializer == NULL) return EINVAL;
     for (;;) {
         uintptr_t irq = maia_arch_irq_save();
-        if (once->init_executed) {
+        if (once->is_initialized == 1 && once->init_executed == 1) {
             maia_arch_irq_restore(irq);
             return 0;
         }
-        if (once->is_initialized == 0) {
-            once->is_initialized = 1;
+        if (once->init_executed != 0) {
+            maia_arch_irq_restore(irq);
+            return EINVAL;
+        }
+        if (once->is_initialized == 0 || once->is_initialized == 1) {
+            once->is_initialized = 2;
             maia_arch_irq_restore(irq);
             initializer();
             irq = maia_arch_irq_save();
+            once->is_initialized = 1;
             once->init_executed = 1;
             maia_arch_irq_restore(irq);
             return 0;
         }
-        if (once->is_initialized != 1) {
+        if (once->is_initialized != 2) {
             maia_arch_irq_restore(irq);
             return EINVAL;
         }

@@ -2203,10 +2203,12 @@ empacotamento/validação estrutural. A varredura de símbolos do probe não
 encontrou FreeRTOS.
 
 Escopo limitado: o caminho de leitura com dados não foi exercitado no device;
-`thread_local`/ELF TLS, construtores/guards C++, reuso da slot `reent` após
-reciclagem de ID e `std::thread` não foram validados. A tentativa exploratória
-de incluir o smoke translation unit no ELF do produto atingiu a asserção de
-residência SRAM de `maia_esp32p4_psram_cache_adopt`, sem enfraquecer o guard;
+naquele smoke isolado, `thread_local`/ELF TLS, construtores/guards C++, reuso
+da slot `reent` após reciclagem de ID e `std::thread` não foram validados.
+Construtores/guards foram cobertos depois, como registrado abaixo. A tentativa
+exploratória de incluir o smoke translation unit no ELF do produto atingiu a
+asserção de residência SRAM de `maia_esp32p4_psram_cache_adopt`, sem
+enfraquecer o guard;
 o alvo canônico do produto foi linkado e empacotado com sucesso em 20/11
 (detalhes abaixo). Nenhuma validação de boot do produto, display, touch ou
 PSRAM decorre deste smoke.
@@ -2282,3 +2284,32 @@ seguindo o dedo e desaparecendo ao soltar. UART confirmou serviço ST7121
 iniciado, prompt `msh>` e ausência de fatal; o runner restaurou novamente o
 app original com hash verificado. Não houve boot a frio. Evidências:
 `../../maia-rtos-recovery/native-product-xip-touch-20261120-1233/`.
+
+## Inicialização C++ estática e guards no F1 — 2026-11-20
+
+Corrigido `maia_gthread_once`: o Newlib real inicializa `pthread_once_t` com
+`{1, 0}`, incompatível com a interpretação anterior, que podia esperar
+eternamente. O backend agora reconhece esse ABI e objetos zero-inicializados,
+com estado intermediário `2` durante o inicializador. O teste host
+`gthread_test` passou com os dois formatos e verifica execução única.
+
+`start.S` executa `__libc_init_array` depois de `maia_soc_early_init` e antes
+de `maia_boot_main`; os três linkers retêm `.preinit_array`/`.init_array`.
+O probe F1 validou construtor global e guarda de variável estática local sob
+contenção entre duas tarefas. Quatro boots mornos passaram. O build canônico
+`maia_m0_image` passou e confirmou entradas reais do shell/libstdc++ em
+`.init_array`, zero símbolos indefinidos e imagem estruturalmente válida
+(806.592 bytes, 5 segmentos, entry `0x40000020`, descriptor `0x400B0020`).
+A imagem SHA-256 é
+`3cb55a05b31776e31fffbe54b78aa6a9eab86166830094b7657583751f3281ac`.
+
+Um boot morno do produto no Tab5 chegou a `msh>` sem fatal. O runner restaurou
+o app original e confirmou o SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Relatório, logs e backups estão em
+`../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/`; resultados
+repetidos do probe estão em
+`../../maia-rtos-recovery/native-f1-cxx-init-repeat-20261120/`.
+Isso valida o caminho morno, não cold boot. Permanecem pendentes: TLS de
+compilador (`thread_local`/ELF TLS), leitura serial positiva no device, reuso
+da slot `reent` e `std::thread`.

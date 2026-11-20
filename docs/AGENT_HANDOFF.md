@@ -1705,5 +1705,30 @@ The map and audit results are preserved beside the product image in
 
 This closes the common symbol-name/link-input scan, not the broad F10 review
 for renamed or otherwise embedded vendor code. Remaining F1 runtime work:
-constructors/guards, compiler TLS, positive serial read, `reent` slot reuse,
-and `std::thread`. Cold boot/PSRAM acceptance also remains open.
+compiler TLS, positive serial read, `reent` slot reuse, and `std::thread`.
+Cold boot/PSRAM acceptance also remains open.
+
+## F1 C++ initialization and guards — 2026-11-20
+
+Selected the first pending F1 item: static C++ initialization and guard
+variables. `start.S` calls `__libc_init_array` after SoC early init and before
+`maia_boot_main`; product and F1 C++ targets opt into it. Product, probe and
+boot-probe linker scripts retain `.preinit_array`/`.init_array`. The canonical
+product link map contains shell/libstdc++ init entries, and the Tab5 product
+image booted once through the full C++ initialization path to `msh>` on warm
+reset, without fatal; the runner restored the original factory app and verified
+its hash. Image SHA-256:
+`3cb55a05b31776e31fffbe54b78aa6a9eab86166830094b7657583751f3281ac`.
+
+The device probe checks a global constructor and a local-static guard under
+two-task contention; four warm boots passed. Host `gthread_test` passed after
+aligning `maia_gthread_once` with Newlib's `PTHREAD_ONCE_INIT == {1, 0}` while
+also preserving zero-initialized-object behavior. Probe artifacts:
+`../../maia-rtos-recovery/native-f1-cxx-init-repeat-20261120/` and
+`../../maia-rtos-recovery/native-f1-cxx-init-fixed-20261120/`. Product report,
+boot/restore logs and verified backup:
+`../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/`.
+
+Remaining F1 items: compiler TLS (`thread_local`/ELF TLS), successful serial
+read on device, `reent` slot reuse, and `std::thread`. Cold boot/PSRAM and the
+broad F10 audit remain separate open work.

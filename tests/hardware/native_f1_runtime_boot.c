@@ -37,11 +37,16 @@ void maia_boot_main(void) {
 
     maia_soc_systimer_init(1000U);
     maia_console_puts("[F1] Newlib/gthread runtime probe starting\n");
-    if (maia_f1_runtime_smoke_start(
-            g_stack_a, sizeof(g_stack_a),
-            g_stack_b, sizeof(g_stack_b),
-            g_stack_report, sizeof(g_stack_report)) != 0) {
-        maia_console_puts("[F1] runtime smoke task setup failed\n");
+    int start_result = maia_f1_runtime_smoke_start(
+        g_stack_a, sizeof(g_stack_a),
+        g_stack_b, sizeof(g_stack_b),
+        g_stack_report, sizeof(g_stack_report));
+    if (start_result != 0) {
+        if (start_result == 3) {
+            maia_console_puts("[F1] C++ global constructor/init array failed\n");
+        } else {
+            maia_console_puts("[F1] runtime smoke task setup failed\n");
+        }
         for (;;) __asm__ volatile("wfi");
     }
 

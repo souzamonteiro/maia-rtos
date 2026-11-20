@@ -83,7 +83,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Syscalls/heap/tempo no device: libc `write`, `read` sem dados (`EAGAIN`), `clock_gettime`, `nanosleep`, `calloc/realloc/free`; leitura positiva não testada no device
 - [x] `reent` por tarefa: `errno` isolado e ponteiros `__getreent()` distintos em dois workers; reciclagem/reinicialização de slot ainda pendente
 - [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
-- [ ] Construtores estáticos e guardas de inicialização C++ no device
+- [x] Construtores estáticos e guardas C++ no device: probe com construtor global e guarda local concorrente (4 boots mornos); produto XIP chegou a `msh>` (1 boot morno, restauração verificada, 20/11)
 - [ ] TLS de compilador (`thread_local`/ELF TLS); as chaves pthread testadas não significam TLS ELF
 - [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; boot do produto registrado abaixo)
 - [x] Boot morno do produto XIP no device: shell `msh>`, `qtest`, serviços LCD/touch; tela estável e interação touch confirmadas visualmente (20/11; cold boot pendente)
