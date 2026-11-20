@@ -80,7 +80,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Backend retargetable de locks da Newlib com mutex do kernel (host test, compilação RV32, contenção `std::mutex` no probe e link do produto XIP, 20/11)
 - [x] Entradas Newlib `malloc/free/calloc/realloc` direcionadas ao heap Maia (host tests, compilação RV32, chamadas no probe e link do produto XIP, 20/11)
 - [x] Smoke de runtime Newlib/gthread no Tab5: quatro boots por reset morno passaram; runner restaurou o app original e verificou o hash (sem display/PSRAM)
-- [x] Syscalls/heap/tempo no device: libc `write`, `read` sem dados (`EAGAIN`), `clock_gettime`, `nanosleep`, `calloc/realloc/free`; leitura positiva não testada no device
+- [x] Syscalls/heap/tempo no device: `write`, `read` vazio (`EAGAIN`) e positivo (4 bytes `Maia` por USB Serial/JTAG, 4 boots), `clock_gettime`, `nanosleep`, `calloc/realloc/free` (20/11)
 - [x] `reent` por tarefa: `errno` isolado e ponteiros `__getreent()` distintos em dois workers; reciclagem/reinicialização de slot ainda pendente
 - [x] Gthread no device: `std::mutex` com contenção, `pthread_key_t` isolado e destrutores ao retornar das tarefas; `std::thread` não testado
 - [x] Construtores estáticos e guardas C++ no device: probe com construtor global e guarda local concorrente (4 boots mornos); produto XIP chegou a `msh>` (1 boot morno, restauração verificada, 20/11)

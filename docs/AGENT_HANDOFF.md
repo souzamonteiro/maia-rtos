@@ -1705,7 +1705,7 @@ The map and audit results are preserved beside the product image in
 
 This closes the common symbol-name/link-input scan, not the broad F10 review
 for renamed or otherwise embedded vendor code. Remaining F1 runtime work:
-compiler TLS, positive serial read, `reent` slot reuse, and `std::thread`.
+compiler TLS, `reent` slot reuse, and `std::thread`.
 Cold boot/PSRAM acceptance also remains open.
 
 ## F1 C++ initialization and guards — 2026-11-20
@@ -1729,6 +1729,23 @@ also preserving zero-initialized-object behavior. Probe artifacts:
 boot/restore logs and verified backup:
 `../../maia-rtos-recovery/native-product-xip-cxx-init-20261120/`.
 
-Remaining F1 items: compiler TLS (`thread_local`/ELF TLS), successful serial
-read on device, `reent` slot reuse, and `std::thread`. Cold boot/PSRAM and the
-broad F10 audit remain separate open work.
+Remaining F1 items: compiler TLS (`thread_local`/ELF TLS), `reent` slot reuse,
+and `std::thread`. Cold boot/PSRAM and the broad F10 audit remain separate open
+work.
+
+## F1 successful serial input — 2026-11-20
+
+Added optional input injection to `run_f0_flash_probe.py`, triggered only after
+the target emits a caller-selected marker. The F1 runtime probe now checks
+empty-read `EAGAIN`, emits an input-ready marker, reads exactly four bytes
+(`Maia`) and validates the data before `MAIA_F1_RUNTIME_PASS`. Host tests cover
+the send path, missing marker and invalid arguments; `f0_flash_runner_test`
+and `gthread_test` passed 2/2.
+
+The 108,640-byte probe image passed structural validation and four warm-reset
+Tab5 boots passed with the expected input, no fatal, and verified restoration
+of the original app (SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`).
+Report and logs: `../../maia-rtos-recovery/native-f1-positive-read-20261120/`.
+This confirms USB Serial/JTAG input only; UART0/keyboard, compiler TLS,
+`reent` slot reuse and `std::thread` remain open.

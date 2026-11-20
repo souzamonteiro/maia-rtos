@@ -2141,5 +2141,32 @@ and [restore log](../../../maia-rtos-recovery/native-product-xip-cxx-init-202611
 preserve the device result.
 
 This confirms C++ initialization on the tested warm-reset path, not cold boot.
-Compiler TLS (`thread_local`/ELF TLS), successful device serial input,
-`reent` slot reuse and `std::thread` remain unvalidated.
+Compiler TLS (`thread_local`/ELF TLS), `reent` slot reuse and `std::thread`
+remain unvalidated.
+
+## F1 successful USB serial input — 2026-11-20
+
+Extended the F1 runtime probe to first verify empty `read(STDIN_FILENO)` returns
+`EAGAIN`, announce `MAIA_F1_RUNTIME_INPUT_READY`, then read and compare the
+four-byte payload `Maia`. The flash runner gained optional `--input-marker` and
+`--input-hex` arguments; it transmits once when the marker appears and fails
+explicitly if the marker is never seen or the serial write is short. Existing
+captures are unchanged when these options are omitted.
+
+The host `f0_flash_runner_test` covers marker-triggered transmission,
+missing-marker failure and argument validation; `gthread_test` also passed
+(2/2 focused CTest cases). The 108,640-byte P4 probe image passed structural
+validation (four segments, entry `0x40000020`) with SHA-256
+`da13ba02c73fde4a8f4b707c9e5aecbfff20fa3135b102aa0d168b9990af4de0`.
+On the Tab5, four warm-reset boots each received the payload, emitted
+`MAIA_F1_RUNTIME_PASS`, and had no fatal/stack-fault marker. The runner restored
+the original app and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The [report](../../../maia-rtos-recovery/native-f1-positive-read-20261120/report.json),
+[host/device transcript](../../../maia-rtos-recovery/native-f1-positive-read-20261120/run.log),
+and [boot captures](../../../maia-rtos-recovery/native-f1-positive-read-20261120/)
+preserve the result.
+
+This validates successful USB Serial/JTAG input through Newlib `_read`; it
+does not validate UART0 input or the board keyboard path. Cold boot remains
+separate.

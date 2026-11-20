@@ -54,7 +54,8 @@ def image_length(data):
     return offset
 
 
-def capture(port, seconds, log, marker=None, observe_seconds=0.0):
+def capture(port, seconds, log, marker=None, observe_seconds=0.0,
+            input_marker=None, input_data=None):
     ser = serial.Serial()
     ser.port = port
     ser.baudrate = 115200
@@ -63,6 +64,7 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0):
     ser.rts = False
     text = ""
     marker_seen = False
+    input_sent = False
     try:
         ser.open()
         ser.rts = True
@@ -85,6 +87,19 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0):
                 text += decoded
                 log.write(decoded)
                 log.flush()
+                if input_marker and not input_sent and input_marker in text:
+                    written = ser.write(input_data)
+                    if written != len(input_data):
+                        raise RuntimeError(
+                            f"short serial input write: {written}/{len(input_data)} bytes"
+                        )
+                    ser.flush()
+                    input_sent = True
+                    log.write(
+                        f"\n[HOST] SENT_INPUT bytes={len(input_data)} "
+                        f"hex={input_data.hex()}\n"
+                    )
+                    log.flush()
                 if marker and ("MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text):
                     break
                 if marker and not marker_seen and marker in text:
@@ -99,6 +114,8 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0):
                     deadline = time.monotonic() + observe_seconds
     finally:
         ser.close()
+    if input_marker and not input_sent:
+        raise RuntimeError(f"input marker {input_marker!r} was not seen; input was not sent")
     return text
 
 
@@ -120,6 +137,10 @@ def main():
     parser.add_argument("--boots", type=int, default=1, help="probe resets to capture")
     parser.add_argument("--marker", default=PROBE_MARKER,
                         help="success marker that ends each boot capture")
+    parser.add_argument("--input-marker",
+                        help="send --input-hex once this marker appears during capture")
+    parser.add_argument("--input-hex",
+                        help="hex bytes to send after --input-marker appears")
     parser.add_argument("--observe-seconds", type=float, default=0.0,
                         help="keep capturing for up to 120 seconds after the marker for visual inspection")
     args = parser.parse_args()
@@ -132,6 +153,16 @@ def main():
         parser.error("--observe-seconds must be between 0 and 120")
     if not args.marker:
         parser.error("--marker must not be empty")
+    if (args.input_marker is None) != (args.input_hex is None):
+        parser.error("--input-marker and --input-hex must be provided together")
+    if args.input_marker == "":
+        parser.error("--input-marker must not be empty")
+    try:
+        input_data = bytes.fromhex(args.input_hex) if args.input_hex is not None else None
+    except ValueError:
+        parser.error("--input-hex must contain valid hexadecimal bytes")
+    if input_data == b"":
+        parser.error("--input-hex must contain at least one byte")
 
     args.out.mkdir(parents=True, exist_ok=True)
     log = (args.out / "run.log").open("w")
@@ -172,7 +203,8 @@ def main():
                     hex(FACTORY_OFFSET), str(args.image), log=log)
             for boot in range(args.boots):
                 log.write(f"\n[HOST] probe boot {boot + 1}\n")
-                text = capture(args.port, args.capture_seconds, log, args.marker, args.observe_seconds)
+                text = capture(args.port, args.capture_seconds, log, args.marker,
+                               args.observe_seconds, args.input_marker, input_data)
                 (args.out / f"probe-boot-{boot + 1}.log").write_text(text)
                 fatal = "MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text
                 reached = args.marker in text

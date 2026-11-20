@@ -167,7 +167,31 @@ void report_entry(void *) {
     char input = 0;
     errno = 0;
     bool read_empty = read(STDIN_FILENO, &input, 1U) == -1 && errno == EAGAIN;
-    bool pass = read_empty &&
+    static const char input_ready[] = "MAIA_F1_RUNTIME_INPUT_READY\n";
+    bool input_ready_written =
+        write(STDOUT_FILENO, input_ready, sizeof(input_ready) - 1U) ==
+        static_cast<ssize_t>(sizeof(input_ready) - 1U);
+    char input_data[4] = {};
+    size_t input_received = 0U;
+    for (uint32_t wait_ticks = 0U;
+         input_ready_written && input_received < sizeof(input_data) &&
+         wait_ticks < 2000U;
+         ++wait_ticks) {
+        int received = static_cast<int>(read(
+            STDIN_FILENO, input_data + input_received,
+            sizeof(input_data) - input_received));
+        if (received > 0) {
+            input_received += static_cast<size_t>(received);
+        } else if (received == -1 && errno == EAGAIN) {
+            maia_task_delay_ticks(1U);
+        } else {
+            break;
+        }
+    }
+    static const char expected_input[] = "Maia";
+    bool read_input = input_received == sizeof(expected_input) - 1U &&
+        memcmp(input_data, expected_input, sizeof(expected_input) - 1U) == 0;
+    bool pass = read_empty && input_ready_written && read_input &&
         g_worker_done[0] != 0U && g_worker_done[1] != 0U &&
         g_guard_constructor_calls == 1U &&
         g_guard_instances[0] != nullptr &&

@@ -40,6 +40,8 @@ class Port:
         self.clock = clock
         self.chunks = list(chunks)
         self.closed = False
+        self.writes = []
+        self.flush_count = 0
 
     def open(self):
         self.closed = False
@@ -53,6 +55,13 @@ class Port:
         if isinstance(chunk, Exception):
             raise chunk
         return chunk
+
+    def write(self, data):
+        self.writes.append(data)
+        return len(data)
+
+    def flush(self):
+        self.flush_count += 1
 
 
 def run_capture(chunks, seconds=2, marker="msh> ", observe_seconds=0):
@@ -74,6 +83,37 @@ assert text == "boot\nmsh> " and elapsed < 1 and "VISUAL_OBSERVATION_STARTED" no
 text, elapsed, log = run_capture([b"boot\nmsh", b"> ", b"later\n"], observe_seconds=3)
 assert text == "boot\nmsh> later\n" and 3.4 <= elapsed < 3.7
 assert log.count("VISUAL_OBSERVATION_STARTED") == 1
+
+clock = Clock()
+port = Port(clock, [b"boot\nMAIA_F1_RUNTIME_INPUT_READY\n",
+                    b"MAIA_F1_RUNTIME_PASS\n"])
+log = io.StringIO()
+with patch.object(runner.serial, "Serial", return_value=port, create=True), \
+     patch.object(runner.time, "monotonic", clock.monotonic), \
+     patch.object(runner.time, "sleep", clock.sleep):
+    text = runner.capture(
+        "fake", 2, log, "MAIA_F1_RUNTIME_PASS", 0,
+        "MAIA_F1_RUNTIME_INPUT_READY", b"Maia"
+    )
+assert "MAIA_F1_RUNTIME_PASS" in text
+assert port.writes == [b"Maia"] and port.flush_count == 1
+assert "SENT_INPUT bytes=4 hex=4d616961" in log.getvalue()
+
+clock = Clock()
+port = Port(clock, [b"MAIA_F1_RUNTIME_PASS\n"])
+with patch.object(runner.serial, "Serial", return_value=port, create=True), \
+     patch.object(runner.time, "monotonic", clock.monotonic), \
+     patch.object(runner.time, "sleep", clock.sleep):
+    try:
+        runner.capture(
+            "fake", 2, io.StringIO(), "MAIA_F1_RUNTIME_PASS", 0,
+            "MAIA_F1_RUNTIME_INPUT_READY", b"Maia"
+        )
+    except RuntimeError as error:
+        assert "input marker" in str(error)
+    else:
+        raise AssertionError("missing input marker must not silently skip input")
+assert port.writes == []
 
 text, elapsed, log = run_capture([b"boot\n"], seconds=1, observe_seconds=3)
 assert text == "boot\n" and 1.2 <= elapsed < 1.4
@@ -133,8 +173,9 @@ with tempfile.TemporaryDirectory() as directory:
                 return "Hash of data verified." if restore_hash else ""
         return ""
 
-    def capture(port, seconds, log, marker=None, observe_seconds=0):
-        capture_calls.append((marker, observe_seconds))
+    def capture(port, seconds, log, marker=None, observe_seconds=0,
+                input_marker=None, input_data=None):
+        capture_calls.append((marker, observe_seconds, input_marker, input_data))
         if marker is not None:
             if fail_capture:
                 raise RuntimeError("capture failed")
@@ -155,8 +196,14 @@ with tempfile.TemporaryDirectory() as directory:
     report = json.loads((directory / "success/report.json").read_text())
     assert report["probe_pass"] and report["restore_verified"]
     assert report["boots"][0]["marker"] and not report["boots"][0]["fatal"]
-    assert capture_calls == [("msh> ", 3), (None, 0)]
+    assert capture_calls == [("msh> ", 3, None, None), (None, 0, None, None)]
     assert writes == ["probe.bin", "factory-backup-app.bin"]
+
+    capture_calls.clear()
+    assert run([
+        "--marker", "msh> ", "--input-marker", "READY", "--input-hex", "4d616961"
+    ], "send-input") == 0
+    assert capture_calls == [("msh> ", 0, "READY", b"Maia"), (None, 0, None, None)]
 
     fatal = True
     writes.clear()
@@ -225,6 +272,11 @@ with tempfile.TemporaryDirectory() as directory:
         ["--observe-seconds", "nan"],
         ["--observe-seconds", "-1"],
         ["--observe-seconds", "121"],
+        ["--input-marker", "READY"],
+        ["--input-hex", "4d"],
+        ["--input-marker", "READY", "--input-hex", "not-hex"],
+        ["--input-marker", "", "--input-hex", "4d"],
+        ["--input-marker", "READY", "--input-hex", ""],
     )):
         assert run(arguments, f"invalid-{index}") == 2
         assert not writes

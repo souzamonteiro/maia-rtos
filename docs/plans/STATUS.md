@@ -2311,5 +2311,20 @@ Relatório, logs e backups estão em
 repetidos do probe estão em
 `../../maia-rtos-recovery/native-f1-cxx-init-repeat-20261120/`.
 Isso valida o caminho morno, não cold boot. Permanecem pendentes: TLS de
-compilador (`thread_local`/ELF TLS), leitura serial positiva no device, reuso
-da slot `reent` e `std::thread`.
+compilador (`thread_local`/ELF TLS), reuso da slot `reent` e `std::thread`.
+
+## Leitura serial positiva no F1 — 2026-11-20
+
+O probe agora verifica primeiro `read(STDIN_FILENO)` vazio com `EAGAIN`,
+publica `MAIA_F1_RUNTIME_INPUT_READY` e recebe quatro bytes (`Maia`) por USB
+Serial/JTAG, conferindo conteúdo e quantidade antes de emitir PASS. O runner
+aceita envio opcional via `--input-marker`/`--input-hex`, sem alterar o caminho
+padrão; falha explicitamente se o marcador faltar ou houver escrita curta.
+`f0_flash_runner_test` e `gthread_test` passaram (2/2).
+
+A imagem de 108.640 bytes passou validação estrutural; quatro boots mornos no
+Tab5 receberam o payload e emitiram `MAIA_F1_RUNTIME_PASS`, sem fatal. O runner
+restaurou o app original e confirmou o SHA-256 já registrado acima. Logs e
+relatório: `../../maia-rtos-recovery/native-f1-positive-read-20261120/`.
+Leitura positiva por UART0 e teclado não foi testada. F1 ainda tem pendentes
+TLS de compilador, reciclagem de slot `reent` e `std::thread`.
