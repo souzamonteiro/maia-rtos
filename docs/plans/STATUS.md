@@ -2895,3 +2895,64 @@ integral da flash.
 Logs e relatório: `maia-rtos-recovery/maia-vfs-tab5-final-20261121/`.
 Concorrência real/estresse, falha física de transporte, recuperação de energia,
 diretórios e integração com consumidores permanecem pendentes.
+
+## F2 — SD no shell nativo/LCD, sem desktop — 2026-11-21
+
+O MaiaVFS agora fornece stat, snapshot de posição/tamanho, mkdir/rmdir e
+opendir/readdir/closedir, com quatro handles de diretório fixos. O mesmo mutex
+try-only serializa arquivos e diretórios. O adaptador
+`runtime/newlib_vfs.c` liga os descritores 3–10 e diretórios da Newlib ao VFS;
+stdin/stdout/stderr mantêm o console existente. O adaptador usa memória estática
+e trava na ordem adaptador → VFS; não há espera ativa para conter acesso ao SD.
+O produto XIP inclui essa integração normalmente. A opção default-OFF
+`MAIA_DIAGNOSTIC_VFS_SHELL=ON` apenas inicia em `/sd` e mostra instruções;
+não inicia desktop, não escreve automaticamente no SD e exclui o diagnóstico
+automático `MAIA_DIAGNOSTIC_FATFS_RW`.
+
+Comandos existentes `cd/pwd/ls`, `cat`, `echo >`/`>>`, `mkdir/rm` funcionam sobre
+essa camada; `rmdir` foi acrescentado para limpar diretórios vazios. Falhas de
+leitura/listagem/redirecionamento e close são reportadas com status não zero.
+Não houve mudança na gramática nem nos parsers gerados.
+
+Duas falhas reais foram corrigidas:
+
+- Newlib `__sfp` reutiliza FILE sem zerar o ponteiro de lock liberado por
+  `_fclose_r`. A inicialização Maia agora aloca um novo lock dinâmico em vez de
+  reutilizar memória liberada. O teste host reproduziu SIGTRAP antes da
+  correção e passou depois, com oito ciclos init/acquire/release/close.
+- O shell reservava 64 KiB para redirecionamento num heap interno de 32 KiB;
+  em OOM imprimia na tela e retornava sucesso sem arquivo. O staging compartilhado
+  com pipes começa em 1 KiB, cresce até o limite anterior de 64 KiB e reporta
+  OOM/limite sem abrir/truncar o destino. Não é redirecionamento streaming.
+
+Validação final: CTest 96/96; ASan/UBSan nos quatro testes de VFS/adaptador,
+locks, heap e shell; headers públicos C++98; build e validação de ambas as
+imagens P4 (5 segmentos, entrada `0x40000020`):
+
+- normal: 847.072 bytes, SHA-256
+  `dbc358c040b135e32d62b219825a1353ef6d1cef848e59db8f38319f54f0e73c`;
+- POC: 847.152 bytes, SHA-256
+  `2b8f37660fe0a8fc901ad9e390b335bddde4992aad4bbd673efe6ff5b863f284`.
+
+O teste físico criou um diretório exclusivo, gravou `NATIVE_SD\n`, acrescentou
+`APPEND\n`, leu pelo `cat`, listou `poc.txt (17 bytes)` e removeu arquivo e
+diretório sem erro. Evidência: `maia-rtos-recovery/vfs-shell-rw-20261121/`.
+O runner restaurou/verificou o app anterior pela hash habitual
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Na janela visual de 120 s com a imagem final, o dono respondeu **“Funcionou.”**
+Registro: `maia-rtos-recovery/vfs-shell-visual-20261121/`.
+O relatório final confirmou `probe_pass=true`, ausência de fatal e
+`restore_verified=true`; o boot restaurado chegou a `msh>`. A captura contém
+`ls`, `ps`, `pwd` e `ls lib` interativos após o demo automático. `ls ..`/`ls ../`
+ainda são rejeitados pelo confinamento de caminhos (sem normalização POSIX).
+
+Limites: oito arquivos e quatro diretórios (também limitados pelos oito share
+locks FatFs), caminhos confinados a `/sd`, offsets/metadata Newlib até
+`INT32_MAX`; `O_TRUNC` sem `O_CREAT`, criação somente-leitura e flags adicionais
+retornam `ENOTSUP`. Não há rename, permissões/timestamps POSIX, POSIX completo
+nem qualificação dos comandos de compilador/apps. Um close VFS com erro mantém
+o descritor para retry; quem usa `fclose` deve guardar o fd antes do close se
+precisar recuperar esse erro. A recuperação automática no shell ainda não
+foi qualificada. Sem formatação; metadados FAT mudaram, sem restauração integral
+do cartão/flash. Stress multi-task de SD, falhas de transporte e perda de energia
+continuam pendentes; o desktop ainda é trabalho separado.

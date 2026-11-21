@@ -15,6 +15,9 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef MAIA_PRODUCT_FATFS
+#include "newlib_vfs.h"
+#endif
 
 static int fail_with_errno(int error) {
     errno = error;
@@ -22,6 +25,9 @@ static int fail_with_errno(int error) {
 }
 
 int _write(int fd, const char *buffer, int length) {
+#ifdef MAIA_PRODUCT_FATFS
+    if (fd >= 3) return maia_newlib_vfs_write(fd, buffer, length);
+#endif
     if (fd != STDOUT_FILENO && fd != STDERR_FILENO) return fail_with_errno(EBADF);
     if (length < 0) return fail_with_errno(EINVAL);
     if (length == 0) return 0;
@@ -49,6 +55,9 @@ int _write(int fd, const char *buffer, int length) {
 }
 
 int _read(int fd, char *buffer, int length) {
+#ifdef MAIA_PRODUCT_FATFS
+    if (fd >= 3) return maia_newlib_vfs_read(fd, buffer, length);
+#endif
     if (fd != STDIN_FILENO) return fail_with_errno(EBADF);
     if (length < 0) return fail_with_errno(EINVAL);
     if (length == 0) return 0;
@@ -101,12 +110,17 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     return 0;
 }
 
+#ifndef MAIA_PRODUCT_FATFS
 int _close(int fd) {
     (void)fd;
     return fail_with_errno(ENOSYS);
 }
+#endif
 
 int _fstat(int fd, struct stat *st) {
+#ifdef MAIA_PRODUCT_FATFS
+    if (fd >= 3) return maia_newlib_vfs_fstat(fd, st);
+#endif
     if (fd < STDIN_FILENO || fd > STDERR_FILENO) return fail_with_errno(EBADF);
     if (st == NULL) return fail_with_errno(EFAULT);
     memset(st, 0, sizeof(*st));
@@ -116,6 +130,7 @@ int _fstat(int fd, struct stat *st) {
     return 0;
 }
 
+#ifndef MAIA_PRODUCT_FATFS
 off_t _lseek(int fd, off_t offset, int whence) {
     (void)offset;
     (void)whence;
@@ -133,6 +148,7 @@ int _open(const char *path, int flags, int mode) {
     (void)mode;
     return fail_with_errno(ENOSYS);
 }
+#endif
 
 int _rename(const char *old_path, const char *new_path) {
     (void)old_path;
@@ -150,6 +166,7 @@ int _getpid(void) {
     return 1;
 }
 
+#ifndef MAIA_PRODUCT_FATFS
 int _unlink(const char *path) {
     (void)path;
     return fail_with_errno(ENOSYS);
@@ -160,6 +177,7 @@ int _stat(const char *path, struct stat *st) {
     (void)st;
     return fail_with_errno(ENOSYS);
 }
+#endif
 
 int _isatty(int fd) {
     if (fd >= STDIN_FILENO && fd <= STDERR_FILENO) return 1;
@@ -167,6 +185,7 @@ int _isatty(int fd) {
     return 0;
 }
 
+#ifndef MAIA_PRODUCT_FATFS
 int mkdir(const char *path, mode_t mode) {
     (void)path;
     (void)mode;
@@ -194,6 +213,7 @@ int closedir(DIR *directory) {
     if (directory == NULL) return fail_with_errno(EBADF);
     return fail_with_errno(ENOSYS);
 }
+#endif
 
 __attribute__((noreturn)) void _exit(int status) {
     (void)status;

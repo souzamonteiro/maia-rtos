@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #define VFS_SLOT_BITS 3U
 #define VFS_SLOT_MASK (MAIA_VFS_MAX_OPEN_FILES - 1U)
@@ -28,6 +29,15 @@ typedef struct maia_vfs_file {
 
 static maia_mutex_t g_vfs_mutex = { 0U, -1, 0U };
 static maia_vfs_file_t g_files[MAIA_VFS_MAX_OPEN_FILES];
+
+typedef struct maia_vfs_directory {
+    FF_DIR directory;
+    uint32_t generation;
+    uint8_t open;
+} maia_vfs_directory_t;
+
+#define VFS_DIR_TAG 0x80000000U
+static maia_vfs_directory_t g_directories[MAIA_VFS_MAX_OPEN_DIRS];
 
 static maia_vfs_result_t map_fatfs_result(FRESULT result) {
     switch (result) {
@@ -72,13 +82,19 @@ static int is_dot_component(const char *path, size_t start, size_t length) {
 }
 
 static maia_vfs_result_t make_fatfs_path(const char *path,
-                                         char out_path[MAIA_VFS_PATH_MAX + 1U]) {
+                                         char out_path[MAIA_VFS_PATH_MAX + 1U],
+                                         int allow_root) {
     size_t length = 0U;
     size_t component_start = 4U;
     size_t component_length = 0U;
 
     if (path == NULL || out_path == NULL) return MAIA_VFS_INVALID;
     while (length <= MAIA_VFS_PATH_MAX && path[length] != '\0') ++length;
+    if (allow_root && ((length == 3U && strcmp(path, "/sd") == 0) ||
+                       (length == 4U && strcmp(path, "/sd/") == 0))) {
+        memcpy(out_path, "0:/", 4U);
+        return MAIA_VFS_OK;
+    }
     if (length > MAIA_VFS_PATH_MAX || length < 5U ||
         path[0] != '/' || path[1] != 's' || path[2] != 'd' ||
         path[3] != '/') {
@@ -179,7 +195,7 @@ maia_vfs_result_t maia_vfs_open(const char *path, uint32_t flags,
           (flags & MAIA_VFS_OPEN_CREATE_NEW) != 0U))) {
         return MAIA_VFS_INVALID;
     }
-    result = make_fatfs_path(path, fatfs_path);
+    result = make_fatfs_path(path, fatfs_path, 0);
     if (result != MAIA_VFS_OK) return result;
     if ((flags & MAIA_VFS_OPEN_READ) != 0U) mode |= FA_READ;
     if ((flags & MAIA_VFS_OPEN_WRITE) != 0U) mode |= FA_WRITE;
@@ -315,11 +331,167 @@ maia_vfs_result_t maia_vfs_close(maia_vfs_fd_t fd) {
 maia_vfs_result_t maia_vfs_unlink(const char *path) {
     char fatfs_path[MAIA_VFS_PATH_MAX + 1U];
     int32_t task_id;
-    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path);
+    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path, 0);
+    if (result != MAIA_VFS_OK) return result;
+    result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result == MAIA_VFS_OK) {
+        FILINFO info;
+        result = map_fatfs_result(f_stat(fatfs_path, &info));
+        if (result == MAIA_VFS_OK) {
+            result = (info.fattrib & AM_DIR) != 0U ? MAIA_VFS_IS_DIRECTORY :
+                     map_fatfs_result(f_unlink(fatfs_path));
+        }
+    }
+    return unlock_vfs(task_id, result);
+}
+
+maia_vfs_result_t maia_vfs_stat(const char *path, maia_vfs_info_t *out_info) {
+    char fatfs_path[MAIA_VFS_PATH_MAX + 1U];
+    int32_t task_id;
+    if (out_info == NULL) return MAIA_VFS_INVALID;
+    memset(out_info, 0, sizeof(*out_info));
+    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path, 1);
+    if (result != MAIA_VFS_OK) return result;
+    result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result == MAIA_VFS_OK) {
+        if (strcmp(fatfs_path, "0:/") == 0) {
+            out_info->is_directory = 1U;
+        } else {
+            FILINFO info;
+            result = map_fatfs_result(f_stat(fatfs_path, &info));
+            if (result == MAIA_VFS_OK) {
+                out_info->size = (uint32_t)info.fsize;
+                out_info->is_directory = (info.fattrib & AM_DIR) != 0U;
+            }
+        }
+    }
+    return unlock_vfs(task_id, result);
+}
+
+maia_vfs_result_t maia_vfs_file_info(maia_vfs_fd_t fd,
+                                     maia_vfs_info_t *out_info,
+                                     uint32_t *out_position) {
+    int32_t task_id;
+    if (out_info == NULL || out_position == NULL) return MAIA_VFS_INVALID;
+    memset(out_info, 0, sizeof(*out_info));
+    *out_position = 0U;
+    maia_vfs_result_t result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result == MAIA_VFS_OK) {
+        maia_vfs_file_t *entry = find_file(fd);
+        if (entry == NULL) result = MAIA_VFS_INVALID;
+        else {
+            out_info->size = (uint32_t)f_size(&entry->file);
+            *out_position = (uint32_t)f_tell(&entry->file);
+        }
+    }
+    return unlock_vfs(task_id, result);
+}
+
+maia_vfs_result_t maia_vfs_mkdir(const char *path) {
+    char fatfs_path[MAIA_VFS_PATH_MAX + 1U];
+    int32_t task_id;
+    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path, 0);
+    if (result != MAIA_VFS_OK) return result;
+    result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result == MAIA_VFS_OK) result = map_fatfs_result(f_mkdir(fatfs_path));
+    return unlock_vfs(task_id, result);
+}
+
+maia_vfs_result_t maia_vfs_rmdir(const char *path) {
+    char fatfs_path[MAIA_VFS_PATH_MAX + 1U];
+    int32_t task_id;
+    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path, 0);
+    if (result != MAIA_VFS_OK) return result;
+    result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result == MAIA_VFS_OK) {
+        FILINFO info;
+        result = map_fatfs_result(f_stat(fatfs_path, &info));
+        if (result == MAIA_VFS_OK) {
+            result = (info.fattrib & AM_DIR) == 0U ? MAIA_VFS_NOT_DIRECTORY :
+                     map_fatfs_result(f_unlink(fatfs_path));
+        }
+    }
+    return unlock_vfs(task_id, result);
+}
+
+static maia_vfs_directory_t *find_directory(maia_vfs_dir_t dir) {
+    uint32_t index = dir & VFS_SLOT_MASK;
+    uint32_t generation = (dir & ~VFS_DIR_TAG) >> VFS_SLOT_BITS;
+    if ((dir & VFS_DIR_TAG) == 0U || index >= MAIA_VFS_MAX_OPEN_DIRS ||
+        generation == 0U || g_directories[index].open == 0U ||
+        g_directories[index].generation != generation) return NULL;
+    return &g_directories[index];
+}
+
+maia_vfs_result_t maia_vfs_opendir(const char *path, maia_vfs_dir_t *out_dir) {
+    char fatfs_path[MAIA_VFS_PATH_MAX + 1U];
+    int32_t task_id;
+    if (out_dir == NULL) return MAIA_VFS_INVALID;
+    *out_dir = 0U;
+    maia_vfs_result_t result = make_fatfs_path(path, fatfs_path, 1);
     if (result != MAIA_VFS_OK) return result;
     result = lock_vfs(&task_id);
     if (result != MAIA_VFS_OK) return result;
     result = check_mounted();
     if (result != MAIA_VFS_OK) return unlock_vfs(task_id, result);
-    return unlock_vfs(task_id, map_fatfs_result(f_unlink(fatfs_path)));
+    for (uint32_t i = 0U; i < MAIA_VFS_MAX_OPEN_DIRS; ++i) {
+        maia_vfs_directory_t *entry = &g_directories[i];
+        if (entry->open != 0U) continue;
+        result = map_fatfs_result(f_opendir(&entry->directory, fatfs_path));
+        if (result == MAIA_VFS_OK) {
+            entry->generation = entry->generation == VFS_GENERATION_MAX ?
+                                1U : entry->generation + 1U;
+            entry->open = 1U;
+            *out_dir = VFS_DIR_TAG | (entry->generation << VFS_SLOT_BITS) | i;
+        }
+        return unlock_vfs(task_id, result);
+    }
+    return unlock_vfs(task_id, MAIA_VFS_NO_HANDLES);
+}
+
+maia_vfs_result_t maia_vfs_readdir(maia_vfs_dir_t dir,
+                                   maia_vfs_dirent_t *out_entry,
+                                   int *out_has_entry) {
+    int32_t task_id;
+    if (out_entry == NULL || out_has_entry == NULL) return MAIA_VFS_INVALID;
+    memset(out_entry, 0, sizeof(*out_entry));
+    *out_has_entry = 0;
+    maia_vfs_result_t result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result != MAIA_VFS_OK) return unlock_vfs(task_id, result);
+    maia_vfs_directory_t *entry = find_directory(dir);
+    if (entry == NULL) return unlock_vfs(task_id, MAIA_VFS_INVALID);
+    FILINFO info;
+    result = map_fatfs_result(f_readdir(&entry->directory, &info));
+    if (result == MAIA_VFS_OK && info.fname[0] != '\0') {
+        memcpy(out_entry->name, info.fname, strlen(info.fname) + 1U);
+        out_entry->info.size = (uint32_t)info.fsize;
+        out_entry->info.is_directory = (info.fattrib & AM_DIR) != 0U;
+        *out_has_entry = 1;
+    }
+    return unlock_vfs(task_id, result);
+}
+
+maia_vfs_result_t maia_vfs_closedir(maia_vfs_dir_t dir) {
+    int32_t task_id;
+    maia_vfs_result_t result = lock_vfs(&task_id);
+    if (result != MAIA_VFS_OK) return result;
+    result = check_mounted();
+    if (result != MAIA_VFS_OK) return unlock_vfs(task_id, result);
+    maia_vfs_directory_t *entry = find_directory(dir);
+    if (entry == NULL) return unlock_vfs(task_id, MAIA_VFS_INVALID);
+    result = map_fatfs_result(f_closedir(&entry->directory));
+    if (result == MAIA_VFS_OK) entry->open = 0U;
+    return unlock_vfs(task_id, result);
 }

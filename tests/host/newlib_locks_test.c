@@ -92,6 +92,13 @@ int main(void) {
 
     __retarget_lock_close(normal);
     __retarget_lock_close_recursive(recursive);
+    /* Newlib __sfp recycles FILE without clearing its closed lock pointer. */
+    for (unsigned i = 0U; i < 8U; ++i) {
+        __retarget_lock_init_recursive(&recursive);
+        assert(__retarget_lock_try_acquire_recursive(recursive) == 1);
+        __retarget_lock_release_recursive(recursive);
+        __retarget_lock_close_recursive(recursive);
+    }
     maia_mem_stats_t stats;
     assert(maia_mem_get_stats(&stats) == MAIA_OK);
     assert(stats.used_bytes == 0U);

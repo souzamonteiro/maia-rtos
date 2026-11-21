@@ -50,6 +50,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "DIAGNOSTIC ONLY: simulate an SDMMC CMD8 timeout during product boot" OFF)
   option(MAIA_DIAGNOSTIC_FATFS_RW
     "DIAGNOSTIC ONLY: exercise MaiaVFS /sd file operations through FatFs" OFF)
+  option(MAIA_DIAGNOSTIC_VFS_SHELL
+    "POC ONLY: start native LCD shell in /sd without desktop or automatic SD writes" OFF)
+  if(MAIA_DIAGNOSTIC_VFS_SHELL AND
+     (NOT MAIA_USE_FLASH_PRODUCT_LINKER OR MAIA_DIAGNOSTIC_FATFS_RW))
+    message(FATAL_ERROR "VFS shell POC requires flash-XIP and excludes automatic FATFS_RW")
+  endif()
   if(MAIA_DIAGNOSTIC_FATFS_RW AND NOT MAIA_USE_FLASH_PRODUCT_LINKER)
     message(FATAL_ERROR "MAIA_DIAGNOSTIC_FATFS_RW requires the flash-XIP product")
   endif()
@@ -108,6 +114,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   )
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
     target_sources(maia_m0.elf PRIVATE
+      runtime/newlib_vfs.c
       soc/espressif/esp32p4/soc_display_product.c
       boards/m5stack/tab5/product_touch.c
       services/lcd_output.c
@@ -167,6 +174,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   if(MAIA_DIAGNOSTIC_FATFS_RW)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_FATFS_RW=1)
+  endif()
+  if(MAIA_DIAGNOSTIC_VFS_SHELL)
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_VFS_SHELL=1)
   endif()
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
@@ -1155,7 +1165,7 @@ else()
     endif()
     add_test(NAME sd_read_test COMMAND sd_read_test)
 
-    add_executable(fatfs_test tests/host/fatfs_test.c)
+    add_executable(fatfs_test tests/host/fatfs_test.c runtime/newlib_vfs.c)
     target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
     target_link_libraries(fatfs_test PRIVATE maia_vfs)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

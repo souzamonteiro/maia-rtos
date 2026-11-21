@@ -117,7 +117,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; teste de estresse, falha e concorrência permanecem pendentes.
 - [x] FatFs R0.15 integrado ao SDMMC nativo: montagem sem formatar; create/update/read/remove de arquivo testados no host e no Tab5 (21/11)
 - [x] API MaiaVFS de arquivos em `/sd`: open/read/write/seek/sync/close/unlink, caminhos confinados e handles fixos; host, sanitizers, build P4 e diagnóstico no Tab5 passaram (21/11)
-- [ ] Listagem de diretórios e integração do VFS com shell/Newlib
+- [x] Listagem de diretórios e integração do VFS com shell/Newlib: `cd/pwd/ls`, `cat`, `echo >`/`>>`, `mkdir/rmdir/rm`; lifecycle de arquivo de 17 bytes verificado no Tab5 e POC shell/LCD sem desktop aprovada pelo dono (21/11). Adaptador limitado, não POSIX completo; concorrência/falhas permanecem pendentes.
 - [ ] Configurações persistentes na flash
 - [ ] Teste de estresse de leitura/escrita
 - [ ] Transferência de arquivos pelo `maia.py`

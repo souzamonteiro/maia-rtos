@@ -9,6 +9,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <unistd.h>
+#include "../../runtime/newlib_vfs.h"
+
+int _open(const char *path, int flags, int mode);
+int _close(int fd);
+off_t _lseek(int fd, off_t offset, int whence);
+int _stat(const char *path, struct stat *st);
+int _unlink(const char *path);
 
 #define TEST_SECTOR_COUNT 2880U
 #define TEST_IMAGE_BYTES ((size_t)TEST_SECTOR_COUNT * MAIA_SD_BLOCK_BYTES)
@@ -328,6 +340,130 @@ static void test_vfs_file_operations(void) {
     assert(fd == 0U);
 }
 
+static void test_vfs_directories(void) {
+    maia_vfs_info_t info;
+    maia_vfs_dir_t dir;
+    maia_vfs_dirent_t entry;
+    int has_entry;
+    assert(maia_vfs_stat("/sd", &info) == MAIA_VFS_OK);
+    assert(info.is_directory && info.size == 0U);
+    uint32_t writes_before = disk.writes;
+    assert(maia_vfs_mkdir("/sd/../bad") == MAIA_VFS_INVALID);
+    assert(maia_vfs_mkdir("/sd/") == MAIA_VFS_INVALID);
+    assert(disk.writes == writes_before);
+    assert(maia_vfs_mkdir("/sd/Native directory") == MAIA_VFS_OK);
+    assert(maia_vfs_mkdir("/sd/Native directory") == MAIA_VFS_EXISTS);
+    assert(maia_vfs_stat("/sd/Native directory", &info) == MAIA_VFS_OK);
+    assert(info.is_directory);
+    assert(maia_vfs_unlink("/sd/Native directory") == MAIA_VFS_IS_DIRECTORY);
+    assert(maia_vfs_opendir("/sd/", &dir) == MAIA_VFS_OK);
+    force_vfs_busy = 1;
+    assert(maia_vfs_readdir(dir, &entry, &has_entry) == MAIA_VFS_BUSY);
+    assert(has_entry == 0);
+    force_vfs_busy = 0;
+    assert(maia_vfs_readdir(dir, &entry, &has_entry) == MAIA_VFS_OK);
+    assert(has_entry && entry.info.is_directory);
+    assert(strcmp(entry.name, "Native directory") == 0);
+    assert(maia_vfs_readdir(dir, &entry, &has_entry) == MAIA_VFS_OK);
+    assert(!has_entry);
+    assert(maia_vfs_closedir(dir) == MAIA_VFS_OK);
+    assert(maia_vfs_readdir(dir, &entry, &has_entry) == MAIA_VFS_INVALID);
+    maia_vfs_dir_t dirs[MAIA_VFS_MAX_OPEN_DIRS];
+    for (unsigned i = 0U; i < MAIA_VFS_MAX_OPEN_DIRS; ++i)
+        assert(maia_vfs_opendir("/sd", &dirs[i]) == MAIA_VFS_OK);
+    assert(maia_vfs_opendir("/sd", &dir) == MAIA_VFS_NO_HANDLES);
+    for (unsigned i = 0U; i < MAIA_VFS_MAX_OPEN_DIRS; ++i)
+        assert(maia_vfs_closedir(dirs[i]) == MAIA_VFS_OK);
+    assert(maia_vfs_rmdir("/sd/Native directory") == MAIA_VFS_OK);
+}
+
+static void test_newlib_adapter(void) {
+    static const char path[] = "/sd/Newlib file.txt";
+    struct stat st;
+    char buffer[16];
+    int fd = _open(path, O_RDWR | O_CREAT | O_EXCL, 0666);
+    assert(fd >= 3);
+    assert(_open(path, O_WRONLY | O_CREAT | O_EXCL, 0666) == -1);
+    assert(errno == EEXIST);
+    assert(maia_newlib_vfs_write(fd, "hello", 5) == 5);
+    assert(fsync(fd) == 0);
+    assert(maia_newlib_vfs_fstat(fd, &st) == 0);
+    assert(S_ISREG(st.st_mode) && st.st_size == 5);
+    assert(_lseek(fd, -2, SEEK_CUR) == 3);
+    assert(maia_newlib_vfs_read(fd, buffer, sizeof(buffer)) == 2);
+    assert(memcmp(buffer, "lo", 2) == 0);
+    assert(_lseek(fd, -5, SEEK_END) == 0);
+    assert(maia_newlib_vfs_read(fd, buffer, sizeof(buffer)) == 5);
+    assert(memcmp(buffer, "hello", 5) == 0);
+    assert(maia_newlib_vfs_read(fd, buffer, sizeof(buffer)) == 0);
+    assert(_lseek(fd, -1, SEEK_SET) == -1 && errno == EINVAL);
+    assert(_lseek(fd, INT32_MAX, SEEK_END) == -1 && errno == EOVERFLOW);
+    assert(_lseek(fd, 0, 123) == -1 && errno == EINVAL);
+    assert(_close(fd) == 0);
+    assert(_close(fd) == -1 && errno == EBADF);
+    assert(maia_newlib_vfs_read(fd, buffer, 0) == -1 && errno == EBADF);
+    assert(_stat(path, &st) == 0 && st.st_size == 5);
+    assert(_open(path, O_WRONLY | O_TRUNC, 0666) == -1 && errno == ENOTSUP);
+    assert(_open("/sd", O_RDONLY, 0) == -1 && errno == EISDIR);
+    assert(_open("/sd/../escape", O_RDONLY, 0) == -1 && errno == EINVAL);
+    assert(_lseek(1, 0, SEEK_SET) == -1 && errno == ESPIPE);
+    force_vfs_busy = 1;
+    assert(_open(path, O_RDONLY, 0) == -1 && errno == EBUSY);
+    force_vfs_busy = 0;
+    test_task_id = -1;
+    assert(_open(path, O_RDONLY, 0) == -1 && errno == ENOTSUP);
+    test_task_id = 1;
+
+    fd = _open(path, O_WRONLY | O_APPEND, 0);
+    assert(fd >= 3);
+    assert(_lseek(fd, 0, SEEK_SET) == 0);
+    assert(maia_newlib_vfs_write(fd, "!", 1) == 1);
+    assert(maia_newlib_vfs_read(fd, buffer, 1) == -1 && errno == EBADF);
+    disk.fail_write = 1;
+    assert(_close(fd) == -1 && errno == EIO);
+    disk.fail_write = 0;
+    assert(_close(fd) == 0);
+    assert(_stat(path, &st) == 0 && st.st_size == 6);
+    int readers[MAIA_VFS_MAX_OPEN_FILES];
+    for (unsigned i = 0U; i < MAIA_VFS_MAX_OPEN_FILES; ++i)
+        assert((readers[i] = _open(path, O_RDONLY, 0)) >= 3);
+    assert(_open(path, O_RDONLY, 0) == -1 && errno == EMFILE);
+    for (unsigned i = 0U; i < MAIA_VFS_MAX_OPEN_FILES; ++i)
+        assert(_close(readers[i]) == 0);
+
+    assert(mkdir("/sd/Newlib directory", 0777) == 0);
+    DIR *directory = opendir("/sd");
+    assert(directory != NULL);
+    struct dirent *entry;
+    int count = 0;
+    errno = 0;
+    while ((entry = readdir(directory)) != NULL) {
+        assert(strcmp(entry->d_name, "Newlib file.txt") == 0 ||
+               strcmp(entry->d_name, "Newlib directory") == 0);
+        ++count;
+        errno = 0;
+    }
+    assert(errno == 0 && count == 2);
+    assert(closedir(directory) == 0);
+    assert(closedir(directory) == -1 && errno == EBADF);
+    assert(opendir(path) == NULL && errno == ENOTDIR);
+    assert(_unlink("/sd/Newlib directory") == -1 && errno == EISDIR);
+    assert(rmdir(path) == -1 && errno == ENOTDIR);
+    assert(_unlink(path) == 0);
+    assert(rmdir("/sd/Newlib directory") == 0);
+    assert(_stat(path, &st) == -1 && errno == ENOENT);
+    assert(_open(path, O_RDONLY, 0) == -1 && errno == ENOENT);
+    fd = _open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    assert(fd >= 3);
+    assert(maia_newlib_vfs_write(fd, "abc", 3) == 3);
+    assert(_close(fd) == 0);
+    fd = _open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    assert(fd >= 3);
+    assert(_close(fd) == 0);
+    assert(_stat(path, &st) == 0 && st.st_size == 0);
+    assert(_unlink(path) == 0);
+}
+
 int main(void) {
     static const maia_sd_geometry_t geometry = { TEST_SECTOR_COUNT };
     memset(&disk, 0, sizeof(disk));
@@ -355,10 +491,13 @@ int main(void) {
     test_disk_interface();
     test_file_operations();
     test_vfs_file_operations();
+    test_vfs_directories();
+    test_newlib_adapter();
 
     assert(maia_fatfs_unmount() == MAIA_FATFS_OK);
     assert(maia_fatfs_is_mounted() == 0);
     assert(disk_status(0U) == STA_NOINIT);
-    puts("FatFs mount, no-format, disk I/O and MaiaVFS file operations: PASS");
+    assert(_open("/sd/file", O_RDONLY, 0) == -1 && errno == ENODEV);
+    puts("FatFs, MaiaVFS files/directories and Newlib adapter: PASS");
     return 0;
 }

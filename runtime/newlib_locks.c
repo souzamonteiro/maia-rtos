@@ -114,7 +114,8 @@ static _LOCK_T allocate_lock(void) {
 
 static void initialize_lock(_LOCK_T *lock_ref, int recursive) {
     if (lock_ref == NULL) lock_fault(5U);
-    if (*lock_ref == NULL) {
+    /* __sfp initializes recycled FILE locks without clearing the freed pointer. */
+    if (!is_static_lock(*lock_ref)) {
         *lock_ref = allocate_lock();
     } else if (!valid_lock(*lock_ref)) {
         lock_fault(6U);

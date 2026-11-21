@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 #if defined(ARDUINO)
 #include <Arduino.h>
@@ -841,6 +842,7 @@ public:
         char *buf;
         size_t cap;
         size_t len;
+        bool failed;
     };
 
     struct PipeStaging {
@@ -869,8 +871,36 @@ public:
     }
 
     static RedirStaging &get_global_redir_stage() {
-        static RedirStaging s_stage = { nullptr, 0, 0 };
+        static RedirStaging s_stage = { nullptr, 0, 0, false };
         return s_stage;
+    }
+
+    static void append_staged_output(const char *str) {
+        if (!str) return;
+        RedirStaging &stage = get_global_redir_stage();
+        if (stage.failed) return;
+        size_t length = strlen(str);
+        const size_t max_capacity = 65536;
+        if (!stage.buf || stage.len >= max_capacity ||
+            length > max_capacity - stage.len - 1) {
+            stage.failed = true;
+            return;
+        }
+        size_t needed = stage.len + length + 1;
+        if (needed > stage.cap) {
+            size_t capacity = stage.cap;
+            while (capacity < needed) capacity *= 2;
+            char *buffer = (char *)realloc(stage.buf, capacity);
+            if (!buffer) {
+                stage.failed = true;
+                return;
+            }
+            stage.buf = buffer;
+            stage.cap = capacity;
+        }
+        memcpy(stage.buf + stage.len, str, length);
+        stage.len += length;
+        stage.buf[stage.len] = '\0';
     }
 
     static OutputFn &get_global_out_cb() {
@@ -1172,8 +1202,9 @@ public:
         if (has_redir) {
             resolve_path(redir_file, resolved_redir, sizeof(resolved_redir));
             RedirStaging &stage = get_global_redir_stage();
-            stage.cap = 65536;
+            stage.cap = 1024;
             stage.len = 0;
+            stage.failed = false;
 #if defined(ESP_PLATFORM)
             stage.buf = (char *)heap_caps_malloc(stage.cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
             if (!stage.buf) {
@@ -1182,22 +1213,15 @@ public:
 #else
             stage.buf = (char *)malloc(stage.cap);
 #endif
-            if (stage.buf) {
-                stage.buf[0] = '\0';
-                this->output_cb = [](const char *str) {
-                    if (!str) return;
-                    RedirStaging &st = get_global_redir_stage();
-                    if (!st.buf) return;
-                    size_t slen = strlen(str);
-                    if (st.len + slen < st.cap - 1) {
-                        memcpy(st.buf + st.len, str, slen);
-                        st.len += slen;
-                        st.buf[st.len] = '\0';
-                    }
-                };
-                get_active_instance() = this;
-        get_global_out_cb() = this->output_cb;
+            if (!stage.buf) {
+                println("msh: cannot allocate redirection buffer");
+                set_last_status(1);
+                return 1;
             }
+            stage.buf[0] = '\0';
+            this->output_cb = append_staged_output;
+            get_active_instance() = this;
+            get_global_out_cb() = this->output_cb;
         }
 
         int ret = 0;
@@ -1248,6 +1272,7 @@ public:
         else if (strcmp(cmd, "poke") == 0)     ret = cmd_poke(argc, argv);
         else if (strcmp(cmd, "reboot") == 0)   ret = cmd_reboot(argc, argv);
         else if (strcmp(cmd, "mkdir") == 0)    ret = cmd_mkdir(argc, argv);
+        else if (strcmp(cmd, "rmdir") == 0)    ret = cmd_rmdir(argc, argv);
         else if (strcmp(cmd, "rm") == 0)       ret = cmd_rm(argc, argv);
         else if (strcmp(cmd, "cp") == 0)       ret = cmd_cp(argc, argv);
         else if (strcmp(cmd, "touch") == 0)    ret = cmd_touch(argc, argv);
@@ -1317,13 +1342,25 @@ public:
         if (has_redir) {
             RedirStaging &stage = get_global_redir_stage();
             if (stage.buf) {
-                FILE *fp = fopen(resolved_redir, append_mode ? "a" : "w");
-                if (fp) {
-                    if (stage.len > 0) {
-                        fwrite(stage.buf, 1, stage.len, fp);
+                FILE *fp = stage.failed ? nullptr :
+                           fopen(resolved_redir, append_mode ? "a" : "w");
+                if (stage.failed) {
+                    ret = 1;
+                    if (orig_cb) orig_cb("msh: redirection buffer exhausted; file not written\n");
+                } else if (fp) {
+                    bool failed = stage.len > 0 &&
+                                  fwrite(stage.buf, 1, stage.len, fp) != stage.len;
+                    if (fclose(fp) != 0) failed = true;
+                    if (failed) {
+                        ret = 1;
+                        if (orig_cb) {
+                            orig_cb("msh: write/close failed for redirection file: ");
+                            orig_cb(resolved_redir);
+                            orig_cb("\n");
+                        }
                     }
-                    fclose(fp);
                 } else {
+                    ret = 1;
                     if (orig_cb) {
                         orig_cb("msh: cannot open redirection file: ");
                         orig_cb(resolved_redir);
@@ -1334,6 +1371,7 @@ public:
                 stage.buf = nullptr;
                 stage.cap = 0;
                 stage.len = 0;
+                stage.failed = false;
             }
             this->output_cb = orig_cb;
             get_global_out_cb() = orig_cb;
@@ -1538,31 +1576,27 @@ public:
             get_global_pipe_in().pos = 0;
 
             if (k < stage_count - 1) {
-                RedirStaging cur_stage_out = { nullptr, 65536, 0 };
+                RedirStaging cur_stage_out = { nullptr, 1024, 0, false };
 #if defined(ESP_PLATFORM)
                 cur_stage_out.buf = (char *)heap_caps_malloc(cur_stage_out.cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
                 if (!cur_stage_out.buf) cur_stage_out.buf = (char *)malloc(cur_stage_out.cap);
 #else
                 cur_stage_out.buf = (char *)malloc(cur_stage_out.cap);
 #endif
-                if (cur_stage_out.buf) cur_stage_out.buf[0] = '\0';
+                if (!cur_stage_out.buf) {
+                    if (prev_pipe_buf) free(prev_pipe_buf);
+                    get_global_pipe_in() = { nullptr, 0, 0 };
+                    println("msh: cannot allocate pipeline buffer");
+                    return 1;
+                }
+                cur_stage_out.buf[0] = '\0';
 
                 OutputFn orig_cb = this->output_cb;
                 RedirStaging &global_stage = get_global_redir_stage();
                 RedirStaging saved_stage = global_stage;
                 global_stage = cur_stage_out;
 
-                this->output_cb = [](const char *str) {
-                    if (!str) return;
-                    RedirStaging &st = get_global_redir_stage();
-                    if (!st.buf) return;
-                    size_t slen = strlen(str);
-                    if (st.len + slen < st.cap - 1) {
-                        memcpy(st.buf + st.len, str, slen);
-                        st.len += slen;
-                        st.buf[st.len] = '\0';
-                    }
-                };
+                this->output_cb = append_staged_output;
                 get_active_instance() = this;
         get_global_out_cb() = this->output_cb;
 
@@ -1576,6 +1610,12 @@ public:
                 if (prev_pipe_buf) {
                     free(prev_pipe_buf);
                     prev_pipe_buf = nullptr;
+                }
+                if (cur_stage_out.failed) {
+                    free(cur_stage_out.buf);
+                    get_global_pipe_in() = { nullptr, 0, 0 };
+                    println("msh: pipeline buffer exhausted");
+                    return 1;
                 }
                 prev_pipe_buf = cur_stage_out.buf;
                 prev_pipe_len = cur_stage_out.len;
@@ -1935,7 +1975,7 @@ private:
         println("  head [-n N] [file]- Print first N lines of file or pipe");
         println("  wc [-l -w -c]     - Count lines, words and bytes of file or pipe");
         println("  cmd1 | cmd2       - Pipeline execution chaining output to input");
-        println("  mkdir / rm        - Create directories or remove files");
+        println("  mkdir / rmdir / rm - Create/remove empty directories or files");
         println("  cp <src> <dst>    - Copy files between SD card and USB drive");
         println("  mount / umount    - Inspect and cleanly unmount /usb storage");
         println("  wallpaper [file]  - Apply 1280x720 RGB565 wallpaper to display");
@@ -3234,7 +3274,10 @@ private:
             println(err);
             return 1;
         }
-        closedir(d);
+        if (closedir(d) != 0) {
+            println("cd: directory close failed");
+            return 1;
+        }
         strncpy(cwd, new_path, sizeof(cwd) - 1);
         cwd[sizeof(cwd) - 1] = '\0';
         return 0;
@@ -3287,18 +3330,20 @@ private:
 
         int count = 0;
         struct dirent *de;
+        errno = 0;
         while ((de = readdir(d)) != nullptr) {
             char full_path[256];
             snprintf(full_path, sizeof(full_path), "%s/%s", 
                      strcmp(target_dir, "/") == 0 ? "" : target_dir, de->d_name);
 
             struct stat fst;
-            bool is_dir = false;
-            size_t sz = 0;
-            if (stat(full_path, &fst) == 0) {
-                is_dir = S_ISDIR(fst.st_mode);
-                sz = (size_t)fst.st_size;
+            if (stat(full_path, &fst) != 0) {
+                println("ls: entry metadata read failed");
+                if (closedir(d) != 0) println("ls: directory close failed");
+                return 1;
             }
+            bool is_dir = S_ISDIR(fst.st_mode);
+            size_t sz = (size_t)fst.st_size;
 
             if (is_dir) {
                 snprintf(line, sizeof(line), "  [DIR]  %s/", de->d_name);
@@ -3307,8 +3352,14 @@ private:
             }
             println(line);
             count++;
+            errno = 0;
         }
-        closedir(d);
+        int read_error = errno;
+        int close_status = closedir(d);
+        if (read_error != 0 || close_status != 0) {
+            println("ls: directory read/close failed");
+            return 1;
+        }
 
         if (show_header) {
             snprintf(line, sizeof(line), "Total %d entries", count);
@@ -3368,7 +3419,12 @@ private:
             while (fgets(buf, sizeof(buf), f)) {
                 print(buf);
             }
-            fclose(f);
+            bool failed = ferror(f) != 0;
+            if (fclose(f) != 0) failed = true;
+            if (failed) {
+                println("cat: file read/close failed");
+                ret = 1;
+            }
         }
         return ret;
     }
@@ -3592,6 +3648,22 @@ private:
         if (mkdir(target, 0777) != 0) {
             char err[160];
             snprintf(err, sizeof(err), "mkdir: cannot create '%s'", target);
+            println(err);
+            return 1;
+        }
+        return 0;
+    }
+
+    int cmd_rmdir(int argc, char **argv) {
+        if (argc < 2) {
+            println("Usage: rmdir <dir>");
+            return 1;
+        }
+        char target[128];
+        resolve_path(argv[1], target, sizeof(target));
+        if (rmdir(target) != 0) {
+            char err[160];
+            snprintf(err, sizeof(err), "rmdir: cannot remove '%s'", target);
             println(err);
             return 1;
         }

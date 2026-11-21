@@ -3309,3 +3309,112 @@ Logs and report:
 single-task hardware qualification; it does not prove concurrent stress,
 directory operations, shell integration, transport-failure recovery, or
 power-loss recovery.
+
+## Native shell SD files on LCD, no desktop — 2026-11-21
+
+This extends the preceding file-only qualification with MaiaVFS stat,
+mkdir/rmdir and fixed opendir/readdir/closedir handles plus a Newlib adapter.
+The existing native product already runs its shell on the native LCD service
+and accepts USB serial/A164 keyboard input; no desktop or foreign runtime was
+added. Default-OFF `MAIA_DIAGNOSTIC_VFS_SHELL=ON` starts in `/sd` and prints
+instructions, without automatic SD writes. The host supplies the demo commands.
+
+Host acceptance: CTest 96/96; `fatfs_test`, `newlib_locks_test`,
+`newlib_heap_test` and `shell_expr_control_test` pass with ASan/UBSan.
+Tests cover directories/EOF/stale handles/capacity, errno mapping, file
+seek/append/truncate, invalid paths/flags, contention/context failures, failed
+close retry, actual host shell commands, staged-output growth and exhaustion
+without truncating an existing destination. Public VFS/FatFs headers compile
+with `c++ -std=c++98 -Wall -Wextra -Wpedantic -Werror -I include -fsyntax-only`.
+Host adapter tests call hooks directly; only the P4 test exercises Newlib stdio.
+
+The first electronic attempt
+(`../../../maia-rtos-recovery/vfs-shell-electronic-20261121/`) had a
+`MAIA_NATIVE_FATAL cause=4c4f434b value=0000000e`. Disassembly of this compiler's
+Newlib `_fclose_r` and `__sfp` confirmed close frees a dynamic FILE lock without
+clearing its pointer and init later reuses that pointer. The host lock test
+reproduced SIGTRAP before the native init fix. Reinitialization now allocates
+a new dynamic lock rather than resetting released memory.
+
+Two intermediate runs (`vfs-shell-lock-fix-20261121/` and
+`vfs-shell-final-20261121/`) reached the host completion marker without fatal,
+but **did not pass storage acceptance**: echo text went to the console,
+cat reported a missing file and ls found zero entries. Their `probe_pass=true`
+means only completion-marker acceptance. The shell's 64 KiB redirection
+allocation exceeded the 32 KiB heap and failed silently. Shared pipe/redirection
+staging now starts at 1 KiB, grows within the previous 64 KiB bound, and reports
+allocation/limit errors without opening/truncating the destination.
+
+The corrected electronic run
+(`../../../maia-rtos-recovery/vfs-shell-rw-20261121/`) used this input:
+
+```sh
+if mkdir poc-20261121-1830; then
+  cd poc-20261121-1830
+  echo NATIVE_SD > poc.txt
+  echo APPEND >> poc.txt
+  cat poc.txt
+  ls
+  rm poc.txt
+  cd /sd
+  rmdir poc-20261121-1830
+  echo MAIA_SHELL_SD_END
+fi
+```
+
+The actual input was one semicolon-separated line ending in CR (existing shell
+if syntax, not a parser change). mkdir failure skips the test, protecting
+pre-existing data. The output now contains:
+
+```text
+NATIVE_SD
+APPEND
+Directory of /sd/poc-20261121-1830:
+  [FILE] poc.txt (17 bytes)
+Total 1 entries
+MAIA_SHELL_SD_END
+msh>
+```
+
+No cat/ls/rm/rmdir failure or fatal marker occurred. The 17-byte size matches
+`NATIVE_SD\nAPPEND\n`; it is not acceptance based solely on a marker. The runner
+restored the factory app, verified its hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`,
+and captured its boot. The earlier empty test directories were also removed
+by their own shell cleanup; no card format or full-card backup/restore occurred.
+
+The final normal image is 847,072 bytes, SHA-256
+`dbc358c040b135e32d62b219825a1353ef6d1cef848e59db8f38319f54f0e73c`;
+the final POC image is 847,152 bytes, SHA-256
+`2b8f37660fe0a8fc901ad9e390b335bddde4992aad4bbd673efe6ff5b863f284`.
+Both package/validate with five XIP segments and entry `0x40000020`.
+
+The final POC repeated the demo in `poc-20261121-visual`, then kept the native
+prompt available for 120 seconds using the existing flash runner's
+`--observe-seconds 120`. The owner reported **"Funcionou."** during this window,
+confirming the visible shell-only POC. Evidence:
+`../../../maia-rtos-recovery/vfs-shell-visual-20261121/`.
+The final report records marker=true, fatal=false, 10,535 captured bytes and
+restore_verified=true with the same backed-up app hash. The restored capture
+returned to `msh>`. After the host demo, interactive `ls`, `ps`, `pwd` and
+`ls lib` were captured; `/sd` had 60 existing entries and no leftover demo
+directory. `ls ..`/`ls ../` were rejected by the existing dot/parent-component
+confinement rule, not silently resolved as POSIX paths.
+
+Reproduction: configure the normal P4 toolchain build with
+`-DMAIA_USE_FLASH_PRODUCT_LINKER=ON -DMAIA_DIAGNOSTIC_VFS_SHELL=ON`, build
+`maia_m0_image`, then use `tests/hardware/run_f0_flash_probe.py` with the POC
+image, an exclusive recovery output directory, `--input-marker 'msh> '`,
+the demo as `--input-hex`, marker CRLF + `MAIA_SHELL_SD_END` + CRLF, and
+`--observe-seconds 120`. Do not use automatic FATFS_RW simultaneously.
+
+Limits: fail-fast BUSY, not multi-task SD stress; eight file slots and four
+directory slots also share FatFs's eight object locks. Newlib descriptors are
+private to the adapter; it holds adapter → VFS locks for compound position
+operations. Metadata/offsets above INT32_MAX return EOVERFLOW. O_TRUNC without
+O_CREAT, read-only creation and unsupported flags return ENOTSUP. No rename,
+actual POSIX permissions/timestamps, complete POSIX or full shell/apps/compiler
+qualification. A failed native close keeps its descriptor; callers using
+fclose must retain the raw fd if they need retry. Shell recovery after real
+transport/close failures, power-loss recovery and cold/SMP storage remain open.
+FAT metadata changed; no complete-card or full-flash comparison is claimed.

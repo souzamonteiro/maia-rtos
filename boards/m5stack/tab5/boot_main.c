@@ -274,6 +274,15 @@ static void task_shell_entry(void *arg) {
     maia_shell_engine_print_banner();
     maia_console_puts("[AUTO-SELFTEST] Running: uname; ticks; ps; mem; alloc 256; qtest\n");
     (void)maia_shell_engine_eval_line("uname; ticks; ps; mem; alloc 256; qtest");
+#ifdef MAIA_DIAGNOSTIC_VFS_SHELL
+    if (maia_shell_engine_eval_line("cd /sd") == 0) {
+        maia_console_puts("[F2] MAIA_VFS_SHELL_READY /sd; native LCD shell, no desktop\n");
+        maia_console_puts("Use a NEW test directory: mkdir MaiaPOC; cd MaiaPOC only if mkdir succeeds.\n");
+        maia_console_puts("Then: echo MaiaRTOS > poc.txt; cat poc.txt; echo SD >> poc.txt; ls; rm poc.txt\n");
+    } else {
+        maia_console_puts("[F2] MAIA_VFS_SHELL_UNAVAILABLE; shell remains usable\n");
+    }
+#endif
     maia_shell_engine_print_prompt();
 
     for (;;) {

@@ -1950,3 +1950,40 @@ Still separate work: directory enumeration/stat/mkdir, wiring file operations
 into shell/Newlib consumers, actual multi-task stress, SD transport-failure and
 power-loss recovery. Do not treat the fail-fast `BUSY` contract as a blocking
 lock or as concurrency stress evidence.
+
+## F2 native shell SD/LCD POC — 2026-11-21
+
+MaiaVFS now supports stat, file size/position snapshots, mkdir/rmdir and four
+fixed generation-bearing directory handles. `runtime/newlib_vfs.c` routes
+Newlib file descriptors 3–10 and directory calls to VFS without heap storage.
+Adapter → VFS is the lock order; both locks are try-only. Standard streams keep
+the existing console. Normal XIP builds include the adapter; default-OFF
+`MAIA_DIAGNOSTIC_VFS_SHELL` starts in `/sd` with instructions and no automatic
+SD writes or desktop. Do not enable the automatic FATFS_RW diagnostic with it.
+
+The shell now runs cd/pwd/ls/cat, echo redirection/append and mkdir/rm/rmdir over
+native SD. Read/list/write/close errors propagate as nonzero status. Shared
+redirection/pipe staging grows from 1 KiB instead of unconditionally reserving
+64 KiB; allocation/limit errors do not truncate the target. No parser/grammar
+change. Newlib's recycled FILE lock initialization was fixed: __sfp does not
+clear the pointer freed by _fclose_r, so dynamic init must allocate a fresh lock.
+Host reproduction trapped before the fix; repeated init/close now passes.
+
+CTest 96/96, focused ASan/UBSan, C++98 headers and normal/POC P4 builds pass.
+Actual shell demo read NATIVE_SD and APPEND, listed poc.txt at exactly 17 bytes,
+and removed its exclusively created test directory without error. The owner
+approved the final LCD shell-only observation: "Funcionou." See
+`hardware/EVIDENCE.md`, `plans/STATUS.md` and recovery directories
+`../../maia-rtos-recovery/vfs-shell-rw-20261121/` and
+`../../maia-rtos-recovery/vfs-shell-visual-20261121/`.
+The final observation report verifies factory restoration and no native fatal;
+restored boot reaches msh>. Interactive ls/ps/pwd/ls lib are captured.
+Dot/parent components in ls paths remain rejected, not POSIX-normalized.
+
+Do not treat this as complete POSIX, full shell/app/compiler qualification,
+multi-task SD stress or transport/power-loss recovery. Rename and real
+permissions/timestamps are absent; unsupported open flags fail ENOTSUP.
+Newlib offsets/metadata are limited to INT32_MAX. fclose destroys its stream
+even if the native close fails; retain the raw fd for retry when using stdio.
+The next storage task is actual multi-task read/write stress and failure
+recovery, not desktop restoration under a foreign runtime.

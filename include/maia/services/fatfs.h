@@ -23,7 +23,7 @@ typedef enum maia_fatfs_result {
  * formats or writes media. The block device must remain valid until unmount. */
 maia_fatfs_result_t maia_fatfs_mount(maia_sd_block_device_t *device);
 
-/* Unmount only after every VFS file handle is closed and callers are quiescent. */
+/* Unmount after all VFS file/directory handles close and callers are quiescent. */
 maia_fatfs_result_t maia_fatfs_unmount(void);
 
 int maia_fatfs_is_mounted(void);

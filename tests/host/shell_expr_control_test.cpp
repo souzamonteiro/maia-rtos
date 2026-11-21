@@ -74,7 +74,67 @@ int main() {
     printf("Test 10 out: '%s'\n", s_last_out);
     assert(strstr(s_last_out, "MATCH bar\n") != nullptr);
 
-    printf("ALL 10 MaiaShell expr and control flow contract tests passed!\n");
+    s_last_out[0] = '\0';
+    assert(shell.execute("echo must-fail > /maia-no-such-mount/file.txt") == 1);
+    assert(strstr(s_last_out, "cannot open redirection file") != nullptr);
+
+    s_last_out[0] = '\0';
+    assert(shell.execute("cat /maia-no-such-mount/file.txt") == 1);
+    assert(strstr(s_last_out, "cannot open") != nullptr);
+
+    s_last_out[0] = '\0';
+    assert(shell.execute("ls /maia-no-such-mount") == 1);
+    assert(strstr(s_last_out, "cannot access") != nullptr);
+
+    char temp_dir[] = "/tmp/maia-shell-XXXXXX";
+    assert(mkdtemp(temp_dir) != nullptr);
+    char command[256];
+    snprintf(command, sizeof(command), "cd %s", temp_dir);
+    assert(shell.execute(command) == 0);
+    assert(shell.execute("echo ONE > poc.txt") == 0);
+    assert(shell.execute("echo TWO >> poc.txt") == 0);
+    s_last_out[0] = '\0';
+    assert(shell.execute("cat poc.txt") == 0);
+    assert(strcmp(s_last_out, "ONE\nTWO\n") == 0);
+    s_last_out[0] = '\0';
+    assert(shell.execute("ls") == 0);
+    assert(strstr(s_last_out, "poc.txt (8 bytes)") != nullptr);
+    assert(shell.execute("mkdir held") == 0);
+    shell.execute("if mkdir held; then echo WRONG > poc.txt; fi");
+    s_last_out[0] = '\0';
+    assert(shell.execute("cat poc.txt") == 0);
+    assert(strcmp(s_last_out, "ONE\nTWO\n") == 0);
+    assert(shell.execute("rmdir held") == 0);
+    assert(shell.execute("rm poc.txt") == 0);
+    FILE *source = fopen((std::string(temp_dir) + "/big.txt").c_str(), "wb");
+    assert(source != nullptr);
+    char payload[1000];
+    memset(payload, 'a', sizeof(payload));
+    assert(fwrite(payload, 1, sizeof(payload), source) == sizeof(payload));
+    assert(fwrite(payload, 1, sizeof(payload), source) == sizeof(payload));
+    assert(fclose(source) == 0);
+    assert(shell.execute("cat big.txt > large.txt") == 0);
+    struct stat file_info;
+    assert(stat((std::string(temp_dir) + "/large.txt").c_str(), &file_info) == 0);
+    assert(file_info.st_size == 2000);
+    source = fopen((std::string(temp_dir) + "/big.txt").c_str(), "ab");
+    assert(source != nullptr);
+    for (unsigned i = 0; i < 68; ++i)
+        assert(fwrite(payload, 1, sizeof(payload), source) == sizeof(payload));
+    assert(fclose(source) == 0);
+    s_last_out[0] = '\0';
+    assert(shell.execute("cat big.txt > large.txt") == 1);
+    assert(strstr(s_last_out, "buffer exhausted") != nullptr);
+    assert(stat((std::string(temp_dir) + "/large.txt").c_str(), &file_info) == 0);
+    assert(file_info.st_size == 2000);
+    assert(shell.execute("rm big.txt") == 0);
+    assert(shell.execute("rm large.txt") == 0);
+    s_last_out[0] = '\0';
+    assert(shell.execute("echo PIPE | cat") == 0);
+    assert(strcmp(s_last_out, "PIPE\n") == 0);
+    assert(shell.execute("cd /") == 0);
+    assert(rmdir(temp_dir) == 0);
+
+    printf("MaiaShell expression/control and storage command tests passed!\n");
     return 0;
 }
-
