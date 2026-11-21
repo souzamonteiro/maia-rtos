@@ -2696,11 +2696,95 @@ ausência de mídia, sucesso incompleto e progresso acima do pedido. `sd_read_te
 e `tab5_sdmmc_boot_test` passaram; `sd_read_test` também passou com ASan/UBSan.
 O cabeçalho passou compilação C++98 e o alvo P4 compilou a nova unidade.
 
-Isto valida o contrato reutilizável, não um transporte SDMMC de runtime:
-nenhum callback de hardware está conectado, as requisições não foram executadas
-no cartão e os símbolos não são usados pelo produto ainda. O probe SDMMC atual
-reconfigura o SYSTIMER, usa hooks de cache/DMA exclusivos do linker de probe e
-não tem detecção real de remoção. Propriedade em runtime, integração chamada
-pelo produto, erros físicos, requisições multi-setor no Tab5 e recuperação
-continuam pendentes. FatFs/VFS continuam bloqueados até leitura e escrita
-nativas integradas e verificadas.
+Naquele marco, o contrato ainda não tinha consumidor de hardware: nenhum
+callback SDMMC de runtime estava conectado, e o probe reconfigurava o SYSTIMER
+e usava hooks DMA/cache exclusivos do linker de diagnóstico. O addendum a
+seguir registra a implementação posterior do backend no produto; operação
+física multi-setor, recuperação e FatFs/VFS continuam pendentes.
+
+## F2 — Backend SDMMC de runtime — 2026-11-21
+
+O `sdmmc_boot.c` agora também fornece o serviço de blocos SDHC/SDXC síncrono:
+inicializa e seleciona o cartão antes do scheduler, publica um dispositivo
+estável, executa requisições de um ou mais setores em laços CMD17/CMD24 e
+propaga progresso parcial. Uma flag protegida por exclusão local de IRQ impede
+acesso concorrente ao host/DMA; chamadas sobrepostas retornam `MAIA_SD_BUSY`.
+Falhas físicas após iniciar a transferência deixam o driver sticky até reset.
+
+O produto reserva os 640 bytes DMA alinhados a 128 bytes do heap interno já
+existente, sem uma nova seção SRAM no linker. O backend usa o alias não-cacheável
+para descritor/dados e um wrapper SoC para sincronizar somente a faixa L1D.
+Durante a inicialização boot-only, o driver ainda prepara UNIT0 antes do timer
+do kernel; após a posse do timer, as esperas usam `mcycle`, sem reconfigurar ou
+consultar SYSTIMER UNIT0. A falha de alocação/cartão é registrada e não impede
+o boot. Quando disponível, uma tarefa do shell faz uma leitura diagnóstica de
+LBA0.
+
+O pinmap da Tab5 mantém `DET=NC`, portanto o serviço não pode distinguir cartão
+ausente/removido de outras falhas de comunicação nem emitir `NO_MEDIA` com
+confiança. Não houve acesso físico ao cartão nesta etapa; a leitura de runtime
+do produto e escrita multi-setor no device continuam pendentes.
+
+Validação: `tab5_sdmmc_boot_test` e `sd_read_test` passaram (2/2); ambos
+passaram com ASan/UBSan (2/2); a suíte host completa passou (93/93). O alvo
+P4 `maia_m0.elf` e a imagem XIP passaram; a imagem tem 814.096 bytes, cinco
+segmentos e checksum/hash válidos. O mapa confirma BSS até `0x4FF1E060`,
+stack até `0x4FF22060` e assertions de SRAM aprovados. Nenhuma imagem foi
+gravada no device.
+
+## F2 — Qualificação física do serviço SDMMC de runtime — 2026-11-21
+
+O probe `MAIA_NATIVE_PROBE_SDMMC_RUNTIME` inicializou o serviço antes do
+scheduler e executou as operações pela API pública em uma tarefa MaiaRTOS,
+com SYSTIMER ativo. Leu dois setores contíguos a partir do LBA 69318; depois
+escreveu e releu um padrão temporário nos mesmos dois setores. A requisição
+reportou dois blocos completos; o backend usa CMD24 por setor e confirma
+READY/TRAN antes de contar cada gravação.
+
+O setor inicial era o primeiro setor do cluster FAT32 97, verificado livre nas
+duas FATs. Os 1024 bytes originais foram guardados antes da escrita; o primeiro
+setor coincidiu com a referência independente já preservada. O runner restaurou
+os dois setores e confirmou leitura byte a byte; a restauração passou na
+primeira tentativa. Nenhum filesystem foi montado.
+
+O runner capturou a flash completa duas vezes antes do teste e as duas cópias
+coincidiram com a imagem de restauração. Após o probe, restaurou e releu os
+16 MiB integralmente; hash esperado e obtido:
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`. A captura
+serial do boot restaurado chegou a `msh>`. Relatório, backup dos setores,
+padrão e capturas estão em
+`maia-rtos-recovery/native-sdmmc-runtime-20261121/`.
+
+O probe foi carregado apenas em SRAM e validado dentro da janela
+`0x4FF00000..0x4FF28000`; não foi gravado na flash. O parser do runner e a suíte
+host passaram, 94/94. Esta evidência qualifica leitura e escrita multi-setor
+do serviço em contexto de tarefa, mas não o boot do produto nem sua leitura
+diagnóstica de LBA0. Permanecem pendentes fault injection, estresse/
+concorrência, recuperação após perda de energia, FatFs e VFS.
+
+## F2 — Boot do produto e leitura runtime de LBA0 — 2026-11-21
+
+O build atual do produto XIP gerou imagem ESP32-P4 de 814.096 bytes, cinco
+segmentos, entry `0x40000020`, checksum/hash válidos; SHA-256
+`bf889774e0e2b5a11a12792f3f5c8c70e6de54f84a6ac5d1236d97519ba34659`.
+Antes do teste, a leitura de 16 MiB da flash coincidiu com o backup verificado
+anteriormente (`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`).
+
+O runner salvou e validou o app de fábrica, gravou temporariamente o produto em
+`0x10000` e capturou o boot. O serviço anunciou prontidão; a tarefa do shell
+registrou `Runtime SDMMC read LBA0 passed`, executou o self-test e chegou a
+`msh>`, sem fatal. A operação no cartão foi somente leitura. O runner restaurou
+o app original e confirmou o hash; uma nova captura integral da flash coincidiu
+byte a byte com a captura anterior ao teste, com o mesmo SHA-256.
+
+O teste C host agora também provoca uma requisição sobreposta durante uma
+transferência mockada: o callback retorna `MAIA_SD_BUSY` sem novo acesso a
+MMIO. O teste focado passou com ASan/UBSan e a suíte host completa passou
+94/94. O boot após falha de inicialização e fault injection físico continuam
+pendentes.
+
+Imagem, capturas, backup do app, logs e relatório estão em
+`maia-rtos-recovery/native-product-sdmmc-lba0-20261121/`. A falha de
+inicialização do SDMMC não foi induzida; remoção física não é detectável
+(`DET=NC`). Permanecem fault injection, concorrência/estresse, recuperação após
+perda de energia, FatFs e VFS.

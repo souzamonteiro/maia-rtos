@@ -93,24 +93,27 @@ boot frio e recuperação segura de falhas continuam pendentes.
 
 ## F2 — Armazenamento
 
-- [ ] Driver SDMMC host nativo para leitura e escrita de blocos
+- [x] Driver SDMMC host nativo para leitura e escrita de blocos; serviço de runtime integrado e leitura/escrita de dois setores verificada no Tab5 (21/11).
   - [x] Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos, sem enviar comandos (20/11).
   - [x] Diagnóstico isolado em RAM configurou o slot 0 e executou `CMD0`/`CMD8`: conclusão de `CMD0` e resposta `CMD8` `0x1aa` em dois boots mornos (20/11). Ainda não lê setores nem está integrado ao produto.
-- [x] Contrato C de dispositivo de blocos para leitura/escrita multi-setor, limites, progresso parcial e propagação de erros; CTest, ASan/UBSan, C++98 e compilação P4 passaram (21/11). O backend SDMMC de runtime ainda não está integrado nem validado no device.
-- [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
-  - 🔧 Base SDHC/SDXC: geometria CSD v2 e limites de endereço testados no host; inicialização, leitura IDMAC e uma escrita CMD24 de bloco único qualificadas no Tab5. O transporte continua boot-only, não integrado ao produto (21/11).
+- [x] Contrato C de dispositivo de blocos para leitura/escrita multi-setor, limites, progresso parcial e propagação de erros; CTest, ASan/UBSan, C++98 e compilação P4 passaram (21/11).
+- [x] Backend SDMMC síncrono de runtime integrado ao boot do produto: DMA alinhado reservado no heap interno, serialização single-core e cache por região; serviço e leitura LBA0 validados no boot completo do produto, além da leitura/escrita física em tarefa MaiaRTOS (21/11).
+- [x] Protocolo de cartão SD (inicialização, leitura, escrita)
+  - [x] Base SDHC/SDXC: geometria CSD v2 e limites de endereço testados no host; inicialização, leitura IDMAC e escritas CMD24 de bloco único e do serviço de runtime qualificadas no Tab5. Produto XIP chegou a `msh>` após leitura LBA0 pelo serviço (21/11).
   - [x] Diagnóstico isolado em RAM identificou o SDHC (ACMD41, CID/RCA/CSD, seleção e estado pronto); a resposta de `CMD17` e `DATA_OVER` foram observados (20/11).
   - [x] Investigação PIO caracterizou a falha sem aceitar dados: RX_WMARK=0 tornou RXDR observável; acknowledgement W1C, espera por `DATA_OVER` e `CARDTHRCTL=0` não resolveram os 128 acessos zero/FIFO_COUNT=128; disassembly confirmou `lw` em `0x50083200` (20/11). Ver evidências de DTO/CARDTHRCTL.
   - [x] Sonda IDMAC somente de leitura passou em LBA 0 (duas vezes), LBA 1 e início da partição em LBA 32768 (duas vezes); os bytes de LBA 32768 coincidiram exatamente nas repetições e o BPB FAT32 concordou com a partição do MBR. Cache L1D foi sincronizado, ownership retornou e o runner validou capacidade e conclusão (20/11).
   - [x] O setor de boot FAT32 de backup em LBA 32774 coincidiu byte a byte com o setor principal em LBA 32768; a sonda passou a exigir 512 bytes nos dois contadores do host antes de publicar o bloco. Testes host rejeitaram 0, 511 e 513 bytes em cada contador, e a regressão física de LBA 0 passou (20/11).
   - [x] Duas leituras CMD17 consecutivas em um boot para LBA 32768 e 32774; cada transferência passou os contadores TCBCNT/TBBCNT e os buffers coincidiram byte a byte. A comparação é entre setores do mesmo cartão, não com leitor independente (20/11).
   - [x] Referência de software independente no próprio Tab5: firmware auxiliar Arduino/ESP-IDF leu os LBAs 0, 1, 32768 e 32774 sem montar filesystem; os 2048 bytes coincidiram com as capturas nativas. Flash integral restaurada/verificada; desktop e teclado confirmados pelo usuário. Mesmo controlador/cartão, sem teste com outro leitor físico (21/11).
-  - [ ] Concluir o caminho de leitura como serviço de blocos reutilizável e integrado ao produto, com cobertura mais ampla de LBAs e requisições de um ou mais setores.
+  - [x] Validar no produto Tab5 a inicialização do serviço e leitura LBA0 pela tarefa do shell; boot chegou a `msh>` sem fatal (21/11).
+  - [x] Validar o serviço de runtime em tarefa MaiaRTOS: leitura de dois setores contíguos em LBA 69318 e escrita/leitura de padrão nos mesmos dois setores; inicialização, sincronização DMA/cache e conclusão passaram (21/11).
   - [x] Qualificar fisicamente a escrita CMD24 de um bloco: protótipo boot-only passou em LBA 69318, num cluster FAT32 livre; comparação do original, gravação e releitura do padrão, restauração e releitura byte a byte passaram. Flash integral restaurada/verificada (21/11).
-  - [ ] Generalizar escrita para um ou mais setores no serviço de blocos integrado, com sincronização DMA/cache, confirmação de conclusão pelo cartão e propagação de erros/timeouts.
-  - [ ] Cobrir inicialização, limites de capacidade, concorrência, falhas e indisponibilidade/remoção do cartão nos testes apropriados ao host e ao Tab5.
+  - [x] Validar fisicamente escrita multi-setor pelo serviço de runtime, preservando e restaurando os dois setores originais; ambos os blocos foram confirmados prontos e a releitura coincidiu (21/11). O backend emite CMD24 por setor; CMD25 não foi implementado.
+  - [x] Cobrir no host inicialização sticky, timeout com progresso parcial e requisição sobreposta: o callback reentrante retorna `MAIA_SD_BUSY` sem novo acesso a MMIO; teste focado e ASan/UBSan passaram (21/11).
+  - [ ] Testar o boot do produto após falha de inicialização SDMMC e fazer fault injection/estresse no Tab5. O pinmap documenta DET como NC: remoção não pode ser identificada como `NO_MEDIA`, apenas como falha de transporte.
   - [x] Validar leitura e escrita no cartão de teste em um bloco: LBA 69318 preservado antes do teste; padrão escrito e comparado; setor original restaurado e comparado novamente. O backup dos bytes foi obtido pela referência de software no Tab5 (21/11).
-  - [ ] Considerar o driver SDMMC concluído somente quando leitura **e** escrita estiverem integradas e verificadas no Tab5, sem dependências Arduino/ESP-IDF/FreeRTOS.
+  - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; teste de estresse, falha e concorrência permanecem pendentes.
 - [ ] FatFs integrado em leitura e escrita sobre o driver nativo, sem formatação automática
 - [ ] VFS do Maia com `/sd`, incluindo leitura, criação e atualização de arquivos
 - [ ] Configurações persistentes na flash

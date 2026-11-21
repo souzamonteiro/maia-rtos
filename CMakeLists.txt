@@ -28,6 +28,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_serial_rx.c
     soc/espressif/esp32p4/soc_serial_tx.c
     soc/espressif/esp32p4/soc_timer.c
+    soc/espressif/esp32p4/soc_cache.c
     arch/riscv/stack.c
     soc/espressif/esp32p4/soc_panic.c
     soc/espressif/esp32p4/soc_board_io.c
@@ -41,6 +42,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     drivers/i2c/bitbang.c
     drivers/gpio/pi4ioe5v6408.c
     drivers/storage/sd_read.c
+    boards/m5stack/tab5/sdmmc_boot.c
     boards/m5stack/tab5/panel_reset.c
     boards/m5stack/tab5/touch_identify.c
     boards/m5stack/tab5/st7121.c
@@ -118,6 +120,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     MAIA_NATIVE_PSRAM_STARTUP_PENDING=1
     MAIA_ENABLE_CXX_INIT_ARRAY=1
     MAIA_ENABLE_COMPILER_TLS=1
+    MAIA_SDMMC_RUNTIME=1
   )
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
@@ -530,9 +533,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   option(MAIA_NATIVE_PROBE_SDMMC_CMD8 "Boot-only Tab5 SDMMC CMD0/CMD8 diagnostic" OFF)
   option(MAIA_NATIVE_PROBE_SDMMC_BLOCK0 "Boot-only Tab5 SDHC init and single-block read diagnostic" OFF)
   option(MAIA_NATIVE_PROBE_SDMMC_WRITE "Boot-only Tab5 single-block write/compare diagnostic" OFF)
+  option(MAIA_NATIVE_PROBE_SDMMC_RUNTIME "Tab5 SDMMC runtime-service read/write diagnostic" OFF)
   option(MAIA_NATIVE_PROBE_SDMMC_REPEAT "Read two SDHC LBAs consecutively after one initialization" OFF)
   set(MAIA_NATIVE_SDMMC_READ_LBA "0" CACHE STRING "SDHC LBA for the isolated Tab5 read diagnostic")
   set(MAIA_NATIVE_SDMMC_WRITE_LBA "0" CACHE STRING "SDHC LBA for the isolated Tab5 write diagnostic")
+  set(MAIA_NATIVE_SDMMC_RUNTIME_LBA "0" CACHE STRING "First SDHC LBA for the runtime-service diagnostic")
   set(MAIA_NATIVE_SDMMC_REPEAT_LBA "0" CACHE STRING "Second SDHC LBA for the consecutive-read diagnostic")
   if(MAIA_NATIVE_PROBE_SDMMC_BLOCK0 AND
      (NOT MAIA_NATIVE_SDMMC_READ_LBA MATCHES "^[0-9]+$" OR
@@ -543,6 +548,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
      (NOT MAIA_NATIVE_SDMMC_WRITE_LBA MATCHES "^[0-9]+$" OR
       MAIA_NATIVE_SDMMC_WRITE_LBA GREATER 4294967295))
     message(FATAL_ERROR "MAIA_NATIVE_SDMMC_WRITE_LBA must be in [0, 2^32-1]")
+  endif()
+  if(MAIA_NATIVE_PROBE_SDMMC_RUNTIME AND
+     (NOT MAIA_NATIVE_SDMMC_RUNTIME_LBA MATCHES "^[0-9]+$" OR
+      MAIA_NATIVE_SDMMC_RUNTIME_LBA GREATER 4294967294))
+    message(FATAL_ERROR "MAIA_NATIVE_SDMMC_RUNTIME_LBA must leave room for two blocks")
   endif()
   if(MAIA_NATIVE_PROBE_SDMMC_REPEAT AND NOT MAIA_NATIVE_PROBE_SDMMC_BLOCK0)
     message(FATAL_ERROR "Consecutive SDMMC reads require MAIA_NATIVE_PROBE_SDMMC_BLOCK0")
@@ -576,13 +586,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     message(FATAL_ERROR "Empty probe requires idle profile")
   endif()
   if(MAIA_NATIVE_PROBE_SDMMC_STATE OR MAIA_NATIVE_PROBE_SDMMC_CMD8 OR
-     MAIA_NATIVE_PROBE_SDMMC_BLOCK0 OR MAIA_NATIVE_PROBE_SDMMC_WRITE)
+     MAIA_NATIVE_PROBE_SDMMC_BLOCK0 OR MAIA_NATIVE_PROBE_SDMMC_WRITE OR
+     MAIA_NATIVE_PROBE_SDMMC_RUNTIME)
     if(MAIA_NATIVE_PROBE_SDMMC_STATE)
       set(MAIA_SDMMC_SELECTED_PROBE MAIA_NATIVE_PROBE_SDMMC_STATE)
     elseif(MAIA_NATIVE_PROBE_SDMMC_CMD8)
       set(MAIA_SDMMC_SELECTED_PROBE MAIA_NATIVE_PROBE_SDMMC_CMD8)
     elseif(MAIA_NATIVE_PROBE_SDMMC_WRITE)
       set(MAIA_SDMMC_SELECTED_PROBE MAIA_NATIVE_PROBE_SDMMC_WRITE)
+    elseif(MAIA_NATIVE_PROBE_SDMMC_RUNTIME)
+      set(MAIA_SDMMC_SELECTED_PROBE MAIA_NATIVE_PROBE_SDMMC_RUNTIME)
     else()
       set(MAIA_SDMMC_SELECTED_PROBE MAIA_NATIVE_PROBE_SDMMC_BLOCK0)
     endif()
@@ -602,6 +615,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       set(MAIA_PROBE_APP tests/hardware/native_sdmmc_cmd8_probe.c boards/m5stack/tab5/sdmmc_boot.c)
     elseif(MAIA_NATIVE_PROBE_SDMMC_WRITE)
       set(MAIA_PROBE_APP tests/hardware/native_sdmmc_write_probe.c boards/m5stack/tab5/sdmmc_boot.c drivers/storage/sd_read.c)
+    elseif(MAIA_NATIVE_PROBE_SDMMC_RUNTIME)
+      set(MAIA_PROBE_APP tests/hardware/native_sdmmc_runtime_probe.c
+        boards/m5stack/tab5/sdmmc_boot.c drivers/storage/sd_read.c
+        soc/espressif/esp32p4/soc_cache.c)
     else()
       set(MAIA_PROBE_APP tests/hardware/native_sdmmc_block0_probe.c boards/m5stack/tab5/sdmmc_boot.c drivers/storage/sd_read.c)
     endif()
@@ -711,6 +728,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_NATIVE_PROBE_SDMMC_WRITE)
     target_compile_definitions(maia_sched_probe.elf PRIVATE
       MAIA_NATIVE_SDMMC_WRITE_LBA=${MAIA_NATIVE_SDMMC_WRITE_LBA})
+  endif()
+  if(MAIA_NATIVE_PROBE_SDMMC_RUNTIME)
+    target_compile_definitions(maia_sched_probe.elf PRIVATE
+      MAIA_SDMMC_RUNTIME=1
+      MAIA_NATIVE_SDMMC_RUNTIME_LBA=${MAIA_NATIVE_SDMMC_RUNTIME_LBA})
   endif()
   if(MAIA_NATIVE_PROBE_SDMMC_REPEAT)
     target_compile_definitions(maia_sched_probe.elf PRIVATE
@@ -1558,6 +1580,8 @@ else()
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/sdmmc_cmd8_runner_test.py)
     add_test(NAME sdmmc_block0_runner_test
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/sdmmc_block0_runner_test.py)
+    add_test(NAME sdmmc_runtime_probe_test
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/sdmmc_runtime_probe_test.py)
 
     # The current shell dispatches assembler/compiler/module commands too.
     # Link their real host implementations rather than substituting stubs.

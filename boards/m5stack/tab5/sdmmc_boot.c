@@ -1,13 +1,20 @@
 /* SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  * SPDX-License-Identifier: Apache-2.0
- * Bounded, boot-only slot-0 command setup adapted from ESP-IDF f5c3654:
+ * Bounded slot-0 bring-up and IDMAC transfers adapted from ESP-IDF f5c3654:
  * esp_driver_sdmmc/src/sdmmc_host.c, sdmmc_transaction.c and
  * hal/esp32p4/include/hal/sdmmc_ll.h. No ESP-IDF or FreeRTOS runtime.
  * License: LICENSES/Apache-2.0.txt. */
 #include <maia/boards/tab5_sdmmc_boot.h>
+#include <maia/boards/tab5_sdmmc_service.h>
+#include <maia/arch/irq.h>
 #include <maia/drivers/sd_read.h>
+#include <maia/soc/esp32p4_cache.h>
 #include <maia/soc/esp32p4_regs.h>
 #include <stddef.h>
+
+#ifndef MAIA_SDMMC_RUNTIME
+#define MAIA_SDMMC_RUNTIME 0
+#endif
 
 #define HOST_BASE UINT32_C(0x50083000)
 #define HOST_CTRL (HOST_BASE + 0x00U)
@@ -104,6 +111,8 @@
 #define DMA_DATA_OFFSET (DMA_DESCRIPTOR_STORAGE_WORDS * sizeof(uint32_t))
 #define DMA_DATA_BYTES 512U
 #define DMA_STORAGE_BYTES (DMA_DATA_OFFSET + DMA_DATA_BYTES)
+#define DMA_INTERNAL_SRAM_START UINT32_C(0x4FF00000)
+#define DMA_INTERNAL_SRAM_END UINT32_C(0x4FF28000)
 #define STATUS_DATA_BUSY (UINT32_C(1) << 9)
 #define STATUS_DATA_FSM_BUSY (UINT32_C(1) << 10)
 #define OCR_VOLTAGE_MASK UINT32_C(0x00FF8000)
@@ -116,9 +125,15 @@
 #define R1_CURRENT_STATE_TRAN UINT32_C(4)
 #define R6_ERROR_MASK UINT32_C(0x0000E000)
 #define SDMMC_ACMD41_RETRIES 100U
+#define CPU_CYCLES_PER_US 400U
 
 enum { UNCLAIMED, OWNED, FAULTED };
 static unsigned state;
+static unsigned runtime_active;
+static unsigned runtime_busy;
+static uint32_t card_rca;
+static maia_sd_geometry_t card_geometry;
+static maia_sd_block_device_t service_device;
 
 #if defined(__riscv)
 #define DMA_STORAGE_ATTRIBUTES \
@@ -127,8 +142,16 @@ static unsigned state;
 #define DMA_STORAGE_ATTRIBUTES __attribute__((aligned(DMA_STORAGE_ALIGNMENT)))
 #endif
 
+#if !MAIA_SDMMC_RUNTIME
 static uint32_t sdmmc_dma_storage[DMA_STORAGE_BYTES / sizeof(uint32_t)]
     DMA_STORAGE_ATTRIBUTES;
+#endif
+static uint32_t *dma_storage =
+#if MAIA_SDMMC_RUNTIME
+    NULL;
+#else
+    sdmmc_dma_storage;
+#endif
 
 _Static_assert(DMA_STORAGE_BYTES == 640U, "unexpected SDMMC DMA storage size");
 
@@ -137,11 +160,23 @@ int maia_tab5_sdmmc_test_context(void);
 uint32_t maia_tab5_sdmmc_test_read(uintptr_t address);
 void maia_tab5_sdmmc_test_write(uintptr_t address, uint32_t value);
 void maia_tab5_sdmmc_test_reset(void);
-uint32_t *maia_tab5_sdmmc_test_dma_storage(void) { return sdmmc_dma_storage; }
-void maia_tab5_sdmmc_test_reset(void) { state = UNCLAIMED; }
+uint32_t *maia_tab5_sdmmc_test_dma_storage(void) { return dma_storage; }
+void maia_tab5_sdmmc_test_reset(void) {
+    state = UNCLAIMED;
+    runtime_active = 0U;
+    runtime_busy = 0U;
+    card_rca = 0U;
+    card_geometry.block_count = 0U;
+    service_device.initialized = 0U;
+    dma_storage = sdmmc_dma_storage;
+}
 #define boot_context maia_tab5_sdmmc_test_context
 #define read32 maia_tab5_sdmmc_test_read
 #define write32 maia_tab5_sdmmc_test_write
+static uintptr_t irq_save_local(void) { return maia_arch_irq_save(); }
+static void irq_restore_local(uintptr_t state_value) {
+    maia_arch_irq_restore(state_value);
+}
 #else
 extern int maia_probe_cache_writeback_invalidate(uint32_t map, uint32_t address, uint32_t size);
 extern uint32_t maia_probe_cache_line_size(void);
@@ -156,17 +191,21 @@ static void write32(uintptr_t address, uint32_t value) {
     MAIA_MMIO32(address) = value;
     __asm__ volatile("fence iorw, iorw" ::: "memory");
 }
+static uintptr_t irq_save_local(void) { return maia_arch_irq_save(); }
+static void irq_restore_local(uintptr_t state_value) {
+    maia_arch_irq_restore(state_value);
+}
 #endif
 
 static uintptr_t dma_storage_address(void) {
-    return (uintptr_t)sdmmc_dma_storage;
+    return (uintptr_t)dma_storage;
 }
 
 static int modify(uintptr_t address, uint32_t mask, uint32_t value);
 
 static volatile uint32_t *dma_cpu_storage(void) {
 #ifdef MAIA_SDMMC_BOOT_TEST
-    return sdmmc_dma_storage;
+    return dma_storage;
 #else
     return (volatile uint32_t *)(dma_storage_address() + DMA_UNCACHED_ALIAS_OFFSET);
 #endif
@@ -184,6 +223,17 @@ static int dma_prepare_storage(maia_sdmmc_boot_report_t *report) {
 #ifdef MAIA_SDMMC_BOOT_TEST
     report->block_dma_cache_line = DMA_STORAGE_ALIGNMENT;
     report->block_dma_cache_status = 0U;
+    return 1;
+#elif MAIA_SDMMC_RUNTIME
+    uint32_t line = maia_esp32p4_cache_line_size();
+    int status = maia_esp32p4_cache_writeback_invalidate(
+        (uint32_t)dma_storage_address(), DMA_STORAGE_BYTES);
+    report->block_dma_cache_line = line;
+    report->block_dma_cache_status = (uint32_t)status;
+    if (status != 0 || (line != 16U && line != 32U && line != 64U &&
+                        line != 128U) ||
+        (DMA_STORAGE_ALIGNMENT % line) != 0U) return 0;
+    __asm__ volatile("fence iorw, iorw" ::: "memory");
     return 1;
 #else
     uint32_t line = maia_probe_cache_line_size();
@@ -298,6 +348,26 @@ static int timer_prepare(void) {
     return timer_ticks(&ticks);
 }
 static int delay_us(uint32_t microseconds) {
+    if (runtime_active) {
+#ifdef MAIA_SDMMC_BOOT_TEST
+        extern uint32_t maia_tab5_sdmmc_test_cycle_count(void);
+        uint32_t first = maia_tab5_sdmmc_test_cycle_count();
+#else
+        uint32_t first;
+        __asm__ volatile("csrr %0, mcycle" : "=r"(first));
+#endif
+        uint32_t target = microseconds * CPU_CYCLES_PER_US;
+        for (unsigned i = 0U; i < POLL_LIMIT; ++i) {
+#ifdef MAIA_SDMMC_BOOT_TEST
+            uint32_t now = maia_tab5_sdmmc_test_cycle_count();
+#else
+            uint32_t now;
+            __asm__ volatile("csrr %0, mcycle" : "=r"(now));
+#endif
+            if ((uint32_t)(now - first) >= target) return 1;
+        }
+        return 0;
+    }
     uint32_t first;
     if (!timer_ticks(&first)) return 0;
     for (unsigned i = 0; i < POLL_LIMIT; ++i) {
@@ -754,4 +824,155 @@ maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_write_block(
     if (result != MAIA_SDMMC_BOOT_OK) return result;
     state = OWNED;
     return MAIA_SDMMC_BOOT_OK;
+}
+
+static maia_sd_result_t map_runtime_error(maia_sdmmc_boot_result_t result) {
+    switch (result) {
+    case MAIA_SDMMC_BOOT_OK:
+        return MAIA_SD_OK;
+    case MAIA_SDMMC_BOOT_INVALID:
+        return MAIA_SD_INVALID;
+    case MAIA_SDMMC_BOOT_CONTEXT:
+    case MAIA_SDMMC_BOOT_POWER:
+    case MAIA_SDMMC_BOOT_HOST_STATE:
+    case MAIA_SDMMC_BOOT_FAILED:
+        return MAIA_SD_NOT_READY;
+    case MAIA_SDMMC_BOOT_BUSY:
+        return MAIA_SD_BUSY;
+    case MAIA_SDMMC_BOOT_TIMEOUT:
+        return MAIA_SD_TIMEOUT;
+    case MAIA_SDMMC_BOOT_UNSUPPORTED:
+        return MAIA_SD_UNSUPPORTED;
+    case MAIA_SDMMC_BOOT_VERIFY:
+    case MAIA_SDMMC_BOOT_IO:
+    case MAIA_SDMMC_BOOT_RESPONSE:
+    default:
+        return MAIA_SD_IO_ERROR;
+    }
+}
+
+static maia_sd_result_t runtime_transfer(
+    void *context, uint32_t first_block, uint32_t count, uint8_t *read_buffer,
+    const uint8_t *write_buffer, uint32_t *completed_blocks) {
+    if (completed_blocks == NULL) return MAIA_SD_INVALID;
+    *completed_blocks = 0U;
+    if (context != &service_device || count == 0U ||
+        (read_buffer == NULL) == (write_buffer == NULL)) {
+        return MAIA_SD_INVALID;
+    }
+    if (state != OWNED || runtime_active == 0U) return MAIA_SD_NOT_READY;
+    if ((uint64_t)first_block >= card_geometry.block_count ||
+        (uint64_t)count > card_geometry.block_count - first_block) {
+        return MAIA_SD_OUT_OF_RANGE;
+    }
+
+    uintptr_t irq_state = irq_save_local();
+    if (state != OWNED || runtime_active == 0U) {
+        irq_restore_local(irq_state);
+        return MAIA_SD_NOT_READY;
+    }
+    if (runtime_busy != 0U) {
+        irq_restore_local(irq_state);
+        return MAIA_SD_BUSY;
+    }
+    runtime_busy = 1U;
+    irq_restore_local(irq_state);
+
+    maia_sdmmc_boot_report_t report;
+    report_clear(&report);
+    report.rca = card_rca;
+    maia_sd_result_t result = MAIA_SD_OK;
+    uint32_t transferred = 0U;
+    for (uint32_t i = 0U; i < count; ++i) {
+        uint32_t lba = first_block + i;
+        maia_sdmmc_boot_result_t boot_result = wait_transfer_ready(&report);
+        if (boot_result == MAIA_SDMMC_BOOT_OK) {
+            boot_result = transfer_block(
+                &report, lba,
+                write_buffer != NULL
+                    ? write_buffer + (size_t)i * MAIA_SD_BLOCK_BYTES : NULL,
+                read_buffer != NULL
+                    ? read_buffer + (size_t)i * MAIA_SD_BLOCK_BYTES : NULL);
+        }
+        if (boot_result != MAIA_SDMMC_BOOT_OK) {
+            result = map_runtime_error(boot_result);
+            break;
+        }
+        ++transferred;
+    }
+
+    irq_state = irq_save_local();
+    runtime_busy = 0U;
+    if (result != MAIA_SD_OK) state = FAULTED;
+    irq_restore_local(irq_state);
+    *completed_blocks = transferred;
+    return result;
+}
+
+static maia_sd_result_t runtime_read(
+    void *context, uint32_t first_block, uint32_t count, uint8_t *buffer,
+    uint32_t *completed_blocks) {
+    return runtime_transfer(context, first_block, count, buffer, NULL,
+                            completed_blocks);
+}
+
+static maia_sd_result_t runtime_write(
+    void *context, uint32_t first_block, uint32_t count, const uint8_t *buffer,
+    uint32_t *completed_blocks) {
+    return runtime_transfer(context, first_block, count, NULL, buffer,
+                            completed_blocks);
+}
+
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_service_init(
+    void *storage, size_t storage_bytes, maia_sdmmc_boot_report_t *report) {
+    if (report == NULL) return MAIA_SDMMC_BOOT_INVALID;
+    report_clear(report);
+    if (storage == NULL || storage_bytes < DMA_STORAGE_BYTES ||
+        ((uintptr_t)storage & (DMA_STORAGE_ALIGNMENT - 1U)) != 0U) {
+        return MAIA_SDMMC_BOOT_INVALID;
+    }
+    uintptr_t storage_start = (uintptr_t)storage;
+    uintptr_t report_start = (uintptr_t)report;
+    if (DMA_STORAGE_BYTES > UINTPTR_MAX - storage_start ||
+        sizeof(*report) > UINTPTR_MAX - report_start) {
+        return MAIA_SDMMC_BOOT_INVALID;
+    }
+    uintptr_t storage_end = storage_start + DMA_STORAGE_BYTES;
+    uintptr_t report_end = report_start + sizeof(*report);
+    if (storage_start < report_end && report_start < storage_end) {
+        return MAIA_SDMMC_BOOT_INVALID;
+    }
+#if MAIA_SDMMC_RUNTIME
+    if (storage_start < DMA_INTERNAL_SRAM_START ||
+        storage_start > DMA_INTERNAL_SRAM_END ||
+        storage_bytes > DMA_INTERNAL_SRAM_END - storage_start) {
+        return MAIA_SDMMC_BOOT_INVALID;
+    }
+#endif
+    if (!boot_context()) return MAIA_SDMMC_BOOT_CONTEXT;
+    if (state != UNCLAIMED) {
+        return state == OWNED ? MAIA_SDMMC_BOOT_BUSY : MAIA_SDMMC_BOOT_FAILED;
+    }
+
+    dma_storage = (uint32_t *)storage;
+    maia_sdmmc_boot_result_t result = initialize_card(report);
+    if (result == MAIA_SDMMC_BOOT_OK) result = select_card(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+
+    card_rca = report->rca;
+    card_geometry.block_count = report->block_count;
+    maia_sd_result_t device_result = maia_sd_block_device_init(
+        &service_device, &card_geometry, runtime_read, runtime_write,
+        &service_device);
+    if (device_result != MAIA_SD_OK) {
+        state = FAULTED;
+        return MAIA_SDMMC_BOOT_FAILED;
+    }
+    state = OWNED;
+    runtime_active = 1U;
+    return MAIA_SDMMC_BOOT_OK;
+}
+
+maia_sd_block_device_t *maia_tab5_sdmmc_service_device(void) {
+    return service_device.initialized == 1U ? &service_device : NULL;
 }

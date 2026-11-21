@@ -1,4 +1,6 @@
 #include <maia/console.h>
+#include <maia/arch/irq.h>
+#include <maia/boards/tab5_sdmmc_service.h>
 #include <maia/kernel.h>
 #include <maia/runtime/newlib_locks.h>
 #include <maia/soc/esp32p4_board_io.h>
@@ -82,6 +84,23 @@ static void task_telemetry_entry(void *arg) {
 
 static void task_shell_entry(void *arg) {
     (void)arg;
+    maia_sd_block_device_t *sd_device = maia_tab5_sdmmc_service_device();
+    if (sd_device != NULL) {
+        uint8_t sector[MAIA_SD_BLOCK_BYTES];
+        uint32_t completed_blocks = 0U;
+        maia_sd_result_t result = maia_sd_block_device_read(
+            sd_device, 0U, 1U, sector, &completed_blocks);
+        if (result == MAIA_SD_OK) {
+            maia_console_puts("[F2] Runtime SDMMC read LBA0 passed\n");
+        } else {
+            maia_console_puts("[F2] Runtime SDMMC read failed (error=-");
+            print_u32((uint32_t)(-(int32_t)result));
+            maia_console_puts(", completed=");
+            print_u32(completed_blocks);
+            maia_console_puts(")\n");
+        }
+    }
+
     maia_shell_engine_init();
 
     /* Yield for 60 ms so telemetry & idle tasks accumulate preemptive/cooperative ticks */
@@ -137,6 +156,27 @@ void maia_boot_main(void) {
         maia_newlib_locks_init() != MAIA_OK) {
         maia_console_puts("[F1] Runtime heap/lock initialization failed\n");
         for (;;) __asm__ volatile("wfi");
+    }
+
+    void *sdmmc_dma = maia_mem_alloc_aligned(
+        MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, MAIA_TAB5_SDMMC_DMA_ALIGNMENT);
+    if (sdmmc_dma == NULL) {
+        maia_console_puts("[F2] SDMMC DMA buffer allocation failed; boot continues\n");
+    } else {
+        maia_sdmmc_boot_report_t sdmmc_report;
+        uintptr_t irq_state = maia_arch_irq_save();
+        maia_sdmmc_boot_result_t sdmmc_result = maia_tab5_sdmmc_service_init(
+            sdmmc_dma, MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &sdmmc_report);
+        maia_arch_irq_restore(irq_state);
+        if (sdmmc_result == MAIA_SDMMC_BOOT_OK) {
+            maia_console_puts("[F2] Native SDMMC block service ready\n");
+        } else {
+            maia_console_puts("[F2] SDMMC service unavailable (error=-");
+            print_u32((uint32_t)(-(int32_t)sdmmc_result));
+            maia_console_puts(", stage=");
+            print_u32((uint32_t)sdmmc_report.completed);
+            maia_console_puts("); boot continues\n");
+        }
     }
     (void)maia_mutex_init(&g_telem_mutex);
     (void)maia_queue_init(&g_telem_queue, g_telem_qbuf, sizeof(uint32_t), 8U);

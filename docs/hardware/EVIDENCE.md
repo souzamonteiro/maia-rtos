@@ -3032,9 +3032,108 @@ cmake --build /tmp/maia-sd-block-asan --target sd_read_test -j4
 ctest --test-dir /tmp/maia-sd-block-asan --output-on-failure -R '^sd_read_test$'
 ```
 
-Results: focused CTest 2/2; ASan/UBSan 1/1; public header compiled as C++98
-with warnings-as-errors. The P4 `maia_m0.elf` target also built, compiling
-`sd_read.c`; its API has no product caller and is not hardware-integrated. No
-card access or writes were performed for this contract change. The existing
-boot-only transport still lacks runtime ownership, product cache/DMA plumbing,
-real card-removal detection and multi-block device execution.
+Results at the contract-only step: focused CTest 2/2; ASan/UBSan 1/1; public
+header compiled as C++98 with warnings-as-errors. The P4 `maia_m0.elf` target
+also built, compiling `sd_read.c`; that step had no product caller and made no
+card access. The following addendum records the subsequent runtime backend
+integration; device execution and real card-removal detection remain open.
+
+### SDMMC native runtime service — 2026-11-21
+
+The Tab5 product now links `boards/m5stack/tab5/sdmmc_boot.c` as a runtime
+block service. Core 0 initializes and selects the card before the scheduler;
+the product reserves its 640-byte, 128-byte-aligned IDMAC buffer from the
+existing internal heap. The driver validates the SRAM range, uses the
+non-cacheable alias for descriptors/data, serializes access with a
+single-core IRQ-protected busy state, and performs each block of a range with
+the already qualified CMD17/CMD24 path. Completed-block counts are preserved,
+write completion still requires CMD13 READY/TRAN, and hardware failures are
+sticky because controller/card recovery is not established.
+
+The runtime cache adapter uses the same pinned P4 ROM entry points already
+used by the isolated probes and `soc_psram_window.c`; it performs only a
+range-scoped L1D writeback/invalidate and does not initialize or reconfigure
+global cache state. Initialization runs before `maia_soc_systimer_init`; later
+waits use `mcycle` so the driver does not reuse UNIT0 after the kernel claims
+it. Product initialization errors are logged and do not stop the rest of boot.
+If initialization succeeds, the shell task attempts a read-only LBA0 transfer.
+
+The Tab5 pin map has no connected card-detect input (`DET=NC`), so the backend
+does not claim to detect physical removal or report a trustworthy
+`MAIA_SD_NO_MEDIA`; communication failures map to timeout/I/O/not-ready, then
+leave the service faulted until reset.
+
+Validation on 2026-11-21:
+
+- The focused `sd_read_test` and `tab5_sdmmc_boot_test` passed (2/2). The latter
+  now covers runtime service initialization, two-block read/write callbacks,
+  sticky initialization failure, out-of-range rejection, partial progress on a
+  later-block timeout and sticky failure after that timeout.
+- The same two tests passed with ASan/UBSan (2/2); the complete host CTest suite
+  passed (93/93).
+- The P4 `maia_m0.elf` linked, and `maia_m0_image` produced an 814,096-byte
+  five-segment XIP image with valid checksum/hash. Linker symbols show BSS
+  ending at `0x4FF1E060` and the 16 KiB boot stack ending at `0x4FF22060`,
+  within the configured `0x4FF28000` SRAM limit.
+- The legacy `maia_sched_probe_ram` SDMMC block-0 target also built and passed
+  the native runtime gate. The linker reported an RWX LOAD-segment warning;
+  that diagnostic was not loaded onto the device.
+- No device was flashed and no SD card I/O was performed in this step. Runtime
+  LBA0 read under the scheduler, runtime multi-sector writing/restoration,
+  physical fault injection and FatFs/VFS remain unqualified.
+
+## SDMMC runtime-service task read/write qualification — 2026-11-21
+
+The new RAM-only `MAIA_NATIVE_PROBE_SDMMC_RUNTIME` target initialized the
+runtime service with interrupts disabled before scheduler startup, then called
+the public block-device API from a MaiaRTOS task after the SYSTIMER scheduler
+was active. The task read two contiguous sectors beginning at LBA 69318,
+wrote a temporary two-sector pattern through one range request, and read it
+back byte-for-byte. The backend issued CMD24 once per sector; both sectors
+were confirmed ready before the request reported two completed blocks.
+
+The target LBA was the start of FAT32 cluster 97, already identified as free in
+both FAT copies. Before writing, the runner saved both original sectors and
+confirmed the first against the independently preserved 512-byte reference
+(SHA-256 `32aefed26b737027376dbc961157ae63cfaf6f34577c39d6b8aed51e4700a3c0`).
+After the pattern readback, the runner wrote the saved 1024 bytes back and
+verified both sectors byte-for-byte. No filesystem was mounted or modified.
+
+The runner captured the full 16 MiB flash twice before testing; both captures
+matched the supplied restore image. It restored and read back the complete
+flash with SHA-256
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`, then
+captured the restored MaiaRTOS boot through `msh>`. The test report, exact
+sector backup, test pattern, operation captures and flash snapshots are in
+`../../../maia-rtos-recovery/native-sdmmc-runtime-20261121/`.
+
+The host runner parser test passed, and the complete host CTest suite passed
+94/94. The host mock also triggered an overlapping request while a transfer was
+active; it returned `MAIA_SD_BUSY` without additional MMIO. The focused test
+passed with ASan/UBSan. The RAM image was validated inside the qualified
+`0x4FF00000..0x4FF28000` window before loading; it was not written to flash.
+Runtime fault injection, physical concurrency/stress, recovery after power
+loss, FatFs and VFS remain open.
+
+## Full XIP product boot with runtime SDMMC LBA0 read — 2026-11-21
+
+The current product XIP image built as an 814,096-byte ESP32-P4 image,
+entry `0x40000020`, five segments, valid checksum and validation hash; SHA-256:
+`bf889774e0e2b5a11a12792f3f5c8c70e6de54f84a6ac5d1236d97519ba34659`.
+Before the test, a fresh 16 MiB flash read matched the verified recovery image
+byte-for-byte (SHA-256
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`).
+
+`run_f0_flash_probe.py` backed up and validated the factory app, temporarily
+wrote the product at `0x10000`, and captured one boot. The serial log contains
+`[F2] Native SDMMC block service ready`, `[F2] Runtime SDMMC read LBA0 passed`,
+the shell self-test, and `msh>`; no fatal marker was observed. This run only
+read the card. The runner restored the original 2,093,696-byte app and verified
+its hash. A second full 16 MiB flash read matched the pre-test capture exactly
+with the same SHA-256.
+
+The product image, both full-flash captures, factory app backup, boot logs and
+runner report are in
+`../../../maia-rtos-recovery/native-product-sdmmc-lba0-20261121/`. The SDMMC
+initialization-failure/nonfatal path was not induced; physical card-removal
+testing is unavailable through the board's `DET=NC` pin map.
