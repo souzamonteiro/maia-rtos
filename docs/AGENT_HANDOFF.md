@@ -1896,19 +1896,25 @@ LBAs 0, 1, 32768 and 32774 were qualified on the Tab5 and compared against the
 vendor-software reference on the same controller/card. Those results remain
 diagnostic, not product-driver integration.
 
-`maia_tab5_sdmmc_boot_write_block` now implements a boot-only CMD24 prototype
-for one 512-byte block. It stages data in the reserved SRAM DMA buffer via the
+`maia_tab5_sdmmc_boot_write_block` implements a boot-only CMD24 prototype for
+one 512-byte block. It stages data in the reserved SRAM DMA buffer via the
 non-cacheable alias, enables IDMAC TX completion, checks returned descriptor
 ownership and both exact byte counters, stops DMA, and requires CMD13 to report
 READY_FOR_DATA in TRAN. The HOST-TESTED mock covers payload staging, direction,
 completion, counters, response/DMA failures, cleanup and post-write readiness.
 The host test and ESP32-P4 probe build/runtime gate pass.
 
-No physical CMD24 has been issued. A failure/time-out after the transfer may
-still have changed the card, and the diagnostic does not establish a safe
-write area. Before a device write, identify/preserve an LBA and agree on
-write/readback/restore verification. Do not format the card; leave the USB
-pendrive untouched for the later TinyUSB host phase. The read/write service,
-multi-block requests, runtime ownership, removal/error recovery, FatFs and VFS
-remain open. See `hardware/EVIDENCE.md`, `hardware/OPEN_QUESTIONS.md` and the
-F2 checklist/status.
+Physical qualification now passed on LBA 69318, the first sector of FAT32
+cluster 97, identified free in both mirrored FATs. MaiaRTOS first matched the
+saved original 512 bytes, wrote a temporary pattern, read it back exactly,
+restored the original with CMD24 and verified it again with CMD17. The test
+used a separate RAM boot per operation because the prototype retains controller
+ownership until reset. The full 16 MiB flash image was restored and read back
+byte-for-byte; the restored MaiaRTOS boot reached `msh>`. Logs, probe image and
+report: `../../maia-rtos-recovery/native-sdmmc-write-20261121-valid-image/`.
+
+This does not complete the storage driver. Multi-block requests, runtime
+ownership, concurrency, removal/error recovery, FatFs, VFS and product
+integration remain open. Do not format the card; leave the USB pendrive
+untouched for the later TinyUSB host phase. See `hardware/EVIDENCE.md`,
+`hardware/OPEN_QUESTIONS.md` and the F2 checklist/status.

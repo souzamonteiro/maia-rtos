@@ -2944,3 +2944,66 @@ SHA-256 is
 `59d37470d6a8703c64f35a8e8fa78cf3bc9045dd8744886151d48925e2a7983c`.
 Backups are outside both Git repositories. No native MaiaRTOS source was
 linked to Arduino, ESP-IDF or FreeRTOS for this test.
+
+### Native CMD24 write/read/restore test — 2026-11-21
+
+The read-only scanner found FAT32 cluster 97 free in both mirrored FATs and
+reported its first data-sector LBA as 69318 (64 sectors per cluster). The
+original 512-byte sector was saved before testing; its SHA-256 is
+`32aefed26b737027376dbc961157ae63cfaf6f34577c39d6b8aed51e4700a3c0`. A
+one-operation-per-boot MaiaRTOS RAM probe was built with
+`MAIA_NATIVE_PROBE_SDMMC_WRITE=ON`. One initial invocation passed the ELF rather
+than its `elf2image` output; esptool rejected the `0x7f` ELF magic before the
+probe ran, issued no SD command, and the full-flash restore/readback still
+matched. The corrected ESP image is 11792 bytes, SHA-256
+`b4177576cccdc23644c845bab376845eb2e3ea3287fb5bf7539d8b0b2178353f`.
+
+On the successful run, the probe's precondition read matched all 512 saved
+bytes (`result=0`, `completed=0x0d`, `reads=1`, `matches=1`). CMD24 then
+returned success with one write confirmed ready by CMD13. A separate boot read
+matched the entire temporary pattern (SHA-256
+`1234b103e02d0b3fa8c0ad5b298bf9bf7218398d2be5aa1dce98ca4980a72f2e`).
+The runner wrote the preserved original sector and a subsequent CMD17
+comparison again matched all 512 bytes; restoration passed on its first
+attempt. The pattern changed only the first sector of the already-free cluster;
+no filesystem was mounted, no FAT entry was changed, and the card was not
+formatted.
+The USB pendrive reserved for TinyUSB host testing was not accessed.
+
+Two full 16 MiB flash captures before the successful run matched the previously
+verified image (SHA-256
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`); after the
+test the complete image was restored and read back byte-for-byte. The restored
+MaiaRTOS boot capture contains `msh>`. Probe image, operation captures, flash
+snapshots and report are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-write-20261121-valid-image/`.
+
+The focused host test passed, and CMake rejected an out-of-range write LBA.
+Reproduction commands (use a new empty `--out` directory for another run):
+
+```sh
+cmake -S . -B /tmp/maia-sdmmc-write-probe-20261121 \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake \
+  -DMAIA_USE_FLASH_PRODUCT_LINKER=OFF \
+  -DMAIA_NATIVE_PROBE_SDMMC_WRITE=ON \
+  -DMAIA_NATIVE_SDMMC_WRITE_LBA=69318
+cmake --build /tmp/maia-sdmmc-write-probe-20261121 --target maia_sched_probe_ram -j4
+/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python -m esptool \
+  --chip esp32p4 elf2image \
+  --output /tmp/maia-sdmmc-write-probe-20261121/maia_sched_probe_ram.bin \
+  /tmp/maia-sdmmc-write-probe-20261121/maia_sched_probe_ram.elf
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python \
+  tests/hardware/run_sdmmc_write_probe.py \
+  --image /tmp/maia-sdmmc-write-probe-20261121/maia_sched_probe_ram.bin \
+  --original-sector /Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-sdmmc-fat-scan-20261121/free-sector-original.bin \
+  --restore-flash /Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-sdmmc-fat-scan-20261121/flash-before-a.bin \
+  --out /Volumes/External_SSD/Documentos/Projects/maia-rtos-recovery/native-sdmmc-write-20261121-valid-image \
+  --lba 69318 --port /dev/cu.usbmodem1301
+```
+
+This is hardware evidence for the boot-only single-block CMD24 path, not a
+general storage-driver qualification. Multi-block I/O, runtime ownership,
+concurrency, removal/error recovery, power interruption, FatFs, VFS and product
+integration remain untested. The auxiliary Arduino/ESP-IDF scanner was used
+only to identify the free cluster and preserve its original bytes; none of
+those runtime dependencies were linked into MaiaRTOS.

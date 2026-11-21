@@ -39,7 +39,12 @@
   mounting a filesystem; all 2048 bytes matched the validated native captures.
   Software-independent comparison is now established for those four LBAs,
   but another physical controller, broader coverage and removal/error handling
-  remain untested. The auxiliary runtime is not linked into MaiaRTOS. See captures in
+  remain untested. A boot-only MaiaRTOS CMD24 test later selected FAT32 cluster
+  97, confirmed it was free in both mirrored FATs, compared the original sector
+  at LBA 69318, wrote/read a temporary pattern, then restored and re-read the
+  original 512 bytes successfully. This does not establish a general write
+  driver; multi-block, runtime ownership, errors/removal and integration remain
+  open. The auxiliary runtime is not linked into MaiaRTOS. See captures in
   `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-repeat-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-lba1-20261120/`,
@@ -53,9 +58,8 @@
   inherited VO4 enabled in bypass, does not measure voltage, and forces card
   presence. CSD decoding and address checks remain host-tested. The owner
   confirmed the microSD is test media; legacy restoration synchronizes files
-  to `/sd`, but do not format it. A one-block native CMD24 prototype is now
-  HOST-TESTED only; no physical native write has been attempted. FatFs and VFS
-  remain untested.
+  to `/sd`, but do not format it.   The one-block native CMD24 prototype is now physically tested in a free
+  cluster with byte-for-byte restoration. FatFs and VFS remain untested.
   The auxiliary test's full 16 MiB flash backup was read twice and verified;
   restoration matched all bytes before reboot. RTS reset did not resume the
   legacy firmware in that test; the official esptool watchdog reset did, and

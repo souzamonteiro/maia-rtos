@@ -2654,17 +2654,28 @@ do FatFs.
 
 Foi implementado um protótipo boot-only de escrita CMD24 para um bloco,
 incluindo staging no alias não-cacheável, IDMAC TX, contadores exatos e
-confirmação final por CMD13. O mock host cobre payload e falhas; isso não
-representa uma escrita física qualificada.
+confirmação final por CMD13. O teste host cobre payload e falhas; o teste
+físico de um bloco também passou no Tab5.
 
-Faltam transformar leitura e escrita em uma interface reutilizável no produto
-e validar ambas as operações, inclusive requisições de múltiplos setores,
-erros, timeouts e indisponibilidade ou remoção do cartão. Nenhum CMD24 foi
-emitido no Tab5 pelo MaiaRTOS.
+O firmware de referência identificou o cluster FAT32 97 como livre nas duas
+FATs espelhadas e forneceu os bytes originais do primeiro setor, LBA 69318
+(512 bytes, SHA-256 `32aefed26b737027376dbc961157ae63cfaf6f34577c39d6b8aed51e4700a3c0`).
+Antes da escrita, o probe MaiaRTOS leu e comparou esse setor. Em boots separados,
+CMD24 gravou o padrão temporário, CMD17 confirmou igualdade exata, CMD24
+restaurou o setor original e CMD17 confirmou a restauração. O driver mantém
+posse do controlador até reset; por isso, cada operação foi executada por um
+boot RAM isolado. O cartão não foi formatado nem montado e nenhuma entrada FAT
+foi modificada.
 
-Os testes físicos usarão uma área previamente identificada do cartão de
-teste, com preservação, restauração e verificação dos dados originais.
-Os dados gravados serão lidos e comparados byte a byte; a referência externa
-de software poderá complementar a comparação. Após a qualificação do driver,
-FatFs e VFS deverão oferecer operações de leitura e escrita, sem formatação
-automática. A escrita física e a integração do driver seguem pendentes.
+O runner capturou a flash completa duas vezes antes do teste; as capturas
+coincidiram com SHA-256 `674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`.
+Após o teste, gravou e leu novamente a imagem integral; todos os 16777216 bytes
+coincidiram com esse backup, e o boot restaurado alcançou MaiaRTOS/`msh>`.
+Capturas, imagem de probe, setor original e relatório estão em
+`../../../maia-rtos-recovery/native-sdmmc-write-20261121-valid-image/`.
+
+Isso qualifica apenas a operação boot-only de um bloco e o procedimento
+controlado de teste/restauração. Ainda faltam uma interface de blocos
+reutilizável integrada ao produto, múltiplos setores, erros/timeouts/remoção,
+concorrência e validação mais ampla. FatFs e VFS permanecem pendentes; não
+formatar automaticamente.
