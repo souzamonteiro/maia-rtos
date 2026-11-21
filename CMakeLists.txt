@@ -17,6 +17,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_product.ld")
   option(MAIA_USE_FLASH_PRODUCT_LINKER
     "Use the Tab5 flash-XIP product linker and native PSRAM-backed LCD" ON)
+  option(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT
+    "DIAGNOSTIC ONLY: simulate an SDMMC CMD8 timeout during product boot" OFF)
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
     set(MAIA_LINKER_SCRIPT "${MAIA_F0_PRODUCT_LINKER_SCRIPT}")
   endif()
@@ -122,6 +124,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     MAIA_ENABLE_COMPILER_TLS=1
     MAIA_SDMMC_RUNTIME=1
   )
+  if(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT)
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT=1)
+  endif()
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
   )
@@ -1453,6 +1458,13 @@ else()
     target_compile_definitions(tab5_sdmmc_boot_test PRIVATE MAIA_SDMMC_BOOT_TEST=1)
     target_compile_options(tab5_sdmmc_boot_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_test(NAME tab5_sdmmc_boot_test COMMAND tab5_sdmmc_boot_test)
+    add_executable(tab5_sdmmc_cmd8_fault_test tests/host/tab5_sdmmc_boot_test.c
+      boards/m5stack/tab5/sdmmc_boot.c drivers/storage/sd_read.c)
+    target_include_directories(tab5_sdmmc_cmd8_fault_test PRIVATE include)
+    target_compile_definitions(tab5_sdmmc_cmd8_fault_test PRIVATE
+      MAIA_SDMMC_BOOT_TEST=1 MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT=1)
+    target_compile_options(tab5_sdmmc_cmd8_fault_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_sdmmc_cmd8_fault_test COMMAND tab5_sdmmc_cmd8_fault_test)
     add_executable(ldo3_acquire_test tests/host/ldo3_acquire_test.c
       soc/espressif/esp32p4/soc_ldo3_acquire.c soc/espressif/esp32p4/soc_ldo3_snapshot.c
       soc/espressif/esp32p4/soc_ldo3_plan.c)

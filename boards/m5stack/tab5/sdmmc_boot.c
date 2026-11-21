@@ -532,6 +532,10 @@ static maia_sdmmc_boot_result_t boot_initialize(maia_sdmmc_boot_report_t *report
     result = send_command(8U | CMD_WAIT_PREVIOUS | CMD_RESPONSE | CMD_RESPONSE_CRC,
                           UINT32_C(0x1AA), report);
     if (result != MAIA_SDMMC_BOOT_OK) return result;
+#ifdef MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT
+    /* Exercise post-claim error propagation without leaving a command in flight. */
+    return MAIA_SDMMC_BOOT_TIMEOUT;
+#endif
     report->response = read32(HOST_RESP0);
     report->host_status = read32(HOST_STATUS);
     if ((report->response & 0xFFFU) != 0x1AAU ||

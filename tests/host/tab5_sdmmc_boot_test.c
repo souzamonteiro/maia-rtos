@@ -554,6 +554,25 @@ static void sticky_block0_failure(maia_sdmmc_boot_result_t expected,
 }
 
 int main(void) {
+#ifdef MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT
+    reset_mock();
+    full_mode = 1U;
+    CHECK(maia_tab5_sdmmc_service_init(
+              maia_tab5_sdmmc_test_dma_storage(),
+              MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &report) ==
+          MAIA_SDMMC_BOOT_TIMEOUT);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_CMD0 &&
+          report.last_command == 8U && cmd0_count == 1U && cmd8_count == 1U);
+    CHECK(maia_tab5_sdmmc_service_device() == NULL);
+    unsigned writes_after_fault = writes;
+    CHECK(maia_tab5_sdmmc_service_init(
+              maia_tab5_sdmmc_test_dma_storage(),
+              MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &report) ==
+          MAIA_SDMMC_BOOT_FAILED);
+    CHECK(writes == writes_after_fault && maia_tab5_sdmmc_service_device() == NULL);
+    puts("PASS: injected CMD8 timeout leaves SDMMC service unavailable until reset");
+    return 0;
+#endif
     reset_mock();
     CHECK(maia_tab5_sdmmc_boot_cmd8(&report) == MAIA_SDMMC_BOOT_OK);
     CHECK(report.completed == MAIA_SDMMC_BOOT_CMD8 && report.last_command == 8U);

@@ -164,6 +164,9 @@ void maia_boot_main(void) {
         maia_console_puts("[F2] SDMMC DMA buffer allocation failed; boot continues\n");
     } else {
         maia_sdmmc_boot_report_t sdmmc_report;
+#ifdef MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT
+        maia_console_puts("[F2] DIAGNOSTIC: injecting SDMMC CMD8 timeout\n");
+#endif
         uintptr_t irq_state = maia_arch_irq_save();
         maia_sdmmc_boot_result_t sdmmc_result = maia_tab5_sdmmc_service_init(
             sdmmc_dma, MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &sdmmc_report);

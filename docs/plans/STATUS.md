@@ -2788,3 +2788,28 @@ Imagem, capturas, backup do app, logs e relatório estão em
 inicialização do SDMMC não foi induzida; remoção física não é detectável
 (`DET=NC`). Permanecem fault injection, concorrência/estresse, recuperação após
 perda de energia, FatFs e VFS.
+
+## F2 — Boot não fatal com falha SDMMC simulada — 2026-11-21
+
+O perfil de diagnóstico explícito `MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT=ON`
+injeta um retorno de timeout **em software depois da conclusão real do CMD8**.
+O código não envia comandos de dados ou grava setores nesse perfil. O objetivo
+é testar a propagação do erro após a aquisição do controlador, e não reproduzir
+um timeout elétrico real, um cartão ausente ou todos os estados de falha.
+O perfil é desligado por padrão e anuncia a injeção no console.
+
+No host, o teste dedicado confirmou `MAIA_SDMMC_BOOT_TIMEOUT`, estágio CMD0,
+ausência de dispositivo publicado e recusa sticky de nova inicialização sem
+mais escritas MMIO. Ambos os testes SDMMC passaram (2/2), inclusive com
+ASan/UBSan; a suíte host passou 95/95. O build normal, sem diagnóstico, gerou
+imagem idêntica àquela validada anteriormente (SHA-256
+`bf889774e0e2b5a11a12792f3f5c8c70e6de54f84a6ac5d1236d97519ba34659`).
+
+No Tab5, o produto XIP diagnóstico registrou injeção, `error=-7, stage=6`,
+continuou o boot e chegou a `qtest PASS` e `msh>` sem fatal. O runner restaurou
+o app original, cujo boot foi capturado; as leituras completas de 16 MiB antes
+e depois coincidiram byte a byte, SHA-256
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`.
+Os logs, imagem e backups estão em
+`maia-rtos-recovery/native-product-sdmmc-cmd8-fault-20261121/`. Falhas reais
+de transporte, estresse e recuperação após perda de energia permanecem abertos.

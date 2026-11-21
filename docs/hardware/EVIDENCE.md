@@ -3137,3 +3137,55 @@ runner report are in
 `../../../maia-rtos-recovery/native-product-sdmmc-lba0-20261121/`. The SDMMC
 initialization-failure/nonfatal path was not induced; physical card-removal
 testing is unavailable through the board's `DET=NC` pin map.
+
+## Product boot after an injected SDMMC error — 2026-11-21
+
+With the explicit, default-OFF CMake option
+`MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT=ON`, the SDMMC backend returns the normal
+timeout error in software immediately after CMD8 actually completes and before
+its response is processed. The diagnostic banner identifies this injection.
+The host test confirms one CMD0 and CMD8, reported timeout and CMD0 stage,
+no published block device, and a sticky refusal without further MMIO writes.
+This tests the product's failure propagation after host ownership is taken; it
+does not simulate a controller still waiting for a real response, a physical
+transport timeout, card removal, or DMA fault.
+
+The diagnostic product image, SHA-256
+`7af164556e9d59705ee447df8b22188a79c2ee6c978117963a4b690fb1d5fe35`, booted
+once on the ESP32-P4 v1.3. UART captured the diagnostic banner,
+`SDMMC service unavailable (error=-7, stage=6); boot continues`,
+`qtest PASS`, and `msh>` without a fatal marker. No data-transfer command was
+issued by this diagnostic. The recovery runner restored and verified the app;
+16 MiB full-flash captures before and after the test match byte-for-byte, with
+SHA-256 `674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`.
+The original app's boot capture also reached `msh>`. Image, logs, report and
+flash captures are preserved in
+`../../../maia-rtos-recovery/native-product-sdmmc-cmd8-fault-20261121/`.
+
+The host default and injected tests passed 2/2, including ASan/UBSan. Full
+host CTest passed 95/95. A default product rebuild with injection OFF was
+byte-for-byte identical to the previously verified product image, SHA-256
+`bf889774e0e2b5a11a12792f3f5c8c70e6de54f84a6ac5d1236d97519ba34659`.
+Physical transport faults, concurrent physical requests, stress and power-loss
+recovery are not qualified.
+
+Reproduction (the flashing runner writes and restores the factory app):
+
+```sh
+cmake -S . -B /tmp/maia-product-sdmmc-cmd8-fault \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake \
+  -DMAIA_USE_FLASH_PRODUCT_LINKER=ON \
+  -DMAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT=ON \
+  -DMAIA_ESPTOOL_EXECUTABLE=/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/esptool.py
+cmake --build /tmp/maia-product-sdmmc-cmd8-fault --target maia_m0_image -j4
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python \
+  tests/hardware/run_f0_flash_probe.py \
+  --image /tmp/maia-product-sdmmc-cmd8-fault/maia_m0.bin \
+  --out /path/to/new/recovery-directory \
+  --port /dev/cu.usbmodem1301 --capture-seconds 45 --observe-seconds 2 \
+  --marker 'msh>'
+```
+
+Separately capture and compare full flash before and after; check the diagnostic
+and error lines in the probe log rather than relying solely on the runner's
+`msh>` marker.
