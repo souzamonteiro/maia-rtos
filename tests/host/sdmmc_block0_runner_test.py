@@ -1,4 +1,4 @@
-"""Verify block-0 capture validation and the isolated RAM-runner profile."""
+"""Verify SDHC capture validation and the isolated RAM-runner profile."""
 import contextlib
 import importlib.util
 import io
@@ -15,7 +15,7 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
-def capture(lba=0):
+def capture(lba=0, repeat=False, second_lba=0):
     c_size = 121811
     csd = (0, (c_size & 0xFFFF) << 16,
            (1 << 22) | (9 << 16) | ((c_size >> 16) & 0x3F),
@@ -23,12 +23,19 @@ def capture(lba=0):
     sector = bytearray((i * 13 + 7) & 0xFF for i in range(512))
     if lba == 0:
         sector[510:512] = b'\x55\xaa'
+    second_sector = bytearray(sector)
+    if repeat and second_lba == 0:
+        second_sector[510:512] = b'\x55\xaa'
     lines = [
-        'MAIA_SDMMC_READ_PROBE schema=5 slot=0 read-only dma',
+        ('MAIA_SDMMC_READ_PROBE schema=6 slot=0 read-only dma repeat'
+         if repeat else 'MAIA_SDMMC_READ_PROBE schema=5 slot=0 read-only dma'),
         (f'SDMMC_BLOCK result=00000000 completed=0000000d command=00000011 '
          f'ocr=c0ff8000 rca=00001234 blocks_hi=00000000 blocks_lo={124735488:08x} '
-         f'lba={lba:08x} cmd17_raw=0000000c cmd17_status=00008804 response=00000900 '
-         'fifoth_before=01ff0000 fifoth=00000000 intmask=00000000 '
+         + (f'reads=00000002 lba={lba:08x} second_lba={second_lba:08x} '
+            if repeat else f'lba={lba:08x} ')
+         + 'cmd17_raw=0000000c cmd17_status=00008804 response=00000900 '
+         + ('fifoth_before=00000000 ' if repeat else 'fifoth_before=01ff0000 ')
+         + 'fifoth=00000000 intmask=00000000 '
          'cardthrctl_before=00010003 cardthrctl=00000000 '
          'cache_line=00000040 cache_status=00000000 dma_status=00000102 '
          'dma_ctrl=02000020 dma_bmod=00000082 dma_inten=00000102 '
@@ -41,17 +48,22 @@ def capture(lba=0):
          'ctype=00000000 cdetect=00000000 d0=00000e00 d3=00001e00 '
          'clk=00000e00 cmd=00000e00 out=00000400 enable=00000400 input=00000400 '
          'ctrl=00000000 bmod=00000000 idsts=00000000 idinten=00000000 '
-         'tcbc=00000000 tbbc=00000000'),
+         'tcbc=00000200 tbbc=00000200'),
     ]
     for offset in range(0, 512, 16):
         data = sector[offset:offset + 16].hex()
         lines.append(f'SDMMC_BLOCK_DATA offset={offset:08x} data={data}')
+    if repeat:
+        for offset in range(0, 512, 16):
+            data = second_sector[offset:offset + 16].hex()
+            lines.append(f'SDMMC_SECOND_BLOCK_DATA offset={offset:08x} data={data}')
     lines.append('MAIA_NATIVE_SDMMC_READ_PASS')
     return '\n'.join(lines) + '\n'
 
 
 good = capture()
 good_lba1 = capture(1)
+good_repeat = capture(32768, True, 32774)
 assert runner.evaluate_sdmmc_read(good)
 assert runner.evaluate_sdmmc_read(good, expected_lba=0)
 assert runner.evaluate_sdmmc_read(good_lba1, expected_lba=1)
@@ -59,6 +71,17 @@ assert not runner.evaluate_sdmmc_read(good_lba1, expected_lba=0)
 assert not runner.evaluate_sdmmc_read(good, expected_lba=1)
 assert not runner.evaluate_sdmmc_read(
     capture(124735488), expected_lba=124735488)
+assert runner.evaluate_sdmmc_read(
+    good_repeat, 124735488, 32768, True, 32774, True)
+assert not runner.evaluate_sdmmc_read(
+    good_repeat, 124735488, 32768, True, 32773, True)
+assert not runner.evaluate_sdmmc_read(
+    good_repeat.replace('reads=00000002', 'reads=00000001', 1),
+    124735488, 32768, True, 32774, True)
+assert not runner.evaluate_sdmmc_read(
+    good_repeat.replace('SDMMC_SECOND_BLOCK_DATA offset=00000000 data=',
+                        'SDMMC_OTHER_DATA offset=00000000 data=', 1),
+    124735488, 32768, True, 32774, True)
 assert runner.evaluate_sdmmc_block0(good)
 assert runner.evaluate_sdmmc_block0(good, 124735488)
 assert not runner.evaluate_sdmmc_block0(good, 124735487)
@@ -85,6 +108,8 @@ for old, new in [
         ('dma_dbaddr=4ff10000', 'dma_dbaddr=4ff10004'),
         ('dma_desc2=4ff10080', 'dma_desc2=4ff10100'),
         ('idsts=00000000', 'idsts=00000106'),
+        ('tcbc=00000200', 'tcbc=000001ff'),
+        ('tbbc=00000200', 'tbbc=00000000'),
         ('w3=40000000', 'w3=00000000'),
         (f'blocks_lo={124735488:08x}', f'blocks_lo={124735489:08x}'),
         ('divider=38929200', 'divider=00000000'),
@@ -137,6 +162,10 @@ with tempfile.TemporaryDirectory() as directory, patch.dict(
     assert run(['--sdmmc-block0', '--validate-only']) == 0 and not calls
     assert run(['--sdmmc-read', '--sdmmc-lba', '1', '--validate-only']) == 0 and not calls
     assert run(['--sdmmc-lba', '1', '--validate-only']) == 2 and not calls
+    assert run(['--sdmmc-read', '--sdmmc-repeat-read', '--validate-only']) == 2 and not calls
+    assert run(['--sdmmc-read', '--sdmmc-repeat-read', '--sdmmc-second-lba', '32774',
+                '--sdmmc-lba', '32768', '--sdmmc-identical-blocks',
+                '--expected-sd-block-count', '124735488', '--validate-only']) == 0 and not calls
     assert run(['--sdmmc-read', '--sdmmc-lba', str(124735488),
                 '--expected-sd-block-count', '124735488', '--validate-only']) == 2 and not calls
     assert run(['--sdmmc-block0', '--sdmmc-cmd8']) == 2 and not calls
@@ -190,6 +219,14 @@ with tempfile.TemporaryDirectory() as directory, patch.dict(
         assert run(['--sdmmc-block0', '--expected-sd-block-count', '124735488',
                     '--capture-seconds', '1']) == 0
     assert device._port.writes == [b'B'] and device._port.flushed
+    assert device.reset and device._port.closed and len(calls) == 1
+    device = Device(good_repeat)
+    with patch.object(runner.time, 'monotonic', side_effect=[0, 0, 2]):
+        assert run(['--sdmmc-read', '--sdmmc-lba', '32768',
+                    '--sdmmc-repeat-read', '--sdmmc-second-lba', '32774',
+                    '--sdmmc-identical-blocks',
+                    '--expected-sd-block-count', '124735488',
+                    '--capture-seconds', '1']) == 0
     assert device.reset and device._port.closed and len(calls) == 1
     device = Device(good_lba1)
     with patch.object(runner.time, 'monotonic', side_effect=[0, 0, 2]):

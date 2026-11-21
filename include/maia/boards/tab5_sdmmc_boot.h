@@ -52,6 +52,8 @@ typedef struct maia_sdmmc_boot_report {
     uint32_t csd[4];
     uint64_t block_count;
     uint32_t block_lba;
+    uint32_t second_block_lba;
+    uint32_t block_read_count;
     uint32_t block_raw_status;
     uint32_t block_host_status;
     uint32_t block_fifoth_before;
@@ -71,6 +73,7 @@ typedef struct maia_sdmmc_boot_report {
     uint32_t block_dma_desc2;
     uint32_t block_dma_desc3;
     uint8_t block[512];
+    uint8_t second_block[512];
 } maia_sdmmc_boot_report_t;
 
 /* Tab5 slot-0 diagnostic, core 0 before the scheduler with interrupts disabled.
@@ -96,7 +99,8 @@ maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_cmd8(maia_sdmmc_boot_report_t *rep
  * controller. The descriptor and buffer use a private, 128-byte-aligned SRAM
  * reservation, ROM cache writeback/invalidate and the P4 non-cacheable alias.
  * The 512-byte block is returned only after controller and IDMAC completion,
- * card-error checks and descriptor ownership return to the host. This is a
+ * card-error checks, descriptor ownership return, 512-byte card and DMA
+ * transfer counts, and DMA shutdown. This is a
  * one-block diagnostic, not yet a general storage driver. The LBA must fit
  * the SDHC 32-bit block-address argument and be within the decoded capacity.
  * It does not write the medium, access a filesystem, change bus width/frequency,
@@ -105,6 +109,9 @@ maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_cmd8(maia_sdmmc_boot_report_t *rep
  * as maia_tab5_sdmmc_boot_cmd8 apply. */
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block(
     maia_sdmmc_boot_report_t *report, uint64_t lba);
+
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_two_blocks(
+    maia_sdmmc_boot_report_t *report, uint64_t first_lba, uint64_t second_lba);
 
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block0(
     maia_sdmmc_boot_report_t *report);

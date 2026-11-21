@@ -7,6 +7,9 @@
 #ifndef MAIA_NATIVE_SDMMC_READ_LBA
 #define MAIA_NATIVE_SDMMC_READ_LBA 0U
 #endif
+#ifndef MAIA_NATIVE_SDMMC_REPEAT_LBA
+#define MAIA_NATIVE_SDMMC_REPEAT_LBA 0U
+#endif
 
 void maia_display_putc(char c) { (void)c; }
 void maia_display_refresh_dma_if_needed(void) { }
@@ -73,9 +76,15 @@ void maia_boot_main(void) {
     }
 
     maia_sdmmc_boot_report_t report;
+#if defined(MAIA_NATIVE_PROBE_SDMMC_REPEAT)
+    maia_console_puts("MAIA_SDMMC_READ_PROBE schema=6 slot=0 read-only dma repeat\n");
+    maia_sdmmc_boot_result_t result = maia_tab5_sdmmc_boot_read_two_blocks(
+        &report, MAIA_NATIVE_SDMMC_READ_LBA, MAIA_NATIVE_SDMMC_REPEAT_LBA);
+#else
     maia_console_puts("MAIA_SDMMC_READ_PROBE schema=5 slot=0 read-only dma\n");
     maia_sdmmc_boot_result_t result =
         maia_tab5_sdmmc_boot_read_block(&report, MAIA_NATIVE_SDMMC_READ_LBA);
+#endif
     field("SDMMC_BLOCK result=", (uint32_t)result);
     field(" completed=", (uint32_t)report.completed);
     field(" command=", report.last_command);
@@ -83,7 +92,13 @@ void maia_boot_main(void) {
     field(" rca=", report.rca);
     field(" blocks_hi=", (uint32_t)(report.block_count >> 32U));
     field(" blocks_lo=", (uint32_t)report.block_count);
+#if defined(MAIA_NATIVE_PROBE_SDMMC_REPEAT)
+    field(" reads=", report.block_read_count);
+#endif
     field(" lba=", report.block_lba);
+#if defined(MAIA_NATIVE_PROBE_SDMMC_REPEAT)
+    field(" second_lba=", report.second_block_lba);
+#endif
     field(" cmd17_raw=", report.block_raw_status);
     field(" cmd17_status=", report.block_host_status);
     field(" response=", report.response);
@@ -139,6 +154,10 @@ void maia_boot_main(void) {
 
     if (result == MAIA_SDMMC_BOOT_OK) {
         block_data("SDMMC_BLOCK_DATA", report.block, sizeof(report.block));
+#if defined(MAIA_NATIVE_PROBE_SDMMC_REPEAT)
+        block_data("SDMMC_SECOND_BLOCK_DATA",
+                   report.second_block, sizeof(report.second_block));
+#endif
         maia_console_puts("MAIA_NATIVE_SDMMC_READ_PASS\n");
     } else {
         maia_console_puts("MAIA_NATIVE_SDMMC_READ_FAIL\n");

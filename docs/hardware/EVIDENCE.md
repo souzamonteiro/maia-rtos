@@ -2768,3 +2768,149 @@ independent byte-for-byte comparison with another reader or production-driver
 readiness. No run wrote to flash or card or formatted the card. Still pending:
 an independent data comparison, broader LBA coverage, failure/removal behavior,
 driver integration, writes, FatFs/VFS, and cold power sequencing.
+
+### IDMAC byte-count checks and FAT32 backup — 2026-11-20
+
+The one-block boot diagnostic now requires both `SDHOST_TCBCNT_REG` and
+`SDHOST_TBBCNT_REG` to equal 512 after DTO, IDMAC RX and ownership return,
+before reporting success. The P4 TRM §59.13 identifies these registers as the
+CIU/card and BIU/DMA byte counters, respectively. The block is copied to the
+report only after these checks and successful DMA shutdown. Host tests inject
+0, 511 and 513 bytes for each counter, verify an explicit I/O failure, DMA
+cleanup, no published block and failure-sticky behavior. The capture runner
+also rejects post-shutdown counter values other than 512. This check is for
+the current single-transfer boot probe; counter behavior across consecutive
+transfers has not yet been qualified.
+
+The primary FAT32 boot sector previously captured at LBA 32768 identifies a
+backup boot-sector offset of 6, within the 32 reserved sectors. A new RAM-only
+image using the byte-count checks read LBA 32774. The strict runner accepted
+the transfer, with `TCBCNT=TBBCNT=0x200`, and all 512 bytes matched the earlier
+primary boot-sector capture; both SHA-256 values are
+`ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a`.
+This compares two redundant sectors of the same medium through the same
+native path, not an independent reader. A second image built from the same
+source read LBA 0; its 512 bytes matched the earlier capture, SHA-256
+`32a28faf07d55fa077b3b188b06085d4d7ee8091fa1c6f672f1ddd864c75fae5`.
+
+The images, ELF files, maps and logs are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-fat32-backup-20261120/` and
+`../../../maia-rtos-recovery/native-sdmmc-counts-lba0-20261120/`. Their image
+SHA-256 values are
+`dc1030c46fe01796ec5a2bc206b1a563a7b0281042e795cb8fe84a3bd0769e30` and
+`bba7882502a76d2128d9aa95b6e2fac202e76cd96c1284fb1a849dad9132fac4`.
+Both passed the native-runtime and L2MEM_LOW checks and `--validate-only` before
+execution. Each run used `load_ram`, sent no card or flash write commands and
+reset to the preserved application; its legacy boot may synchronize `/sd`.
+Consecutive transfers are qualified below. Independent comparison, broader
+LBA coverage, removal/error recovery and product integration remain open.
+
+### Consecutive CMD17 transfers in one boot — 2026-11-20
+
+The RAM-only probe now initializes the card once and reads LBA 32768 followed
+by LBA 32774 in the same boot. On the Tab5, both reads completed through IDMAC;
+the API checked `TCBCNT=TBBCNT=512` for each transfer, and the report recorded
+two successful reads. The two 512-byte payloads matched exactly, each with
+SHA-256
+`ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a`.
+The report's final DMA state was idle with ownership returned, and the final
+host byte counters were both `0x200`. The strict schema-6 runner accepted the
+capture.
+
+The second transfer begins with `FIFOTH=0` because the IDMAC preparation sets
+the RX threshold to zero; the schema-6 runner distinguishes this from the
+single-transfer probe's inherited pre-transfer threshold. The successful
+payload and byte-count checks establish consecutive-transfer behavior for
+these two LBAs, not broader SD-card error recovery or production integration.
+This is still a same-medium comparison of redundant FAT32 sectors, not an
+independent-reader comparison.
+
+The image, ELF, map and UART capture are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-consecutive-20261120/`; the RAM image
+SHA-256 is
+`e5c04541cd742a8a21f4752be0db7a0a2d34ed6275d1a00818e72be1efb3cbe9`.
+Build and `--validate-only` passed before the device run. The test used
+`load_ram`, sent no card or flash write commands and did not format the card.
+The runner reset to the preserved flash application afterward; its legacy
+boot may synchronize files to `/sd`. Software-independent comparison is
+qualified below. Broader LBA coverage, removal/error handling, product driver
+integration, writes, FatFs and VFS remain unqualified.
+
+Reproduction used the isolated RAM linker and the two tested LBAs:
+
+```sh
+cmake -S . -B /tmp/maia-sdmmc-repeat-build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake -DMAIA_USE_FLASH_PRODUCT_LINKER=OFF -DMAIA_NATIVE_PROBE_SDMMC_BLOCK0=ON -DMAIA_NATIVE_PROBE_SDMMC_REPEAT=ON -DMAIA_NATIVE_SDMMC_READ_LBA=32768 -DMAIA_NATIVE_SDMMC_REPEAT_LBA=32774
+cmake --build /tmp/maia-sdmmc-repeat-build --target maia_sched_probe_ram -j4
+/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python -m esptool --chip esp32p4 elf2image --output /tmp/maia-sdmmc-repeat-build/maia_sched_probe_ram.bin /tmp/maia-sdmmc-repeat-build/maia_sched_probe_ram.elf
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image /tmp/maia-sdmmc-repeat-build/maia_sched_probe_ram.bin --log /tmp/maia-sdmmc-repeat-build/probe-validated.log --sdmmc-read --sdmmc-lba 32768 --sdmmc-repeat-read --sdmmc-second-lba 32774 --sdmmc-identical-blocks --expected-sd-block-count 124735488 --capture-seconds 8
+```
+
+### Vendor-software reference and verified flash restoration — 2026-11-21
+
+The owner authorized a temporary reference firmware instead of removing the
+SD card from the keyboard-equipped Tab5. The owner's example at
+`src/MicroSD/MicroSD.ino` in the neighboring `m5stack-tab5-examples` repository
+(base revision `8ab8b1d6b8b29406f1702211e417eeccb775b19a`, Apache-2.0) informed a
+separate `src/MicroSDReference/MicroSDReference.ino`. Unlike the file-writing
+example, the reference calls `sdmmc_card_init` and `sdmmc_read_sectors` directly;
+it does not mount FatFs, open files, write sectors or format the card.
+
+It was built with installed M5Stack Arduino core 3.3.10; the application image
+reports ESP-IDF v5.5.4. The resolved board configuration selects pre-v3 P4,
+PSRAM enabled and hardware USB CDC/JTAG. Slot 0 is configured for 4 bits at
+20 MHz, with on-chip LDO4. Primary configuration source is the
+[M5Stack 3.3.10 package](https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/m5stack-3.3.10.zip):
+`libraries/SD_MMC/src/SD_MMC.cpp`, `SDMMCFS::begin`, lines 233-284, and
+`variants/m5stack_tab5/pins_arduino.h`, lines 58-61. These are external test
+dependencies, not native MaiaRTOS dependencies.
+
+The real UART capture reports capacity 124735488 sectors, sector size 512 and
+OCR `0xc0ff8000`. The host verified exactly 32 ordered 16-byte data records for
+each requested LBA, one terminal PASS, and no reference FAIL. It revalidated
+the stored native captures with the current strict runner before comparing
+every byte. All four sectors matched:
+
+| LBA | Compared bytes | SHA-256 of both native/reference data |
+|---|---:|---|
+| 0 | 512 | `32a28faf07d55fa077b3b188b06085d4d7ee8091fa1c6f672f1ddd864c75fae5` |
+| 1 | 512 | `076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560` |
+| 32768 | 512 | `ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a` |
+| 32774 | 512 | `ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a` |
+
+There were three distinct sector payloads, excluding the all-reads-return-one-
+buffer hypothesis for this sample. This is an independent software reference
+using the same controller/card, not another physical reader or production SD
+driver qualification. Broader LBA coverage, errors/removal, power sequencing
+and product integration remain open. The auxiliary firmware's failure branches
+were not physically fault-injected.
+
+Before any flash write, security information showed secure boot and flash
+encryption disabled, and `flash_id` reported 16 MiB. Two complete flash reads
+using the esptool v4.12.0 RAM stub and `--after no_reset` matched byte for byte.
+A first ROM-only read failed during packet transfer and was not accepted as
+a backup. The reference was flashed only after the full backup was verified.
+After its capture, `write_flash --flash_mode keep --flash_freq keep
+--flash_size keep 0 flash-before.bin` restored the entire original flash.
+A complete readback matched all 16777216 bytes before allowing the application
+to boot. Both backup and restored snapshot SHA-256:
+`674ce7e2efe406637f1534388bf4f70136a55c82a82824977a32268916e02e7c`.
+
+RTS reset did not resume the restored legacy firmware, and the owner initially
+reported a blank display. The official esptool `--after watchdog_reset chip_id`
+then resumed it; a serial port reopened with DTR/RTS initially deasserted
+captured display/keyboard initialization and desktop startup. The owner
+confirmed the desktop returned and the keyboard responded. Reset source:
+[esptool v4.12.0 P4 target](https://github.com/espressif/esptool/blob/v4.12.0/esptool/targets/esp32p4.py),
+`ESP32P4ROM.watchdog_reset`. Do not equate flash equality or an RTS pulse alone
+with successful application recovery. The restored legacy boot visibly
+logged synchronization of files to `/sd`; no-card-write applies to the raw
+reference firmware, not that legacy boot.
+
+Artifacts are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-vendor-reference-20261120/`:
+reference source/images/ELF, `reference-uart-reopened.log`, `comparison.json`,
+full flash snapshots and backup/restore/boot logs. The reference application
+SHA-256 is
+`59d37470d6a8703c64f35a8e8fa78cf3bc9045dd8744886151d48925e2a7983c`.
+Backups are outside both Git repositories. No native MaiaRTOS source was
+linked to Arduino, ESP-IDF or FreeRTOS for this test.

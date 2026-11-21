@@ -2575,3 +2575,72 @@ integração ao MaiaRTOS e validação de power/cold boot. Nenhuma escrita no
 cartão ou flash, formatação, FatFs ou VFS foi executada. Consulte
 [evidências](../hardware/EVIDENCE.md) e
 [questões abertas](../hardware/OPEN_QUESTIONS.md).
+
+## F2 — Contadores IDMAC e backup FAT32 — 2026-11-20
+
+A sonda passou a rejeitar uma transferência se os contadores do cartão
+`TCBCNT` ou do DMA `TBBCNT` não forem exatamente 512, e só copia o bloco ao
+relatório após o desligamento bem-sucedido do DMA. Os testes host cobrem 0,
+511 e 513 bytes em cada contador, limpeza e falha sticky; o runner também
+exige os dois contadores. No Tab5, o setor de backup FAT32 em LBA 32774,
+indicado pelo BPB, coincidiu byte a byte com o setor principal em LBA 32768.
+Uma nova leitura de LBA 0 também coincidiu com a captura anterior; ambas
+passaram com `TCBCNT=TBBCNT=0x200`. Os builds e a validação RAM passaram.
+Evidências em `maia-rtos-recovery/native-sdmmc-fat32-backup-20261120/` e
+`maia-rtos-recovery/native-sdmmc-counts-lba0-20261120/`.
+
+Os dois setores redundantes foram lidos pelo mesmo caminho, portanto não são
+uma comparação com leitor independente. As leituras consecutivas no mesmo
+boot estão qualificadas na etapa F3; falhas/remoção e integração continuam
+pendentes. As sondas não escreveram ou formataram o cartão nem gravaram flash;
+após cada reset o firmware legado pode sincronizar arquivos em `/sd`.
+
+## F3 — Leituras CMD17 consecutivas — 2026-11-20
+
+A sonda agora inicializa o cartão uma vez e lê LBA 32768 e LBA 32774 na mesma
+execução. O teste físico no Tab5 passou; as duas transferências concluíram por
+IDMAC, cada uma validada com `TCBCNT=TBBCNT=512`, e os buffers de 512 bytes
+foram idênticos (SHA-256
+`ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a`). O
+runner schema 6 valida os dois LBAs e blocos e exige igualdade neste caso FAT32.
+Testes host C e Python, build RISC-V, gate nativo/L2MEM_LOW e `--validate-only`
+passaram.
+
+Evidências e binários estão em
+`maia-rtos-recovery/native-sdmmc-consecutive-20261120/`. O teste usou
+`load_ram`, sem comandos de escrita no cartão/flash ou formatação; após a
+captura o runner reiniciou o firmware preservado, cujo boot legado pode
+sincronizar `/sd`. A referência externa de software está qualificada a seguir;
+continuam pendentes cobertura mais ampla, erros/remoção e integração ao produto.
+Escrita, FatFs e VFS continuam fora do escopo validado.
+
+## F2 — Referência externa de software SDMMC — 2026-11-21
+
+O exemplo do usuário em `../m5stack-tab5-examples/src/MicroSD/MicroSD.ino`
+serviu de referência para um novo `MicroSDReference`, separado do MaiaRTOS.
+Ele usa Arduino M5Stack 3.3.10/ESP-IDF v5.5.4 e `sdmmc_read_sectors`, com
+slot 0 configurado em 4 bits/20 MHz e LDO4, sem montar FatFs, abrir arquivos,
+escrever setores ou formatar o cartão. O firmware auxiliar foi compilado e
+executado no Tab5, sem retirar o cartão ou teclado.
+
+Os LBAs 0, 1, 32768 e 32774 coincidiram byte a byte com as capturas nativas:
+2048 bytes comparados, capacidade de 124735488 setores de 512 bytes. A
+validação verificou quantidade/ordem/offsets dos registros e três payloads
+distintos, não apenas a igualdade dos setores FAT32 redundantes. Isso é
+referência independente de software no mesmo hardware, não teste com outro
+controlador ou validação de erro/remoção.
+
+Antes da gravação autorizada, duas leituras completas da flash de 16 MiB
+coincidiram. Após o teste, a flash foi integralmente restaurada e relida:
+igualdade de todos os bytes com o backup antes do reboot. O reset RTS não
+retomou o firmware legado; o reset watchdog oficial do esptool retomou o boot,
+display/teclado e desktop. O usuário confirmou que desktop e teclado voltaram
+a funcionar. O boot legado sincronizou arquivos em `/sd`; a ausência de
+escrita aplica-se à referência SD bruta, não a esse boot legado.
+
+Fonte, binários, dumps, comparação e logs de backup/restauração estão em
+`maia-rtos-recovery/native-sdmmc-vendor-reference-20261120/`.
+A referência contém runtime Arduino/ESP-IDF/FreeRTOS apenas como instrumento
+externo de teste; nenhuma dessas dependências foi adicionada ao MaiaRTOS.
+Ainda faltam cobertura mais ampla, erros/remoção e driver de leitura integrado
+ao produto. Nenhuma escrita, FatFs ou VFS nativos foi qualificada.

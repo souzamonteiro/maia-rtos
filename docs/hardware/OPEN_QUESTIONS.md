@@ -29,12 +29,24 @@
   IDMAC probe returned LBA 0 twice, LBA 1, and partition-start LBA 32768 twice.
   Ownership returned and `RI|NIS`/`DATA_OVER` were observed; LBA 32768 returned
   a FAT32 boot sector consistent with the MBR partition entry and repeated
-  byte-for-byte. The strict runner accepted the known capacity. An independent
-  comparison and broader LBA coverage remain open. See captures in
+  byte-for-byte. The strict runner accepted the known capacity. A subsequent
+  probe checked both transfer counts at 512, read the FAT32 backup boot sector
+  at LBA 32774 and matched all 512 bytes to the earlier primary-sector capture.
+  Two CMD17 reads at LBA 32768 then 32774 have now also passed in one boot,
+  with each transfer's 512-byte counters checked and both payloads identical.
+  This was media redundancy through the same native path. A subsequent
+  auxiliary Arduino/ESP-IDF firmware read LBAs 0, 1, 32768 and 32774 without
+  mounting a filesystem; all 2048 bytes matched the validated native captures.
+  Software-independent comparison is now established for those four LBAs,
+  but another physical controller, broader coverage and removal/error handling
+  remain untested. The auxiliary runtime is not linked into MaiaRTOS. See captures in
   `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-repeat-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-lba1-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-lba32768-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-fat32-backup-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-counts-lba0-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-vendor-reference-20261120/`,
   `../../../maia-rtos-recovery/native-sdmmc-block0-dto-drain-20261120/` and
   `../../../maia-rtos-recovery/native-sdmmc-block0-cardthrctl-20261120/`.
   The diagnostic only accepts
@@ -42,6 +54,11 @@
   presence. CSD decoding and address checks remain host-tested. The owner
   confirmed the microSD is test media; legacy restoration synchronizes files
   to `/sd`, but do not format it. No native write, FatFs or VFS has been tested.
+  The auxiliary test's full 16 MiB flash backup was read twice and verified;
+  restoration matched all bytes before reboot. RTS reset did not resume the
+  legacy firmware in that test; the official esptool watchdog reset did, and
+  the owner confirmed desktop/keyboard recovery. Do not assume an RTS reset
+  alone proves that the preserved application resumed.
 - [x] **UQ-009 (Toolchain Installation & Verification — RESOLVED):** Verified `riscv32-esp-elf-gcc` (`esp-14.2.0_20241119`, `14.2.0`, SHA-256 `2bc6b93e97fbe3b5662655bafab65377a84c2850fff1f2abda97abeb91f5690b`) and `esptool.py` (`v4.12.0`, SHA-256 `8ec1e4d5736e97248bc0eac713d94fba5a002b725d74d9d4c850d570e50ded5a`) in `/Users/roberto/.espressif` and configured `cmake/toolchains/riscv32-esp32p4-elf.cmake`.
 - [x] **UQ-010 (Hardware Recovery Path — RESOLVED):** Verified non-destructive RAM execution (`esptool.py load_ram`) and automatic USB-Serial/JTAG reset (`default_reset`) on `/dev/cu.usbmodem1301`, plus early watchdog disarm (`TIMG0_WDT`, `TIMG1_WDT`, `LP_WDT`, `SWD`) in `soc/espressif/esp32p4/soc_early_init.c`.
 

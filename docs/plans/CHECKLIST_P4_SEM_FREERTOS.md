@@ -97,11 +97,14 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos, sem enviar comandos (20/11).
   - [x] Diagnóstico isolado em RAM configurou o slot 0 e executou `CMD0`/`CMD8`: conclusão de `CMD0` e resposta `CMD8` `0x1aa` em dois boots mornos (20/11). Ainda não lê setores nem está integrado ao produto.
 - [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
-  - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e verificação de endereço para `CMD17` testadas no host; falta completar inicialização, transporte de dados e validação da leitura no Tab5 (20/11).
+  - 🔧 Base de leitura SDHC/SDXC: geometria CSD v2 e limites de endereço testados no host; inicialização e leitura IDMAC qualificadas nas sondas do Tab5. Falta transformar esse diagnóstico no driver integrado e cobrir erros/remoção (21/11).
   - [x] Diagnóstico isolado em RAM identificou o SDHC (ACMD41, CID/RCA/CSD, seleção e estado pronto); a resposta de `CMD17` e `DATA_OVER` foram observados (20/11).
   - [x] Investigação PIO caracterizou a falha sem aceitar dados: RX_WMARK=0 tornou RXDR observável; acknowledgement W1C, espera por `DATA_OVER` e `CARDTHRCTL=0` não resolveram os 128 acessos zero/FIFO_COUNT=128; disassembly confirmou `lw` em `0x50083200` (20/11). Ver evidências de DTO/CARDTHRCTL.
   - [x] Sonda IDMAC somente de leitura passou em LBA 0 (duas vezes), LBA 1 e início da partição em LBA 32768 (duas vezes); os bytes de LBA 32768 coincidiram exatamente nas repetições e o BPB FAT32 concordou com a partição do MBR. Cache L1D foi sincronizado, ownership retornou e o runner validou capacidade e conclusão (20/11).
-  - [ ] Concluir o driver SD de leitura: falta comparação byte a byte com leitor independente, cobertura mais ampla de LBAs, erros/remoção e integração ao produto. As sondas de um bloco não liberam escrita, FatFs ou VFS.
+  - [x] O setor de boot FAT32 de backup em LBA 32774 coincidiu byte a byte com o setor principal em LBA 32768; a sonda passou a exigir 512 bytes nos dois contadores do host antes de publicar o bloco. Testes host rejeitaram 0, 511 e 513 bytes em cada contador, e a regressão física de LBA 0 passou (20/11).
+  - [x] Duas leituras CMD17 consecutivas em um boot para LBA 32768 e 32774; cada transferência passou os contadores TCBCNT/TBBCNT e os buffers coincidiram byte a byte. A comparação é entre setores do mesmo cartão, não com leitor independente (20/11).
+  - [x] Referência de software independente no próprio Tab5: firmware auxiliar Arduino/ESP-IDF leu os LBAs 0, 1, 32768 e 32774 sem montar filesystem; os 2048 bytes coincidiram com as capturas nativas. Flash integral restaurada/verificada; desktop e teclado confirmados pelo usuário. Mesmo controlador/cartão, sem teste com outro leitor físico (21/11).
+  - [ ] Concluir o driver SD de leitura: faltam cobertura mais ampla de LBAs, erros/remoção e integração ao produto. A referência externa não entra no MaiaRTOS; escrita, FatFs ou VFS nativos continuam não validados.
 - [ ] FatFs integrado
 - [ ] VFS do Maia com `/sd`
 - [ ] Configurações persistentes na flash
