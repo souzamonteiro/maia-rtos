@@ -2813,3 +2813,42 @@ e depois coincidiram byte a byte, SHA-256
 Os logs, imagem e backups estão em
 `maia-rtos-recovery/native-product-sdmmc-cmd8-fault-20261121/`. Falhas reais
 de transporte, estresse e recuperação após perda de energia permanecem abertos.
+
+## F2 — FatFs nativo sobre SDMMC — 2026-11-21
+
+FatFs R0.15 com patch2 foi integrado a partir de
+`components/fatfs/src` do ESP-IDF commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`; os avisos/licença de ChaN foram
+mantidos. Só o core portátil foi importado. A configuração Maia usa volume
+único de setores de 512 bytes, FAT12/16/32, nomes longos UTF-8 e não habilita
+exFAT nem `f_mkfs`. Nenhum glue VFS, FreeRTOS ou ESP-IDF foi incluído.
+
+O `diskio` próprio adapta as chamadas síncronas ao dispositivo de blocos Maia.
+O produto monta a unidade em contexto de tarefa e continua o boot em caso de
+falha; montagem nunca grava ou formata. `FF_FS_REENTRANT=0`: montagem e todas
+as operações FatFs precisam ser serializadas pelo chamador. Ainda não há VFS
+`/sd` nem API de arquivos Maia.
+
+No host, o teste usa volume FAT12 sintético em RAM: montagem de mídia inválida
+não emitiu escrita; a montagem válida não emitiu escrita; criação, atualização,
+leitura/validação e remoção de arquivo passaram. `FA_CREATE_NEW` em nome já
+existente retornou `FR_EXIST` sem escrita. `fatfs_test` passou com ASan/UBSan,
+e o CTest completo passou 96/96. Os builds P4 normal e diagnóstico geraram
+imagens XIP válidas de 816.864 e 831.840 bytes, respectivamente.
+
+No Tab5, o diagnóstico default-OFF montou o cartão e registrou
+`MAIA_FATFS_RW_PASS`: criou um nome longo com `FA_CREATE_NEW`, escreveu e
+sincronizou 700 bytes, releu/comparou, atualizou um byte, validou novamente e
+removeu o arquivo. Portanto, não sobrescreveu um arquivo existente e não
+formatou o cartão. A captura contém também a leitura SDMMC LBA0 e a montagem
+FatFs; o runner restaurou o app de fábrica e confirmou a escrita pela hash
+(`08cee753...`). O boot restaurado voltou a montar `/sd`.
+O teste removeu o arquivo temporário, mas atualizou metadados FAT e não fez
+restauração byte a byte da mídia completa.
+
+Capturas, imagem de diagnóstico, backup do app e relatório estão em
+`maia-rtos-recovery/fatfs-tab5-20261121/`; a imagem de diagnóstico tem SHA-256
+`a98fbe45dccca135bc3c4e651d69c6171a7bc5c38eaf2b006ba6952957440d83`.
+Não foi feita comparação da flash integral nesta execução. Permanecem pendentes
+VFS `/sd`, concorrência/serialização multi-tarefa, falhas reais e estresse,
+recuperação após perda de energia e transferência de arquivos por `maia.py`.

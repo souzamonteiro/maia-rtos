@@ -3,11 +3,19 @@
 #include <maia/boards/tab5_sdmmc_service.h>
 #include <maia/kernel.h>
 #include <maia/runtime/newlib_locks.h>
+#ifdef MAIA_PRODUCT_FATFS
+#include <maia/services/fatfs.h>
+#endif
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/version.h>
 #include <maia_shell/shell_engine.h>
 #include <stdint.h>
+
+#ifdef MAIA_DIAGNOSTIC_FATFS_RW
+#include "ff.h"
+#include <string.h>
+#endif
 
 extern void maia_soc_systimer_init(uint32_t tick_hz);
 
@@ -82,6 +90,133 @@ static void task_telemetry_entry(void *arg) {
     }
 }
 
+#ifdef MAIA_DIAGNOSTIC_FATFS_RW
+static void report_fatfs_diag_failure(const char *operation, FRESULT result) {
+    maia_console_puts("[F2] MAIA_FATFS_RW_FAIL ");
+    maia_console_puts(operation);
+    maia_console_puts(" result=");
+    print_u32((uint32_t)result);
+    maia_console_puts("\n");
+}
+
+static void run_fatfs_rw_diagnostic(void) {
+    static const TCHAR path[] = "0:/MaiaRTOS FatFs test.txt";
+    static uint8_t expected[700];
+    static uint8_t actual[700];
+    FIL file;
+    UINT transferred = 0U;
+    FRESULT failure = FR_OK;
+    const char *failure_operation = NULL;
+    int created = 0;
+    int opened = 0;
+
+    for (size_t i = 0U; i < sizeof(expected); ++i) {
+        expected[i] = (uint8_t)(i * 37U + 11U);
+    }
+
+    failure_operation = "create";
+    failure = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
+    if (failure != FR_OK) goto cleanup;
+    created = 1;
+    opened = 1;
+
+    failure_operation = "write";
+    failure = f_write(&file, expected, sizeof(expected), &transferred);
+    if (failure != FR_OK || transferred != sizeof(expected)) {
+        if (failure == FR_OK) failure_operation = "short-write";
+        goto cleanup;
+    }
+    failure_operation = "sync";
+    failure = f_sync(&file);
+    if (failure != FR_OK) goto cleanup;
+    failure_operation = "close-write";
+    failure = f_close(&file);
+    opened = 0;
+    if (failure != FR_OK) goto cleanup;
+
+    failure_operation = "open-read";
+    failure = f_open(&file, path, FA_READ);
+    if (failure != FR_OK) goto cleanup;
+    opened = 1;
+    failure_operation = "read";
+    transferred = 0U;
+    failure = f_read(&file, actual, sizeof(actual), &transferred);
+    if (failure != FR_OK || transferred != sizeof(actual) ||
+        memcmp(expected, actual, sizeof(expected)) != 0) {
+        if (failure == FR_OK) failure_operation = "readback-mismatch";
+        goto cleanup;
+    }
+    failure_operation = "close-read";
+    failure = f_close(&file);
+    opened = 0;
+    if (failure != FR_OK) goto cleanup;
+
+    failure_operation = "open-update";
+    failure = f_open(&file, path, FA_READ | FA_WRITE);
+    if (failure != FR_OK) goto cleanup;
+    opened = 1;
+    failure_operation = "seek-update";
+    failure = f_lseek(&file, 19U);
+    if (failure != FR_OK) goto cleanup;
+    expected[19U] ^= 0x5AU;
+    failure_operation = "update";
+    failure = f_write(&file, &expected[19U], 1U, &transferred);
+    if (failure != FR_OK || transferred != 1U) {
+        if (failure == FR_OK) failure_operation = "short-update";
+        goto cleanup;
+    }
+    failure_operation = "sync-update";
+    failure = f_sync(&file);
+    if (failure != FR_OK) goto cleanup;
+    failure_operation = "close-update";
+    failure = f_close(&file);
+    opened = 0;
+    if (failure != FR_OK) goto cleanup;
+
+    failure_operation = "open-verify";
+    failure = f_open(&file, path, FA_READ);
+    if (failure != FR_OK) goto cleanup;
+    opened = 1;
+    failure_operation = "verify";
+    transferred = 0U;
+    failure = f_read(&file, actual, sizeof(actual), &transferred);
+    if (failure != FR_OK || transferred != sizeof(actual) ||
+        memcmp(expected, actual, sizeof(expected)) != 0) {
+        if (failure == FR_OK) failure_operation = "verify-mismatch";
+        goto cleanup;
+    }
+    failure_operation = "close-verify";
+    failure = f_close(&file);
+    opened = 0;
+
+cleanup:
+    if (opened != 0) {
+        FRESULT close_result = f_close(&file);
+        opened = 0;
+        if (failure == FR_OK && close_result != FR_OK) {
+            failure = close_result;
+            failure_operation = "close-cleanup";
+        }
+    }
+    if (created != 0) {
+        FRESULT remove_result = f_unlink(path);
+        if (remove_result != FR_OK) {
+            if (failure == FR_OK) {
+                failure = remove_result;
+                failure_operation = "remove-cleanup";
+            } else {
+                report_fatfs_diag_failure("remove-cleanup", remove_result);
+            }
+        }
+    }
+    if (failure == FR_OK) {
+        maia_console_puts("[F2] MAIA_FATFS_RW_PASS create/update/read/remove\n");
+    } else {
+        report_fatfs_diag_failure(failure_operation, failure);
+    }
+}
+#endif
+
 static void task_shell_entry(void *arg) {
     (void)arg;
     maia_sd_block_device_t *sd_device = maia_tab5_sdmmc_service_device();
@@ -99,6 +234,22 @@ static void task_shell_entry(void *arg) {
             print_u32(completed_blocks);
             maia_console_puts(")\n");
         }
+
+#ifdef MAIA_PRODUCT_FATFS
+        maia_fatfs_result_t fatfs_result = maia_fatfs_mount(sd_device);
+        if (fatfs_result == MAIA_FATFS_OK) {
+            maia_console_puts("[F2] FatFs mounted; media not formatted\n");
+#ifdef MAIA_DIAGNOSTIC_FATFS_RW
+            run_fatfs_rw_diagnostic();
+#endif
+        } else if (fatfs_result == MAIA_FATFS_NO_FILESYSTEM) {
+            maia_console_puts("[F2] No FAT filesystem; media not modified\n");
+        } else {
+            maia_console_puts("[F2] FatFs mount failed (error=-");
+            print_u32((uint32_t)(-(int32_t)fatfs_result));
+            maia_console_puts(")\n");
+        }
+#endif
     }
 
     maia_shell_engine_init();

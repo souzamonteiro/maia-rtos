@@ -57,9 +57,10 @@
   The diagnostic only accepts
   inherited VO4 enabled in bypass, does not measure voltage, and forces card
   presence. CSD decoding and address checks remain host-tested. The owner
-  confirmed the microSD is test media; legacy restoration synchronizes files
-  to `/sd`, but do not format it.   The one-block native CMD24 prototype is now physically tested in a free
-  cluster with byte-for-byte restoration. FatFs and VFS remain untested.
+  confirmed the microSD is test media; do not format it. The one-block native
+  CMD24 prototype was physically tested in a free cluster with byte-for-byte
+  restoration. FatFs create/update/read/remove was later qualified on the
+  device; MaiaVFS `/sd` remains unimplemented and untested.
   The auxiliary test's full 16 MiB flash backup was read twice and verified;
   restoration matched all bytes before reboot. RTS reset did not resume the
   legacy firmware in that test; the official esptool watchdog reset did, and

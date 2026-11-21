@@ -115,7 +115,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [ ] Testar falhas reais de transporte e estresse no Tab5. O pinmap documenta DET como NC: remoção não pode ser identificada como `NO_MEDIA`, apenas como falha de transporte.
   - [x] Validar leitura e escrita no cartão de teste em um bloco: LBA 69318 preservado antes do teste; padrão escrito e comparado; setor original restaurado e comparado novamente. O backup dos bytes foi obtido pela referência de software no Tab5 (21/11).
   - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; teste de estresse, falha e concorrência permanecem pendentes.
-- [ ] FatFs integrado em leitura e escrita sobre o driver nativo, sem formatação automática
+- [x] FatFs R0.15 integrado ao SDMMC nativo: montagem sem formatar; create/update/read/remove de arquivo testados no host e no Tab5 (21/11)
 - [ ] VFS do Maia com `/sd`, incluindo leitura, criação e atualização de arquivos
 - [ ] Configurações persistentes na flash
 - [ ] Teste de estresse de leitura/escrita

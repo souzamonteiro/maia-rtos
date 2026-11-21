@@ -10,6 +10,25 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(maia_sd_read PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_library(maia_fatfs STATIC
+  third_party/fatfs/src/ff.c
+  third_party/fatfs/src/ffunicode.c
+  drivers/storage/fatfs_diskio.c
+  services/fatfs_mount.c
+)
+target_include_directories(maia_fatfs
+  PUBLIC include
+  PRIVATE third_party/fatfs/src drivers/storage
+)
+target_link_libraries(maia_fatfs PUBLIC maia_sd_read)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  set_source_files_properties(
+    drivers/storage/fatfs_diskio.c
+    services/fatfs_mount.c
+    PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic;-Werror"
+  )
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
@@ -19,6 +38,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "Use the Tab5 flash-XIP product linker and native PSRAM-backed LCD" ON)
   option(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT
     "DIAGNOSTIC ONLY: simulate an SDMMC CMD8 timeout during product boot" OFF)
+  option(MAIA_DIAGNOSTIC_FATFS_RW
+    "DIAGNOSTIC ONLY: create, update, read, and remove a temporary FatFs file" OFF)
+  if(MAIA_DIAGNOSTIC_FATFS_RW AND NOT MAIA_USE_FLASH_PRODUCT_LINKER)
+    message(FATAL_ERROR "MAIA_DIAGNOSTIC_FATFS_RW requires the flash-XIP product")
+  endif()
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
     set(MAIA_LINKER_SCRIPT "${MAIA_F0_PRODUCT_LINKER_SCRIPT}")
   endif()
@@ -117,6 +141,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     lib/maiaregex
     lib/maiaglob
   )
+  if(MAIA_USE_FLASH_PRODUCT_LINKER)
+    target_link_libraries(maia_m0.elf PRIVATE maia_fatfs)
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_FATFS=1)
+  endif()
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
   target_compile_definitions(maia_m0.elf PRIVATE
     MAIA_NATIVE_PSRAM_STARTUP_PENDING=1
@@ -126,6 +154,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   )
   if(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT=1)
+  endif()
+  if(MAIA_DIAGNOSTIC_FATFS_RW)
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_FATFS_RW=1)
+    target_include_directories(maia_m0.elf PRIVATE third_party/fatfs/src)
   endif()
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
@@ -1113,6 +1145,14 @@ else()
       target_compile_options(sd_read_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME sd_read_test COMMAND sd_read_test)
+
+    add_executable(fatfs_test tests/host/fatfs_test.c)
+    target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
+    target_link_libraries(fatfs_test PRIVATE maia_fatfs)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(fatfs_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME fatfs_test COMMAND fatfs_test)
 
     add_executable(kernel_mvp_test
       tests/host/kernel_mvp_test.c

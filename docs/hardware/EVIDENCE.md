@@ -3189,3 +3189,56 @@ PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env
 Separately capture and compare full flash before and after; check the diagnostic
 and error lines in the probe log rather than relying solely on the runner's
 `msh>` marker.
+
+## FatFs native mount and file I/O — 2026-11-21
+
+FatFs R0.15 with Espressif patch2 was taken from ESP-IDF v5.4.2 commit
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`, path
+`components/fatfs/src`. The imported core retains ChaN's copyright and
+redistribution notices. MaiaRTOS uses only `ff.c`, `ff.h`, `ffunicode.c`, and
+`diskio.h`; it supplies its own `ffconf.h` and `diskio` adapter. ESP-IDF VFS,
+FreeRTOS synchronization, `sdkconfig.h`, and ESP-IDF disk glue are excluded.
+`FF_USE_MKFS=0`; exFAT is disabled; long filenames use UTF-8. FatFs is not
+reentrant in this configuration, so callers must serialize all operations.
+
+Host validation used a synthetic FAT12 image in RAM. The invalid-image mount
+returned `MAIA_FATFS_NO_FILESYSTEM` with zero writes. Mounting the valid image
+also made zero writes. The test then created a long-name file, wrote/synced 700
+bytes, read and compared it, updated one byte, verified the updated contents,
+and removed the file. Repeating `FA_CREATE_NEW` for the existing path returned
+`FR_EXIST` without a write. The focused test passed under ASan/UBSan; full CTest
+passed 96/96.
+
+The normal P4 product image was 816,864 bytes (SHA-256
+`51aa400b501e6350c8ca8c362f2d3c1ac4f3c85aefd055a79cba8bc96970e5fc`).
+The diagnostic image, built with default-OFF option
+`MAIA_DIAGNOSTIC_FATFS_RW=ON`, was 831,840 bytes and passed image validation
+(SHA-256
+`a98fbe45dccca135bc3c4e651d69c6171a7bc5c38eaf2b006ba6952957440d83`).
+
+On the Tab5, the diagnostic reported:
+
+```text
+[F2] Runtime SDMMC read LBA0 passed
+[F2] FatFs mounted; media not formatted
+[F2] MAIA_FATFS_RW_PASS create/update/read/remove
+```
+
+The diagnostic uses `FA_CREATE_NEW` for
+`0:/MaiaRTOS FatFs test.txt`; if that name already exists, it exits without
+changing or deleting it. It wrote and synchronized 700 bytes, read and
+compared them, updated byte 19, read and compared again, and removed the file
+before reporting PASS. The runner report records `probe_pass=true`,
+`restore_verified=true`, and no fatal marker. It restored the factory app and
+verified its app hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`; the
+restored capture shows the legacy app mounting `/sd`. The test file was
+removed, but normal FAT metadata sectors were updated; no byte-for-byte
+restoration of the complete SD card was made. No full-flash comparison was
+made in this run.
+
+Image, probe/restore logs, app backup and report:
+`../../../maia-rtos-recovery/fatfs-tab5-20261121/`. This qualifies the tested
+single-task FatFs path, not MaiaVFS `/sd`, concurrent access, stress,
+transport-failure recovery, power-loss recovery, or file transfer through
+`maia.py`. No format command is enabled or called.
