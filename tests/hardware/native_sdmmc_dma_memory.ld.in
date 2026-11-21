@@ -1,0 +1,14 @@
+    /* Boot-only SDMMC IDMAC storage, outside startup-cleared BSS. */
+    .maia_sdmmc_dma (NOLOAD) : ALIGN(128)
+    {
+        __maia_sdmmc_dma_start = ABSOLUTE(.);
+        KEEP(*(.maia_sdmmc_dma))
+        . = ALIGN(128);
+        __maia_sdmmc_dma_end = ABSOLUTE(.);
+    } > L2MEM_LOW
+    ASSERT(__maia_sdmmc_dma_end - __maia_sdmmc_dma_start == 640, "unexpected SDMMC DMA reservation")
+    ASSERT(__bss_end <= __maia_sdmmc_dma_start, "SDMMC DMA storage overlaps BSS")
+    ASSERT(__maia_sdmmc_dma_end <= __stack_bottom, "SDMMC DMA storage overlaps stack")
+    ASSERT(__maia_sdmmc_dma_end <= 0x4FF28000, "SDMMC DMA storage exceeds L2MEM_LOW")
+    PROVIDE(maia_probe_cache_writeback_invalidate = 0x4FC003FC);
+    PROVIDE(maia_probe_cache_line_size = 0x4FC003C8);

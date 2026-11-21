@@ -10,15 +10,38 @@
 - [ ] **UQ-008 (Tab5 Peripheral Power & Reset Sequencing):** Exact `PI4IOE5V6408` I2C0 (GPIO31/GPIO32) expander I2C addresses and bit masks for LCD backlight, MIPI-DSI bridge (`ILI9881C` / `ST7123`), touch (`GT911` / `ST7123`), audio (`ES8388` / `ES7210`), and SD card slot power rails.
 - [ ] **SDMMC native bring-up and media safety:** Verify Tab5 slot power routing,
   physical LDO4 voltage and cold power-on sequence, runtime ownership, and
-  DMA/cache requirements. The boot-only RAM diagnostic configured the
-  controller and received `CMD8` `0x1aa` in two warm resets; it only accepts
+  DMA/cache requirements. The boot-only RAM diagnostic completed `ACMD41`,
+  obtained CID/RCA/CSD, selected the card and observed transfer-ready status.
+  `CMD17` reported command/data completion without controller error bits, but
+  128 PIO reads returned all zeroes and FIFO status remained non-empty (final
+  count 128). A follow-up lowered RX_WMARK from 511 to 0 and observed RXDR,
+  then acknowledged RXDR as W1C; reads remained zero and FIFO_COUNT was still
+  inconsistent. `CTRL=0`, `BMOD=0`, `TCBCNT=0x200`, and `TBBCNT=0` were also
+  captured, but do not explain the FIFO behavior. No sector was accepted or
+  compared to an independent reference. A later RAM-only probe left RX_WMARK
+  unchanged, masked interrupts, waited for DATA_OVER, then read all 128 words;
+  they were still zero and FIFO_COUNT remained 128. Disassembly confirms the
+  32-bit load targets `SDHOST_BASE+0x200`, so neither early reads nor an
+  incorrect generated FIFO address explains the failure. The TRM-required
+  `CARDTHRCTL` configuration was also explicitly set to zero; its value was
+  already zero before the write and the failure was unchanged. Native read
+  support is not established as a production driver. A later RAM-only
+  IDMAC probe returned LBA 0 twice, LBA 1, and partition-start LBA 32768 twice.
+  Ownership returned and `RI|NIS`/`DATA_OVER` were observed; LBA 32768 returned
+  a FAT32 boot sector consistent with the MBR partition entry and repeated
+  byte-for-byte. The strict runner accepted the known capacity. An independent
+  comparison and broader LBA coverage remain open. See captures in
+  `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-block0-idmac-repeat-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-lba1-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-lba32768-20261120/`,
+  `../../../maia-rtos-recovery/native-sdmmc-block0-dto-drain-20261120/` and
+  `../../../maia-rtos-recovery/native-sdmmc-block0-cardthrctl-20261120/`.
+  The diagnostic only accepts
   inherited VO4 enabled in bypass, does not measure voltage, and forces card
-  presence. Complete `ACMD41`, identification/CSD and selection, then compare
-  native `CMD17` data against an independent reference before claiming read
-  support. CSD decoding and `CMD17` address checks remain host-tested only.
-  The owner confirmed the microSD is test media; legacy restoration synchronizes
-  files to `/sd`, but do not format it. No native sector transfer, write,
-  FatFs or VFS has been tested.
+  presence. CSD decoding and address checks remain host-tested. The owner
+  confirmed the microSD is test media; legacy restoration synchronizes files
+  to `/sd`, but do not format it. No native write, FatFs or VFS has been tested.
 - [x] **UQ-009 (Toolchain Installation & Verification — RESOLVED):** Verified `riscv32-esp-elf-gcc` (`esp-14.2.0_20241119`, `14.2.0`, SHA-256 `2bc6b93e97fbe3b5662655bafab65377a84c2850fff1f2abda97abeb91f5690b`) and `esptool.py` (`v4.12.0`, SHA-256 `8ec1e4d5736e97248bc0eac713d94fba5a002b725d74d9d4c850d570e50ded5a`) in `/Users/roberto/.espressif` and configured `cmake/toolchains/riscv32-esp32p4-elf.cmake`.
 - [x] **UQ-010 (Hardware Recovery Path — RESOLVED):** Verified non-destructive RAM execution (`esptool.py load_ram`) and automatic USB-Serial/JTAG reset (`default_reset`) on `/dev/cu.usbmodem1301`, plus early watchdog disarm (`TIMG0_WDT`, `TIMG1_WDT`, `LP_WDT`, `SWD`) in `soc/espressif/esp32p4/soc_early_init.c`.
 

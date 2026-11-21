@@ -2481,5 +2481,97 @@ A suíte host passou 92/92; os três testes SD passaram com ASan/UBSan.
 Referências, comandos, hashes e capturas estão em
 [evidências](../hardware/EVIDENCE.md) e
 `maia-rtos-recovery/native-sdmmc-cmd8-20261120/`.
-Permanecem pendentes `ACMD41`, identificação/CSD, seleção, leitura `CMD17`,
-DMA/coerência, escrita, FatFs, VFS e boot frio.
+Naquele checkpoint, `ACMD41`, identificação/CSD, seleção e leitura `CMD17`
+permaneciam pendentes; o resultado da etapa seguinte está registrado abaixo.
+DMA/coerência, escrita, FatFs, VFS e boot frio continuam pendentes.
+
+## F2 diagnóstico SDHC e bloqueio PIO — 2026-11-20
+
+Uma sonda somente de diagnóstico, carregada em RAM, avançou a inicialização
+do cartão no Tab5: `ACMD41` retornou OCR `0xc0ff8000`, CID/RCA/CSD foram lidos,
+RCA `0xaaaa` foi atribuído, a capacidade CSD calculada foi `124735488` blocos
+e `CMD7`/`CMD13` confirmaram o estado selecionado/pronto. O `CMD17` do bloco 0
+respondeu R1 `0x900`; `RINTSTS=0x0c` indicou `CMD_DONE|DATA_OVER`, sem bits de
+erro do controlador.
+
+A leitura PIO não foi validada. A instrumentação observou um FIFO inicialmente
+com uma posição preenchida; após a primeira e a 128.ª leitura, o status ainda
+mostrava contagem 1 e `FIFO_EMPTY=0`. Os 128 acessos a `BUFFIFO` retornaram
+zeroes; após `DATA_OVER`, `STATUS=0x01008900` indicava contagem 128 e FIFO não
+vazio. O bloco capturado não contém o marcador `0x55aa`; por isso não houve
+`PASS`, aceitação dos dados nem comparação independente. Uma tentativa com
+fences explícitas de I/O ao redor dos acessos não alterou a captura e foi
+removida do código. A causa do FIFO/leitura ainda precisa ser identificada.
+
+As capturas instrumentadas estão em
+`maia-rtos-recovery/native-sdmmc-block0-20261120/probe-block0-retry2.log`,
+`probe-block0-retry3.log` e `probe-block0-retry4.log`; a primeira captura
+rejeitada por handshake permanece preservada. O runner carregou somente em
+RAM e não emitiu comandos de escrita ao cartão ou à flash. Após cada execução
+o runner resetou para o firmware original, que pode sincronizar arquivos em
+`/sd`; isso não é evidência de escrita pela sonda.
+
+Os três testes focados (`tab5_sdmmc_boot_test`, `sdmmc_cmd8_runner_test` e
+`sdmmc_block0_runner_test`) e a suíte host completa (93/93) passaram; o teste C
+SD também passou com ASan/UBSan (LeakSanitizer indisponível nesta plataforma).
+O probe cruzado compilou, passou o gate do runtime nativo e foi validado na
+janela L2MEM_LOW. Uma tentativa RAM-only baixou `RX_WMARK` de 511 para 0 e
+habilitou somente RXDR no `INTMASK`; RXDR foi observado, mas 128 leituras ainda
+retornaram zero e o `FIFO_COUNT` continuou inconsistente. A tentativa terminou
+em erro de I/O, sem aceitar o setor. Outra tentativa passou a reconhecer RXDR
+como W1C e capturou `CTRL=0`, `BMOD=0`, `TCBCNT=0x200` e `TBBCNT=0`; o status
+imediatamente após o acknowledgement ainda continha RXDR e os dados/FIFO
+permaneceram iguais. O detalhe e as capturas estão em
+[evidências](../hardware/EVIDENCE.md).
+
+Uma nova tentativa isolada aguardou `DATA_OVER` antes de qualquer leitura,
+mantendo `RX_WMARK=511` e `INTMASK=0`. Mesmo assim, 128 leituras de 32 bits
+retornaram zero e `FIFO_COUNT` permaneceu em 128 (`STATUS=0x01008900`) antes e
+depois da drenagem. A disassembly confirma o acesso `lw` ao endereço
+`0x50083200`; portanto, ler antes de `DATA_OVER` e um erro óbvio de endereço/
+geração do acesso não explicam o bloqueio. O setor continua não validado.
+Captura e binários preservados em
+`maia-rtos-recovery/native-sdmmc-block0-dto-drain-20261120/`.
+
+O TRM também exige configurar `CARDTHRCTL` para transferência de dados. A
+sonda passou a limpar o enable e o threshold de leitura; o valor lido antes e
+depois já era zero, e a transferência permaneceu idêntica (128 palavras zero,
+contagem 128). Portanto, esse campo foi coberto conforme a especificação, mas
+não explica o bloqueio. Captura em
+`maia-rtos-recovery/native-sdmmc-block0-cardthrctl-20261120/`.
+
+Permanecem pendentes a causa do acesso/count do FIFO PIO, a comparação
+independente do bloco recebido por DMA, integração ao produto, escrita,
+FatFs/VFS e power/cold boot. A leitura em múltiplas LBAs está registrada abaixo.
+Ver também
+[questões abertas](../hardware/OPEN_QUESTIONS.md).
+
+## F2 — Sonda de leitura IDMAC — 2026-11-20
+
+O caminho PIO permaneceu sem dados e não foi usado para declarar sucesso. Uma
+sonda isolada agora usa o IDMAC interno, com descritor/buffer em reserva `NOLOAD`
+fora de BSS/stack, alinhamento de 128 bytes, sincronização L1D pela ROM e acesso
+à CPU pelo alias não-cacheável. Testes host cobrem a preparação do descritor,
+conclusão, erros de DMA, timeout e falha de ownership; o runner valida estrutura,
+capacidade conhecida e trailer MBR.
+
+O probe/API agora aceita um LBA SDHC, rejeitando endereço acima de 32 bits e
+fora da capacidade CSD antes de selecionar o cartão. No Tab5, leituras RAM-only
+passaram em LBA 0 (duas vezes), LBA 1 e LBA 32768 (início da partição no MBR,
+duas vezes). LBA 1 retornou um bloco de zeros; LBA 32768 retornou um setor de
+boot FAT32 com `EB 58 90` e trailer `55aa`. O MBR e o BPB concordaram no início
+e no tamanho da partição, e as duas capturas de LBA 32768 foram idênticas
+(SHA-256 `ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a`).
+Os testes host cobrem argumento, payloads, limite de capacidade e falha
+sticky; o runner valida LBA, geometria e captura. Build RISC-V passou o gate
+nativo/L2MEM_LOW e a imagem para LBA 32768 passou `--validate-only`. Imagens e
+capturas estão em `maia-rtos-recovery/native-sdmmc-lba1-20261120/` e
+`maia-rtos-recovery/native-sdmmc-lba32768-20261120/`.
+
+Isso valida repetibilidade e coerência de leitura em múltiplos LBAs, não uma
+comparação com leitor independente nem o driver de armazenamento. Ainda faltam
+comparação externa, cobertura mais ampla, recuperação de erro/remoção,
+integração ao MaiaRTOS e validação de power/cold boot. Nenhuma escrita no
+cartão ou flash, formatação, FatFs ou VFS foi executada. Consulte
+[evidências](../hardware/EVIDENCE.md) e
+[questões abertas](../hardware/OPEN_QUESTIONS.md).

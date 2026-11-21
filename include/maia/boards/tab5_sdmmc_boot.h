@@ -18,7 +18,8 @@ typedef enum maia_sdmmc_boot_result {
     MAIA_SDMMC_BOOT_TIMEOUT = -7,
     MAIA_SDMMC_BOOT_IO = -8,
     MAIA_SDMMC_BOOT_RESPONSE = -9,
-    MAIA_SDMMC_BOOT_FAILED = -10
+    MAIA_SDMMC_BOOT_FAILED = -10,
+    MAIA_SDMMC_BOOT_UNSUPPORTED = -11
 } maia_sdmmc_boot_result_t;
 
 typedef enum maia_sdmmc_boot_stage {
@@ -29,7 +30,13 @@ typedef enum maia_sdmmc_boot_stage {
     MAIA_SDMMC_BOOT_RESET,
     MAIA_SDMMC_BOOT_CLOCK,
     MAIA_SDMMC_BOOT_CMD0,
-    MAIA_SDMMC_BOOT_CMD8
+    MAIA_SDMMC_BOOT_CMD8,
+    MAIA_SDMMC_BOOT_OCR,
+    MAIA_SDMMC_BOOT_CID,
+    MAIA_SDMMC_BOOT_RCA,
+    MAIA_SDMMC_BOOT_CSD,
+    MAIA_SDMMC_BOOT_SELECTED,
+    MAIA_SDMMC_BOOT_BLOCK
 } maia_sdmmc_boot_stage_t;
 
 typedef struct maia_sdmmc_boot_report {
@@ -39,6 +46,31 @@ typedef struct maia_sdmmc_boot_report {
     uint32_t raw_status;
     uint32_t response;
     uint32_t host_status;
+    uint32_t ocr;
+    uint32_t rca;
+    uint32_t cid[4];
+    uint32_t csd[4];
+    uint64_t block_count;
+    uint32_t block_lba;
+    uint32_t block_raw_status;
+    uint32_t block_host_status;
+    uint32_t block_fifoth_before;
+    uint32_t block_fifoth;
+    uint32_t block_intmask;
+    uint32_t block_cardthrctl_before;
+    uint32_t block_cardthrctl;
+    uint32_t block_dma_cache_line;
+    uint32_t block_dma_cache_status;
+    uint32_t block_dma_status;
+    uint32_t block_dma_ctrl;
+    uint32_t block_dma_bmod;
+    uint32_t block_dma_inten;
+    uint32_t block_dma_dbaddr;
+    uint32_t block_dma_desc0;
+    uint32_t block_dma_desc1;
+    uint32_t block_dma_desc2;
+    uint32_t block_dma_desc3;
+    uint8_t block[512];
 } maia_sdmmc_boot_report_t;
 
 /* Tab5 slot-0 diagnostic, core 0 before the scheduler with interrupts disabled.
@@ -57,6 +89,25 @@ typedef struct maia_sdmmc_boot_report {
  * initialized for valid pointers and records the last completed stage/status.
  * Not ISR-safe or SMP-safe. */
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_cmd8(maia_sdmmc_boot_report_t *report);
+
+/* Isolated read-only Tab5 slot-0 bring-up. Performs CMD0/CMD8, bounded
+ * ACMD41, CID/RCA/CSD identification, selects the card, validates SDHC/SDXC
+ * geometry and reads exactly one caller-selected LBA using the internal DMA
+ * controller. The descriptor and buffer use a private, 128-byte-aligned SRAM
+ * reservation, ROM cache writeback/invalidate and the P4 non-cacheable alias.
+ * The 512-byte block is returned only after controller and IDMAC completion,
+ * card-error checks and descriptor ownership return to the host. This is a
+ * one-block diagnostic, not yet a general storage driver. The LBA must fit
+ * the SDHC 32-bit block-address argument and be within the decoded capacity.
+ * It does not write the medium, access a filesystem, change bus width/frequency,
+ * or initialize VO4. Same boot-context,
+ * exclusive-ownership, failure-sticky, timeout and no-teardown constraints
+ * as maia_tab5_sdmmc_boot_cmd8 apply. */
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block(
+    maia_sdmmc_boot_report_t *report, uint64_t lba);
+
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block0(
+    maia_sdmmc_boot_report_t *report);
 
 #ifdef __cplusplus
 }

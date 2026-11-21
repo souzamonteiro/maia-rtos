@@ -2529,6 +2529,242 @@ cmake --build /tmp/maia-sd-sanitized --target tab5_sdmmc_boot_test sdmmc_snapsho
 PYTHONDONTWRITEBYTECODE=1 ctest --test-dir /tmp/maia-sd-sanitized --output-on-failure -R '^(tab5_sdmmc_boot_test|sdmmc_snapshot_test|sd_read_test)$'
 ```
 
-Outstanding: `ACMD41`, actual identification/CSD and selection, `CMD17` with
-independent comparison, failure/removal behavior, physical power/cold boot,
-DMA/cache coherence, writes, FatFs/VFS and integration into the product.
+### Native SDHC identification and PIO block-0 attempt — 2026-11-20
+
+The separate RAM probe advanced past `CMD8`: OCR was `0xc0ff8000`; CID was
+`220197df 80599084 43363447 03534453`; RCA was `0xaaaa`; CSD
+`0a4040df dbd37f80 5b590001 400e0032` decoded to `124735488` blocks, matching
+the legacy-reported capacity. `CMD7` selection and `CMD13` ready/transfer-state
+checks passed.
+
+`CMD17` for block 0 returned R1 `0x900`; raw status `0x0c` contained
+`CMD_DONE|DATA_OVER` and no controller data-error bits. This is not sufficient
+to accept data. The PIO probe made 128 32-bit reads from `SDHOST_BUFFIFO` at
+`SDHOST_BASE+0x200`; all returned zero. Before the first read the observed FIFO
+count was 1; status immediately after the first and last reads remained
+`0x00028d00` (count 1, not empty). Final status after `DATA_OVER` was
+`0x01008900` (count 128, not empty). The emitted block was all zeroes and did
+not contain the expected sector trailer, so the strict runner rejected the
+capture. No native block was accepted and there was no independent data
+comparison. Do not mark the read driver complete. The ESP32-P4 TRM chapter 59
+defines `STATUS.FIFO_COUNT` at bits 29:17 as filled FIFO locations and
+`BUFFIFO` at offset `0x200` as the software data port; the observed non-decrement
+and zero data are not explained by those register definitions.
+
+Captures:
+
+- [retry 1](../../../maia-rtos-recovery/native-sdmmc-block0-20261120/probe-block0-retry1.log):
+  initial FIFO check failed after identification.
+- [retry 2](../../../maia-rtos-recovery/native-sdmmc-block0-20261120/probe-block0-retry2.log):
+  PIO data/count instrumentation; 128 zero words.
+- [retry 3](../../../maia-rtos-recovery/native-sdmmc-block0-20261120/probe-block0-retry3.log):
+  status sampled after first and last read; FIFO count stayed at 1.
+- [retry 4](../../../maia-rtos-recovery/native-sdmmc-block0-20261120/probe-block0-retry4.log):
+  explicit I/O fences made no observed difference; the experimental fences
+  were removed from the source.
+
+All runs used RAM loading, no flash-write command, and no card write command.
+The runner reset to the preserved flash application after capture; the original
+firmware may synchronize files to `/sd`. The test medium was not formatted.
+The focused host tests and complete 93/93 host suite passed; the SDMMC C test
+passed ASan/UBSan with LeakSanitizer disabled because it is unsupported on this
+platform. Native-runtime/RAM-window gates also passed. The immediate blocker
+is understanding why reads from the documented FIFO port return zero without
+reducing its reported count. Outstanding: valid `CMD17` data and an independent
+comparison, failure/removal behavior, physical power/cold boot, DMA/cache
+coherence, writes, FatFs/VFS and product integration.
+
+### RX-watermark follow-up — 2026-11-20
+
+The next RAM-only run lowered `FIFOTH.RX_WMARK` from the inherited value 511
+(`FIFOTH=0x01ff0000`) to 0 and set `INTMASK` to RXDR only (`0x20`), with global
+interrupts still disabled. This made RXDR observable: raw status during the
+first and last FIFO reads was `0x24` (`CMD_DONE|RXDR`). It did not fix the
+transfer. `CMD17` returned R1 `0x900`; 128 reads still returned zero. The
+reported FIFO count stayed at 1 after the first and last accesses
+(`STATUS=0x00028d01`), then was 128 at transfer completion
+(`STATUS=0x01008901`); the final result was `MAIA_SDMMC_BOOT_IO`. The strict
+runner rejected the capture. Lowering the watermark therefore confirms RXDR
+activity but does not explain the read port or FIFO-count behavior, and does
+not validate any sector.
+
+The image was loaded at `0x4ff00000` using esptool `load_ram`; no flash-write
+or card-write command was used. The runner reset to the preserved flash app
+after capture; its legacy boot may synchronize files to `/sd`. The test medium
+was not formatted. Preserved image, ELF, map and UART capture are in
+`../../../maia-rtos-recovery/native-sdmmc-block0-rx-watermark-20261120/`;
+the RAM image SHA-256 is
+`9b3f31dcfbf63d962e73a28cba71fdd9cd0b04c0a96fdb06c03dd85a3db36a2f`.
+
+The focused C test passed with ASan/UBSan, the runner test passed, full host
+CTest passed 93/93, and the RISC-V probe passed its native-runtime and
+L2MEM_LOW gates. The image passed runner `--validate-only` before the single
+hardware run. Reproduction commands:
+
+```sh
+cmake -S . -B /tmp/maia-sdmmc-block0-rx-20261120 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake -DMAIA_NATIVE_PROBE_SDMMC_BLOCK0=ON
+cmake --build /tmp/maia-sdmmc-block0-rx-20261120 --target maia_sched_probe_ram -j4
+/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python -m esptool --chip esp32p4 elf2image --output /tmp/maia-sdmmc-block0-rx-20261120/maia_sched_probe_ram.bin /tmp/maia-sdmmc-block0-rx-20261120/maia_sched_probe_ram.elf
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image /tmp/maia-sdmmc-block0-rx-20261120/maia_sched_probe_ram.bin --log /tmp/maia-sdmmc-block0-rx-20261120/probe-rx-watermark.log --sdmmc-block0 --expected-sd-block-count 124735488 --capture-seconds 8
+cmake --build /tmp/maia-rtos-host -j4
+ctest --test-dir /tmp/maia-rtos-host --output-on-failure
+```
+
+### RXDR acknowledgement and FIFO telemetry — 2026-11-20
+
+A further read-only run acknowledged RXDR by writing its W1C bit after servicing
+the FIFO. The immediate post-ack raw status still read `0x24` (`CMD_DONE|RXDR`),
+and the transfer remained unsuccessful: all 128 reads were zero, the FIFO
+count stayed 1 after the first and last reads (`STATUS=0x00028d01`), then was
+128 at completion (`STATUS=0x01008901`). The final result was
+`MAIA_SDMMC_BOOT_IO`; R1 was still `0x900` and `CMD17` raw status was `0x2c`
+without data-error bits. The W1C acknowledgement did not resolve the problem.
+
+Additional post-transfer observations were `CTRL=0`, `BMOD=0`, `TCBCNT=0x200`,
+`TBBCNT=0`, and `GPIO_IN1=0x1cc0`. These narrow the diagnostic state but do not
+explain why CPU reads from `BUFFIFO` return zero or why `FIFO_COUNT` does not
+decrease. No sector was accepted or compared to an independent reference.
+The image, ELF, map and UART capture are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-block0-fifo-diag-20261120/`; image
+SHA-256:
+`06e31c9470446866eb562529caad0efb17b11b26ab495560e483558c80573c41`.
+
+The probe again used RAM loading only, with no flash-write or card-write
+command. The runner reset to the preserved flash app, whose legacy boot may
+synchronize files to `/sd`; the card was not formatted. The CTest suite passed
+93/93, the focused C test passed ASan/UBSan, and the RISC-V native-runtime and
+L2MEM_LOW gates passed after adding the W1C acknowledgement and telemetry.
+
+### DTO-gated FIFO drain follow-up — 2026-11-20
+
+The TRM/SDK cross-check found no PIO receive routine to port from the pinned
+ESP-IDF revision (`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0`): its SDMMC data
+path is DMA-only. TRM chapter 59 says software reads received data from
+`SDHOST_BUFFIFO_REG`; its RX watermark note assigns the final partial drain to
+`DATA_OVER`, but does not define a complete PIO receive loop. This experiment
+is therefore a bounded TRM-based diagnostic, not a reproduction of an
+ESP-IDF PIO sequence.
+
+To test whether the earlier FIFO reads were simply too early, a new diagnostic
+left `RX_WMARK` at its inherited value 511, set `INTMASK=0`, waited for
+`DATA_OVER`, and only then read the reported 128 FIFO words. `CMD17` still
+returned R1 `0x900`; `RINTSTS=0x0c` reported `CMD_DONE|DATA_OVER` without data
+errors. All 128 reads returned zero, and `STATUS` remained `0x01008900` after
+the first and last reads (count 128, not empty). `TCBCNT=0x200`, `TBBCNT=0`,
+`CTRL=0`, and `BMOD=0` were observed. The probe returned
+`MAIA_SDMMC_BOOT_IO`; no block was accepted or compared to an independent
+reference. Waiting for DTO therefore did not resolve FIFO visibility or
+consumption.
+
+Disassembly of this exact probe confirms the FIFO load targets
+`0x50083200` (`SDHOST_BASE+0x200`) using a 32-bit `lw`. This rules out the
+specific hypothesis that the earlier reads happened only before DTO, and
+confirms the generated load address/width, but does not explain why the
+controller reports 128 words remaining after all 128 reads.
+
+The RAM-loaded image, ELF, map, and UART log are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-block0-dto-drain-20261120/`; image
+SHA-256:
+`9a806fb0ee7b4f5d7373957f8b88f4727abc3227dac9240dbfb3e0bbc4328fe1`.
+The image passed `--validate-only` and the P4 native-runtime/L2MEM_LOW build
+gates. The focused SDMMC C test passed with ASan/UBSan and the runner test
+passed. The single hardware attempt used RAM loading only; no flash/card write
+command was issued and the card was not formatted. The runner reset the device
+to its preserved flash application after the capture; that legacy boot may
+synchronize files to `/sd`.
+
+### Explicit CARDTHRCTL setup follow-up — 2026-11-20
+
+The TRM's [command procedure, §59.9.2](https://documentation.espressif.com/esp32-p4_technical_reference_manual_en.pdf#page=3421)
+explicitly includes `CARDTHRCTL` among the data-transfer registers to configure.
+Register 59.21 defines `CARDRDTHREN` at bit 0 and a byte threshold in bits
+31:16, valid only when enabled and required to be less than 512
+([register description](https://documentation.espressif.com/esp32-p4_technical_reference_manual_en.pdf#page=3443)).
+The probe now clears those configuration fields before `CMD17` and reports the
+register value before and after. On this run both values were already zero;
+the transfer still returned R1 `0x900`, `RINTSTS=0x0c`, 128 zero words, and
+`STATUS=0x01008900` after the first and last FIFO reads. The result remains
+`MAIA_SDMMC_BOOT_IO`. This explicit TRM-required setup is now covered, but the
+threshold register was not the cause of the FIFO failure.
+
+The image, ELF, map, and UART log are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-block0-cardthrctl-20261120/`; image
+SHA-256:
+`0abf8e09f5dba77fe59b7505dd64dc86dc6e732daf10a500a6a5421fbd6b63f2`.
+The P4 native-runtime/L2MEM_LOW gates and image `--validate-only` passed; the
+focused SDMMC C and runner tests passed. The one device attempt used RAM
+loading only, issued no flash/card write commands, and did not format the
+card. The runner reset the device to the preserved flash application.
+
+### Native one-block IDMAC read — 2026-11-20
+
+The PIO investigation did not produce a usable receive path. The pinned
+ESP-IDF implementation and TRM §59 instead support an internal-IDMAC receive
+sequence. The boot-only probe now prepares a single 64-byte descriptor and a
+512-byte buffer in a separate 640-byte `NOLOAD` L2MEM reservation, aligned to
+128 bytes and kept outside startup-cleared BSS and the stack. It purges old
+L1D aliases through the P4 ROM writeback/invalidate entry, then accesses the
+reservation only through the NC alias; the IDMAC receives the physical
+`0x4ff...` addresses. The pinned ROM cache line query returned 64 bytes.
+Descriptor ownership, DMA completion, controller DTO, FIFO-empty state and
+error flags are all checked; DMA and its interrupt state are stopped/cleared
+before the probe returns.
+
+Two earlier RAM-only device runs completed SDHC identification and `CMD17`
+block 0.
+`RINTSTS=0x2c` contained `CMD_DONE|DATA_OVER|RXDR` without data-error bits;
+IDMAC status was `0x102` (`RI|NIS`), and the completed descriptor returned to
+the host with `DES0=0x1c`, `DES1=512`, `DES2=0x4ff03d00`. The emitted 512 bytes
+had the `0x55aa` MBR trailer and a nonzero first partition entry; its SHA-256
+was `32a28faf07d55fa077b3b188b06085d4d7ee8091fa1c6f672f1ddd864c75fae5` in
+both runs, with all 512 bytes matching exactly. The runner checked the
+previously observed capacity of `124735488` blocks and accepted both
+structural captures. This establishes repeatability for one diagnostic LBA,
+not yet a production read driver or an independent byte-for-byte comparison
+against another reader.
+
+The first image, ELF, map, and UART log are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-block0-idmac-20261120/`; the RAM
+image SHA-256 is
+`c96bfdefbd89cdad131845bc7d9f795b70ff812a8bd02af52e885646db01b0be`.
+The focused host C and capture tests passed, the P4 native-runtime/L2MEM_LOW
+gate passed, and runner `--validate-only` accepted that image before its
+hardware run. After limiting `IDINTEN` writes to documented bits, the host C
+and capture tests passed again, the P4 gate passed, and the rebuilt image
+passed `--validate-only` before the repeat hardware run. That exact image, ELF,
+map, and second UART log are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-block0-idmac-repeat-20261120/`; its
+RAM image SHA-256 is
+`9aa09ae9922e07e98089c42cb60f8a2d6a0a2ec55a8c873c58b21a3f146f8e84`.
+Both block-0 runs used `load_ram`, issued no flash-write or card-write command,
+and did not format the card. The runner reset to the preserved flash
+application afterward; its legacy boot may synchronize files to `/sd`.
+
+The probe and boot-only API now accept a selected SDHC LBA. The API rejects
+addresses above `UINT32_MAX` before device access and rejects LBAs outside the
+decoded CSD capacity before selecting the card. Host tests cover LBA 1 data,
+argument propagation, capacity bounds and sticky failures; the runner accepts
+generic one-block captures and preserves `--sdmmc-block0` as an LBA-0 alias.
+The RISC-V native-runtime/L2MEM_LOW gate and `--validate-only` passed for the
+LBA-32768 image.
+
+RAM-only `CMD17` reads then passed at LBA 1 and LBA 32768. LBA 1 returned 512
+zero bytes (SHA-256
+`076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560`). The
+captured MBR identifies the first partition start at LBA 32768 with 124702720
+sectors. At that LBA the read returned a FAT32 boot sector (`EB 58 90`, 512
+bytes/sector, `55 AA` trailer); its BPB sector count matched the MBR partition
+size. Two separate RAM-only runs of LBA 32768 produced identical 512-byte
+payloads, SHA-256
+`ebdfb90905827cbc8e0cd6f8b851c51552e7915ff0e27810834fe03b6d92978a`.
+Images and UART captures are preserved in
+`../../../maia-rtos-recovery/native-sdmmc-lba1-20261120/` and
+`../../../maia-rtos-recovery/native-sdmmc-lba32768-20261120/`; the latter RAM
+image SHA-256 is
+`0a1db2e2f3b13a1371b4081038c023b72269e90a56f6f2f869aea56a6cd87d08`.
+These checks establish bounded, repeatable reads at multiple LBAs and
+consistency between the on-card MBR and partition boot record, not an
+independent byte-for-byte comparison with another reader or production-driver
+readiness. No run wrote to flash or card or formatted the card. Still pending:
+an independent data comparison, broader LBA coverage, failure/removal behavior,
+driver integration, writes, FatFs/VFS, and cold power sequencing.
