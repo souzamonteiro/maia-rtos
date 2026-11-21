@@ -2642,5 +2642,29 @@ Fonte, binários, dumps, comparação e logs de backup/restauração estão em
 `maia-rtos-recovery/native-sdmmc-vendor-reference-20261120/`.
 A referência contém runtime Arduino/ESP-IDF/FreeRTOS apenas como instrumento
 externo de teste; nenhuma dessas dependências foi adicionada ao MaiaRTOS.
-Ainda faltam cobertura mais ampla, erros/remoção e driver de leitura integrado
-ao produto. Nenhuma escrita, FatFs ou VFS nativos foi qualificada.
+Ainda faltam cobertura mais ampla, erros/remoção e integração de leitura e
+escrita ao produto. Nenhuma escrita, FatFs ou VFS nativos foi qualificada.
+
+## F2 — Critério de conclusão do SDMMC — 2026-11-21
+
+O objetivo desta etapa é um driver de blocos SDMMC nativo **com leitura e
+escrita**, não apenas uma sonda de leitura. As leituras já verificadas são
+uma etapa intermediária; não concluem o driver nem antecipam a integração
+do FatFs.
+
+Foi implementado um protótipo boot-only de escrita CMD24 para um bloco,
+incluindo staging no alias não-cacheável, IDMAC TX, contadores exatos e
+confirmação final por CMD13. O mock host cobre payload e falhas; isso não
+representa uma escrita física qualificada.
+
+Faltam transformar leitura e escrita em uma interface reutilizável no produto
+e validar ambas as operações, inclusive requisições de múltiplos setores,
+erros, timeouts e indisponibilidade ou remoção do cartão. Nenhum CMD24 foi
+emitido no Tab5 pelo MaiaRTOS.
+
+Os testes físicos usarão uma área previamente identificada do cartão de
+teste, com preservação, restauração e verificação dos dados originais.
+Os dados gravados serão lidos e comparados byte a byte; a referência externa
+de software poderá complementar a comparação. Após a qualificação do driver,
+FatFs e VFS deverão oferecer operações de leitura e escrita, sem formatação
+automática. A escrita física e a integração do driver seguem pendentes.

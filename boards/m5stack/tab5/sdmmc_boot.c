@@ -55,6 +55,7 @@
 #define CMD_RESPONSE (UINT32_C(1) << 6)
 #define CMD_RESPONSE_LONG (UINT32_C(1) << 7)
 #define CMD_DATA_EXPECTED (UINT32_C(1) << 9)
+#define CMD_WRITE (UINT32_C(1) << 10)
 #define INT_END_BIT (UINT32_C(1) << 15)
 #define INT_START_BIT (UINT32_C(1) << 13)
 #define INT_HARDWARE_LOCK (UINT32_C(1) << 12)
@@ -225,9 +226,15 @@ static maia_sdmmc_boot_result_t dma_abort(maia_sdmmc_boot_result_t result) {
 }
 
 static maia_sdmmc_boot_result_t dma_prepare_block(
-    maia_sdmmc_boot_report_t *report, volatile uint32_t **descriptor) {
+    maia_sdmmc_boot_report_t *report, volatile uint32_t **descriptor,
+    const uint8_t *write_source) {
     volatile uint32_t *storage = dma_cpu_storage();
     for (unsigned i = 0U; i < DMA_DESCRIPTOR_STORAGE_WORDS; ++i) storage[i] = 0U;
+    if (write_source != NULL) {
+        volatile uint8_t *data =
+            (volatile uint8_t *)(storage + DMA_DESCRIPTOR_STORAGE_WORDS);
+        for (size_t i = 0U; i < DMA_DATA_BYTES; ++i) data[i] = write_source[i];
+    }
     *descriptor = storage;
     (*descriptor)[0] = (UINT32_C(1) << 31) | (UINT32_C(1) << 4) |
                        (UINT32_C(1) << 3) | (UINT32_C(1) << 2);
@@ -241,7 +248,8 @@ static maia_sdmmc_boot_result_t dma_prepare_block(
     if (!dma_wait_software_reset()) return MAIA_SDMMC_BOOT_TIMEOUT;
     write32(HOST_IDSTS, IDSTS_CLEAR_MASK);
     if (read32(HOST_IDSTS) & IDSTS_CLEAR_MASK) return MAIA_SDMMC_BOOT_VERIFY;
-    if (!modify(HOST_IDINTEN, IDSTS_CLEAR_MASK, IDSTS_NORMAL_SUMMARY | IDSTS_RX) ||
+    uint32_t dma_completion = write_source != NULL ? IDSTS_TX : IDSTS_RX;
+    if (!modify(HOST_IDINTEN, IDSTS_CLEAR_MASK, IDSTS_NORMAL_SUMMARY | dma_completion) ||
         !modify(HOST_FIFOTH, UINT32_C(0x07FF0000), 0U)) return MAIA_SDMMC_BOOT_VERIFY;
     report->block_fifoth = read32(HOST_FIFOTH);
     if (!modify(HOST_BLKSIZ, UINT32_MAX, DMA_DATA_BYTES) ||
@@ -567,8 +575,11 @@ static maia_sdmmc_boot_result_t wait_transfer_ready(maia_sdmmc_boot_report_t *re
     return MAIA_SDMMC_BOOT_TIMEOUT;
 }
 
-static maia_sdmmc_boot_result_t read_block(
-    maia_sdmmc_boot_report_t *report, uint32_t lba, uint8_t *block) {
+static maia_sdmmc_boot_result_t transfer_block(
+    maia_sdmmc_boot_report_t *report, uint32_t lba,
+    const uint8_t *write_source, uint8_t *read_destination) {
+    int writing = write_source != NULL;
+    if (writing == (read_destination != NULL)) return MAIA_SDMMC_BOOT_INVALID;
     uint32_t initial_status = read32(HOST_STATUS);
     if (((initial_status & STATUS_FIFO_COUNT_MASK) >> STATUS_FIFO_COUNT_SHIFT) != 0U ||
         (initial_status & (STATUS_DATA_BUSY | STATUS_DATA_FSM_BUSY))) {
@@ -582,15 +593,18 @@ static maia_sdmmc_boot_result_t read_block(
     report->block_cardthrctl = read32(HOST_CARDTHRCTL);
     if (!dma_prepare_storage(report)) return MAIA_SDMMC_BOOT_VERIFY;
     volatile uint32_t *descriptor;
-    maia_sdmmc_boot_result_t result = dma_prepare_block(report, &descriptor);
+    maia_sdmmc_boot_result_t result = dma_prepare_block(report, &descriptor, write_source);
     if (result != MAIA_SDMMC_BOOT_OK) return dma_abort(result);
 
     uint32_t response[4];
-    result = send_response(17U, lba, CMD_RESPONSE | CMD_RESPONSE_CRC | CMD_DATA_EXPECTED,
-                           17U, 1, response, report);
+    uint32_t opcode = writing ? 24U : 17U;
+    uint32_t flags = CMD_RESPONSE | CMD_RESPONSE_CRC | CMD_DATA_EXPECTED |
+                     (writing ? CMD_WRITE : 0U);
+    result = send_response(opcode, lba, flags, opcode, 1, response, report);
     if (result != MAIA_SDMMC_BOOT_OK) return dma_abort(result);
     if (response[0] & R1_ERROR_MASK) return dma_abort(MAIA_SDMMC_BOOT_RESPONSE);
 
+    uint32_t dma_completion = writing ? IDSTS_TX : IDSTS_RX;
     uint32_t raw = 0U, dma_status = 0U;
     unsigned poll;
     for (poll = 0U; poll < POLL_LIMIT; ++poll) {
@@ -608,7 +622,7 @@ static maia_sdmmc_boot_result_t read_block(
             dma_report_state(report, descriptor);
             return dma_abort(MAIA_SDMMC_BOOT_IO);
         }
-        if ((raw & INT_DATA_OVER) && (dma_status & IDSTS_RX) &&
+        if ((raw & INT_DATA_OVER) && (dma_status & dma_completion) &&
             !(descriptor[0] & (UINT32_C(1) << 31))) break;
     }
     if (poll == POLL_LIMIT) {
@@ -624,7 +638,8 @@ static maia_sdmmc_boot_result_t read_block(
     report->block_host_status = status;
     dma_report_state(report, descriptor);
     if (((status & STATUS_FIFO_COUNT_MASK) >> STATUS_FIFO_COUNT_SHIFT) != 0U ||
-        !(status & 4U) || (status & (STATUS_DATA_BUSY | STATUS_DATA_FSM_BUSY))) {
+        !(status & 4U) || (status & STATUS_DATA_FSM_BUSY) ||
+        (!writing && (status & STATUS_DATA_BUSY))) {
         return dma_abort(MAIA_SDMMC_BOOT_IO);
     }
     if ((report->block_dma_desc0 & (UINT32_C(1) << 31)) ||
@@ -633,11 +648,38 @@ static maia_sdmmc_boot_result_t read_block(
         return dma_abort(MAIA_SDMMC_BOOT_IO);
     }
     if (!dma_stop()) return MAIA_SDMMC_BOOT_IO;
-    volatile uint32_t *storage = dma_cpu_storage();
-    volatile uint8_t *data = (volatile uint8_t *)(storage + DMA_DESCRIPTOR_STORAGE_WORDS);
-    for (size_t i = 0U; i < DMA_DATA_BYTES; ++i) block[i] = data[i];
-    ++report->block_read_count;
+    if (writing) {
+        result = wait_transfer_ready(report);
+        if (result != MAIA_SDMMC_BOOT_OK) return result;
+        ++report->block_write_count;
+    } else {
+        volatile uint32_t *storage = dma_cpu_storage();
+        volatile uint8_t *data =
+            (volatile uint8_t *)(storage + DMA_DESCRIPTOR_STORAGE_WORDS);
+        for (size_t i = 0U; i < DMA_DATA_BYTES; ++i) read_destination[i] = data[i];
+        ++report->block_read_count;
+    }
     report->completed = MAIA_SDMMC_BOOT_BLOCK;
+    return MAIA_SDMMC_BOOT_OK;
+}
+
+static maia_sdmmc_boot_result_t initialize_card(maia_sdmmc_boot_report_t *report) {
+    maia_sdmmc_boot_result_t result = boot_initialize(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+
+    result = initialize_ocr(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+    return read_card_identity(report);
+}
+
+static maia_sdmmc_boot_result_t select_card(maia_sdmmc_boot_report_t *report) {
+    uint32_t r1;
+    maia_sdmmc_boot_result_t result =
+        send_r1(7U, report->rca << 16U, &r1, report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+    result = wait_transfer_ready(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+    report->completed = MAIA_SDMMC_BOOT_SELECTED;
     return MAIA_SDMMC_BOOT_OK;
 }
 
@@ -648,32 +690,22 @@ static maia_sdmmc_boot_result_t read_blocks(
     report_clear(report);
     if (first_lba > UINT32_MAX ||
         (read_second && second_lba > UINT32_MAX)) return MAIA_SDMMC_BOOT_INVALID;
-    maia_sdmmc_boot_result_t result = boot_initialize(report);
-    if (result != MAIA_SDMMC_BOOT_OK) return result;
-
-    result = initialize_ocr(report);
-    if (result != MAIA_SDMMC_BOOT_OK) return result;
-    result = read_card_identity(report);
+    maia_sdmmc_boot_result_t result = initialize_card(report);
     if (result != MAIA_SDMMC_BOOT_OK) return result;
     if (first_lba >= report->block_count ||
         (read_second && second_lba >= report->block_count))
         return MAIA_SDMMC_BOOT_INVALID;
-
-    uint32_t r1;
-    result = send_r1(7U, report->rca << 16U, &r1, report);
+    result = select_card(report);
     if (result != MAIA_SDMMC_BOOT_OK) return result;
-    result = wait_transfer_ready(report);
-    if (result != MAIA_SDMMC_BOOT_OK) return result;
-    report->completed = MAIA_SDMMC_BOOT_SELECTED;
 
     report->block_lba = (uint32_t)first_lba;
-    result = read_block(report, (uint32_t)first_lba, report->block);
+    result = transfer_block(report, (uint32_t)first_lba, NULL, report->block);
     if (result != MAIA_SDMMC_BOOT_OK) return result;
     if (read_second) {
         result = wait_transfer_ready(report);
         if (result != MAIA_SDMMC_BOOT_OK) return result;
         report->second_block_lba = (uint32_t)second_lba;
-        result = read_block(report, (uint32_t)second_lba, report->second_block);
+        result = transfer_block(report, (uint32_t)second_lba, NULL, report->second_block);
         if (result != MAIA_SDMMC_BOOT_OK) return result;
     }
     state = OWNED;
@@ -693,4 +725,33 @@ maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_two_blocks(
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block0(
     maia_sdmmc_boot_report_t *report) {
     return maia_tab5_sdmmc_boot_read_block(report, 0U);
+}
+
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_write_block(
+    maia_sdmmc_boot_report_t *report, uint64_t lba, const uint8_t block[512]) {
+    if (report == NULL) return MAIA_SDMMC_BOOT_INVALID;
+    if (block != NULL) {
+        uintptr_t report_address = (uintptr_t)report;
+        uintptr_t block_address = (uintptr_t)block;
+        if ((block_address >= report_address &&
+             block_address - report_address < sizeof(*report)) ||
+            (block_address < report_address &&
+             report_address - block_address < DMA_DATA_BYTES)) {
+            return MAIA_SDMMC_BOOT_INVALID;
+        }
+    }
+    report_clear(report);
+    if (block == NULL || lba > UINT32_MAX) return MAIA_SDMMC_BOOT_INVALID;
+
+    maia_sdmmc_boot_result_t result = initialize_card(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+    if (lba >= report->block_count) return MAIA_SDMMC_BOOT_INVALID;
+    result = select_card(report);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+
+    report->block_lba = (uint32_t)lba;
+    result = transfer_block(report, (uint32_t)lba, block, NULL);
+    if (result != MAIA_SDMMC_BOOT_OK) return result;
+    state = OWNED;
+    return MAIA_SDMMC_BOOT_OK;
 }

@@ -53,9 +53,11 @@
 #define CMD_RESPONSE (UINT32_C(1) << 6)
 #define CMD_RESPONSE_LONG (UINT32_C(1) << 7)
 #define CMD_DATA_EXPECTED (UINT32_C(1) << 9)
+#define CMD_WRITE (UINT32_C(1) << 10)
 #define INT_DONE (UINT32_C(1) << 2)
 #define INT_DATA_OVER (UINT32_C(1) << 3)
 #define INT_DCRC (UINT32_C(1) << 7)
+#define DMA_IDSTS_TX (UINT32_C(1) << 0)
 #define DMA_IDSTS_RX (UINT32_C(1) << 1)
 #define DMA_IDSTS_FBE (UINT32_C(1) << 2)
 #define DMA_IDSTS_NIS (UINT32_C(1) << 8)
@@ -88,12 +90,13 @@ static unsigned updates, cmd0_count, cmd8_count, context_ok, timer_updates;
 static unsigned invalid_timer_at, freeze_timer, freeze_after_cmd0, reset_stuck, d3_low;
 static unsigned stall_command, lock_command, silent_command, clear_dropped;
 static unsigned full_mode, acmd41_count, acmd41_ready_after, cmd2_count, cmd3_count;
-static unsigned cmd7_count, cmd9_count, cmd13_count, cmd17_count;
+static unsigned cmd7_count, cmd9_count, cmd13_count, cmd17_count, cmd24_count;
 static unsigned bad_app_cmd, bad_rca, bad_ocr_voltage, bad_ocr_ccs;
-static unsigned bad_csd, bad_select, bad_status, cmd17_error;
+static unsigned bad_csd, bad_select, bad_status, bad_status_after_write;
+static unsigned cmd17_error, cmd24_response_error;
 static unsigned stall_data_over, stall_second_data_over;
 static unsigned dma_error, dma_owner_stuck;
-static unsigned cmd17_rint_reads;
+static unsigned cmd17_rint_reads, cmd24_rint_reads;
 static uintptr_t dropped_write;
 static uint32_t response_value, response_index, cmd0_event, cmd8_event;
 static uint32_t ticks, clock_started, cmd0_time, cmd8_time;
@@ -102,6 +105,7 @@ static uint32_t expected_lba;
 static uint32_t expected_second_lba;
 static uint32_t card_bytes, dma_bytes;
 static uint8_t sector0[512], sector1[512];
+static uint8_t expected_write_block[512], written_sector[512];
 
 static reg_t *reg(uintptr_t address) {
     for (unsigned i = 0; i < nregs; ++i) {
@@ -126,16 +130,17 @@ static void reset_mock(void) {
     nregs = reads = writes = host_reads = command_writes = clear_writes = 0U;
     updates = cmd0_count = cmd8_count = timer_updates = 0U;
     full_mode = acmd41_count = cmd2_count = cmd3_count = 0U;
-    cmd7_count = cmd9_count = cmd13_count = cmd17_count = 0U;
+    cmd7_count = cmd9_count = cmd13_count = cmd17_count = cmd24_count = 0U;
     acmd41_ready_after = 1U;
     context_ok = 1U;
     invalid_timer_at = freeze_timer = freeze_after_cmd0 = reset_stuck = d3_low = 0U;
     stall_command = lock_command = silent_command = clear_dropped = 0U;
     bad_app_cmd = bad_rca = bad_ocr_voltage = bad_ocr_ccs = 0U;
-    bad_csd = bad_select = bad_status = cmd17_error = 0U;
+    bad_csd = bad_select = bad_status = bad_status_after_write = 0U;
+    cmd17_error = cmd24_response_error = 0U;
     stall_data_over = stall_second_data_over = 0U;
     dma_error = dma_owner_stuck = 0U;
-    cmd17_rint_reads = 0U;
+    cmd17_rint_reads = cmd24_rint_reads = 0U;
     expected_lba = 0U;
     expected_second_lba = 0U;
     card_bytes = dma_bytes = 512U;
@@ -148,6 +153,8 @@ static void reset_mock(void) {
     memset(&report, 0xA5, sizeof report);
     memset(sector0, 0, sizeof sector0);
     memset(sector1, 0x5A, sizeof sector1);
+    memset(expected_write_block, 0, sizeof expected_write_block);
+    memset(written_sector, 0, sizeof written_sector);
     sector0[0] = 0xEBU;
     sector0[1] = 0x58U;
     sector0[2] = 0x90U;
@@ -210,6 +217,35 @@ int maia_tab5_sdmmc_test_context(void) { return (int)context_ok; }
 uint32_t maia_tab5_sdmmc_test_read(uintptr_t address) {
     ++reads;
     if (address >= HOST && address < HOST + 0x100U) ++host_reads;
+    if (address == RINTSTS && cmd24_count && cmd24_rint_reads < 3U) {
+        if (++cmd24_rint_reads == 3U && !stall_data_over && !cmd24_response_error) {
+            uint32_t *storage = maia_tab5_sdmmc_test_dma_storage();
+            uint32_t *descriptor = storage;
+            CHECK(reg(DBADDR)->value == (uint32_t)(uintptr_t)storage);
+            CHECK(reg(IDINTEN)->value == (DMA_IDSTS_NIS | DMA_IDSTS_TX));
+            CHECK((reg(CTRL)->value & ((UINT32_C(1) << 25) | (UINT32_C(1) << 5))) ==
+                  ((UINT32_C(1) << 25) | (UINT32_C(1) << 5)));
+            CHECK((reg(BMOD)->value & 0x82U) == 0x82U);
+            CHECK(descriptor[0] == (DMA_DESC_OWN | DMA_DESC_SINGLE));
+            CHECK(descriptor[1] == sizeof expected_write_block);
+            CHECK(descriptor[2] == (uint32_t)(uintptr_t)(storage + 32U));
+            CHECK(descriptor[3] == 0U);
+            CHECK(reg(CMDARG)->value == expected_lba);
+            CHECK(memcmp(storage + 32U, expected_write_block,
+                         sizeof expected_write_block) == 0);
+            memcpy(written_sector, storage + 32U, sizeof written_sector);
+            reg(TCBCNT)->value = card_bytes;
+            reg(TBBCNT)->value = dma_bytes;
+            if (!dma_owner_stuck) descriptor[0] &= ~DMA_DESC_OWN;
+            reg(IDSTS)->value |= dma_error ? DMA_IDSTS_FBE :
+                                 (DMA_IDSTS_TX | DMA_IDSTS_NIS);
+            reg(STATUS)->value =
+                (reg(STATUS)->value & ~((UINT32_C(0x1FFF) << 17U) |
+                                        STATUS_FIFO_EMPTY)) |
+                STATUS_FIFO_EMPTY;
+            reg(RINTSTS)->value |= INT_DATA_OVER;
+        }
+    }
     if (address == RINTSTS && cmd17_count && cmd17_rint_reads < 3U) {
         if (++cmd17_rint_reads == 3U && !stall_data_over &&
             !(stall_second_data_over && cmd17_count == 2U)) {
@@ -403,7 +439,8 @@ void maia_tab5_sdmmc_test_write(uintptr_t address, uint32_t value) {
                 CHECK(value == (CMD_START | CMD_HOLD | CMD_WAIT | CMD_CRC | CMD_RESPONSE | 13U));
                 CHECK(reg(CMDARG)->value == 0x12340000U);
                 ++cmd13_count;
-                response = bad_status ? 0U : R1_READY_TRAN;
+                response = (bad_status ||
+                            (bad_status_after_write && cmd24_count)) ? 0U : R1_READY_TRAN;
                 break;
             case 17U:
                 CHECK(value == (CMD_START | CMD_HOLD | CMD_WAIT | CMD_CRC |
@@ -418,6 +455,18 @@ void maia_tab5_sdmmc_test_write(uintptr_t address, uint32_t value) {
                                      (17U << 11U) | STATUS_FIFO_EMPTY;
                 response = R1_READY_TRAN;
                 if (cmd17_error) event |= INT_DCRC;
+                break;
+            case 24U:
+                CHECK(value == (CMD_START | CMD_HOLD | CMD_WAIT | CMD_CRC |
+                               CMD_RESPONSE | CMD_DATA_EXPECTED | CMD_WRITE | 24U));
+                CHECK(reg(CMDARG)->value == expected_lba);
+                CHECK(reg(CARDTHRCTL)->value == 0U);
+                CHECK(reg(BLKSIZ)->value == sizeof sector0 && reg(BYTCNT)->value == sizeof sector0);
+                ++cmd24_count;
+                cmd24_rint_reads = 0U;
+                reg(STATUS)->value = (reg(STATUS)->value & ~(0x3FU << 11U)) |
+                                     (24U << 11U) | STATUS_FIFO_EMPTY;
+                response = cmd24_response_error ? R1_ERROR : R1_READY_TRAN;
                 break;
             default:
                 CHECK(0 && "unexpected SD command");
@@ -682,6 +731,102 @@ int main(void) {
     CHECK(memcmp(report.block, sector1, sizeof sector1) == 0);
     CHECK(memcmp(report.second_block, sector1, sizeof sector1) == 0);
     CHECK(memcmp(report.block, report.second_block, sizeof report.block) == 0);
+    CHECK(reg(CTRL)->value == 0U && reg(BMOD)->value == 0U &&
+          reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+
+    reset_mock();
+    full_mode = 1U;
+    expected_lba = 42U;
+    for (unsigned i = 0U; i < sizeof expected_write_block; ++i)
+        expected_write_block[i] = (uint8_t)(i * 37U + 11U);
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_OK);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_BLOCK && report.last_command == 13U);
+    CHECK(report.block_lba == expected_lba && report.block_write_count == 1U &&
+          report.block_read_count == 0U);
+    CHECK(report.block_dma_status == (DMA_IDSTS_TX | DMA_IDSTS_NIS));
+    CHECK(report.block_dma_inten == (DMA_IDSTS_TX | DMA_IDSTS_NIS));
+    CHECK(report.block_dma_desc0 == DMA_DESC_SINGLE && report.block_dma_desc1 == 512U);
+    CHECK(report.block_raw_status == (INT_DONE | INT_DATA_OVER));
+    CHECK(cmd24_count == 1U && cmd24_rint_reads == 3U && cmd13_count == 2U);
+    CHECK(memcmp(written_sector, expected_write_block, sizeof written_sector) == 0);
+    CHECK(reg(CTRL)->value == 0U && reg(BMOD)->value == 0U &&
+          reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+
+    reset_mock();
+    CHECK(maia_tab5_sdmmc_boot_write_block(&report, 0U, NULL) ==
+          MAIA_SDMMC_BOOT_INVALID);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_NONE && !reads && !writes);
+
+    reset_mock();
+    uint8_t report_input_byte = report.block[0];
+    CHECK(maia_tab5_sdmmc_boot_write_block(&report, 0U, report.block) ==
+          MAIA_SDMMC_BOOT_INVALID);
+    CHECK(report.block[0] == report_input_byte && !reads && !writes);
+
+    reset_mock();
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, UINT64_C(1) << 32U, expected_write_block) ==
+          MAIA_SDMMC_BOOT_INVALID);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_NONE && !reads && !writes);
+
+    reset_mock();
+    full_mode = 1U;
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, UINT64_C(124735488), expected_write_block) ==
+          MAIA_SDMMC_BOOT_INVALID);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_CSD && !cmd7_count && !cmd24_count);
+
+    reset_mock();
+    full_mode = 1U;
+    expected_lba = 42U;
+    cmd24_response_error = 1U;
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_RESPONSE);
+    CHECK(report.completed == MAIA_SDMMC_BOOT_SELECTED && cmd24_count == 1U &&
+          report.block_write_count == 0U);
+    CHECK(reg(CTRL)->value == 0U && reg(BMOD)->value == 0U &&
+          reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+
+    reset_mock();
+    full_mode = 1U;
+    expected_lba = 42U;
+    dma_error = 1U;
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_IO);
+    CHECK(report.block_dma_status & DMA_IDSTS_FBE);
+    CHECK(report.block_write_count == 0U && reg(CTRL)->value == 0U &&
+          reg(BMOD)->value == 0U && reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+
+    const uint32_t write_invalid_counts[] = {0U, 511U, 513U};
+    for (unsigned i = 0U;
+         i < sizeof write_invalid_counts / sizeof write_invalid_counts[0]; ++i) {
+        reset_mock();
+        full_mode = 1U;
+        expected_lba = 42U;
+        card_bytes = write_invalid_counts[i];
+        CHECK(maia_tab5_sdmmc_boot_write_block(
+                  &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_IO);
+        CHECK(report.block_write_count == 0U && reg(CTRL)->value == 0U &&
+              reg(BMOD)->value == 0U && reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+
+        reset_mock();
+        full_mode = 1U;
+        expected_lba = 42U;
+        dma_bytes = write_invalid_counts[i];
+        CHECK(maia_tab5_sdmmc_boot_write_block(
+                  &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_IO);
+        CHECK(report.block_write_count == 0U && reg(CTRL)->value == 0U &&
+              reg(BMOD)->value == 0U && reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
+    }
+
+    reset_mock();
+    full_mode = 1U;
+    expected_lba = 42U;
+    bad_status_after_write = 1U;
+    CHECK(maia_tab5_sdmmc_boot_write_block(
+              &report, expected_lba, expected_write_block) == MAIA_SDMMC_BOOT_TIMEOUT);
+    CHECK(cmd24_count == 1U && cmd13_count == 101U && report.block_write_count == 0U);
     CHECK(reg(CTRL)->value == 0U && reg(BMOD)->value == 0U &&
           reg(IDSTS)->value == 0U && reg(IDINTEN)->value == 0U);
 

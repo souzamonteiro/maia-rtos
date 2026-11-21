@@ -2845,6 +2845,36 @@ cmake --build /tmp/maia-sdmmc-repeat-build --target maia_sched_probe_ram -j4
 PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python tests/hardware/run_native_scheduler_probe.py --port /dev/cu.usbmodem1301 --image /tmp/maia-sdmmc-repeat-build/maia_sched_probe_ram.bin --log /tmp/maia-sdmmc-repeat-build/probe-validated.log --sdmmc-read --sdmmc-lba 32768 --sdmmc-repeat-read --sdmmc-second-lba 32774 --sdmmc-identical-blocks --expected-sd-block-count 124735488 --capture-seconds 8
 ```
 
+### Native CMD24 write path — host-tested only — 2026-11-21
+
+Added `maia_tab5_sdmmc_boot_write_block`, a boot-only, single-block `CMD24`
+prototype. It stages the caller's 512 bytes in the reserved SRAM DMA buffer
+through the non-cacheable alias, enables IDMAC transmit completion (`TI`), and
+requires `DATA_OVER`, returned descriptor ownership, and both `TCBCNT` and
+`TBBCNT` to equal 512. After stopping DMA it polls `CMD13` until the card
+reports `READY_FOR_DATA` and state `TRAN`. A timeout after data transfer does
+not prove that the card remained unchanged; the report counts only writes
+confirmed ready by the final status.
+
+The command-direction bit follows Espressif ESP-IDF v5.5.1: its command builder
+sets `rw=1` when the data command is not marked `SCF_CMD_READ`, and its
+single-block write issues CMD24 without that read flag. The pinned source maps
+IDMAC transmit/receive completion to `TI`/`RI` in
+[`sdmmc_ll.h`](https://github.com/espressif/esp-idf/blob/v5.5.1/components/hal/esp32p4/include/hal/sdmmc_ll.h);
+the command builder is in
+[`sdmmc_transaction.c`](https://github.com/espressif/esp-idf/blob/v5.5.1/components/esp_driver_sdmmc/src/sdmmc_transaction.c),
+and the CMD24 invocation is in
+[`sdmmc_cmd.c`](https://github.com/espressif/esp-idf/blob/v5.5.1/components/sdmmc/sdmmc_cmd.c).
+The byte-count interpretation remains as documented from ESP32-P4 TRM §59.13.
+
+The host mock validates the bytes staged for TX, CMD24 direction, `TI`
+completion, descriptor return, exact counters, response errors, DMA errors,
+cleanup, and failure to reach the ready/transfer state. The focused
+`tab5_sdmmc_boot_test` passes. **No physical CMD24 was issued and the card was
+not written by this implementation.** This does not qualify hardware writes or
+complete the SD driver. Before device testing, select and preserve a safe test
+LBA and agree on write/readback/restore verification.
+
 ### Vendor-software reference and verified flash restoration — 2026-11-21
 
 The owner authorized a temporary reference firmware instead of removing the

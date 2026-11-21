@@ -1888,3 +1888,27 @@ Next: bounded `ACMD41` negotiation, actual identification/CSD and selection,
 then `CMD17` with independent sector comparison and negative cases. `CMD8`
 does not prove SDHC capacity. Writes, FatFs/VFS, DMA/cache coherency, cold boot,
 media removal and a runtime-safe ownership model are still separate work.
+
+## SDMMC CMD24 single-block prototype — 2026-11-21
+
+The later IDMAC read work supersedes the older CMD17 next-step above: reads of
+LBAs 0, 1, 32768 and 32774 were qualified on the Tab5 and compared against the
+vendor-software reference on the same controller/card. Those results remain
+diagnostic, not product-driver integration.
+
+`maia_tab5_sdmmc_boot_write_block` now implements a boot-only CMD24 prototype
+for one 512-byte block. It stages data in the reserved SRAM DMA buffer via the
+non-cacheable alias, enables IDMAC TX completion, checks returned descriptor
+ownership and both exact byte counters, stops DMA, and requires CMD13 to report
+READY_FOR_DATA in TRAN. The HOST-TESTED mock covers payload staging, direction,
+completion, counters, response/DMA failures, cleanup and post-write readiness.
+The host test and ESP32-P4 probe build/runtime gate pass.
+
+No physical CMD24 has been issued. A failure/time-out after the transfer may
+still have changed the card, and the diagnostic does not establish a safe
+write area. Before a device write, identify/preserve an LBA and agree on
+write/readback/restore verification. Do not format the card; leave the USB
+pendrive untouched for the later TinyUSB host phase. The read/write service,
+multi-block requests, runtime ownership, removal/error recovery, FatFs and VFS
+remain open. See `hardware/EVIDENCE.md`, `hardware/OPEN_QUESTIONS.md` and the
+F2 checklist/status.

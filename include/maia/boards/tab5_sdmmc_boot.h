@@ -54,6 +54,7 @@ typedef struct maia_sdmmc_boot_report {
     uint32_t block_lba;
     uint32_t second_block_lba;
     uint32_t block_read_count;
+    uint32_t block_write_count;
     uint32_t block_raw_status;
     uint32_t block_host_status;
     uint32_t block_fifoth_before;
@@ -93,7 +94,7 @@ typedef struct maia_sdmmc_boot_report {
  * Not ISR-safe or SMP-safe. */
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_cmd8(maia_sdmmc_boot_report_t *report);
 
-/* Isolated read-only Tab5 slot-0 bring-up. Performs CMD0/CMD8, bounded
+/* Isolated Tab5 slot-0 bring-up. Performs CMD0/CMD8, bounded
  * ACMD41, CID/RCA/CSD identification, selects the card, validates SDHC/SDXC
  * geometry and reads exactly one caller-selected LBA using the internal DMA
  * controller. The descriptor and buffer use a private, 128-byte-aligned SRAM
@@ -115,6 +116,17 @@ maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_two_blocks(
 
 maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_read_block0(
     maia_sdmmc_boot_report_t *report);
+
+/* Writes exactly one 512-byte block using CMD24 and IDMAC TX. Success requires
+ * exact controller/DMA byte counts, returned descriptor ownership, DMA
+ * shutdown, and a subsequent CMD13 reporting READY_FOR_DATA in TRAN. A failed
+ * operation may still have changed the card; block_write_count counts only
+ * writes confirmed ready by CMD13. This is a boot-only diagnostic, not a
+ * general storage driver. The caller must provide a safe test LBA and preserve
+ * its original contents before invoking it. The input buffer must not overlap
+ * the report object. */
+maia_sdmmc_boot_result_t maia_tab5_sdmmc_boot_write_block(
+    maia_sdmmc_boot_report_t *report, uint64_t lba, const uint8_t block[512]);
 
 #ifdef __cplusplus
 }

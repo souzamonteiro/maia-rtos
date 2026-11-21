@@ -53,7 +53,9 @@
   inherited VO4 enabled in bypass, does not measure voltage, and forces card
   presence. CSD decoding and address checks remain host-tested. The owner
   confirmed the microSD is test media; legacy restoration synchronizes files
-  to `/sd`, but do not format it. No native write, FatFs or VFS has been tested.
+  to `/sd`, but do not format it. A one-block native CMD24 prototype is now
+  HOST-TESTED only; no physical native write has been attempted. FatFs and VFS
+  remain untested.
   The auxiliary test's full 16 MiB flash backup was read twice and verified;
   restoration matched all bytes before reboot. RTS reset did not resume the
   legacy firmware in that test; the official esptool watchdog reset did, and
