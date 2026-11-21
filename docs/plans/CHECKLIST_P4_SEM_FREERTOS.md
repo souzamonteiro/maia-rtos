@@ -116,7 +116,8 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Validar leitura e escrita no cartão de teste em um bloco: LBA 69318 preservado antes do teste; padrão escrito e comparado; setor original restaurado e comparado novamente. O backup dos bytes foi obtido pela referência de software no Tab5 (21/11).
   - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; teste de estresse, falha e concorrência permanecem pendentes.
 - [x] FatFs R0.15 integrado ao SDMMC nativo: montagem sem formatar; create/update/read/remove de arquivo testados no host e no Tab5 (21/11)
-- [ ] VFS do Maia com `/sd`, incluindo leitura, criação e atualização de arquivos
+- [x] API MaiaVFS de arquivos em `/sd`: open/read/write/seek/sync/close/unlink, caminhos confinados e handles fixos; host, sanitizers, build P4 e diagnóstico no Tab5 passaram (21/11)
+- [ ] Listagem de diretórios e integração do VFS com shell/Newlib
 - [ ] Configurações persistentes na flash
 - [ ] Teste de estresse de leitura/escrita
 - [ ] Transferência de arquivos pelo `maia.py`

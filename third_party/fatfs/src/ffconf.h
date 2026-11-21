@@ -37,7 +37,7 @@
 #define FF_NORTC_MDAY 1
 #define FF_NORTC_YEAR 2026
 #define FF_FS_NOFSINFO 0
-#define FF_FS_LOCK 0
+#define FF_FS_LOCK 8 /* Matches the MaiaVFS open-file table. */
 #define FF_FS_REENTRANT 0
 #define FF_FS_TIMEOUT 0
 

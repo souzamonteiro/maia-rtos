@@ -6,6 +6,9 @@
 #ifdef MAIA_PRODUCT_FATFS
 #include <maia/services/fatfs.h>
 #endif
+#ifdef MAIA_DIAGNOSTIC_FATFS_RW
+#include <maia/services/vfs.h>
+#endif
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/version.h>
@@ -13,7 +16,6 @@
 #include <stdint.h>
 
 #ifdef MAIA_DIAGNOSTIC_FATFS_RW
-#include "ff.h"
 #include <string.h>
 #endif
 
@@ -91,21 +93,22 @@ static void task_telemetry_entry(void *arg) {
 }
 
 #ifdef MAIA_DIAGNOSTIC_FATFS_RW
-static void report_fatfs_diag_failure(const char *operation, FRESULT result) {
-    maia_console_puts("[F2] MAIA_FATFS_RW_FAIL ");
+static void report_vfs_diag_failure(const char *operation,
+                                    maia_vfs_result_t result) {
+    maia_console_puts("[F2] MAIA_VFS_RW_FAIL ");
     maia_console_puts(operation);
     maia_console_puts(" result=");
-    print_u32((uint32_t)result);
+    print_u32((uint32_t)(-result));
     maia_console_puts("\n");
 }
 
-static void run_fatfs_rw_diagnostic(void) {
-    static const TCHAR path[] = "0:/MaiaRTOS FatFs test.txt";
+static void run_vfs_rw_diagnostic(void) {
+    static const char path[] = "/sd/MaiaRTOS VFS test.txt";
     static uint8_t expected[700];
     static uint8_t actual[700];
-    FIL file;
-    UINT transferred = 0U;
-    FRESULT failure = FR_OK;
+    maia_vfs_fd_t file = 0U;
+    uint32_t transferred = 0U;
+    maia_vfs_result_t failure = MAIA_VFS_OK;
     const char *failure_operation = NULL;
     int created = 0;
     int opened = 0;
@@ -115,104 +118,106 @@ static void run_fatfs_rw_diagnostic(void) {
     }
 
     failure_operation = "create";
-    failure = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                            MAIA_VFS_OPEN_CREATE_NEW, &file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     created = 1;
     opened = 1;
 
     failure_operation = "write";
-    failure = f_write(&file, expected, sizeof(expected), &transferred);
-    if (failure != FR_OK || transferred != sizeof(expected)) {
-        if (failure == FR_OK) failure_operation = "short-write";
+    failure = maia_vfs_write(file, expected, sizeof(expected), &transferred);
+    if (failure != MAIA_VFS_OK || transferred != sizeof(expected)) {
+        if (failure == MAIA_VFS_OK) failure_operation = "short-write";
         goto cleanup;
     }
     failure_operation = "sync";
-    failure = f_sync(&file);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_sync(file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     failure_operation = "close-write";
-    failure = f_close(&file);
-    opened = 0;
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_close(file);
+    if (failure == MAIA_VFS_OK) opened = 0;
+    if (failure != MAIA_VFS_OK) goto cleanup;
 
     failure_operation = "open-read";
-    failure = f_open(&file, path, FA_READ);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_open(path, MAIA_VFS_OPEN_READ, &file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     opened = 1;
     failure_operation = "read";
     transferred = 0U;
-    failure = f_read(&file, actual, sizeof(actual), &transferred);
-    if (failure != FR_OK || transferred != sizeof(actual) ||
+    failure = maia_vfs_read(file, actual, sizeof(actual), &transferred);
+    if (failure != MAIA_VFS_OK || transferred != sizeof(actual) ||
         memcmp(expected, actual, sizeof(expected)) != 0) {
-        if (failure == FR_OK) failure_operation = "readback-mismatch";
+        if (failure == MAIA_VFS_OK) failure_operation = "readback-mismatch";
         goto cleanup;
     }
     failure_operation = "close-read";
-    failure = f_close(&file);
-    opened = 0;
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_close(file);
+    if (failure == MAIA_VFS_OK) opened = 0;
+    if (failure != MAIA_VFS_OK) goto cleanup;
 
     failure_operation = "open-update";
-    failure = f_open(&file, path, FA_READ | FA_WRITE);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE,
+                            &file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     opened = 1;
     failure_operation = "seek-update";
-    failure = f_lseek(&file, 19U);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_seek(file, 19U);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     expected[19U] ^= 0x5AU;
     failure_operation = "update";
-    failure = f_write(&file, &expected[19U], 1U, &transferred);
-    if (failure != FR_OK || transferred != 1U) {
-        if (failure == FR_OK) failure_operation = "short-update";
+    failure = maia_vfs_write(file, &expected[19U], 1U, &transferred);
+    if (failure != MAIA_VFS_OK || transferred != 1U) {
+        if (failure == MAIA_VFS_OK) failure_operation = "short-update";
         goto cleanup;
     }
     failure_operation = "sync-update";
-    failure = f_sync(&file);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_sync(file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     failure_operation = "close-update";
-    failure = f_close(&file);
-    opened = 0;
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_close(file);
+    if (failure == MAIA_VFS_OK) opened = 0;
+    if (failure != MAIA_VFS_OK) goto cleanup;
 
     failure_operation = "open-verify";
-    failure = f_open(&file, path, FA_READ);
-    if (failure != FR_OK) goto cleanup;
+    failure = maia_vfs_open(path, MAIA_VFS_OPEN_READ, &file);
+    if (failure != MAIA_VFS_OK) goto cleanup;
     opened = 1;
     failure_operation = "verify";
     transferred = 0U;
-    failure = f_read(&file, actual, sizeof(actual), &transferred);
-    if (failure != FR_OK || transferred != sizeof(actual) ||
+    failure = maia_vfs_read(file, actual, sizeof(actual), &transferred);
+    if (failure != MAIA_VFS_OK || transferred != sizeof(actual) ||
         memcmp(expected, actual, sizeof(expected)) != 0) {
-        if (failure == FR_OK) failure_operation = "verify-mismatch";
+        if (failure == MAIA_VFS_OK) failure_operation = "verify-mismatch";
         goto cleanup;
     }
     failure_operation = "close-verify";
-    failure = f_close(&file);
-    opened = 0;
+    failure = maia_vfs_close(file);
+    if (failure == MAIA_VFS_OK) opened = 0;
 
 cleanup:
     if (opened != 0) {
-        FRESULT close_result = f_close(&file);
-        opened = 0;
-        if (failure == FR_OK && close_result != FR_OK) {
+        maia_vfs_result_t close_result = maia_vfs_close(file);
+        if (close_result == MAIA_VFS_OK) opened = 0;
+        if (failure == MAIA_VFS_OK && close_result != MAIA_VFS_OK) {
             failure = close_result;
             failure_operation = "close-cleanup";
         }
     }
     if (created != 0) {
-        FRESULT remove_result = f_unlink(path);
-        if (remove_result != FR_OK) {
-            if (failure == FR_OK) {
+        maia_vfs_result_t remove_result = maia_vfs_unlink(path);
+        if (remove_result != MAIA_VFS_OK) {
+            if (failure == MAIA_VFS_OK) {
                 failure = remove_result;
                 failure_operation = "remove-cleanup";
             } else {
-                report_fatfs_diag_failure("remove-cleanup", remove_result);
+                report_vfs_diag_failure("remove-cleanup", remove_result);
             }
         }
     }
-    if (failure == FR_OK) {
-        maia_console_puts("[F2] MAIA_FATFS_RW_PASS create/update/read/remove\n");
+    if (failure == MAIA_VFS_OK) {
+        maia_console_puts("[F2] MAIA_VFS_RW_PASS create/update/read/remove\n");
     } else {
-        report_fatfs_diag_failure(failure_operation, failure);
+        report_vfs_diag_failure(failure_operation, failure);
     }
 }
 #endif
@@ -240,7 +245,7 @@ static void task_shell_entry(void *arg) {
         if (fatfs_result == MAIA_FATFS_OK) {
             maia_console_puts("[F2] FatFs mounted; media not formatted\n");
 #ifdef MAIA_DIAGNOSTIC_FATFS_RW
-            run_fatfs_rw_diagnostic();
+            run_vfs_rw_diagnostic();
 #endif
         } else if (fatfs_result == MAIA_FATFS_NO_FILESYSTEM) {
             maia_console_puts("[F2] No FAT filesystem; media not modified\n");

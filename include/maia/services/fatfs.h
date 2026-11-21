@@ -17,13 +17,13 @@ typedef enum maia_fatfs_result {
     MAIA_FATFS_FAILURE = -6
 } maia_fatfs_result_t;
 
-/* Mounts the single SD volume in thread context. The caller must serialize
- * mount, unmount and all FatFs file/directory calls; this API is not
- * SMP-, ISR- or concurrently callable. Mount never formats or writes media.
- * The block device must remain stable and initialized until unmount. */
+/* Mounts the single SD volume in boot or quiescent thread context. Mount and
+ * unmount must not overlap VFS calls; VFS serializes its own FatFs operations
+ * and returns BUSY on contention. Do not call FatFs APIs directly. Mount never
+ * formats or writes media. The block device must remain valid until unmount. */
 maia_fatfs_result_t maia_fatfs_mount(maia_sd_block_device_t *device);
 
-/* Unmount only after every FatFs file and directory object has been closed. */
+/* Unmount only after every VFS file handle is closed and callers are quiescent. */
 maia_fatfs_result_t maia_fatfs_unmount(void);
 
 int maia_fatfs_is_mounted(void);

@@ -29,6 +29,16 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   )
 endif()
 
+add_library(maia_vfs STATIC services/vfs.c)
+target_include_directories(maia_vfs
+    PUBLIC include
+    PRIVATE third_party/fatfs/src
+)
+target_link_libraries(maia_vfs PUBLIC maia_fatfs)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(maia_vfs PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
@@ -39,7 +49,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   option(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT
     "DIAGNOSTIC ONLY: simulate an SDMMC CMD8 timeout during product boot" OFF)
   option(MAIA_DIAGNOSTIC_FATFS_RW
-    "DIAGNOSTIC ONLY: create, update, read, and remove a temporary FatFs file" OFF)
+    "DIAGNOSTIC ONLY: exercise MaiaVFS /sd file operations through FatFs" OFF)
   if(MAIA_DIAGNOSTIC_FATFS_RW AND NOT MAIA_USE_FLASH_PRODUCT_LINKER)
     message(FATAL_ERROR "MAIA_DIAGNOSTIC_FATFS_RW requires the flash-XIP product")
   endif()
@@ -142,7 +152,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     lib/maiaglob
   )
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
-    target_link_libraries(maia_m0.elf PRIVATE maia_fatfs)
+    target_link_libraries(maia_m0.elf PRIVATE maia_vfs)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_FATFS=1)
   endif()
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
@@ -157,7 +167,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   if(MAIA_DIAGNOSTIC_FATFS_RW)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_FATFS_RW=1)
-    target_include_directories(maia_m0.elf PRIVATE third_party/fatfs/src)
   endif()
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
@@ -1148,7 +1157,7 @@ else()
 
     add_executable(fatfs_test tests/host/fatfs_test.c)
     target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
-    target_link_libraries(fatfs_test PRIVATE maia_fatfs)
+    target_link_libraries(fatfs_test PRIVATE maia_vfs)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
       target_compile_options(fatfs_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()

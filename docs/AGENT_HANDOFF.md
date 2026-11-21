@@ -1923,3 +1923,30 @@ multi-block requests, FatFs and VFS remain open. The boot-only transport still
 reconfigures SYSTIMER and depends on probe-only cache hooks. Do not format the
 card; leave the USB pendrive untouched for the later TinyUSB host phase. See
 `hardware/EVIDENCE.md`, `hardware/OPEN_QUESTIONS.md` and the F2 checklist/status.
+
+## F2 MaiaVFS `/sd` file API — 2026-11-21
+
+`include/maia/services/vfs.h` and `services/vfs.c` now provide the native file
+API over the mounted FatFs volume: open/read/write/seek/sync/close/unlink. The
+service confines paths to `/sd`, rejects dot/parent traversal, uses eight
+generation-bearing static handles, and matches `FF_FS_LOCK=8`. Since FatFs is
+non-reentrant and Maia's mutex is try-only, each operation returns `BUSY` on
+contention rather than spinning/yielding. Mount/unmount remain quiescent-only.
+
+Host test `fatfs_test` covers create/read/update/append/remove, no-truncate
+create, invalid paths/flags, EOF/partial counts, stale/exhausted handles,
+share-lock conflicts and write-error close/retry. CTest passes 96/96;
+ASan/UBSan and C++98 public-header checks pass. Normal and diagnostic P4 XIP
+images package and validate. The Tab5 diagnostic through MaiaVFS reports
+`MAIA_VFS_RW_PASS`; the flash runner verified/restored the factory app and the
+restored capture reaches `msh>`. No format was run; FAT metadata changed, and
+the whole SD card and flash were not restored byte-for-byte.
+
+Evidence and recovery files are recorded in `hardware/EVIDENCE.md`,
+`plans/STATUS.md`, `hardware/OPEN_QUESTIONS.md`, and
+`../../maia-rtos-recovery/maia-vfs-tab5-final-20261121/`.
+
+Still separate work: directory enumeration/stat/mkdir, wiring file operations
+into shell/Newlib consumers, actual multi-task stress, SD transport-failure and
+power-loss recovery. Do not treat the fail-fast `BUSY` contract as a blocking
+lock or as concurrency stress evidence.

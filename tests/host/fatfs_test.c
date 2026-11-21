@@ -1,4 +1,6 @@
 #include <maia/services/fatfs.h>
+#include <maia/services/vfs.h>
+#include <maia/kernel.h>
 
 #include "diskio.h"
 #include "ff.h"
@@ -21,6 +23,43 @@ typedef struct test_disk {
 
 static test_disk_t disk;
 static maia_sd_block_device_t device;
+static maia_task_id_t test_task_id = 1;
+static int force_vfs_busy;
+
+maia_task_id_t maia_task_current_id(void) {
+    return test_task_id;
+}
+
+maia_status_t maia_mutex_trylock(maia_mutex_t *mutex, int32_t task_id) {
+    if (mutex == NULL || task_id < 0) return MAIA_ERR_INVALID;
+    if (force_vfs_busy != 0) return MAIA_ERR_BUSY;
+    if (mutex->locked == 0U) {
+        mutex->locked = 1U;
+        mutex->owner_task_id = task_id;
+        mutex->lock_count = 1U;
+        return MAIA_OK;
+    }
+    if (mutex->owner_task_id == task_id) {
+        ++mutex->lock_count;
+        return MAIA_OK;
+    }
+    return MAIA_ERR_BUSY;
+}
+
+maia_status_t maia_mutex_unlock(maia_mutex_t *mutex, int32_t task_id) {
+    if (mutex == NULL || task_id < 0) return MAIA_ERR_INVALID;
+    if (mutex->locked == 0U || mutex->owner_task_id != task_id) {
+        return MAIA_ERR_PERM;
+    }
+    if (mutex->lock_count > 1U) {
+        --mutex->lock_count;
+    } else {
+        mutex->lock_count = 0U;
+        mutex->owner_task_id = -1;
+        mutex->locked = 0U;
+    }
+    return MAIA_OK;
+}
 
 static void set_u16(uint8_t *buffer, size_t offset, uint16_t value) {
     buffer[offset] = (uint8_t)value;
@@ -174,6 +213,121 @@ static void test_file_operations(void) {
     assert(f_unlink(path) == FR_OK);
 }
 
+static void test_vfs_file_operations(void) {
+    static const char path[] = "/sd/MaiaRTOS VFS test.txt";
+    static const uint8_t suffix[] = { 0xA5U, 0x5AU, 0xC3U };
+    uint8_t expected[703];
+    uint8_t readback[703];
+    maia_vfs_fd_t fd = 0U;
+    maia_vfs_fd_t second_fd = 0U;
+    uint32_t transferred = 99U;
+
+    for (size_t i = 0U; i < 700U; ++i) {
+        expected[i] = (uint8_t)(i * 19U + 7U);
+    }
+    memcpy(expected + 700U, suffix, sizeof(suffix));
+
+    assert(maia_vfs_open("/sdb/file", MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_INVALID);
+    assert(maia_vfs_open("/sd/../file", MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_INVALID);
+    assert(maia_vfs_open("/sd//file", MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_INVALID);
+    assert(maia_vfs_open("/sd/file/", MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_INVALID);
+    assert(maia_vfs_open("/sd/file", MAIA_VFS_OPEN_READ |
+                         MAIA_VFS_OPEN_TRUNCATE, &fd) == MAIA_VFS_INVALID);
+    assert(maia_vfs_open("/sd/file", MAIA_VFS_OPEN_READ, NULL) ==
+           MAIA_VFS_INVALID);
+
+    force_vfs_busy = 1;
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_BUSY);
+    assert(fd == 0U);
+    force_vfs_busy = 0;
+
+    test_task_id = -1;
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_BAD_CONTEXT);
+    assert(fd == 0U);
+    test_task_id = 1;
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_CREATE_NEW, &fd) == MAIA_VFS_OK);
+    assert(fd != 0U);
+    assert(maia_vfs_write(fd, expected, 700U, &transferred) == MAIA_VFS_OK);
+    assert(transferred == 700U);
+    disk.fail_write = 1;
+    assert(maia_vfs_close(fd) == MAIA_VFS_IO_ERROR);
+    assert(maia_vfs_sync(fd) == MAIA_VFS_IO_ERROR);
+    disk.fail_write = 0;
+    assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE,
+                         &second_fd) == MAIA_VFS_BUSY);
+    assert(second_fd == 0U);
+    assert(maia_vfs_unlink(path) == MAIA_VFS_BUSY);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_CREATE_NEW, &fd) == MAIA_VFS_EXISTS);
+    assert(fd == 0U);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_CREATE, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, NULL, 1U, &transferred) == MAIA_VFS_INVALID);
+    assert(maia_vfs_read(fd, readback, 700U, &transferred) == MAIA_VFS_OK);
+    assert(transferred == 700U);
+    assert(memcmp(expected, readback, 700U) == 0);
+    assert(maia_vfs_seek(fd, 19U) == MAIA_VFS_OK);
+    expected[19U] ^= 0x6DU;
+    assert(maia_vfs_write(fd, expected + 19U, 1U, &transferred) == MAIA_VFS_OK);
+    assert(transferred == 1U);
+    assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, readback, 703U, &transferred) == MAIA_VFS_OK);
+    assert(transferred == 700U);
+    assert(memcmp(expected, readback, 700U) == 0);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_APPEND, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_write(fd, suffix, sizeof(suffix), &transferred) ==
+           MAIA_VFS_OK);
+    assert(transferred == sizeof(suffix));
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, readback, sizeof(readback), &transferred) ==
+           MAIA_VFS_OK);
+    assert(transferred == sizeof(expected));
+    assert(memcmp(expected, readback, sizeof(expected)) == 0);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, readback, 1U, &transferred) == MAIA_VFS_INVALID);
+    assert(transferred == 0U);
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_WRITE, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, readback, 1U, &transferred) == MAIA_VFS_ACCESS);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    maia_vfs_fd_t readers[MAIA_VFS_MAX_OPEN_FILES];
+    for (size_t i = 0U; i < MAIA_VFS_MAX_OPEN_FILES; ++i) {
+        assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &readers[i]) ==
+               MAIA_VFS_OK);
+    }
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &second_fd) ==
+           MAIA_VFS_NO_HANDLES);
+    assert(second_fd == 0U);
+    for (size_t i = 0U; i < MAIA_VFS_MAX_OPEN_FILES; ++i) {
+        assert(maia_vfs_close(readers[i]) == MAIA_VFS_OK);
+    }
+
+    assert(maia_vfs_unlink(path) == MAIA_VFS_OK);
+    assert(maia_vfs_unlink(path) == MAIA_VFS_NOT_FOUND);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_NOT_FOUND);
+    assert(fd == 0U);
+}
+
 int main(void) {
     static const maia_sd_geometry_t geometry = { TEST_SECTOR_COUNT };
     memset(&disk, 0, sizeof(disk));
@@ -185,6 +339,10 @@ int main(void) {
     assert(maia_fatfs_is_mounted() == 0);
     assert(disk.writes == writes_before);
     assert(disk_status(0U) == STA_NOINIT);
+    maia_vfs_fd_t fd = 99U;
+    assert(maia_vfs_open("/sd/not-mounted", MAIA_VFS_OPEN_READ, &fd) ==
+           MAIA_VFS_NOT_MOUNTED);
+    assert(fd == 0U);
 
     create_fat12_volume();
     writes_before = disk.writes;
@@ -196,10 +354,11 @@ int main(void) {
 
     test_disk_interface();
     test_file_operations();
+    test_vfs_file_operations();
 
     assert(maia_fatfs_unmount() == MAIA_FATFS_OK);
     assert(maia_fatfs_is_mounted() == 0);
     assert(disk_status(0U) == STA_NOINIT);
-    puts("FatFs mount, no-format, disk I/O, create/update/read: PASS");
+    puts("FatFs mount, no-format, disk I/O and MaiaVFS file operations: PASS");
     return 0;
 }

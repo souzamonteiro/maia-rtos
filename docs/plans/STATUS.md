@@ -2826,8 +2826,9 @@ exFAT nem `f_mkfs`. Nenhum glue VFS, FreeRTOS ou ESP-IDF foi incluído.
 O `diskio` próprio adapta as chamadas síncronas ao dispositivo de blocos Maia.
 O produto monta a unidade em contexto de tarefa e continua o boot em caso de
 falha; montagem nunca grava ou formata. `FF_FS_REENTRANT=0`: montagem e todas
-as operações FatFs precisam ser serializadas pelo chamador. Ainda não há VFS
-`/sd` nem API de arquivos Maia.
+as operações FatFs devem ser serializadas. Essa serialização passou a ser
+fornecida pela API MaiaVFS descrita na seção seguinte; mount/unmount continuam
+restritos a contexto quiescente.
 
 No host, o teste usa volume FAT12 sintético em RAM: montagem de mídia inválida
 não emitiu escrita; a montagem válida não emitiu escrita; criação, atualização,
@@ -2850,5 +2851,47 @@ Capturas, imagem de diagnóstico, backup do app e relatório estão em
 `maia-rtos-recovery/fatfs-tab5-20261121/`; a imagem de diagnóstico tem SHA-256
 `a98fbe45dccca135bc3c4e651d69c6171a7bc5c38eaf2b006ba6952957440d83`.
 Não foi feita comparação da flash integral nesta execução. Permanecem pendentes
-VFS `/sd`, concorrência/serialização multi-tarefa, falhas reais e estresse,
-recuperação após perda de energia e transferência de arquivos por `maia.py`.
+estresse multi-tarefa, falhas reais de transporte, recuperação após perda de
+energia e transferência de arquivos por `maia.py`.
+
+## F2 — API MaiaVFS de arquivos em `/sd` — 2026-11-21
+
+Foi adicionada a biblioteca `maia_vfs`, acima do FatFs Maia, com `open`, `read`,
+`write`, `seek`, `sync`, `close` e `unlink`. O mount único é `/sd`; caminhos
+fora dele, componentes `.`/`..`, separadores alternativos e `:` são rejeitados.
+`CREATE` preserva arquivos existentes, `CREATE_NEW` não sobrescreve,
+`TRUNCATE` exige `CREATE`, e `APPEND` reposiciona cada escrita ao fim. O serviço
+usa oito handles estáticos com geração, sem heap; `FF_FS_LOCK=8` impede conflitos
+de compartilhamento compatíveis com essa capacidade.
+
+Como `FF_FS_REENTRANT=0` e o kernel oferece mutex não bloqueante, cada operação
+VFS obtém `maia_mutex_trylock` e retorna `MAIA_VFS_BUSY` na contenção. Não há
+polling, yield repetido ou espera em ISR. As chamadas são exclusivas a contexto
+de tarefa; mount/unmount exigem quiescência. EOF retorna leitura bem-sucedida de
+zero bytes; transferências parciais são reportadas; `close` com falha mantém o
+handle válido para nova tentativa. Listagem de diretórios e adaptação ao
+shell/Newlib não fazem parte desta unidade.
+
+O teste FAT12 sintético em RAM cobre rota `/sd`, rejeição de caminhos inválidos,
+mount ausente, busy/contexto, create-new, preservação de arquivo existente,
+leitura, atualização, append, unlink, handles expirados/limite de oito, conflito
+de compartilhamento e recuperação de `close/sync` após erro de escrita. CTest
+completo passou **96/96**; `fatfs_test` passou com ASan/UBSan; headers públicos
+compilaram em C++98. Builds P4 e empacotamento/validação da imagem passaram:
+normal, 818.704 bytes, SHA-256
+`b4eb03d4e068185888d169d240e0eab1c7b167989aa6317f63d9721ce443a1a3`;
+diagnóstico, 838.880 bytes, SHA-256
+`d233e1640fd5830158e245ea9307fd1b702e07a4485e740e4e1f3acb154a3e1b`.
+
+No Tab5, o diagnóstico default-OFF chamou a nova API: `CREATE_NEW`, escrita e
+sync de 700 bytes, leitura/comparação, atualização de um byte, nova verificação
+e remoção; registrou `MAIA_VFS_RW_PASS`, sem marcador fatal. O runner restaurou
+o app de fábrica e confirmou a hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`; o boot
+restaurado voltou a `msh>`. O arquivo temporário foi removido, mas metadados FAT
+foram atualizados; não houve restauração byte a byte do cartão nem comparação
+integral da flash.
+
+Logs e relatório: `maia-rtos-recovery/maia-vfs-tab5-final-20261121/`.
+Concorrência real/estresse, falha física de transporte, recuperação de energia,
+diretórios e integração com consumidores permanecem pendentes.

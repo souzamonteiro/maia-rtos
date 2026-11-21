@@ -3199,7 +3199,7 @@ redistribution notices. MaiaRTOS uses only `ff.c`, `ff.h`, `ffunicode.c`, and
 `diskio.h`; it supplies its own `ffconf.h` and `diskio` adapter. ESP-IDF VFS,
 FreeRTOS synchronization, `sdkconfig.h`, and ESP-IDF disk glue are excluded.
 `FF_USE_MKFS=0`; exFAT is disabled; long filenames use UTF-8. FatFs is not
-reentrant in this configuration, so callers must serialize all operations.
+reentrant in this configuration; the MaiaVFS layer below serializes its calls.
 
 Host validation used a synthetic FAT12 image in RAM. The invalid-image mount
 returned `MAIA_FATFS_NO_FILESYSTEM` with zero writes. Mounting the valid image
@@ -3239,6 +3239,73 @@ made in this run.
 
 Image, probe/restore logs, app backup and report:
 `../../../maia-rtos-recovery/fatfs-tab5-20261121/`. This qualifies the tested
-single-task FatFs path, not MaiaVFS `/sd`, concurrent access, stress,
-transport-failure recovery, power-loss recovery, or file transfer through
-`maia.py`. No format command is enabled or called.
+single-task FatFs path, not multi-task stress, transport-failure recovery,
+power-loss recovery, or file transfer through `maia.py`. No format command is
+enabled or called.
+
+## MaiaVFS `/sd` file API — 2026-11-21
+
+The new `maia_vfs` library wraps FatFs with a native Maia C API for `open`,
+`read`, `write`, `seek`, `sync`, `close`, and `unlink`. It accepts files only
+under `/sd`; invalid mount prefixes, dot/parent components, backslashes and
+drive-colon paths are rejected. It uses eight fixed file slots with
+generation-bearing handles and sets `FF_FS_LOCK=8` to prevent incompatible
+simultaneous opens. No heap or FreeRTOS/ESP-IDF runtime glue is used.
+
+FatFs is configured with `FF_FS_REENTRANT=0`. Each VFS call uses the kernel's
+nonblocking `maia_mutex_trylock`; concurrent callers receive `MAIA_VFS_BUSY`
+without internal polling or yielding. Calls are thread-context-only;
+mount/unmount require a quiescent system. A failed close preserves its handle
+for retry. Directory enumeration and shell/Newlib adapters are not implemented.
+
+Host validation extends `fatfs_test` over a synthetic FAT12 image. It covers
+no-format mount, path confinement, invalid/missing paths, create-new and
+non-truncating create, read/update/append/unlink, partial EOF, stale and
+exhausted handles, file-sharing conflicts, injected lock/context errors, and
+retry after a simulated disk-write failure. The focused test passed under
+ASan/UBSan; CTest passed **96/96**; public headers compile with C++98 and
+warnings-as-errors.
+
+The normal P4 image is 818,704 bytes (SHA-256
+`b4eb03d4e068185888d169d240e0eab1c7b167989aa6317f63d9721ce443a1a3`). The
+default-OFF VFS diagnostic image is 838,880 bytes (SHA-256
+`d233e1640fd5830158e245ea9307fd1b702e07a4485e740e4e1f3acb154a3e1b`); both
+have five validated XIP segments and entry `0x40000020`.
+
+On the Tab5, the final diagnostic emitted:
+
+```text
+[F2] FatFs mounted; media not formatted
+[F2] MAIA_VFS_RW_PASS create/update/read/remove
+```
+
+The runner report records `probe_pass=true`, `restore_verified=true`, no fatal
+marker, and a restored app SHA-256 of
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The restored boot returned to `msh>`. The test file was created with
+`CREATE_NEW`, removed before PASS, and never formatted the card. FAT metadata
+sectors changed; the entire card was not backed up/restored, and no full-flash
+comparison was made.
+
+Reproduction:
+
+```sh
+cmake -S . -B /tmp/maia-vfs-p4-diag \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/riscv32-esp32p4-elf.cmake \
+  -DMAIA_USE_FLASH_PRODUCT_LINKER=ON \
+  -DMAIA_DIAGNOSTIC_FATFS_RW=ON \
+  -DMAIA_ESPTOOL_EXECUTABLE=/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/esptool.py
+cmake --build /tmp/maia-vfs-p4-diag --target maia_m0_image -j4
+PYTHONDONTWRITEBYTECODE=1 /Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python \
+  tests/hardware/run_f0_flash_probe.py \
+  --image /tmp/maia-vfs-p4-diag/maia_m0.bin \
+  --out ../../../maia-rtos-recovery/maia-vfs-tab5-final-20261121 \
+  --port /dev/cu.usbmodem1301 --capture-seconds 45 \
+  --marker MAIA_VFS_RW_PASS
+```
+
+Logs and report:
+`../../../maia-rtos-recovery/maia-vfs-tab5-final-20261121/`. This is a
+single-task hardware qualification; it does not prove concurrent stress,
+directory operations, shell integration, transport-failure recovery, or
+power-loss recovery.
