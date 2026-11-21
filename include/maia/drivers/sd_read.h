@@ -16,7 +16,9 @@ typedef enum maia_sd_result {
     MAIA_SD_NOT_READY = -3,
     MAIA_SD_OUT_OF_RANGE = -4,
     MAIA_SD_TIMEOUT = -5,
-    MAIA_SD_IO_ERROR = -6
+    MAIA_SD_IO_ERROR = -6,
+    MAIA_SD_BUSY = -7,
+    MAIA_SD_NO_MEDIA = -8
 } maia_sd_result_t;
 
 typedef struct maia_sd_geometry {
@@ -50,6 +52,51 @@ maia_sd_result_t maia_sd_read_block(const maia_sd_geometry_t *geometry,
                                     maia_sd_read_block_fn read_block,
                                     void *context, uint64_t block,
                                     uint8_t *buffer);
+
+/* Synchronous range callbacks. A callback owns the entire request and must
+ * serialize its transport against all other users. completed_blocks counts
+ * only fully transferred blocks; an error may still have changed the current
+ * block (including for writes). Success requires completed_blocks == count.
+ * Thread context only; callbacks must return in bounded time and report
+ * timeout, busy, and absent-media conditions with the matching result. */
+typedef maia_sd_result_t (*maia_sd_block_read_fn)(
+    void *context, uint32_t first_block, uint32_t count, uint8_t *buffer,
+    uint32_t *completed_blocks);
+typedef maia_sd_result_t (*maia_sd_block_write_fn)(
+    void *context, uint32_t first_block, uint32_t count, const uint8_t *buffer,
+    uint32_t *completed_blocks);
+
+typedef struct maia_sd_block_device {
+    maia_sd_geometry_t geometry;
+    maia_sd_block_read_fn read;
+    maia_sd_block_write_fn write;
+    void *context;
+    uint32_t initialized;
+} maia_sd_block_device_t;
+
+/* Boot/quiescent context only; no allocation or I/O. Both operations are
+ * required. Geometry must describe 1..2^32 addressable 512-byte blocks.
+ * The callback context must remain valid for the device lifetime. Failure
+ * leaves device unchanged. The initialized object must remain at a stable
+ * address and must not be modified or copied while requests are active.
+ */
+maia_sd_result_t maia_sd_block_device_init(
+    maia_sd_block_device_t *device, const maia_sd_geometry_t *geometry,
+    maia_sd_block_read_fn read, maia_sd_block_write_fn write, void *context);
+
+/* Thread context only; device must have been initialized. Caller keeps the
+ * device, callback context and buffer alive and stable, serializes requests,
+ * and provides count*512 bytes not overlapping the device or completed_blocks.
+ * completed_blocks must not overlap the device. count must be nonzero.
+ * Range/size checks happen before I/O. completed_blocks is set to zero before
+ * validation, then reports full blocks completed even on transport error. A
+ * successful callback that reports a short transfer is MAIA_SD_IO_ERROR. */
+maia_sd_result_t maia_sd_block_device_read(
+    maia_sd_block_device_t *device, uint64_t first_block, uint32_t count,
+    uint8_t *buffer, uint32_t *completed_blocks);
+maia_sd_result_t maia_sd_block_device_write(
+    maia_sd_block_device_t *device, uint64_t first_block, uint32_t count,
+    const uint8_t *buffer, uint32_t *completed_blocks);
 
 #ifdef __cplusplus
 }

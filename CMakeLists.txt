@@ -40,6 +40,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     soc/espressif/esp32p4/soc_ldo3_snapshot.c
     drivers/i2c/bitbang.c
     drivers/gpio/pi4ioe5v6408.c
+    drivers/storage/sd_read.c
     boards/m5stack/tab5/panel_reset.c
     boards/m5stack/tab5/touch_identify.c
     boards/m5stack/tab5/st7121.c

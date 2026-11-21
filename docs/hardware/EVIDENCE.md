@@ -3007,3 +3007,34 @@ concurrency, removal/error recovery, power interruption, FatFs, VFS and product
 integration remain untested. The auxiliary Arduino/ESP-IDF scanner was used
 only to identify the free cluster and preserve its original bytes; none of
 those runtime dependencies were linked into MaiaRTOS.
+
+### Portable SD block-device request contract — 2026-11-21
+
+`include/maia/drivers/sd_read.h` and `drivers/storage/sd_read.c` now define a
+stationary block-device descriptor and whole-request read/write callbacks.
+Requests validate nonzero count, 512-byte buffer-size arithmetic, capacity and
+32-bit SDHC address bounds before dispatch. The callback reports the number of
+fully completed blocks; partial progress is preserved on error, while success
+with incomplete or over-reported progress is rejected. `BUSY` and `NO_MEDIA`
+are represented in the portable result set. The callback contract requires
+the transport to serialize each full request and to return in bounded time.
+
+On macOS with AppleClang 21:
+
+```sh
+cmake -S . -B /tmp/maia-sd-block-host -DCMAKE_BUILD_TYPE=Debug
+cmake --build /tmp/maia-sd-block-host --target sd_read_test tab5_sdmmc_boot_test -j4
+ctest --test-dir /tmp/maia-sd-block-host --output-on-failure -R '^(sd_read_test|tab5_sdmmc_boot_test)$'
+cmake -S . -B /tmp/maia-sd-block-asan -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+  -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
+cmake --build /tmp/maia-sd-block-asan --target sd_read_test -j4
+ctest --test-dir /tmp/maia-sd-block-asan --output-on-failure -R '^sd_read_test$'
+```
+
+Results: focused CTest 2/2; ASan/UBSan 1/1; public header compiled as C++98
+with warnings-as-errors. The P4 `maia_m0.elf` target also built, compiling
+`sd_read.c`; its API has no product caller and is not hardware-integrated. No
+card access or writes were performed for this contract change. The existing
+boot-only transport still lacks runtime ownership, product cache/DMA plumbing,
+real card-removal detection and multi-block device execution.

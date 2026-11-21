@@ -2679,3 +2679,28 @@ controlado de teste/restauração. Ainda faltam uma interface de blocos
 reutilizável integrada ao produto, múltiplos setores, erros/timeouts/remoção,
 concorrência e validação mais ampla. FatFs e VFS permanecem pendentes; não
 formatar automaticamente.
+
+## F2 — Contrato de requisições multi-setor — 2026-11-21
+
+`maia_sd_block_device` agora oferece uma interface síncrona C para leitura e
+escrita de um ou mais blocos de 512 bytes, com geometria limitada a `2^32`
+blocos, validação do intervalo antes de I/O, status `BUSY`/`NO_MEDIA` e contagem
+de blocos completos mesmo quando o transporte retorna erro. Um callback recebe
+a requisição inteira e deve serializar seu controlador; a camada converte
+sucesso com transferência parcial ou contagem inválida em `MAIA_SD_IO_ERROR`.
+Não há alocação implícita.
+
+O mock exercita leitura/escrita de três blocos, último endereço SDHC,
+requisições fora de capacidade, contagem zero, timeout com progresso parcial,
+ausência de mídia, sucesso incompleto e progresso acima do pedido. `sd_read_test`
+e `tab5_sdmmc_boot_test` passaram; `sd_read_test` também passou com ASan/UBSan.
+O cabeçalho passou compilação C++98 e o alvo P4 compilou a nova unidade.
+
+Isto valida o contrato reutilizável, não um transporte SDMMC de runtime:
+nenhum callback de hardware está conectado, as requisições não foram executadas
+no cartão e os símbolos não são usados pelo produto ainda. O probe SDMMC atual
+reconfigura o SYSTIMER, usa hooks de cache/DMA exclusivos do linker de probe e
+não tem detecção real de remoção. Propriedade em runtime, integração chamada
+pelo produto, erros físicos, requisições multi-setor no Tab5 e recuperação
+continuam pendentes. FatFs/VFS continuam bloqueados até leitura e escrita
+nativas integradas e verificadas.

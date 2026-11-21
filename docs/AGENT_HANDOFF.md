@@ -1913,8 +1913,13 @@ ownership until reset. The full 16 MiB flash image was restored and read back
 byte-for-byte; the restored MaiaRTOS boot reached `msh>`. Logs, probe image and
 report: `../../maia-rtos-recovery/native-sdmmc-write-20261121-valid-image/`.
 
-This does not complete the storage driver. Multi-block requests, runtime
-ownership, concurrency, removal/error recovery, FatFs, VFS and product
-integration remain open. Do not format the card; leave the USB pendrive
-untouched for the later TinyUSB host phase. See `hardware/EVIDENCE.md`,
-`hardware/OPEN_QUESTIONS.md` and the F2 checklist/status.
+The portable block-device request contract now supports read/write requests
+for one or more sectors, validates capacity/address/size, and preserves
+completed-block progress and transport errors. Host, sanitizer, C++98 and P4
+compile checks pass; no hardware callbacks are connected or run by the product.
+This does not complete the storage driver. Runtime ownership, transport
+serialization, product cache/DMA plumbing, real removal detection, physical
+multi-block requests, FatFs and VFS remain open. The boot-only transport still
+reconfigures SYSTIMER and depends on probe-only cache hooks. Do not format the
+card; leave the USB pendrive untouched for the later TinyUSB host phase. See
+`hardware/EVIDENCE.md`, `hardware/OPEN_QUESTIONS.md` and the F2 checklist/status.

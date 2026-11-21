@@ -96,6 +96,7 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [ ] Driver SDMMC host nativo para leitura e escrita de blocos
   - [x] Observação em RAM de alimentação/pinos/controlador passou em dois boots mornos, sem enviar comandos (20/11).
   - [x] Diagnóstico isolado em RAM configurou o slot 0 e executou `CMD0`/`CMD8`: conclusão de `CMD0` e resposta `CMD8` `0x1aa` em dois boots mornos (20/11). Ainda não lê setores nem está integrado ao produto.
+- [x] Contrato C de dispositivo de blocos para leitura/escrita multi-setor, limites, progresso parcial e propagação de erros; CTest, ASan/UBSan, C++98 e compilação P4 passaram (21/11). O backend SDMMC de runtime ainda não está integrado nem validado no device.
 - [ ] Protocolo de cartão SD (inicialização, leitura, escrita)
   - 🔧 Base SDHC/SDXC: geometria CSD v2 e limites de endereço testados no host; inicialização, leitura IDMAC e uma escrita CMD24 de bloco único qualificadas no Tab5. O transporte continua boot-only, não integrado ao produto (21/11).
   - [x] Diagnóstico isolado em RAM identificou o SDHC (ACMD41, CID/RCA/CSD, seleção e estado pronto); a resposta de `CMD17` e `DATA_OVER` foram observados (20/11).
