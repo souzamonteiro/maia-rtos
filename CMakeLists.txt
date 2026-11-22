@@ -52,9 +52,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "DIAGNOSTIC ONLY: exercise MaiaVFS /sd file operations through FatFs" OFF)
   option(MAIA_DIAGNOSTIC_VFS_SHELL
     "POC ONLY: start native LCD shell in /sd without desktop or automatic SD writes" OFF)
+  option(MAIA_DIAGNOSTIC_VFS_STRESS
+    "DIAGNOSTIC ONLY: run bounded concurrent MaiaVFS stress and one-shot I/O recovery checks" OFF)
   if(MAIA_DIAGNOSTIC_VFS_SHELL AND
      (NOT MAIA_USE_FLASH_PRODUCT_LINKER OR MAIA_DIAGNOSTIC_FATFS_RW))
     message(FATAL_ERROR "VFS shell POC requires flash-XIP and excludes automatic FATFS_RW")
+  endif()
+  if(MAIA_DIAGNOSTIC_VFS_STRESS AND
+     (NOT MAIA_USE_FLASH_PRODUCT_LINKER OR MAIA_DIAGNOSTIC_FATFS_RW OR
+      MAIA_DIAGNOSTIC_VFS_SHELL OR MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT))
+    message(FATAL_ERROR "VFS stress requires flash-XIP and excludes other SD diagnostics")
   endif()
   if(MAIA_DIAGNOSTIC_FATFS_RW AND NOT MAIA_USE_FLASH_PRODUCT_LINKER)
     message(FATAL_ERROR "MAIA_DIAGNOSTIC_FATFS_RW requires the flash-XIP product")
@@ -174,6 +181,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   if(MAIA_DIAGNOSTIC_FATFS_RW)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_FATFS_RW=1)
+  endif()
+  if(MAIA_DIAGNOSTIC_VFS_STRESS)
+    target_compile_definitions(maia_m0.elf PRIVATE
+      MAIA_DIAGNOSTIC_VFS_STRESS=1
+      MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION=1
+    )
+    target_compile_definitions(maia_fatfs PRIVATE
+      MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION=1
+    )
+    target_compile_definitions(maia_vfs PRIVATE
+      MAIA_DIAGNOSTIC_VFS_STRESS=1
+    )
   endif()
   if(MAIA_DIAGNOSTIC_VFS_SHELL)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_VFS_SHELL=1)
@@ -1132,6 +1151,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 else()
   option(MAIA_BUILD_HOST_TESTS "Build host-side contract tests" ON)
   if(MAIA_BUILD_HOST_TESTS)
+    target_compile_definitions(maia_fatfs PRIVATE
+      MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION=1
+    )
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME native_probe_gate
@@ -1167,6 +1189,9 @@ else()
 
     add_executable(fatfs_test tests/host/fatfs_test.c runtime/newlib_vfs.c)
     target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
+    target_compile_definitions(fatfs_test PRIVATE
+      MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION=1
+    )
     target_link_libraries(fatfs_test PRIVATE maia_vfs)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
       target_compile_options(fatfs_test PRIVATE -Wall -Wextra -Wpedantic -Werror)

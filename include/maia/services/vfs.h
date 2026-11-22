@@ -90,6 +90,10 @@ maia_vfs_result_t maia_vfs_readdir(maia_vfs_dir_t dir,
                                    int *out_has_entry);
 maia_vfs_result_t maia_vfs_closedir(maia_vfs_dir_t dir);
 
+#if defined(MAIA_DIAGNOSTIC_VFS_STRESS)
+void maia_vfs_diag_lock_state(uint32_t *out_locked, int32_t *out_owner);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

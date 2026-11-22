@@ -3408,7 +3408,7 @@ image, an exclusive recovery output directory, `--input-marker 'msh> '`,
 the demo as `--input-hex`, marker CRLF + `MAIA_SHELL_SD_END` + CRLF, and
 `--observe-seconds 120`. Do not use automatic FATFS_RW simultaneously.
 
-Limits: fail-fast BUSY, not multi-task SD stress; eight file slots and four
+Limits: fail-fast BUSY, not a blocking VFS API; eight file slots and four
 directory slots also share FatFs's eight object locks. Newlib descriptors are
 private to the adapter; it holds adapter → VFS locks for compound position
 operations. Metadata/offsets above INT32_MAX return EOVERFLOW. O_TRUNC without
@@ -3418,3 +3418,42 @@ qualification. A failed native close keeps its descriptor; callers using
 fclose must retain the raw fd if they need retry. Shell recovery after real
 transport/close failures, power-loss recovery and cold/SMP storage remain open.
 FAT metadata changed; no complete-card or full-flash comparison is claimed.
+
+## MaiaVFS multi-task stress and injected I/O recovery — 2026-11-21
+
+The default-OFF `MAIA_DIAGNOSTIC_VFS_STRESS=ON` test is limited to the Tab5 P4
+and requires the flash-XIP product. It refuses to use a pre-existing test
+directory and never formats the card. Two MaiaRTOS workers each completed 16
+iterations of 512-byte write, sync, close, reopen, read/compare and EOF checks.
+The test handles fail-fast `MAIA_VFS_BUSY` with a bounded 5,000-attempt,
+one-tick retry; the passing run reported 6,173 retries. Each worker used its
+own file. Successful completion removed both worker files and the test
+directory; the separate temporary fault-test file was also unlinked.
+
+The same opt-in diagnostic injects a one-shot write error before the real
+disk-write callback, observed the sync error and then successfully retried sync.
+It injects a read error before the real disk-read callback, closes the FatFs
+object with its sticky read error, reopens the file and verifies all 512 bytes.
+An explicit clear-pending-fault API and host regression ensure an unconsumed
+injection cannot leak into a later I/O operation. This tests software error
+propagation and recovery only; it is not a real SD transport fault, card-removal,
+power-loss or media-integrity test.
+
+Host CTest passed 96/96; the targeted FatFs fault test passed with
+ASan/UBSan. Normal and stress-enabled P4 images built. The final recovery-wrapped
+Tab5 run captured `MAIA_VFS_STRESS_WORKERS_PASS workers=2 iterations=32`,
+`MAIA_VFS_FAULT_RECOVERY_PASS` and
+`MAIA_VFS_STRESS_PASS ... files_removed=2`; no fatal marker occurred.
+`report.json` records `probe_pass=true` and `restore_verified=true`. The runner
+restored the factory app with hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`; the
+restored boot loaded the desktop. Logs and report:
+`../../../maia-rtos-recovery/native-vfs-stress-20261121-final/`.
+
+Several earlier bounded diagnostic attempts failed before the final pass and
+left their uniquely named test directories/files on `/sd` for inspection; no
+format or full-card restore was performed. The successful run removed only its
+own test files. The retry bound and coordinator stack were increased after
+hardware observations; the final coordinator stack is 8 KiB. This is
+single-core task contention, not SMP stress. Real transport/removal and
+power-loss recovery remain open.

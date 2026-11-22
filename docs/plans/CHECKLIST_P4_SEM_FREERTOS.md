@@ -112,14 +112,16 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Validar fisicamente escrita multi-setor pelo serviço de runtime, preservando e restaurando os dois setores originais; ambos os blocos foram confirmados prontos e a releitura coincidiu (21/11). O backend emite CMD24 por setor; CMD25 não foi implementado.
   - [x] Cobrir no host inicialização sticky, timeout com progresso parcial e requisição sobreposta: o callback reentrante retorna `MAIA_SD_BUSY` sem novo acesso a MMIO; teste focado e ASan/UBSan passaram (21/11).
   - [x] Testar o boot do produto após falha de inicialização SDMMC: timeout **simulado em software** após CMD8 fez o serviço ficar indisponível, mas o boot chegou a `msh>` e `qtest PASS`; flash restaurada e comparada integralmente (21/11).
-  - [ ] Testar falhas reais de transporte e estresse no Tab5. O pinmap documenta DET como NC: remoção não pode ser identificada como `NO_MEDIA`, apenas como falha de transporte.
+  - [x] Estresse concorrente no Tab5: dois workers MaiaRTOS fizeram 16 ciclos cada de escrita/sync/leitura/comparação de registros de 512 bytes, com contenção `BUSY` limitada e yield; arquivos removidos ao final (21/11).
+  - [x] Recuperação de erros simulados no diskio: falha única de escrita durante sync seguida de retry e falha de leitura seguida de close/reopen; host e Tab5 passaram. A injeção ocorre antes do callback físico e não simula remoção ou perda de energia (21/11).
+  - [ ] Testar falhas reais de transporte, remoção e perda de energia no Tab5. O pinmap documenta DET como NC: remoção não pode ser identificada como `NO_MEDIA`, apenas como falha de transporte.
   - [x] Validar leitura e escrita no cartão de teste em um bloco: LBA 69318 preservado antes do teste; padrão escrito e comparado; setor original restaurado e comparado novamente. O backup dos bytes foi obtido pela referência de software no Tab5 (21/11).
-  - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; teste de estresse, falha e concorrência permanecem pendentes.
+  - [x] Leitura e escrita do serviço integradas e verificadas no Tab5 sem dependências Arduino/ESP-IDF/FreeRTOS; estresse concorrente de software e recuperação de falhas injetadas também passaram (21/11).
 - [x] FatFs R0.15 integrado ao SDMMC nativo: montagem sem formatar; create/update/read/remove de arquivo testados no host e no Tab5 (21/11)
 - [x] API MaiaVFS de arquivos em `/sd`: open/read/write/seek/sync/close/unlink, caminhos confinados e handles fixos; host, sanitizers, build P4 e diagnóstico no Tab5 passaram (21/11)
-- [x] Listagem de diretórios e integração do VFS com shell/Newlib: `cd/pwd/ls`, `cat`, `echo >`/`>>`, `mkdir/rmdir/rm`; lifecycle de arquivo de 17 bytes verificado no Tab5 e POC shell/LCD sem desktop aprovada pelo dono (21/11). Adaptador limitado, não POSIX completo; concorrência/falhas permanecem pendentes.
+- [x] Listagem de diretórios e integração do VFS com shell/Newlib: `cd/pwd/ls`, `cat`, `echo >`/`>>`, `mkdir/rmdir/rm`; lifecycle de arquivo de 17 bytes verificado no Tab5 e POC shell/LCD sem desktop aprovada pelo dono (21/11). Estresse de dois workers e recuperação de falhas injetadas passaram; falhas físicas e perda de energia permanecem pendentes.
 - [ ] Configurações persistentes na flash
-- [ ] Teste de estresse de leitura/escrita
+- [x] Teste de estresse multi-task de leitura/escrita no Tab5: 32 registros de 512 bytes verificados e removidos; recovery runner restaurou o firmware (21/11)
 - [ ] Transferência de arquivos pelo `maia.py`
 
 ## F3 — Periféricos da placa

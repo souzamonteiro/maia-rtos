@@ -28,6 +28,19 @@ maia_fatfs_result_t maia_fatfs_unmount(void);
 
 int maia_fatfs_is_mounted(void);
 
+#if defined(MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION)
+typedef enum maia_fatfs_diag_io {
+    MAIA_FATFS_DIAG_READ = 1,
+    MAIA_FATFS_DIAG_WRITE = 2
+} maia_fatfs_diag_io_t;
+
+/* Diagnostic-only one-shot diskio failure, consumed before SD hardware access. */
+void maia_fatfs_diag_fail_next(maia_fatfs_diag_io_t operation);
+/* Clear an unconsumed fault so it cannot affect a later disk operation. */
+void maia_fatfs_diag_clear_pending_fault(void);
+uint32_t maia_fatfs_diag_faults_triggered(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

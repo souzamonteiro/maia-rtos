@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
 #include <maia/services/fatfs.h>
 #include <maia/services/vfs.h>
 
@@ -38,6 +39,16 @@ typedef struct maia_vfs_directory {
 
 #define VFS_DIR_TAG 0x80000000U
 static maia_vfs_directory_t g_directories[MAIA_VFS_MAX_OPEN_DIRS];
+
+#if defined(MAIA_DIAGNOSTIC_VFS_STRESS)
+void maia_vfs_diag_lock_state(uint32_t *out_locked, int32_t *out_owner) {
+    if (out_locked == NULL || out_owner == NULL) return;
+    uintptr_t irq = maia_arch_irq_save();
+    *out_locked = g_vfs_mutex.locked;
+    *out_owner = g_vfs_mutex.owner_task_id;
+    maia_arch_irq_restore(irq);
+}
+#endif
 
 static maia_vfs_result_t map_fatfs_result(FRESULT result) {
     switch (result) {

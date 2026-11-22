@@ -62,8 +62,11 @@
   restoration. FatFs create/update/read/remove was later qualified on the
   device. MaiaVFS `/sd` files, directory enumeration and native shell/Newlib
   integration are now host- and Tab5-tested; the owner approved the shell-only
-  LCD POC. Multi-task SD stress, transport faults and power-loss recovery remain
-  open; this is not complete POSIX support.
+  LCD POC. Two-worker MaiaVFS stress and one-shot diskio write/read error
+  recovery also passed on Tab5. The injected errors do not test physical
+  transport faults, media removal or power-loss recovery; those remain open,
+  as does complete POSIX support. See the latest storage section in
+  `EVIDENCE.md`.
   The auxiliary test's full 16 MiB flash backup was read twice and verified;
   restoration matched all bytes before reboot. RTS reset did not resume the
   legacy firmware in that test; the official esptool watchdog reset did, and

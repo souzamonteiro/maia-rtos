@@ -2954,5 +2954,31 @@ nem qualificação dos comandos de compilador/apps. Um close VFS com erro manté
 o descritor para retry; quem usa `fclose` deve guardar o fd antes do close se
 precisar recuperar esse erro. A recuperação automática no shell ainda não
 foi qualificada. Sem formatação; metadados FAT mudaram, sem restauração integral
-do cartão/flash. Stress multi-task de SD, falhas de transporte e perda de energia
-continuam pendentes; o desktop ainda é trabalho separado.
+do cartão/flash. O estresse multi-task de SD e a recuperação de falhas de diskio injetadas
+foram validados no Tab5 em 21/11; falhas físicas de transporte/remoção e perda
+de energia continuam pendentes. O desktop ainda é trabalho separado.
+
+## Estresse multi-task e recovery MaiaVFS no Tab5 — 2026-11-21
+
+Dois workers MaiaRTOS completaram 16 ciclos cada de escrita, sync, leitura,
+comparação de 512 bytes e verificação de EOF; contenção `MAIA_VFS_BUSY` tem
+retry limitado a 5.000 tentativas, com yield de um tick. O total observado foi
+6.173 retries. O teste também injetou falha única de `disk_write` no sync e
+confirmou retry bem-sucedido; depois injetou falha de `disk_read`, fechou o
+objeto FatFs com erro sticky, reabriu e comparou os dados. Os arquivos e o
+diretório exclusivos foram removidos ao final; nenhum formato foi executado.
+
+Validação: CTest 96/96, `fatfs_test` direcionado com ASan/UBSan, build P4
+normal e build diagnóstico. O runner de recovery registrou
+`MAIA_VFS_STRESS_WORKERS_PASS`, `MAIA_VFS_FAULT_RECOVERY_PASS` e
+`MAIA_VFS_STRESS_PASS`, sem fatal; `restore_verified=true` e hash do app de
+fábrica `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+O boot restaurado carregou o desktop. Logs:
+`maia-rtos-recovery/native-vfs-stress-20261121-final/`.
+
+Limites: falhas são simuladas antes dos callbacks diskio, não representam
+falha real do cartão, remoção, perda de energia ou corrupção de mídia. A carga
+é concorrência de tarefas em single-core, não SMP. Diretórios de tentativas
+diagnósticas anteriores permanecem no cartão para inspeção; não houve formato
+nem restauração integral do cartão. Próximo passo no armazenamento: qualificar
+falhas reais de transporte e recuperação/persistência após perda de energia.

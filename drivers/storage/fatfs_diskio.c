@@ -2,6 +2,8 @@
 
 #include "diskio.h"
 
+#include <maia/services/fatfs.h>
+
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -12,6 +14,30 @@ _Static_assert(sizeof(UINT) == sizeof(uint32_t),
                "FatFs UINT must match the SD multi-sector request width");
 
 static maia_sd_block_device_t *bound_device;
+
+#if defined(MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION)
+static volatile uint32_t diag_fail_next;
+static volatile uint32_t diag_fault_count;
+
+void maia_fatfs_diag_fail_next(maia_fatfs_diag_io_t operation) {
+    diag_fail_next = (uint32_t)operation;
+}
+
+void maia_fatfs_diag_clear_pending_fault(void) {
+    diag_fail_next = 0U;
+}
+
+uint32_t maia_fatfs_diag_faults_triggered(void) {
+    return diag_fault_count;
+}
+
+static int consume_diag_fault(maia_fatfs_diag_io_t operation) {
+    if (diag_fail_next != (uint32_t)operation) return 0;
+    diag_fail_next = 0U;
+    ++diag_fault_count;
+    return 1;
+}
+#endif
 
 static int device_ready(void) {
     return bound_device != NULL && bound_device->initialized == 1U &&
@@ -68,6 +94,9 @@ DSTATUS disk_status(BYTE pdrv) {
 DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count) {
     if (pdrv != 0U || buff == NULL || count == 0U) return RES_PARERR;
     if (!device_ready()) return RES_NOTRDY;
+#if defined(MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION)
+    if (consume_diag_fault(MAIA_FATFS_DIAG_READ)) return RES_ERROR;
+#endif
 
     uint32_t completed = 0U;
     return map_result(maia_sd_block_device_read(
@@ -77,6 +106,9 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count) {
 DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count) {
     if (pdrv != 0U || buff == NULL || count == 0U) return RES_PARERR;
     if (!device_ready()) return RES_NOTRDY;
+#if defined(MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION)
+    if (consume_diag_fault(MAIA_FATFS_DIAG_WRITE)) return RES_ERROR;
+#endif
 
     uint32_t completed = 0U;
     return map_result(maia_sd_block_device_write(
