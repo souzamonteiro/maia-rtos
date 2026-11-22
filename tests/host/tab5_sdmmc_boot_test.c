@@ -242,7 +242,9 @@ uint32_t maia_tab5_sdmmc_test_read(uintptr_t address) {
         CHECK(reads == reads_before && writes == writes_before);
     }
     if (address == RINTSTS && cmd24_count && cmd24_rint_reads < 3U) {
-        if (++cmd24_rint_reads == 3U && !stall_data_over && !cmd24_response_error) {
+        if (++cmd24_rint_reads == 3U && !stall_data_over &&
+            !(stall_second_data_over && cmd24_count == 2U) &&
+            !cmd24_response_error) {
             uint32_t *storage = maia_tab5_sdmmc_test_dma_storage();
             uint32_t *descriptor = storage;
             CHECK(reg(DBADDR)->value == (uint32_t)(uintptr_t)storage);
@@ -880,10 +882,52 @@ int main(void) {
     CHECK(maia_sd_block_device_read(device, expected_lba, 2U, read_buffer,
                                    &completed_blocks) == MAIA_SD_TIMEOUT);
     CHECK(completed_blocks == 1U && cmd17_count == 2U);
+    CHECK(memcmp(read_buffer, sector1, sizeof sector1) == 0);
     old_writes = writes;
+    old_reads = reads;
     CHECK(maia_sd_block_device_read(device, expected_lba, 1U, read_buffer,
                                    &completed_blocks) == MAIA_SD_NOT_READY);
-    CHECK(completed_blocks == 0U && writes == old_writes);
+    CHECK(completed_blocks == 0U);
+    completed_blocks = UINT32_MAX;
+    CHECK(maia_sd_block_device_write(device, expected_lba, 1U, write_buffer,
+                                    &completed_blocks) == MAIA_SD_NOT_READY);
+    CHECK(completed_blocks == 0U);
+    CHECK(maia_tab5_sdmmc_service_init(
+              maia_tab5_sdmmc_test_dma_storage(),
+              MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &report) == MAIA_SDMMC_BOOT_FAILED);
+    CHECK(reads == old_reads && writes == old_writes);
+
+    reset_mock();
+    full_mode = 1U;
+    expected_lba = 120U;
+    stall_second_data_over = 1U;
+    for (unsigned i = 0U; i < sizeof expected_write_block; ++i)
+        expected_write_block[i] = (uint8_t)(i * 13U + 7U);
+    memcpy(write_buffer, expected_write_block, sizeof expected_write_block);
+    memcpy(write_buffer + MAIA_SD_BLOCK_BYTES, expected_write_block,
+           sizeof expected_write_block);
+    CHECK(maia_tab5_sdmmc_service_init(
+              maia_tab5_sdmmc_test_dma_storage(),
+              MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &report) == MAIA_SDMMC_BOOT_OK);
+    device = maia_tab5_sdmmc_service_device();
+    completed_blocks = 0U;
+    CHECK(maia_sd_block_device_write(device, expected_lba, 2U, write_buffer,
+                                    &completed_blocks) == MAIA_SD_TIMEOUT);
+    CHECK(completed_blocks == 1U && cmd24_count == 2U);
+    CHECK(memcmp(written_sector, expected_write_block, sizeof written_sector) == 0);
+    old_writes = writes;
+    old_reads = reads;
+    CHECK(maia_sd_block_device_write(device, expected_lba, 1U, write_buffer,
+                                    &completed_blocks) == MAIA_SD_NOT_READY);
+    CHECK(completed_blocks == 0U);
+    completed_blocks = UINT32_MAX;
+    CHECK(maia_sd_block_device_read(device, expected_lba, 1U, read_buffer,
+                                   &completed_blocks) == MAIA_SD_NOT_READY);
+    CHECK(completed_blocks == 0U);
+    CHECK(maia_tab5_sdmmc_service_init(
+              maia_tab5_sdmmc_test_dma_storage(),
+              MAIA_TAB5_SDMMC_DMA_STORAGE_BYTES, &report) == MAIA_SDMMC_BOOT_FAILED);
+    CHECK(reads == old_reads && writes == old_writes);
 
     reset_mock();
     full_mode = 1U;

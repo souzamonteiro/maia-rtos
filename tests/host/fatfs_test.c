@@ -29,8 +29,10 @@ typedef struct test_disk {
     uint8_t image[TEST_IMAGE_BYTES];
     uint32_t reads;
     uint32_t writes;
-    int fail_read;
-    int fail_write;
+    uint32_t read_calls;
+    uint32_t write_calls;
+    maia_sd_result_t read_error;
+    maia_sd_result_t write_error;
 } test_disk_t;
 
 static test_disk_t disk;
@@ -90,7 +92,8 @@ static maia_sd_result_t test_read(void *context, uint32_t first_block,
                                   uint32_t *completed_blocks) {
     test_disk_t *storage = (test_disk_t *)context;
     *completed_blocks = 0U;
-    if (storage->fail_read != 0) return MAIA_SD_IO_ERROR;
+    ++storage->read_calls;
+    if (storage->read_error != MAIA_SD_OK) return storage->read_error;
     if (count == 0U || first_block >= TEST_SECTOR_COUNT ||
         count > TEST_SECTOR_COUNT - first_block) {
         return MAIA_SD_OUT_OF_RANGE;
@@ -107,7 +110,8 @@ static maia_sd_result_t test_write(void *context, uint32_t first_block,
                                    uint32_t *completed_blocks) {
     test_disk_t *storage = (test_disk_t *)context;
     *completed_blocks = 0U;
-    if (storage->fail_write != 0) return MAIA_SD_IO_ERROR;
+    ++storage->write_calls;
+    if (storage->write_error != MAIA_SD_OK) return storage->write_error;
     if (count == 0U || first_block >= TEST_SECTOR_COUNT ||
         count > TEST_SECTOR_COUNT - first_block) {
         return MAIA_SD_OUT_OF_RANGE;
@@ -154,7 +158,7 @@ static void create_fat12_volume(void) {
 }
 
 static void test_disk_interface(void) {
-    uint8_t sector[MAIA_SD_BLOCK_BYTES];
+    uint8_t sector[MAIA_SD_BLOCK_BYTES] = { 0 };
     LBA_t sector_count = 0U;
     WORD sector_size = 0U;
     DWORD block_size = 0U;
@@ -174,12 +178,24 @@ static void test_disk_interface(void) {
     assert(block_size == 1U);
     assert(disk_ioctl(0U, CTRL_SYNC, NULL) == RES_OK);
 
-    disk.fail_read = 1;
-    assert(disk_read(0U, sector, 0U, 1U) == RES_ERROR);
-    disk.fail_read = 0;
-    disk.fail_write = 1;
-    assert(disk_write(0U, sector, 0U, 1U) == RES_ERROR);
-    disk.fail_write = 0;
+    const struct {
+        maia_sd_result_t transport_error;
+        DRESULT diskio_result;
+    } failures[] = {
+        { MAIA_SD_TIMEOUT, RES_ERROR },
+        { MAIA_SD_IO_ERROR, RES_ERROR },
+        { MAIA_SD_NOT_READY, RES_NOTRDY },
+    };
+    uint32_t writes_before = disk.writes;
+    for (size_t i = 0U; i < sizeof(failures) / sizeof(failures[0]); ++i) {
+        disk.read_error = failures[i].transport_error;
+        assert(disk_read(0U, sector, 0U, 1U) == failures[i].diskio_result);
+        disk.read_error = MAIA_SD_OK;
+        disk.write_error = failures[i].transport_error;
+        assert(disk_write(0U, sector, 0U, 1U) == failures[i].diskio_result);
+        disk.write_error = MAIA_SD_OK;
+    }
+    assert(disk.reads == reads_before && disk.writes == writes_before);
 }
 
 static void test_file_operations(void) {
@@ -268,10 +284,10 @@ static void test_vfs_file_operations(void) {
     assert(fd != 0U);
     assert(maia_vfs_write(fd, expected, 700U, &transferred) == MAIA_VFS_OK);
     assert(transferred == 700U);
-    disk.fail_write = 1;
+    disk.write_error = MAIA_SD_IO_ERROR;
     assert(maia_vfs_close(fd) == MAIA_VFS_IO_ERROR);
     assert(maia_vfs_sync(fd) == MAIA_VFS_IO_ERROR);
-    disk.fail_write = 0;
+    disk.write_error = MAIA_SD_OK;
     assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
     assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE,
                          &second_fd) == MAIA_VFS_BUSY);
@@ -419,9 +435,9 @@ static void test_newlib_adapter(void) {
     assert(_lseek(fd, 0, SEEK_SET) == 0);
     assert(maia_newlib_vfs_write(fd, "!", 1) == 1);
     assert(maia_newlib_vfs_read(fd, buffer, 1) == -1 && errno == EBADF);
-    disk.fail_write = 1;
+    disk.write_error = MAIA_SD_IO_ERROR;
     assert(_close(fd) == -1 && errno == EIO);
-    disk.fail_write = 0;
+    disk.write_error = MAIA_SD_OK;
     assert(_close(fd) == 0);
     assert(_stat(path, &st) == 0 && st.st_size == 6);
     int readers[MAIA_VFS_MAX_OPEN_FILES];
@@ -537,6 +553,93 @@ static void test_diskio_fault_recovery(void) {
     assert(maia_vfs_unlink(path) == MAIA_VFS_OK);
 }
 
+static void test_vfs_transport_faults(void) {
+    static const char path[] = "/sd/transport-fault.bin";
+    static const maia_sd_result_t read_errors[] = {
+        MAIA_SD_TIMEOUT, MAIA_SD_NOT_READY
+    };
+    uint8_t expected[MAIA_SD_BLOCK_BYTES];
+    uint8_t actual[MAIA_SD_BLOCK_BYTES];
+    maia_vfs_fd_t fd;
+    uint32_t transferred;
+
+    for (size_t i = 0U; i < sizeof(expected); ++i)
+        expected[i] = (uint8_t)(i * 11U + 0x37U);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_CREATE_NEW, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_write(fd, expected, sizeof(expected), &transferred) ==
+           MAIA_VFS_OK && transferred == sizeof(expected));
+    assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    for (size_t i = 0U; i < sizeof(read_errors) / sizeof(read_errors[0]); ++i) {
+        assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_OK);
+        disk.read_error = read_errors[i];
+        uint32_t calls_before = disk.read_calls;
+        transferred = UINT32_MAX;
+        assert(maia_vfs_read(fd, actual, sizeof(actual), &transferred) ==
+               MAIA_VFS_IO_ERROR);
+        assert(transferred == 0U && disk.read_calls == calls_before + 1U);
+        assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+        disk.read_error = MAIA_SD_OK;
+    }
+
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE,
+                         &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_seek(fd, 7U) == MAIA_VFS_OK);
+    expected[7U] ^= 0xA5U;
+    assert(maia_vfs_write(fd, expected + 7U, 1U, &transferred) ==
+           MAIA_VFS_OK && transferred == 1U);
+    uint32_t calls_before = disk.write_calls;
+    uint32_t writes_before = disk.writes;
+    disk.write_error = MAIA_SD_TIMEOUT;
+    assert(maia_vfs_sync(fd) == MAIA_VFS_IO_ERROR);
+    disk.write_error = MAIA_SD_NOT_READY;
+    assert(maia_vfs_sync(fd) == MAIA_VFS_IO_ERROR);
+    assert(maia_vfs_close(fd) == MAIA_VFS_IO_ERROR);
+    assert(disk.write_calls == calls_before + 3U && disk.writes == writes_before);
+
+    /* Reset the host mock; the real Tab5 service remains faulted until reset. */
+    disk.write_error = MAIA_SD_OK;
+    assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, actual, sizeof(actual), &transferred) ==
+           MAIA_VFS_OK && transferred == sizeof(actual));
+    assert(memcmp(expected, actual, sizeof(expected)) == 0);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_unlink(path) == MAIA_VFS_OK);
+}
+
+static void test_remount_persistence(void) {
+    static const char path[] = "/sd/remount-persistence.bin";
+    uint8_t expected[MAIA_SD_BLOCK_BYTES];
+    uint8_t actual[MAIA_SD_BLOCK_BYTES];
+    maia_vfs_fd_t fd;
+    uint32_t transferred;
+
+    for (size_t i = 0U; i < sizeof(expected); ++i)
+        expected[i] = (uint8_t)(i * 19U + 0x27U);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                         MAIA_VFS_OPEN_CREATE_NEW, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_write(fd, expected, sizeof(expected), &transferred) ==
+           MAIA_VFS_OK && transferred == sizeof(expected));
+    assert(maia_vfs_sync(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+
+    assert(maia_fatfs_unmount() == MAIA_FATFS_OK);
+    assert(maia_fatfs_is_mounted() == 0);
+    assert(disk_status(0U) == STA_NOINIT);
+    assert(maia_fatfs_mount(&device) == MAIA_FATFS_OK);
+    assert(maia_fatfs_is_mounted() == 1);
+    assert(maia_vfs_open(path, MAIA_VFS_OPEN_READ, &fd) == MAIA_VFS_OK);
+    assert(maia_vfs_read(fd, actual, sizeof(actual), &transferred) ==
+           MAIA_VFS_OK && transferred == sizeof(actual));
+    assert(memcmp(expected, actual, sizeof(expected)) == 0);
+    assert(maia_vfs_close(fd) == MAIA_VFS_OK);
+    assert(maia_vfs_unlink(path) == MAIA_VFS_OK);
+}
+
 int main(void) {
     static const maia_sd_geometry_t geometry = { TEST_SECTOR_COUNT };
     memset(&disk, 0, sizeof(disk));
@@ -567,6 +670,8 @@ int main(void) {
     test_vfs_directories();
     test_newlib_adapter();
     test_diskio_fault_recovery();
+    test_vfs_transport_faults();
+    test_remount_persistence();
 
     assert(maia_fatfs_unmount() == MAIA_FATFS_OK);
     assert(maia_fatfs_is_mounted() == 0);

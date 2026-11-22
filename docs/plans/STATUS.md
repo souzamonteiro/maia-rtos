@@ -2981,4 +2981,45 @@ falha real do cartão, remoção, perda de energia ou corrupção de mídia. A c
 é concorrência de tarefas em single-core, não SMP. Diretórios de tentativas
 diagnósticas anteriores permanecem no cartão para inspeção; não houve formato
 nem restauração integral do cartão. Próximo passo no armazenamento: qualificar
-falhas reais de transporte e recuperação/persistência após perda de energia.
+falhas de transporte e persistência sem remoção física do cartão; testes
+físicos e de perda de energia continuam sem qualificação.
+
+Como preparação não destrutiva, `fatfs_test` sincroniza um arquivo de 512
+bytes, desmonta/remonta o FatFs no mesmo disco mock em RAM e compara os dados;
+o teste passou normalmente e com ASan/UBSan.
+
+Em seguida, no Tab5, o diagnóstico escreveu, sincronizou e fechou um registro
+de 512 bytes, aguardou um reset morno limpo por RTS e, no boot seguinte,
+reabriu o arquivo e comparou todos os bytes e EOF. Os markers
+`MAIA_VFS_REBOOT_ARMED` e `MAIA_VFS_REBOOT_PERSIST_PASS` passaram, assim como
+o estresse e a recuperação de falhas injetadas em ambos os boots. O runner fez
+duas leituras idênticas da região de app de 3 MiB, restaurou-a e verificou o
+conteúdo byte a byte; o boot restaurado emitiu 25.735 bytes e iniciou o
+MaiaOS Desktop (`desktop.mobj`). Evidências:
+`maia-rtos-recovery/native-vfs-reboot-clean-20261121/`. O teste não cortou
+energia nem removeu o cartão; o arquivo
+`/sd/MaiaVFSReboot-20261121/persist.bin` foi mantido no cartão para inspeção.
+Cold boot, falhas reais de transporte/remoção e perda de energia continuam
+pendentes.
+
+## Falhas SD simuladas sem remover o cartão — 2026-11-21
+
+O proprietário informou que a remoção física não é viável com o teclado
+instalado; ela fica fora do plano atual e não é considerada testada. No
+pinmap do Tab5, DET é NC: o serviço não distingue remoção de outras falhas de
+transporte nem reporta `NO_MEDIA` para ela.
+
+No host, o mock de MMIO agora simula timeout no segundo bloco tanto de leitura
+quanto de escrita. Em ambos os casos, um bloco é confirmado e o serviço fica
+sticky: as requisições posteriores de leitura e escrita retornam
+`MAIA_SD_NOT_READY`, com zero blocos concluídos e sem novos acessos MMIO.
+Um teste separado injeta `MAIA_SD_TIMEOUT` e `MAIA_SD_NOT_READY` nos callbacks
+mock do dispositivo de blocos e verifica a propagação pelo diskio e MaiaVFS,
+inclusive falhas de `sync`/`close`. O mock é restaurado manualmente para
+limpeza; isso não demonstra recuperação do serviço real sem reboot. Os três
+testes host focados e os dois relevantes com ASan/UBSan passaram.
+
+Esses testes não simulam eletricamente a remoção nem comprovam o estado do
+segundo bloco em uma falha física de escrita. Falhas reais de transporte,
+cold boot e perda de energia continuam sem teste; a interrupção deliberada de
+energia exige autorização específica e um plano de segurança.

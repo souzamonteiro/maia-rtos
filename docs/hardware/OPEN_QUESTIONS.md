@@ -63,10 +63,15 @@
   device. MaiaVFS `/sd` files, directory enumeration and native shell/Newlib
   integration are now host- and Tab5-tested; the owner approved the shell-only
   LCD POC. Two-worker MaiaVFS stress and one-shot diskio write/read error
-  recovery also passed on Tab5. The injected errors do not test physical
-  transport faults, media removal or power-loss recovery; those remain open,
-  as does complete POSIX support. See the latest storage section in
-  `EVIDENCE.md`.
+  recovery also passed on Tab5. A synced 512-byte file was then reread and
+  compared after a clean warm reset; the app-region backup was restored and
+  verified. The injected errors do not test physical transport faults, media
+  removal or power-loss recovery, which remain untested, as does cold-boot
+  qualification and complete POSIX support. The owner cannot remove the SD
+  card with the keyboard installed, so physical removal is outside the
+  current plan. Host MMIO and block-device mocks cover runtime timeouts and
+  their error propagation separately, without proving physical removal or
+  automatic recovery. See the latest storage section in `EVIDENCE.md`.
   The auxiliary test's full 16 MiB flash backup was read twice and verified;
   restoration matched all bytes before reboot. RTS reset did not resume the
   legacy firmware in that test; the official esptool watchdog reset did, and

@@ -39,6 +39,8 @@ static uint32_t     g_telem_qbuf[8];
 #define VFS_STRESS_BUSY_RETRIES 5000U
 #define VFS_STRESS_WAIT_TICKS 30000U
 #define VFS_STRESS_DIRECTORY "/sd/MaiaVFSStress-20261121-Retry6"
+#define VFS_REBOOT_DIRECTORY "/sd/MaiaVFSReboot-20261121"
+#define VFS_REBOOT_FILE VFS_REBOOT_DIRECTORY "/persist.bin"
 
 typedef struct vfs_stress_worker {
     uint32_t id;
@@ -294,6 +296,89 @@ close_and_fail:
     return result == MAIA_VFS_OK ? MAIA_VFS_IO_ERROR : result;
 }
 
+static void fill_vfs_reboot_record(
+    uint8_t record[VFS_STRESS_RECORD_BYTES]) {
+    for (uint32_t i = 0U; i < VFS_STRESS_RECORD_BYTES; ++i)
+        record[i] = (uint8_t)(i * 37U + 0xA7U + (i >> 2U));
+}
+
+static maia_vfs_result_t vfs_stress_reboot_persistence(void) {
+    uint8_t expected[VFS_STRESS_RECORD_BYTES];
+    uint8_t actual[VFS_STRESS_RECORD_BYTES];
+    vfs_stress_call_t call = { 0 };
+    vfs_stress_worker_t retry_state = { 0 };
+    maia_vfs_result_t result;
+    uint32_t opened = 0U;
+
+    fill_vfs_reboot_record(expected);
+    result = maia_vfs_mkdir(VFS_REBOOT_DIRECTORY);
+    if (result == MAIA_VFS_OK) {
+        call.path = VFS_REBOOT_FILE;
+        call.flags = MAIA_VFS_OPEN_READ | MAIA_VFS_OPEN_WRITE |
+                     MAIA_VFS_OPEN_CREATE_NEW;
+        result = vfs_stress_retry(&retry_state, vfs_stress_open, &call);
+        if (result != MAIA_VFS_OK) goto failed;
+        opened = 1U;
+        call.const_buffer = expected;
+        call.count = sizeof(expected);
+        call.transferred = 0U;
+        result = vfs_stress_retry(&retry_state, vfs_stress_write, &call);
+        if (result == MAIA_VFS_OK && call.transferred != sizeof(expected))
+            result = MAIA_VFS_IO_ERROR;
+        if (result != MAIA_VFS_OK) goto failed;
+        result = vfs_stress_retry(&retry_state, vfs_stress_sync, &call);
+        if (result != MAIA_VFS_OK) goto failed;
+        result = vfs_stress_retry(&retry_state, vfs_stress_close, &call);
+        opened = 0U;
+        if (result != MAIA_VFS_OK) goto failed;
+        maia_console_puts(
+            "[F2] MAIA_VFS_REBOOT_ARMED bytes=512; awaiting clean reset\n");
+        return MAIA_VFS_OK;
+    }
+
+    if (result != MAIA_VFS_EXISTS) goto failed;
+    call.path = VFS_REBOOT_FILE;
+    call.flags = MAIA_VFS_OPEN_READ;
+    result = vfs_stress_retry(&retry_state, vfs_stress_open, &call);
+    if (result != MAIA_VFS_OK) goto failed;
+    opened = 1U;
+    call.buffer = actual;
+    call.count = sizeof(actual);
+    call.transferred = 0U;
+    result = vfs_stress_retry(&retry_state, vfs_stress_read, &call);
+    if (result != MAIA_VFS_OK || call.transferred != sizeof(actual)) {
+        if (result == MAIA_VFS_OK) result = MAIA_VFS_IO_ERROR;
+        goto failed;
+    }
+    call.count = 1U;
+    call.transferred = UINT32_MAX;
+    result = vfs_stress_retry(&retry_state, vfs_stress_read, &call);
+    if (result != MAIA_VFS_OK || call.transferred != 0U) {
+        if (result == MAIA_VFS_OK) result = MAIA_VFS_IO_ERROR;
+        goto failed;
+    }
+    result = vfs_stress_retry(&retry_state, vfs_stress_close, &call);
+    opened = 0U;
+    if (result != MAIA_VFS_OK) goto failed;
+    if (memcmp(expected, actual, sizeof(expected)) != 0) {
+        result = MAIA_VFS_IO_ERROR;
+        goto failed;
+    }
+    maia_console_puts(
+        "[F2] MAIA_VFS_REBOOT_PERSIST_PASS bytes=512; prior sync survived reset\n");
+    return MAIA_VFS_OK;
+
+failed:
+    if (opened != 0U)
+        (void)vfs_stress_retry(&retry_state, vfs_stress_close, &call);
+    maia_console_puts("[F2] MAIA_VFS_REBOOT_PERSIST_FAIL result=");
+    print_u32((uint32_t)(-(int32_t)result));
+    maia_console_puts("; inspect ");
+    maia_console_puts(VFS_REBOOT_DIRECTORY);
+    maia_console_puts("\n");
+    return result;
+}
+
 static void task_vfs_stress_coordinator(void *arg) {
     (void)arg;
     static const char directory[] = VFS_STRESS_DIRECTORY;
@@ -446,6 +531,7 @@ static void task_vfs_stress_coordinator(void *arg) {
     maia_console_puts(" busy_retries=");
     print_u32(busy_retries);
     maia_console_puts(" files_removed=2\n");
+    (void)vfs_stress_reboot_persistence();
 }
 
 static void start_vfs_stress_diagnostic(void) {

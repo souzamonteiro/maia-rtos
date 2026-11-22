@@ -3457,3 +3457,53 @@ own test files. The retry bound and coordinator stack were increased after
 hardware observations; the final coordinator stack is 8 KiB. This is
 single-core task contention, not SMP stress. Real transport/removal and
 power-loss recovery remain open.
+
+The host regression now also writes and syncs a 512-byte file, closes it,
+unmounts/remounts FatFs on the same memory-backed block device, and verifies
+the bytes after remount. It passes both normally and with ASan/UBSan. This is
+an in-process host persistence check only; it is not a hardware reboot,
+cold-boot, transport-failure or power-loss result.
+
+## MaiaVFS persistence after clean Tab5 reset — 2026-11-21
+
+The opt-in P4 diagnostic created a new file at
+`/sd/MaiaVFSReboot-20261121/persist.bin`, wrote a deterministic 512-byte
+record, called `sync`, and closed it. After a clean USB RTS reset, the next
+boot mounted FatFs, reopened the file, compared all 512 bytes, confirmed EOF,
+and emitted `MAIA_VFS_REBOOT_PERSIST_PASS`. The first boot emitted
+`MAIA_VFS_REBOOT_ARMED`; both boots also passed the two-worker stress and
+injected diskio-fault recovery markers. No fatal/stack-fault marker occurred.
+
+The runner read the 3 MiB factory app region twice before flashing and required
+identical backups. It restored that region after the test, verified the
+readback byte-for-byte, and captured 25,735 bytes from the restored boot.
+The restored boot log shows MaiaOS Desktop loading from `desktop.mobj`.
+`report.json` records both boot stages and `flash_restore_verified=true`.
+Evidence is in
+`../../../maia-rtos-recovery/native-vfs-reboot-clean-20261121/`.
+
+This proves persistence across a clean warm reset only. It is not a cold boot,
+physical transport/card-removal, or power-loss test. The uniquely named
+512-byte test file and directory were intentionally left on the test SD card
+for inspection; no format or card-wide restore was performed.
+
+## Simulated runtime transport faults — 2026-11-21
+
+The owner cannot remove the card with the keyboard installed, so physical
+removal is outside the current plan and remains untested. DET is not connected;
+the Tab5 service cannot distinguish removal from another transport fault or
+report it as `MAIA_SD_NO_MEDIA`.
+
+The host MMIO mock now times out on the second block of both a two-block read
+and a two-block write. Each returns `MAIA_SD_TIMEOUT` with one completed block;
+the faulted service rejects subsequent reads and writes with
+`MAIA_SD_NOT_READY`, zero completed blocks and no further MMIO. A separate
+memory-backed block callback injects `MAIA_SD_TIMEOUT` and `MAIA_SD_NOT_READY`
+through diskio and MaiaVFS, including failed `sync` and `close`. The mock is
+manually restored for cleanup, not as evidence that the actual faulted service
+can recover without reset. The three targeted host tests and two ASan/UBSan
+tests passed.
+
+Neither mock reproduces an electrical card removal, establishes the physical
+state of a partially written block, or qualifies power-loss recovery. No
+device access, removal or power interruption was performed for these tests.
