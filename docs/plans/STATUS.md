@@ -5,6 +5,39 @@ Date: 2026-11-10
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Contexto MNM aninhado — 2026-11-23
+
+O loader agora ativa o host dos wrappers somente durante a entrada do módulo e
+restaura o host anterior no retorno. Uma validação malsucedida não substitui
+esse contexto. O build nativo com TLS usa um ponteiro por tarefa; o fallback
+sem TLS e o perfil ESP mantêm o ponteiro global com restauração em aninhamento
+síncrono. A API ainda exige que invocações concorrentes do loader sejam
+serializadas e não suporta saída não local de um módulo.
+
+No host, os testes de contexto passaram com e sem TLS, incluindo ELF inválido
+e aninhamento com hosts distintos; a variante TLS também intercalou duas
+threads. O aninhamento host chama diretamente o helper interno de entrada;
+a falha de validação percorre o loader público. Os dois testes passaram com
+ASan/UBSan e, junto com o teste de espera MNM, em Release com asserções
+ativas. O build P4 passou e seu ELF identifica `s_active_host` como TLS.
+Um snapshot isolado das alterações preparadas, com submódulos nas revisões
+fixadas, passou 5/5 testes host e empacotou uma imagem P4 de 847.184 bytes;
+essa imagem não foi gravada.
+
+No Tab5, um módulo C pai executou `runelf` aninhado, confirmou o retorno 42 do
+filho, exercitou a rejeição de um ELF de um byte e verificou os serviços de
+tempo antes e depois; retornou 77. O módulo foi conferido por leitura de volta,
+os arquivos e o diretório de teste foram removidos, e o runner restaurou a
+aplicação anterior com hash verificado. A primeira tentativa não obteve
+resposta após reabrir a conexão; a tentativa seguinte manteve a mesma conexão
+serial e confirmou que o diretório anterior não existia. Capturas e imagens:
+`../../../maia-rtos-recovery/native-tab5-mnm-context-retry-20261123/`.
+O smoke físico usa as mesmas funções de host nos dois níveis e não comprova
+isolamento por tarefa, segurança concorrente do loader ou reentrância geral
+da shell. A imagem testada inclui alterações anteriores ainda não commitadas,
+inclusive a sincronização do cache de instruções; desktop e integração gráfica
+continuam pendentes.
+
 ## Espera MNM sobre o scheduler nativo — 2026-11-23
 
 O callback `sleep_ms` fornecido pela shell aos módulos retornava imediatamente

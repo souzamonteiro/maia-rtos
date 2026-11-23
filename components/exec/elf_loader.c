@@ -56,7 +56,19 @@ int mnm_get_registered_symbols(const char **names, uintptr_t *addrs, int max) {
     return count;
 }
 
+#if defined(MAIA_ENABLE_COMPILER_TLS) && MAIA_ENABLE_COMPILER_TLS && !defined(ESP_PLATFORM)
+static _Thread_local const maia_host_api_v1 *s_active_host = NULL;
+#else
 static const maia_host_api_v1 *s_active_host = NULL;
+#endif
+
+static int mnm_invoke_entry(maia_module_entry_fn entry, const maia_module_context_t *ctx) {
+    const maia_host_api_v1 *previous_host = s_active_host;
+    s_active_host = ctx->host;
+    int result = entry(ctx);
+    s_active_host = previous_host;
+    return result;
+}
 
 static void maia_host_print(const char *s) {
     if (!s) return;
@@ -160,7 +172,6 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      int *exit_code,
                      void (*log_fn)(const char *msg))
 {
-    s_active_host = host;
     char rep[256];
     int vres = elf_validate_relocatable(elf_data, elf_size, rep, sizeof(rep));
     if (vres != ELF_VALID_OK) {
@@ -561,7 +572,7 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
     asm volatile("fence.i" ::: "memory");
 #endif
 
-    int ret = entry_point(&ctx);
+    int ret = mnm_invoke_entry(entry_point, &ctx);
 
     if (log_fn) {
         char msg[128];

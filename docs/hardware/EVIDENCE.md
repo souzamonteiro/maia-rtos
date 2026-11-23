@@ -1,5 +1,76 @@
 # Hardware evidence register
 
+## Nested MNM host context on Tab5 — 2026-11-23
+
+The loader now sets the wrappers' active host only while invoking a module
+entry and restores the previous host on return. Validation failures no longer
+replace it. The native build with `MAIA_ENABLE_COMPILER_TLS=1` stores the
+pointer in static task TLS; the non-TLS and ESP fallback is global. All
+concurrent loader invocations still require caller serialization; neither this
+change nor the test claims that the loader or shell is generally reentrant.
+Nonlocal exits from a module are unsupported.
+
+On macOS, `elf_loader_context_test` and `elf_loader_context_no_tls_test`
+passed for invalid ELF and synchronous nesting with distinct host tables.
+Only the TLS variant interleaves two host threads. Successful nesting in
+these tests invokes the internal entry helper directly, whereas the invalid
+ELF case exercises `mnm_load_and_run`. Both variants passed ASan/UBSan, and
+both plus `shell_mnm_sleep_test` passed a Release build with assertions
+retained. A deliberately global-pointer mutant failed the isolation
+assertion. The public loader header compiled as C11 and C++98. The P4
+`maia_m0_image` target built; `riscv32-esp-elf-readelf -sW` showed
+`s_active_host` as a local, four-byte TLS symbol.
+
+On one warm-reset ESP32-P4 Tab5 boot over `/dev/cu.usbmodem1301`, the C fixture
+`tests/hardware/maia_mnm_nested_probe.c` executed as a 2,024-byte RISC-V
+module. It used the real shell callback to run the embedded `hello` module,
+checked its return code 42, then ran a one-byte invalid ELF and checked the
+validation error. Calls to `millis`/`delay_ms` before and after those operations
+each satisfied the smoke-test window of 95–5,000 ms for a requested 100 ms.
+The parent returned 77 (`0x4D`). These checks are encoded in the fixture; the
+inner output is diverted to the parent rather than printed in the capture.
+The two real host tables use the same callback functions, so the hardware
+smoke is not a distinct-host identity or task-isolation proof.
+
+The module was transferred in 32-byte chunks and verified by reading each
+chunk and EOF back before execution; the invalid fixture was read back too.
+The test created `/sd/tc42f` only after successful `mkdir`, then removed both
+files and the empty directory (`MNM_CONTEXT_CLEAN`). FAT metadata may have
+changed. A prior attempt timed out after reopening the serial port following
+the native prompt, before confirming directory creation; it restored the
+application. The successful attempt kept one serial connection and confirmed
+that `/sd/tc42e` from the first attempt was absent.
+
+The protected flash runner reported no fatal marker and verified the restored
+factory-app write. The backed-up app SHA-256 was
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`;
+the tested image was
+`386761ccde44636cba5b7dbd2456bba864e9d4e90f2929e26bca97f41b840713`
+and the probe module was
+`9ff0931b09768398774f201cef8c39673aa5895d235351aa18272f7b0244972e`.
+The image included earlier uncommitted work, including native instruction-cache
+synchronization; no full-flash comparison was made.
+The image, module, interactive driver, input/output, backup, report and restored
+boot capture are in
+`../../../maia-rtos-recovery/native-tab5-mnm-context-retry-20261123/`;
+the failed attempt is in
+`../../../maia-rtos-recovery/native-tab5-mnm-context-20261123/`.
+
+Focused host validation:
+
+```sh
+cmake --build /tmp/maia-rtos-battery-host --target elf_loader_context_test elf_loader_context_no_tls_test shell_mnm_sleep_test tls_runtime_test newlib_syscalls_test -j4
+ctest --test-dir /tmp/maia-rtos-battery-host --output-on-failure -R '^(elf_loader_context_test|elf_loader_context_no_tls_test|shell_mnm_sleep_test|tls_runtime_test|newlib_syscalls_test)$'
+cmake --build /tmp/maia-rtos-battery-p4 --target maia_m0_image -j4
+```
+
+Result: 5/5 focused host tests and P4 build PASS. This does not qualify desktop,
+graphics, multi-task loader execution, complete shell nesting or timing bounds.
+An isolated snapshot of the staged source, with the three pinned submodules,
+also passed these 5 host tests in Release and built a valid 847,184-byte P4
+image with `s_active_host` in TLS. That isolated image was not flashed and
+does not include the earlier uncommitted cache-synchronization work.
+
 ## Native MNM scheduler delay on Tab5 — 2026-11-23
 
 In the current native worktree, the shell's MNM `sleep_ms` callback now uses

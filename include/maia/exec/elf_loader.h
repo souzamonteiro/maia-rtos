@@ -28,6 +28,10 @@ extern "C" {
  * @param exit_code Out parameter receiving the return code of maia_module_main.
  * @param log_fn Optional logging callback for verbose loader diagnostics.
  * @return 0 on success, negative error code on loader failure.
+ *
+ * Task context only. The caller must serialize concurrent loader invocations;
+ * synchronous nested calls on the same task are supported. The host table is
+ * borrowed until this call returns. Nonlocal exits from a module are unsupported.
  */
 int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      int argc, const char *const *argv,

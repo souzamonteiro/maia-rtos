@@ -1707,6 +1707,22 @@ else()
     target_link_libraries(shell_mnm_sleep_test PRIVATE maia_shell_host_tools)
     set_target_properties(shell_mnm_sleep_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
     add_test(NAME shell_mnm_sleep_test COMMAND shell_mnm_sleep_test)
+
+    add_executable(elf_loader_context_test tests/host/elf_loader_context_test.c
+      components/exec/elf_validator.c)
+    find_package(Threads REQUIRED)
+    target_include_directories(elf_loader_context_test PRIVATE include)
+    target_compile_definitions(elf_loader_context_test PRIVATE MAIA_ENABLE_COMPILER_TLS=1)
+    target_link_libraries(elf_loader_context_test PRIVATE Threads::Threads)
+    set_target_properties(elf_loader_context_test PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+    add_test(NAME elf_loader_context_test COMMAND elf_loader_context_test)
+
+    add_executable(elf_loader_context_no_tls_test tests/host/elf_loader_context_test.c
+      components/exec/elf_validator.c)
+    target_include_directories(elf_loader_context_no_tls_test PRIVATE include)
+    target_compile_definitions(elf_loader_context_no_tls_test PRIVATE MAIA_ENABLE_COMPILER_TLS=0)
+    set_target_properties(elf_loader_context_no_tls_test PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+    add_test(NAME elf_loader_context_no_tls_test COMMAND elf_loader_context_no_tls_test)
   endif()
   message(STATUS "Host contract tests configured")
 endif()
