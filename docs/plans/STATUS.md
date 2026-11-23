@@ -5,6 +5,34 @@ Date: 2026-11-10
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Proteção da capacidade gráfica MNM — 2026-11-23
+
+A shell nativa anunciava `get_framebuffer` em `0x48100000`, embora a janela
+PSRAM qualificada use `0x4B800000` e o serviço LCD detenha os dois buffers.
+As primitivas de desenho eram nulas e a aquisição exclusiva retornava sucesso.
+Para não expor uma capacidade inexistente ou um endereço não qualificado, a
+shell agora anuncia `host->display == NULL` e informa a limitação no boot;
+entrada de toque e teclado permanece registrada. O wrapper importado
+`fill_rect` retorna `-1` quando não há implementação. O perfil ESP possui
+adaptador próprio e não foi alterado.
+
+O host reproduziu as duas falhas anteriores e passou 5/5 regressões focadas;
+os três testes da proteção/loader também passaram em Release e ASan/UBSan.
+Um snapshot isolado com submódulos fixados passou os mesmos 5 testes em
+Release com `-UNDEBUG` e gerou imagem P4 válida de 847.088 bytes, não gravada.
+O `lcd_output_test` preexistente não compila no Release padrão com `-DNDEBUG`:
+suas asserções removidas deixam parâmetros/variáveis sem uso sob `-Werror`.
+No Tab5, um módulo confirmou a ausência do display, a presença das interfaces
+de entrada e o erro de `fill_rect`; retornou zero, a shell respondeu após sua
+execução e o diretório de teste foi removido. O runner restaurou a aplicação
+anterior com escrita verificada. A imagem contém alterações locais anteriores,
+inclusive a sincronização de cache; a flash inteira não foi comparada.
+[Evidências](../../../maia-rtos-recovery/native-tab5-mnm-graphics-gate-20261123/).
+
+Isto **não implementa** os gráficos nativos: apps que ignoram a ausência da
+capacidade ainda podem executar sem UI visível. A integração com o proprietário
+do LCD, o desktop e a SciCalc continuam pendentes.
+
 ## Escrita MNM da shell — 2026-11-23
 
 O callback `write_fd` retornava zero mesmo depois de emitir os dados. Agora,

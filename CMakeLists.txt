@@ -1713,6 +1713,16 @@ else()
     set_target_properties(shell_mnm_write_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
     add_test(NAME shell_mnm_write_test COMMAND shell_mnm_write_test)
 
+    add_executable(native_shell_display_test
+      tests/host/native_shell_display_test.cpp shell/maia_shell_engine.cpp
+      kernel/kmem.c kernel/ksync.c kernel/ksched.c)
+    target_link_libraries(native_shell_display_test PRIVATE maia_shell_host_tools)
+    set_target_properties(native_shell_display_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(native_shell_display_test PRIVATE -fno-builtin)
+    endif()
+    add_test(NAME native_shell_display_test COMMAND native_shell_display_test)
+
     add_executable(elf_loader_context_test tests/host/elf_loader_context_test.c
       components/exec/elf_validator.c)
     find_package(Threads REQUIRED)

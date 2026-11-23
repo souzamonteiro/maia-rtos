@@ -130,7 +130,7 @@ static int32_t maia_host_fill_rect(int32_t x, int32_t y, int32_t w, int32_t h, u
     if (s_active_host && s_active_host->display && s_active_host->display->fill_rect) {
         return s_active_host->display->fill_rect(x, y, w, h, color);
     }
-    return 0;
+    return -1;
 }
 
 static void maia_host_display_sync(void) {

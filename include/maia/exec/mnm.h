@@ -60,6 +60,7 @@ typedef struct maia_host_api_v1 {
     void *(*alloc)(uint32_t bytes, uint32_t flags);
     void (*dealloc)(void *ptr);
     uint64_t (*get_time_us)(void);
+    /* Optional; NULL when module graphics are unavailable. */
     const maia_display_api_t *display;
     const maia_input_api_t *input;
     int32_t (*copy_file)(const char *src_path, const char *dst_path);

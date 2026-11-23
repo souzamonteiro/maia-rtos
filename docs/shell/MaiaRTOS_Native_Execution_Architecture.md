@@ -188,6 +188,16 @@ occur after earlier chunks were accepted; failed redirections are not committed
 to the target file. This is not a binary-capable file-descriptor implementation
 or a complete realization of the draft error-code contract.
 
+**Native shell graphics capability:** `host->display` is currently NULL.
+The native LCD service owns its double buffers and accepts complete frames
+through its draw callback; it does not grant modules a persistent framebuffer.
+Modules must check the display table and its callbacks before use. The loader's
+imported `fill_rect` wrapper returns `-1` when no implementation is available;
+the existing `display_sync` wrapper returns `void` and cannot report this.
+This capability gate does not prevent an application that ignores missing
+graphics from running without a visible UI. The ESP-based display adapter is
+separate and is not changed by this native gate.
+
 ### 5.5 Toolchain and packaging
 
 `riscv32-...-gcc -ffreestanding -fno-pic ... -c hello.c -o hello.o` is illustrative only; the final cross-compiler prefix and `-march/-mabi` flags come from the hardware audit. Use a controlled linker script and `readelf` to inspect object sections, symbols and relocations. `mnm-pack` validates, hashes and emits `.mobj` + manifest. CI runs positive and malformed ELF fixtures on host, with fuzzing of the parser and relocation engine. A native binary built for Linux is rejected even if it is RISC-V ELF.

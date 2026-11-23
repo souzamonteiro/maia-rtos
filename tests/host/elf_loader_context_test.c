@@ -12,6 +12,47 @@
 
 static unsigned outer_delays;
 static unsigned inner_delays;
+static unsigned fill_calls;
+static int32_t fill_result;
+
+static int32_t test_fill_rect(int32_t x, int32_t y, int32_t width,
+                              int32_t height, uint16_t color) {
+    assert(x == 1 && y == 2 && width == 3 && height == 4 && color == 0x1234U);
+    ++fill_calls;
+    return fill_result;
+}
+
+static int missing_display_entry(const maia_module_context_t *ctx) {
+    assert(s_active_host == ctx->host);
+    assert(maia_host_fill_rect(1, 2, 3, 4, 0x1234U) < 0);
+    return 0;
+}
+
+static int available_display_entry(const maia_module_context_t *ctx) {
+    assert(s_active_host == ctx->host);
+    fill_result = 37;
+    assert(maia_host_fill_rect(1, 2, 3, 4, 0x1234U) == 37);
+    fill_result = -17;
+    assert(maia_host_fill_rect(1, 2, 3, 4, 0x1234U) == -17);
+    return 0;
+}
+
+static void check_display_forwarding(void) {
+    const maia_display_api_t unavailable_display = {0};
+    const maia_display_api_t available_display = {.fill_rect = test_fill_rect};
+    const maia_host_api_v1 no_display_host = {0};
+    const maia_host_api_v1 missing_callback_host = {.display = &unavailable_display};
+    const maia_host_api_v1 available_host = {.display = &available_display};
+    const maia_module_context_t no_display = {.host = &no_display_host};
+    const maia_module_context_t missing_callback = {.host = &missing_callback_host};
+    const maia_module_context_t available = {.host = &available_host};
+
+    assert(maia_host_fill_rect(1, 2, 3, 4, 0x1234U) < 0);
+    assert(mnm_invoke_entry(missing_display_entry, &no_display) == 0);
+    assert(mnm_invoke_entry(missing_display_entry, &missing_callback) == 0);
+    assert(mnm_invoke_entry(available_display_entry, &available) == 0);
+    assert(s_active_host == NULL && fill_calls == 2U);
+}
 
 static uint64_t outer_time(void) { return 111000U; }
 static uint64_t inner_time(void) { return 222000U; }
@@ -105,6 +146,7 @@ static void *run_thread(void *arg) {
 #endif
 
 int main(void) {
+    check_display_forwarding();
     check_invalid_load_preserves_host(NULL);
     const maia_module_context_t outer = {.host = &outer_host};
     assert(mnm_invoke_entry(outer_entry, &outer) == 42);

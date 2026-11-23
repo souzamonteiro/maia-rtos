@@ -1,5 +1,61 @@
 # Hardware evidence register
 
+## Native MNM graphics capability gate on Tab5 — 2026-11-23
+
+The native shell previously exposed a fixed framebuffer at `0x48100000`,
+outside the qualified PSRAM window at `0x4B800000`, while its drawing callbacks
+were null and exclusive-mode acquisition returned success. The shell now
+registers no module display table and reports the limitation at boot; the
+touch/keyboard input table is still registered. The loader's imported
+`fill_rect` wrapper returns `-1` if the display or callback is absent, and
+continues forwarding both success and failure results when present. The ESP
+display adapter is separate and was not changed.
+
+Before the fix, the native-shell capability and missing-display wrapper tests
+failed. Afterward, five focused host tests passed, including LCD-service and
+MNM-write regressions; the shell/loader tests also passed in Release with
+assertions and under ASan/UBSan. The P4 build and image validation passed.
+An isolated snapshot with pinned submodules passed the same five host tests in
+Release with `-UNDEBUG` and built a valid 847,088-byte P4 image
+(`56b7baa7c1207ff60adedfe27d55db5b426ec47652e3ea002a2605936f9cef49`).
+That isolated image was not flashed and lacks the uncommitted cache fix.
+With stock Release `-DNDEBUG`, the existing `lcd_output_test` does not compile:
+assertions disappear and leave unused parameters/variables under `-Werror`.
+The isolated run explicitly retained assertions rather than changing that
+pre-existing test.
+
+On one warm-reset ESP32-P4 Tab5 boot over USB, the
+[fixture](../../tests/hardware/maia_mnm_graphics_unavailable_probe.c) ran as a
+1,748-byte RISC-V module. It checked the null display table, registered input
+callbacks and negative `fill_rect` result; it returned zero and the shell
+subsequently echoed `MNM_SHELL_ALIVE`. The boot warning and these results were
+checked separately from the runner's prompt marker. The probe was transferred
+in 32-byte chunks with every chunk and EOF verified, and its temporary file and
+new `/sd/tc42h` directory were removed (`MNM_GRAPHICS_CLEAN`).
+
+The protected flash runner observed no fatal marker and verified restoration
+of the previous factory-app write. The backed-up app SHA-256 was
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`,
+the tested image was
+`1db3dae86cba0b371171eed427cb1b3e3ff78146e476ab14b6190a8bf05b7006`
+and the probe module was
+`ebd2482c48907e6f057f945851be6c72e958ab7407b9016bf0503f6e5091a81e`.
+The image includes earlier uncommitted changes, including instruction-cache
+synchronization; no full-flash comparison was made. FAT metadata may have
+changed, and the restored firmware synchronizes its desktop module to SD.
+The images, runner, input/output, backup, report and restored boot capture are
+in [the recovery evidence](../../../maia-rtos-recovery/native-tab5-mnm-graphics-gate-20261123/).
+
+This is a safety gate, not a graphics bridge: `display_sync` is void, modules
+that ignore unavailable capabilities can run invisibly, and no native desktop
+or SciCalc rendering is established.
+
+```sh
+cmake --build /tmp/maia-rtos-battery-host --target native_shell_display_test elf_loader_context_test elf_loader_context_no_tls_test shell_mnm_write_test lcd_output_test -j4
+ctest --test-dir /tmp/maia-rtos-battery-host --output-on-failure -R '^(native_shell_display_test|elf_loader_context_test|elf_loader_context_no_tls_test|shell_mnm_write_test|lcd_output_test)$'
+cmake --build /tmp/maia-rtos-battery-p4 --target maia_m0_image -j4
+```
+
 ## MNM shell write callback on Tab5 — 2026-11-23
 
 The shell's `write_fd` returned zero after successful writes because the
