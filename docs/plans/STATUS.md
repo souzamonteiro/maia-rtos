@@ -5,6 +5,22 @@ Date: 2026-11-10
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Regressão host MaiaScript/SciCalc — 2026-11-23
+
+A árvore de trabalho atual passou 33/33 casos de compilador → MaiaASM →
+emulador RV32, além do teste de lifetime e recuperação de erros do parser.
+O caso `32_scicalc_input` usa os handlers da aplicação SciCalc real e verificou
+`2+3*4=14`, `2.5^2=6.25` e erro de domínio para divisão por zero. As chamadas
+gráficas são simuladas: o teste não executa nem valida visualmente a UI, o
+desktop ou a calculadora no firmware nativo.
+
+Os executáveis foram compilados fora do repositório, ligando os testes à
+biblioteca `maia_shell_host_tools` da árvore de trabalho. O teste de compilador
+precisa ser executado a partir de `maiascript/` para resolver os imports; fora
+desse diretório houve falhas de localização, não falhas de execução dos casos.
+Os resultados abrangem alterações anteriores ainda não commitadas e não
+certificam todos os programas ou instruções RV32.
+
 ## Proteção da capacidade gráfica MNM — 2026-11-23
 
 A shell nativa anunciava `get_framebuffer` em `0x48100000`, embora a janela
