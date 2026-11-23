@@ -5,6 +5,34 @@ Date: 2026-11-10
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Escrita MNM da shell — 2026-11-23
+
+O callback `write_fd` retornava zero mesmo depois de emitir os dados. Agora,
+para stdout e stderr, retorna a quantidade de bytes entregue ao callback ou
+erro em entradas inválidas, ausência de callback e falha observável do buffer
+de redirecionamento/pipeline. A saída ainda é textual: NUL embutido é
+rejeitado e o callback `void` não confirma transmissão física. O
+[contrato atual](../shell/MaiaRTOS_Native_Execution_Architecture.md#54-native-host-abi-v1)
+documenta os limites e não declara suporte binário.
+
+No host, 5/5 testes focados passaram; o teste de escrita também passou em
+Release e sob ASan/UBSan. Foram verificados, entre outros casos, o sucesso com
+65.535 bytes no staging, a falha com 65.536, pipeline e a preservação do
+arquivo em falha de redirecionamento. O build nativo P4 passou.
+Um snapshot isolado do índice com submódulos nas revisões fixadas passou os
+mesmos 5 testes em Release e gerou uma imagem P4 válida de 847.200 bytes; essa
+imagem não foi gravada e não inclui a sincronização de cache ainda local.
+
+No Tab5, um módulo verificou os retornos e erros e escreveu 138 bytes em
+stdout e texto em stderr; a execução terminou em zero. Outra execução com
+stdout redirecionado confirmou stderr na saída e o conteúdo exato e EOF do
+arquivo. O diretório temporário foi removido, e o runner restaurou a aplicação
+anterior com escrita verificada. A imagem testada inclui alterações anteriores
+ainda não commitadas, incluindo sincronização do cache; não houve comparação
+integral da flash. Evidências:
+[teste de escrita MNM](../../../maia-rtos-recovery/native-tab5-mnm-write-20261123/).
+Desktop, SciCalc e integração gráfica no firmware nativo permanecem pendentes.
+
 ## Contexto MNM aninhado — 2026-11-23
 
 O loader agora ativa o host dos wrappers somente durante a entrada do módulo e

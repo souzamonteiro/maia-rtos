@@ -52,6 +52,7 @@ typedef struct maia_host_api_v1 {
     uint32_t struct_size;
     uint16_t abi_major;
     uint16_t abi_minor;
+    /* Returns the number of bytes accepted, or a negative error. */
     int32_t (*write_fd)(maia_handle_t fd, const void *buf, uint32_t n);
     int32_t (*read_fd)(maia_handle_t fd, void *buf, uint32_t n);
     int32_t (*close_fd)(maia_handle_t fd);

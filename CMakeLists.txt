@@ -1708,6 +1708,11 @@ else()
     set_target_properties(shell_mnm_sleep_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
     add_test(NAME shell_mnm_sleep_test COMMAND shell_mnm_sleep_test)
 
+    add_executable(shell_mnm_write_test tests/host/shell_mnm_write_test.cpp)
+    target_link_libraries(shell_mnm_write_test PRIVATE maia_shell_host_tools)
+    set_target_properties(shell_mnm_write_test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+    add_test(NAME shell_mnm_write_test COMMAND shell_mnm_write_test)
+
     add_executable(elf_loader_context_test tests/host/elf_loader_context_test.c
       components/exec/elf_validator.c)
     find_package(Threads REQUIRED)

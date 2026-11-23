@@ -1,5 +1,57 @@
 # Hardware evidence register
 
+## MNM shell write callback on Tab5 — 2026-11-23
+
+The shell's `write_fd` returned zero after successful writes because the
+remaining count was decremented to zero. It now returns the number of bytes
+handed to the callback, or `-1` for invalid input, missing output callbacks,
+and observed redirection/pipeline staging failure. Only stdout/stderr and
+NUL-free text are supported; a zero-length write to a valid handle succeeds.
+Callbacks return `void`, so their physical delivery cannot be confirmed.
+See the [current shell contract](../shell/MaiaRTOS_Native_Execution_Architecture.md#54-native-host-abi-v1).
+
+The host regression exercises direct output, chunking, stdout redirection,
+stderr, pipeline, missing callbacks, invalid arguments and embedded NUL.
+It confirms 65,535 staged bytes succeed, 65,536 fail, and an existing target
+is preserved on staging exhaustion. Five focused host tests passed; the write
+test also passed in Release with assertions active and under ASan/UBSan.
+The P4 `maia_m0_image` build and image-structure validation passed.
+An isolated snapshot of the staged source with pinned submodules also passed
+the five host tests in Release and built a valid 847,200-byte P4 image
+(`85d4ee77d01cb3bda5b506431cbdbd71f3530601d4b1c9cd6efc3060e08ea845`).
+That isolated image was not flashed and lacks the uncommitted cache fix.
+
+On one warm-reset ESP32-P4 Tab5 boot over USB, the
+[fixture](../../tests/hardware/maia_mnm_write_probe.c) executed as a 1,836-byte
+RISC-V module. It checked a 138-byte stdout return, stderr, invalid handles,
+embedded NUL, null buffers and oversized length, then returned zero. A second
+execution redirected stdout; stderr remained in the capture, and the 138-byte
+file and EOF were verified by reading them back. The module was transferred in
+32-byte chunks with every chunk and EOF checked. The test removed its files
+and newly created `/sd/tc42g` directory (`MNM_WRITE_CLEAN`); FAT metadata may
+have changed.
+
+The protected flash runner observed no fatal marker and verified restoration
+of the previous factory-app write. The backed-up app SHA-256 was
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`,
+the tested image was
+`cc1e7484c84787d0b7276ae591980ff2347942769f77e23536c54b381ace4aa6`
+and the module was
+`7192ffc3072e6d189d6c24cd53b05c72b69f66ec31a069d7a00f71f2d414937a`.
+The image includes earlier uncommitted work, including instruction-cache
+synchronization; no full-flash comparison was made. The restored firmware's
+boot log shows it synchronized its desktop module to the SD card.
+The images, runner, input/output, backup, report and restored boot capture are
+in [the recovery evidence](../../../maia-rtos-recovery/native-tab5-mnm-write-20261123/).
+This smoke does not qualify binary output, physical serial reliability, native
+desktop rendering or SciCalc.
+
+```sh
+cmake --build /tmp/maia-rtos-battery-host --target shell_mnm_write_test shell_mnm_sleep_test elf_loader_context_test elf_loader_context_no_tls_test shell_expr_control_test -j4
+ctest --test-dir /tmp/maia-rtos-battery-host --output-on-failure -R '^(shell_mnm_write_test|shell_mnm_sleep_test|elf_loader_context_test|elf_loader_context_no_tls_test|shell_expr_control_test)$'
+cmake --build /tmp/maia-rtos-battery-p4 --target maia_m0_image -j4
+```
+
 ## Nested MNM host context on Tab5 — 2026-11-23
 
 The loader now sets the wrappers' active host only while invoking a module

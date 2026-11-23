@@ -172,6 +172,22 @@ int maia_module_main(const maia_module_context_t *ctx);
 
 **Draft contract:** `read_fd`/`write_fd` return nonnegative byte counts or negative stable Maia error codes; `alloc` returns NULL on failure; handles are local to a module task group; `argv` and host table remain valid for the entry lifetime. The module must not cache freed pointers or invoke privileged MMIO directly. Because the CPU lacks a conventional MMU, these are **contracts for trusted code**, not enforced security boundaries.
 
+**Current shell `write_fd` implementation:** handles 1 and 2 select stdout
+and stderr; a zero-length write to either succeeds without a buffer or output
+callback. Nonempty writes accept only NUL-free text up to `INT32_MAX` bytes.
+Invalid handles or buffers, embedded NUL, an absent callback, or an observed
+redirection/pipeline staging failure return `-1`. The staging buffer holds at
+most 65,535 output bytes plus its terminator. Stderr uses the shell's original
+output callback rather than stdout's redirection; pipelines can themselves
+stage that callback.
+
+On success the return value is the number of bytes handed to the callback.
+The callback receives NUL-terminated chunks and returns `void`, so the shell
+cannot detect or guarantee their physical transmission. A staging failure can
+occur after earlier chunks were accepted; failed redirections are not committed
+to the target file. This is not a binary-capable file-descriptor implementation
+or a complete realization of the draft error-code contract.
+
 ### 5.5 Toolchain and packaging
 
 `riscv32-...-gcc -ffreestanding -fno-pic ... -c hello.c -o hello.o` is illustrative only; the final cross-compiler prefix and `-march/-mabi` flags come from the hardware audit. Use a controlled linker script and `readelf` to inspect object sections, symbols and relocations. `mnm-pack` validates, hashes and emits `.mobj` + manifest. CI runs positive and malformed ELF fixtures on host, with fuzzing of the parser and relocation engine. A native binary built for Linux is rejected even if it is RISC-V ELF.

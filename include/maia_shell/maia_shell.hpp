@@ -2445,36 +2445,25 @@ private:
         host_api.abi_major = MAIA_HOST_ABI_MAJOR;
         host_api.abi_minor = MAIA_HOST_ABI_MINOR;
         host_api.write_fd = [](maia_handle_t fd, const void *buf, uint32_t n) -> int32_t {
-            OutputFn out_cb = get_global_out_cb();
-            OutputFn con_cb = get_global_console_cb();
-            if (fd == 2) {
-                if (con_cb && buf && n > 0) {
-                    const char *p = (const char *)buf;
-                    char tmp[128];
-                    while (n > 0) {
-                        size_t c = (n < sizeof(tmp) - 1) ? n : (sizeof(tmp) - 1);
-                        memcpy(tmp, p, c);
-                        tmp[c] = '\0';
-                        con_cb(tmp);
-                        p += c;
-                        n -= c;
-                    }
-                }
-                return (int32_t)n;
+            if (fd != 1 && fd != 2) return -1;
+            if (n == 0) return 0;
+            if (!buf || n > INT32_MAX || memchr(buf, '\0', n)) return -1;
+
+            OutputFn out_cb = fd == 2 ? get_global_console_cb() : get_global_out_cb();
+            if (!out_cb) return -1;
+            const char *p = static_cast<const char *>(buf);
+            uint32_t remaining = n;
+            char tmp[128];
+            while (remaining > 0) {
+                size_t c = (remaining < sizeof(tmp) - 1) ? remaining : (sizeof(tmp) - 1);
+                memcpy(tmp, p, c);
+                tmp[c] = '\0';
+                out_cb(tmp);
+                if (out_cb == append_staged_output && get_global_redir_stage().failed) return -1;
+                p += c;
+                remaining -= static_cast<uint32_t>(c);
             }
-            if (out_cb && buf && n > 0) {
-                const char *p = (const char *)buf;
-                char tmp[128];
-                while (n > 0) {
-                    size_t c = (n < sizeof(tmp) - 1) ? n : (sizeof(tmp) - 1);
-                    memcpy(tmp, p, c);
-                    tmp[c] = '\0';
-                    out_cb(tmp);
-                    p += c;
-                    n -= c;
-                }
-            }
-            return (int32_t)n;
+            return static_cast<int32_t>(n);
         };
         host_api.read_fd = [](maia_handle_t fd, void *buf, uint32_t n) -> int32_t {
             if (fd == 0 && buf && n > 0) {
