@@ -84,7 +84,23 @@ int main(void) {
     request.tv_nsec = 1L;
     current_task_id = -1;
     if (nanosleep(&request, NULL) != -1 || errno != ENOTSUP) return 6;
+    request.tv_nsec = 0;
+    remaining.tv_sec = 1;
+    remaining.tv_nsec = 1;
+    if (nanosleep(&request, &remaining) != 0 || delayed_ticks != 2U ||
+        remaining.tv_sec != 0 || remaining.tv_nsec != 0) return 41;
     current_task_id = 1;
+    request.tv_nsec = 1000000L;
+    if (nanosleep(&request, NULL) != 0 || delayed_ticks != 1U) return 44;
+    request.tv_sec = 1;
+    request.tv_nsec = 500000000L;
+    if (nanosleep(&request, NULL) != 0 || delayed_ticks != 1500U) return 45;
+    request.tv_sec = 2147483;
+    request.tv_nsec = 647000000L;
+    if (nanosleep(&request, NULL) != 0 || delayed_ticks != 2147483647U) return 42;
+    request.tv_nsec = 648000000L;
+    if (nanosleep(&request, NULL) != -1 || errno != EINVAL ||
+        delayed_ticks != 2147483647U) return 43;
 
     if (_write(STDOUT_FILENO, "out", 3) != 3 ||
         output_length != 3U || memcmp(output, "out", 3U) != 0) return 7;

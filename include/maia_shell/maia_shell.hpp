@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -2500,8 +2501,14 @@ private:
         host_api.sleep_ms = [](uint32_t ms) -> int32_t {
 #if defined(ESP_PLATFORM)
             vTaskDelay(pdMS_TO_TICKS(ms));
-#endif
             return 0;
+#else
+            const struct timespec request = {
+                static_cast<time_t>(ms / 1000U),
+                static_cast<long>(ms % 1000U) * 1000000L
+            };
+            return nanosleep(&request, nullptr);
+#endif
         };
         host_api.alloc = [](uint32_t bytes, uint32_t flags) -> void * {
             (void)flags;

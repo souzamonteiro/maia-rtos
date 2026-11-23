@@ -146,6 +146,8 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [ ] Carregador `.mobj` (memória executável + sincronização de cache)
 - [ ] Compilador MaiaScript no device
 - [ ] MNM (serviços nativos) sobre o kernel
+  - [x] Ponte `sleep_ms` usa a espera do scheduler nativo e propaga falhas; regressões host e módulo MaiaScript no Tab5 (300 ms solicitados, 309 ms medidos; app original restaurada/verificada, 23/11)
+  - [ ] Integrar os callbacks gráficos ao serviço LCD sem violar a propriedade dos framebuffers
 - [ ] Desktop 👀
 - [ ] Apps: SciCalc (`2+3*4=14`), Alarm, Notes, Files, Term, Editor, Clock, Sysinfo, Banner 👀
 - [ ] Suíte de testes do `maia.py` passando

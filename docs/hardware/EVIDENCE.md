@@ -1,5 +1,48 @@
 # Hardware evidence register
 
+## Native MNM scheduler delay on Tab5 — 2026-11-23
+
+In the current native worktree, the shell's MNM `sleep_ms` callback now uses
+the existing Newlib `nanosleep` and MaiaRTOS task delay instead of returning
+immediately. It returns Newlib failures to the MNM caller; zero duration
+returns immediately without yielding. The native syscall requires a running
+task for positive delays and rejects durations above `INT32_MAX` milliseconds.
+The existing MaiaScript `delay_ms` wrapper returns `void` and cannot report
+the callback's error.
+
+On one warm-reset ESP32-P4 Tab5 boot over `/dev/cu.usbmodem1301`, the source
+in `tests/hardware/maia_mnm_sleep_probe.ms` was entered in a newly created
+directory, compiled on-device and executed as an MNM module. It requested
+300 ms via `delay_ms` and returned the `millis()` difference: **309 ms**
+(`0x135`). The creation was guarded by `mkdir` and `cd`; after the run,
+removal of both files and the empty directory produced `SLEEP_PROBE_CLEAN`.
+The card was not formatted, although FAT metadata may have changed.
+
+The protected flash runner observed `msh>` with no fatal marker and restored
+the previous factory app, with esptool's write hash verification and backed-up
+app SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The tested image SHA-256 was
+`b2091a1d4388a3cdb076cebe170d2fe205e65830f403b2c1f31bd18f1c834105`.
+The exact serial input, output, backup and report are in
+`../../../maia-rtos-recovery/native-tab5-mnm-sleep-20261123/`. The command's
+309 ms result and cleanup marker were checked separately from `probe_pass`;
+no full-flash comparison was made. This single measurement is not a latency
+or real-time bound and does not qualify desktop rendering.
+
+The hardware image included earlier uncommitted work in the local worktree.
+An independent snapshot of the staged commit, using the pinned local regex
+and glob submodules, also passed the three host tests and built a valid P4
+image (847,184 bytes); that separate image was not flashed.
+
+Validation commands used the existing configured build directories:
+
+```sh
+cmake --build /tmp/maia-rtos-battery-host --target shell_mnm_sleep_test newlib_syscalls_test shell_expr_control_test -j4
+ctest --test-dir /tmp/maia-rtos-battery-host --output-on-failure -R '^(shell_mnm_sleep_test|newlib_syscalls_test|shell_expr_control_test)$'
+cmake --build /tmp/maia-rtos-battery-p4 --target maia_m0_image -j4
+```
+
 ## PSRAM startup closure resident in internal SRAM — 2026-11-18
 
 - `flash_product.ld` now collects the selected PSRAM boot, clock, supply,

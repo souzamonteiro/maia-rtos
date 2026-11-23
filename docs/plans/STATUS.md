@@ -5,6 +5,35 @@ Date: 2026-11-10
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Espera MNM sobre o scheduler nativo — 2026-11-23
+
+O callback `sleep_ms` fornecido pela shell aos módulos retornava imediatamente
+no build nativo. Agora converte milissegundos para `timespec` e chama o
+`nanosleep` da Newlib, que usa a espera por ticks do MaiaRTOS; o caminho
+`ESP_PLATFORM` permanece inalterado. A chamada retorna o erro da Newlib ao
+consumidor MNM. Espera zero continua retornando imediatamente, sem yield;
+esperas positivas requerem contexto de tarefa e o limite nativo é
+`INT32_MAX` ms. O wrapper MaiaScript `delay_ms` tem retorno `void` e, portanto,
+não expõe esse erro ao programa.
+
+No host, `shell_mnm_sleep_test` exercitou o callback real entregue por
+`runelf`, incluindo 0, 1, 1500 e `UINT32_MAX` ms e falha simulada;
+`newlib_syscalls_test` verificou a conversão para ticks, zero sem yield,
+ausência de tarefa e o limite. `shell_expr_control_test` também passou.
+`maia_m0_image` compilou e passou na validação da imagem.
+Um snapshot isolado das alterações preparadas para commit, com os submódulos
+nas revisões fixadas, também passou nos três testes host e no build P4; essa
+imagem isolada não foi gravada.
+
+No Tab5, o probe `tests/hardware/maia_mnm_sleep_probe.ms` compilou para MNM e
+mediu 309 ms no relógio monotônico para `delay_ms(300)`. O diretório temporário
+no SD foi criado apenas se inexistente e removido ao final; os metadados FAT
+podem ter mudado. O runner restaurou a aplicação anterior e verificou o hash
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas em `../../../maia-rtos-recovery/native-tab5-mnm-sleep-20261123/`.
+Uma única medição não define garantia de latência. O desktop e a integração
+segura das primitivas gráficas MNM continuam pendentes.
+
 ## Restored baseline and initial audit
 
 - Functional baseline: `bf044d3`, restored Tab5 desktop, full shell and MaiaScript
