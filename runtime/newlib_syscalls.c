@@ -24,6 +24,19 @@ static int fail_with_errno(int error) {
     return -1;
 }
 
+/* Same bounded wait as maia_console: the USB IN endpoint stays busy until the
+ * host collects the previous packet, so one failed attempt is not an error. */
+#define MAIA_STDIO_TX_SPIN_LIMIT 2000000U
+
+static int put_usb_byte(uint8_t byte) {
+    int status = -1;
+    for (uint32_t spin = 0U; spin < MAIA_STDIO_TX_SPIN_LIMIT; ++spin) {
+        status = maia_serial_tx_try_put(NULL, MAIA_SERIAL_TX_USB, byte);
+        if (status != -1) break;
+    }
+    return status;
+}
+
 int _write(int fd, const char *buffer, int length) {
 #ifdef MAIA_PRODUCT_FATFS
     if (fd >= 3) return maia_newlib_vfs_write(fd, buffer, length);
@@ -36,8 +49,7 @@ int _write(int fd, const char *buffer, int length) {
 
     int written = 0;
     while (written < length) {
-        int status = maia_serial_tx_try_put(NULL, MAIA_SERIAL_TX_USB,
-                                           (uint8_t)buffer[written]);
+        int status = put_usb_byte((uint8_t)buffer[written]);
         if (status != 0) {
             int error = status == -1 ? EAGAIN : status == -2 ? EBUSY : EIO;
             (void)maia_serial_tx_flush(NULL, MAIA_SERIAL_TX_USB);

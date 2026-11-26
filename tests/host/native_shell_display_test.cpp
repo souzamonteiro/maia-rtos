@@ -64,6 +64,14 @@ extern "C" int mnm_load_and_run(const void *elf, size_t elf_size,
     return MNM_LOAD_OK;
 }
 
+extern "C" int mnm_load_and_run_reader(const elf_reader_t *, int,
+                                        const char *const *,
+                                        const maia_host_api_v1 *, int *,
+                                        void (*)(const char *)) {
+    assert(false);
+    return MNM_ERR_IO;
+}
+
 int main() {
     const maia_display_api_t stale_driver = {};
     MaiaShell::set_display_driver(&stale_driver);

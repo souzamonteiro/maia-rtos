@@ -25,10 +25,15 @@ maia_dsi_access_result_t maia_lcd_async_stop(void);
 maia_dsi_access_result_t maia_lcd_async_request_pause(void);
 int maia_lcd_async_is_paused(void);
 /* READY or ACTIVE -> exclusive CPU edit lease on the non-scanout framebuffer.
- * Draw and publish with IRQs enabled; publication writes back only that frame.
- * The next completed-frame IRQ swaps the source. No stop is legal during edit;
- * publication failure retains ownership. */
+ * Preserve copies the current scanout image to this lease while DMA reads the
+ * front; the client may then make incremental edits. Draw and publish with IRQs
+ * enabled; publication writes back only the edited frame. The next completed-
+ * frame IRQ swaps the source. No stop is legal during edit; publication failure
+ * retains ownership. No bandwidth/WCET bound is claimed for the full-frame copy. */
 uint16_t *maia_lcd_async_edit_begin(void);
+/* While an edit lease is active, preserve the current scanout image in the
+ * leased backbuffer. DMA reads the front while the owner copies it. */
+int maia_lcd_async_edit_preserve(void);
 maia_dsi_access_result_t maia_lcd_async_edit_publish(void);
 int maia_lcd_async_pending(void);
 void maia_lcd_async_report(maia_lcd_async_report_t *);

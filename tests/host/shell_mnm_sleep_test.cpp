@@ -58,6 +58,14 @@ extern "C" int mnm_load_and_run(const void *elf, size_t elf_size,
     return MNM_LOAD_OK;
 }
 
+extern "C" int mnm_load_and_run_reader(const elf_reader_t *, int,
+                                        const char *const *,
+                                        const maia_host_api_v1 *, int *,
+                                        void (*)(const char *)) {
+    assert(false);
+    return MNM_ERR_IO;
+}
+
 static void discard_output(const char *) {}
 
 int main() {

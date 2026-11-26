@@ -9,13 +9,20 @@
  * 5. Initialize optional compiler TLS/C++ state before entering the boot main.
  */
 
+#include <maia/arch/riscv_context.h>
+
     .section .text.entry, "ax"
     .global _start
-    .type _start, @function
+    .type   _start, @function
 _start:
-    /* 1. Disable machine interrupts and clear pending masks */
-    csrw mstatus, zero
-    csrw mie, zero
+    /* 1. Keep interrupts disabled and enable FS before any RV32F boot code. */
+#if MAIA_RISCV_FP32_CONTEXT
+    li      t0, MAIA_RISCV_FS_INITIAL
+    csrw    mstatus, t0
+#else
+    csrw    mstatus, zero
+#endif
+    csrw    mie, zero
 
     /* 2. Check hardware thread ID: only core 0 runs M0 boot */
     csrr t0, mhartid

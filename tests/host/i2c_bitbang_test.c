@@ -165,6 +165,14 @@ int main(void) {
     CHECK(maia_i2c_write_register8(&b,0x44U,0x05U,0xABU) == MAIA_I2C_OK);
     const uint8_t write8[]={0x88U,0x05U,0xABU};
     CHECK(s.bytes == 3U && !memcmp(s.wire,write8,3) && s.starts == 1U && s.stops == 1U);
+    b=setup(&s);
+    const uint8_t burst[]={0x10U,0x20U,0x30U};
+    CHECK(maia_i2c_write_register8_block(&b,0x68U,0x5EU,burst,sizeof(burst)) == MAIA_I2C_OK);
+    const uint8_t expected_burst[]={0xD0U,0x5EU,0x10U,0x20U,0x30U};
+    CHECK(s.bytes == sizeof(expected_burst) && !memcmp(s.wire,expected_burst,sizeof(expected_burst)));
+    b=setup(&s);
+    CHECK(maia_i2c_write_register8_block(&b,0x68U,0x5EU,burst,0U) == MAIA_I2C_INVALID && !s.pauses);
+    CHECK(maia_i2c_write_register8_block(&b,0x68U,0x5EU,burst,71U) == MAIA_I2C_INVALID && !s.pauses);
     unsigned write8_pauses=s.pauses;
     for (unsigned write=0U;write<2U;++write) {
         for (unsigned n=1U;n<=(write ? write8_pauses : read8_pauses);++n) {

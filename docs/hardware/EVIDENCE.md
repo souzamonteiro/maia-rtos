@@ -222,6 +222,125 @@ ctest --test-dir /tmp/maia-rtos-battery-host --output-on-failure -R '^(shell_mnm
 cmake --build /tmp/maia-rtos-battery-p4 --target maia_m0_image -j4
 ```
 
+## Tab5 battery read and shared-I2C contention — 2026-11-23
+
+- The read-only `battery` command obtains bus voltage from INA226 `0x41` and
+  reads Input Status `0x0F` from expander `0x44`, pin P6. The output is
+  `Monitor bus=7987 mV, IP2326 charge signal=LOW (raw; no SOC percent)`.
+  This does not establish charge-signal polarity or battery state-of-charge.
+- The first USB attempt encountered shared-bus `MAIA_I2C_BUSY`. Read-only
+  shell commands now retry that result at most twice after yielding; they do
+  not retry wire errors. A subsequent probe completed the battery read without
+  a touch failure message. The touch service retains its last valid snapshot
+  on BUSY without refreshing its timestamp; the existing age timeout still
+  applies. The product suppresses BUSY as a failure even before the first
+  valid report.
+- Six focused host tests passed: touch input, battery, PI4IOE5V6408, INA226,
+  RX8130 and I2C bus. The runner reported `probe_pass=true` and
+  `restore_verified=true`, restoring the original application with SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  [Report](../../../maia-rtos-recovery/native-tab5-battery-touch-busy-final-20261123/report.json)
+  and [probe log](../../../maia-rtos-recovery/native-tab5-battery-touch-busy-final-20261123/probe-boot-1.log).
+
+## Native MaiaRTOS Tab5 power-off — 2026-11-23
+
+- Native `poweroff` pulses PI4IOE5V6408 `0x44` P4 high/low three times (100 ms
+  each) over the shared System I2C bus, ported from the M5Stack BSP
+  `bsp_generate_poweroff_signal()`; backlight is turned off first.
+- On hardware with USB attached, the shell printed `Powering off...`, the USB
+  serial port disappeared and the owner confirmed the device was off. The
+  automatic restore therefore failed as expected; after the owner powered the
+  device on, the backed-up app was written manually ("Hash of data verified",
+  SHA-256 `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`)
+  and the captured boot reached the desktop.
+  [Probe log](../../../maia-rtos-recovery/native-tab5-poweroff-20261123/probe-boot-1.log),
+  [manual restore](../../../maia-rtos-recovery/native-tab5-poweroff-20261123/restore-manual.log),
+  [restore boot](../../../maia-rtos-recovery/native-tab5-poweroff-20261123/restore-boot.log).
+
+## Native BMI270 identification, initialization and sampling — 2026-11-23
+
+- `imu id` reads only register `CHIP_ID` (`0x00`) at BMI270 I2C address `0x68`
+  through the shared native System I2C bus. No sensor configuration or register
+  writes occur in this probe; on Tab5 it returned `0x24`.
+- Host test `tab5_bmi270_test` passed for expected ID `0x24`, unexpected ID,
+  BUSY propagation, unchanged output on I2C failure and zero writes. On Tab5,
+  `imu init` loaded the Bosch configuration and enabled accelerometer/gyroscope
+  at 200 Hz (±4 g / ±1000 dps); `imu read` returned raw values
+  `accel=(7593,5,-2916)`, `gyro=(3,-1,-3)` while stationary.
+- Focused host tests `tab5_bmi270_test`, `i2c_bus_test` and `i2c_bitbang_test`
+  passed; the `maia_m0_image` target built successfully.
+- The runner reported `probe_pass=true` and `restore_verified=true`, restoring
+  the original application with SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  [Report](../../../maia-rtos-recovery/native-tab5-bmi270-id-20261123/report.json)
+  and [ID probe log](../../../maia-rtos-recovery/native-tab5-bmi270-id-20261123/probe-boot-1.log).
+  [Init/read report](../../../maia-rtos-recovery/native-tab5-bmi270-clean-init-read-20261123/report.json)
+  and [init/read log](../../../maia-rtos-recovery/native-tab5-bmi270-clean-init-read-20261123/probe-boot-1.log).
+
+## Native MaiaRTOS Tab5 backlight control — 2026-11-23
+
+- Over the USB shell, `backlight 50` reported success. Read-only inspection
+  returned `LEDC_CH1_DUTY` `0x00001FF0` at `0x500D301C` and GPIO22 output
+  selector `0x0000007F` at `0x500E05B0` (LEDC).
+- `backlight 100` reported success and switched GPIO22 back to GPIO output:
+  `GPIO_OUT` at `0x500E0004` was `0x00400003` (bit 22 high), and the GPIO22
+  output selector was `0x00000100`. The check changes brightness only through
+  the shell API; register inspection is read-only.
+- Visual sweep `100→75→50→25→5→0→100` (5 s per step) was confirmed by the
+  owner ("Brilho funcionou."), with the original application restored and
+  verified. [Report](../../../maia-rtos-recovery/native-tab5-backlight-visual-20261123/report.json).
+- The recovery runner reported `probe_pass=true` and `restore_verified=true`,
+  restoring the original application with SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  [Report](../../../maia-rtos-recovery/native-tab5-backlight-20261123/report.json),
+  [probe log](../../../maia-rtos-recovery/native-tab5-backlight-20261123/probe-boot-1.log),
+  and [restore log](../../../maia-rtos-recovery/native-tab5-backlight-20261123/restore-boot.log).
+
+## RX8130CE read-only calendar service — implementation, 2026-11-23
+
+- Primary component reference: Epson [RX8130CE datasheet](https://download.epsondevice.com/td/pdf/app/RX8130CE_en.pdf),
+  document ETM50E-10, revision 2026-01-30. Register table (p. 22) places
+  seconds through year at `0x10..0x16` and VLF at bit 1 of `0x1D`.
+  Clock/calendar behavior (pp. 25-26) specifies BCD seconds/minutes/hours,
+  one-hot weekday, BCD day/month/year and a calendar snapshot during continuous
+  access. A set VLF reports data loss; the implementation reports that state
+  without clearing flags or writing any RTC register.
+- The native service uses the managed Tab5 System I2C bus at 7-bit address
+  `0x32`, shares ownership with touch, and propagates I2C failures. Host tests
+  cover a valid leap-day reading, invalid BCD/calendar/weekday, VLF, NACK and
+  timeout; failed reads leave the caller's output unchanged.
+- The `rtc` shell command is read-only. P4 image build and targeted host test
+  passed. On Tab5, USB command output was
+  `rtc: invalid data (raw=47 45 16 0C 28 00 00 flags=25)`: month is zero and
+  weekday `0x0C` has multiple bits set; VLF bit 1 is clear. The service
+  correctly rejected the calendar and made no writes.
+- The recovery runner reports `probe_pass=true` and `restore_verified=true`;
+  it restored the original application with SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  [Report](../../../maia-rtos-recovery/native-rtc-rx8130-raw-20261123/report.json),
+  [probe log](../../../maia-rtos-recovery/native-rtc-rx8130-raw-20261123/probe-boot-1.log),
+  and [restore log](../../../maia-rtos-recovery/native-rtc-rx8130-raw-20261123/restore-boot.log).
+- Valid physical date/time remains unverified. Do not initialize or alter the
+  RTC until an authoritative time source/value is agreed.
+
+## Native Tab5 A164 keyboard input — 2026-11-23
+
+- The native product identified the physical A164 keyboard coprocessor as
+  firmware `0x01` at address `0x6D` on ExtI2C GPIO0/1. During the USB recovery
+  run, the physical keyboard entered `ls` and `pwd` at the native MaiaShell;
+  their output appeared as `Directory of /` and `/`. This confirms character
+  input and Enter delivery through the native console.
+- A typed character sample also reached the shell. Arrow keys currently arrive
+  as literal `[A`/`[B`/`[D` text and are not handled as line-edit/history
+  controls; that remains a shell UX limitation. This run validates the A164,
+  not the alternate TCA8418 path.
+- The runner reported `probe_pass=true` and `restore_verified=true`, restoring
+  the original application with SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+  [Report](../../../maia-rtos-recovery/native-keyboard-a164-live-20261123/report.json),
+  [probe log](../../../maia-rtos-recovery/native-keyboard-a164-live-20261123/probe-boot-1.log),
+  and [restore log](../../../maia-rtos-recovery/native-keyboard-a164-live-20261123/restore-boot.log).
+
 ## PSRAM startup closure resident in internal SRAM — 2026-11-18
 
 - `flash_product.ld` now collects the selected PSRAM boot, clock, supply,
@@ -3729,3 +3848,258 @@ tests passed.
 Neither mock reproduces an electrical card removal, establishes the physical
 state of a partially written block, or qualifies power-loss recovery. No
 device access, removal or power interruption was performed for these tests.
+
+## MaiaKV snapshots and native flash guard — host/build baseline
+
+The native C MaiaKV service uses two 8 KiB banks in the reserved Tab5 range
+`0xC74000..0xC77FFF`. Each update erases and rebuilds the inactive bank,
+writes its payload and checksums, then writes a commit marker last. The previous
+bank is left intact until a later update. Host tests inject failures in each
+flash callback and reinitialize the service to verify recovery to either the
+old committed value or the fully committed new value. Normal CTest and
+ASan/UBSan passed. If both banks lack a valid commit, initialization returns
+`MAIA_KV_RECOVERED_EMPTY` instead of silently reporting a normal empty store.
+
+The ESP32-P4 product image linked and packaged with five segments. The
+`flash_transaction` routine is in internal SRAM at `0x4FF00000`; its
+disassembly calls ROM cache and raw SPI-flash routines without references into
+the XIP text/rodata sections. At the time this baseline was recorded, no physical flash operation had been
+run. The functional read/erase/write/reboot follow-up below supersedes that
+limitation, but does not measure scheduler latency or cover power-loss
+recovery. The native Tab5 profile registers the MaiaKV host imports for
+MaiaScript; the compiler/emulator covers `get/set/remove/contains` (33/33
+compiler cases).
+
+### MaiaScript parser token-capacity fix and clean-image check — 2026-11-22
+
+The parser now sizes its token vector from the expanded source length plus the
+EOF token, capped at 32,768 entries, instead of reserving at least 1,024 tokens
+for every input. `make -C maiascript test` passed all 33 compiler/emulator
+cases and the AST-lifetime/repeated-parse checks.
+
+The clean P4 image
+(`30c44c1b5ddda2486fd7db887d0f30e0889ad2ed27e8bb7ef5173a6428aed0d5`) booted
+on the Tab5. A minimal script, `i32 main() { return 42; }`, compiled through
+`maiasc` to a 416-byte ELF32. The protected runner verified restoration of the
+original application (SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`).
+Capture and restore report:
+`../../../maia-rtos-recovery/maia-maiasc-final-simple-20261122/`.
+
+This initial attempt stopped after include expansion and before tokenization.
+The later parser/CST, codegen and assembler memory reductions changed that
+result; see the follow-up below.
+
+### MaiaKV compilation and native module-run follow-up — 2026-11-22
+
+The firmware heap was set to 44 KiB after a 48 KiB linker configuration
+overflowed the validated SRAM window. The parser event log/CST were compacted,
+the codegen optimizer avoids per-line string allocations, and the assembler
+stores `string_view` source-line references and reparses each line in pass 2.
+`make -C assembler test` passed 21/21 disassembly cases and assembled all 6/6
+positive test files. `make -C maiascript test` passed 33/33 compiler/emulator
+cases plus AST-lifetime and repeated-parse checks.
+
+The protected Tab5 probe compiled a source importing `maia.kv` to a 2,224-byte
+ELF32 and emitted `[SUCCESS] Compiled`. The instrumented image hash was
+`9155df828390f7271d3d508e4066022a567d1d79119ff66da00144feecef9497`.
+The runner restored the original application and verified SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capture and restore report:
+`../../../maia-rtos-recovery/maia-kv-assembler-pass2-consistent-name/`.
+
+Execution is not yet demonstrated. `maiasc --run` compiled the plain
+`i32 main(){return 42;}` source to 416 bytes, and the loader logged
+`Executing maia_module_main`, but the probe did not observe a module-return or
+success marker. This reproduces the run blocker without MaiaKV imports, so it
+does not yet implicate the KV backend. A slightly larger KV source reached
+grammar-parse success but did not reach the next CST diagnostic; its cause is
+also unresolved. No KV read/write/persistence result is claimed.
+
+Temporary parser, codegen, shell and assembler diagnostics were removed after
+the probe. The rebuilt clean image
+(`e9ec4b1879c6c8ebadf3a2d67c002b0c566b7f50c855d75228db53b15d880865`) was
+then tested with the same import and compiled to a 2,236-byte ELF32. The probe
+removed its scratch source/module files, and the protected runner restored the
+original firmware with the same verified SHA-256. Capture and restore report:
+`../../../maia-rtos-recovery/maia-kv-clean-final/`.
+
+### Native ELF entry/return trace — follow-up
+
+The device-generated assembly for `i32 main(){return 42;}` is an eight-
+instruction, 32-byte function with a normal stack frame, local `jal` to its
+epilogue, and `ret`. The host compiler/emulator reports 42; all 33 MaiaScript
+compiler/emulator cases and the assembler's 21 disassembly plus 6 assembly
+tests pass.
+
+The protected Tab5 probe also ran a separately compiled C control module whose
+entire `.text` is `addi a0, zero, 42; ret` (8 bytes). Both it and the
+MaiaScript module reached `Loader: Executing maia_module_main`, but neither
+produced the loader's return message or the following shell marker. A
+MaiaScript probe that called `println` before returning produced no print
+either. This localizes the blocker below MaiaScript parsing/code generation;
+the loader/hardware execution path is still unresolved, and the absent fatal
+marker does not prove that no trap occurred.
+
+The minimal C ELF was allocated at `0x4ff133d8`; the clean-image map places
+the general heap pool at `0x4ff12a90` within the linker-defined executable
+`SRAM_LOW` range. This is an observation, not a confirmed cause. The protected
+runner restored the original application after each probe and verified its
+SHA-256 as
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Temporary diagnostic files were removed from the device SD card. Reports:
+`../../../maia-rtos-recovery/maia-ret-trace-chunked/`,
+`../../../maia-rtos-recovery/maia-hello-control-run/`,
+`../../../maia-rtos-recovery/maia-ret42-c-control/`, and
+`../../../maia-rtos-recovery/maia-module-debug-cleanup/`.
+
+### Native ELF execution — cache coherency fix
+
+Root cause of the missing return: the native loader only issued `fence.i`
+after writing the module, whereas the ESP-IDF build calls
+`esp_cache_msync(C2M|DATA)` and `esp_cache_msync(M2C|INST)`. On the ESP32-P4
+those map to the ROM calls `Cache_WriteBack_Addr(CACHE_MAP_L1_DCACHE)` and
+`Cache_Invalidate_Addr(CACHE_MAP_L1_ICACHE_MASK)` (ESP-IDF v5.4
+`esp32p4.rom.ld`: `0x4FC003F4` and `0x4FC003E4`). The native loader now calls
+`maia_esp32p4_cache_sync_code()` with the same operations over the line-expanded
+module range.
+
+Comparison with the working FreeRTOS build: `platforms/tab5/main/CMakeLists.txt`
+compiles the same `components/exec/elf_loader.c` under `ESP_PLATFORM`, so
+that build takes the `esp_cache_msync` branch. The FreeRTOS kernel sources
+(`esp-idf/components/freertos`) contain no cache maintenance; the flush comes
+from ESP-IDF `esp_mm/esp_cache.c` (`cache_hal_writeback_addr` /
+`cache_hal_invalidate_addr`). The scheduler swap was therefore not the
+difference. The native build compiled the same loader without `ESP_PLATFORM`,
+so it skipped that branch.
+
+With only that change (image
+`4b22ef1f8727e69fe4002b556af44e10338ca38b58de3d37541ac9acfb15f3ea`), a
+MaiaScript module returned `42`, but its `println` emitted only `M`: newlib
+`_write` returned a partial write on the first busy USB IN endpoint. `_write`
+now retries with the console's bounded spin; `newlib_syscalls_test` covers a
+transient busy endpoint. With image
+`1caec394e6ee787278e815177ebacb3417572b64b09dbdcf817474ec484da87a`, the probe
+printed `MAIA_ENTRY_REACHED`, logged `Loader: Module returned 42 (0x2A)`,
+removed its SD files, and the runner restored and verified the original
+application SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Reports: `../../../maia-rtos-recovery/maia-exec-cache-sync/` and
+`../../../maia-rtos-recovery/maia-exec-stdout-retry/`.
+
+### MaiaKV Tab5 functional test — 2026-11-22
+
+The current native product image (`1caec394e6ee787278e815177ebacb3417572b64b09dbdcf817474ec484da87a`)
+was exercised on the Tab5 over USB with the protected flash runner. A
+read-only call to `host_kv_contains_text("copilot_probe")` returned 0, so that
+key was absent and was not modified.
+
+The test then confirmed `mkvp_221758` was absent, called the registered
+`host_kv_set_text("mkvp_221758", "ok")` and received return 0. On a subsequent
+runner boot, `host_kv_get_text` returned `"ok"` and the module returned 42
+after comparing both bytes. A third boot called `host_kv_delete_text`, checked
+`contains == 0`, and confirmed `get` returned `MAIA_KV_NOT_FOUND` (-3). A
+fourth boot again observed `contains == 0`, proving deletion survived reset.
+These operations exercised the inactive-bank erase, write, verification, and
+commit path. Removal is logical snapshot deletion, not secure erasure of the
+older inactive bank.
+
+All successful runner reports record `probe_pass=true` and
+`restore_verified=true`; each restored the original application with SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+The temporary source/module files were removed from the SD card. Reports:
+`../../../maia-rtos-recovery/maia-kv-device-host-contains-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-set-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-get-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-remove-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-check-removed-20261122/`, and
+`../../../maia-rtos-recovery/maia-kv-device-temp-cleanup-20261122/`.
+
+The initial wrapper probe stopped during code generation, before either
+`[SUCCESS] Compiled` or `Wrote assembly` appeared. A direct call to the
+registered C symbol compiled and ran. The follow-up below resolved this
+specific wrapper path; this does not qualify arbitrary larger modules.
+No power-loss, latency, or secure-erase qualification is claimed. The initial
+compile-only capture is
+`../../../maia-rtos-recovery/maia-kv-device-wrapper-assembly-20261122/`.
+The minimal control and operation sources are in `../../tests/hardware/`.
+
+### MaiaKV wrapper compile and run — clean Tab5 image, 2026-11-22
+
+The on-device stall was reproduced after parsing and at the final function
+output: the assembly stream had reached 4,082 bytes, with 22.5 KiB total heap
+free but no available 8 KiB contiguous block. The shell stack had over 11 KiB
+of remaining guard margin, so increasing stack was not the fix. Redistributing
+the static L2 pool/task-stack budget to a 49 KiB heap and 16 KiB shell stack
+provided the required contiguous allocation; the small-shell/telemetry boot
+self-test and the actual wrapper run both passed.
+
+On the Tab5 over USB, the original
+`maia_kv_wrapper_compile_probe.ms` (`import maia.kv`, `kv.contains`,
+`isError()`, and `return 42 + r.value()`) compiled, assembled, and executed.
+The loader reported `Module returned 42 (0x2A)`. This was repeated on the
+uninstrumented image with SHA-256
+`1d1f83ca2ed12e1fb969f1ff6e1a3e99aea8323e4fa2c3605afd4ab8f38b439c`.
+`make -C maiascript test` passed 33/33 compiler/emulator cases and the
+AST-lifetime/repeated-parse checks; `make -C assembler test` passed 21/21
+disassembly tests and assembled all 6/6 positive sources.
+
+The protected runner reported `probe_pass=true` and `restore_verified=true`,
+restored the original application with SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`, and
+the shell removed `/sd/kv_device_probe.ms` and its `.mobj`. Capture and restore
+report: `../../../maia-rtos-recovery/maia-kv-device-original-clean-heap49-20261122/`.
+This resolves UQ-018 for the tested wrapper; broader module-size limits,
+power-loss recovery, latency, and secure erase remain unqualified.
+
+The library path `/sd/lib/maia/kv.ms` was then read through the
+`MaiaSerialClient` transfer implementation in `tools/maia-cli/maia.py`. The
+file already existed, so it was not overwritten. A full 1,259-byte pullback
+matched the workspace source exactly (SHA-256
+`2ac4734b6bb1cea998fa5b49f1f742d0dee04ab341f80dba388ad2a35e8e60e0`).
+The protected session restored and hash-verified the original app; report:
+`../../../maia-rtos-recovery/maia-kv-push-library-client-heap49-retry-20261122/`.
+
+### Native desktop stack correction and visual startup — 2026-11-25
+
+The P4 product image was rebuilt with the native loader fix and passed the
+structural image validator (five segments, 889,216 bytes). Three focused host
+tests passed: `legacy_host_compat_test`, `elf_loader_context_test`, and
+`elf_loader_context_no_tls_test`.
+
+The USB-only visual runner uploaded the rebuilt
+`desktop.mobj` (27,180 bytes; SHA-256
+`c6818372711b42925266ac5d3881e41c9a0a8c79ca7d063a5b2ab6ec1c21b7e4`) to a
+temporary SD path and ran it for 60 seconds. The final report has
+`probe_pass=true`, `fatal=false`, and `restore_verified=true`. The owner
+confirmed the desktop elements were visible and stable. The temporary module
+was removed; the restored application SHA-256 is
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Product image SHA-256:
+`6c329335bd2dd0ae6a743b5842129ccc838be400c633ba8402856a4ee3493d6c`.
+
+The first attempt after making the legacy scope conditional still faulted in
+`send_command`; its capture is retained and restoration was verified. The
+final change also removes one 256-byte local section-offset table by reusing
+the address table between layout and relocation. Disassembly of the final ELF
+shows a 1,648-byte loader stack frame; this is not a measurement of total
+remaining stack margin or high-water usage. The final capture is at
+`../../../maia-rtos-recovery/native-tab5-desktop-native-visual-probe-20261125-05/`;
+the earlier fault is at
+`../../../maia-rtos-recovery/native-tab5-desktop-native-visual-probe-20261125-04/`.
+### Desktop app launch and return — 2026-11-25
+
+A second USB-only probe uploaded `desktop.mobj` to the temporary path
+`/sd/desktop-interaction-probe-20261125-06.mobj` and ran it for 120 seconds.
+The report records `probe_pass=true`, `fatal=false`, `runelf_started=true`,
+`active_until_reset=true`, and `restore_verified=true`. The host transcript
+records removal of the temporary module and successful probe completion. The
+restored app hash is again
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+
+During the observation window, the owner confirmed that touching the Banner
+icon opened the app and that it returned to the desktop. This validates the
+touch-to-launch-and-return flow for Banner only, on the tested warm boot path.
+Other app launches, keyboard shortcuts, cold boot, and stack high-water margin
+remain unverified. Capture:
+`../../../maia-rtos-recovery/native-tab5-desktop-interaction-probe-20261125-06/`.

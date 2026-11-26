@@ -18,22 +18,49 @@ import os
 import time
 import glob
 import argparse
+import re
+
+MAX_SHELL_SEGMENT_CHARS = 127  # MSH_SEG_LEN is 128 bytes including its NUL.
 
 # Auto-reexec with ESP-IDF python if pyserial is not installed in current python
 try:
     import serial
-    import serial.tools.list_ports
 except ImportError:
-    candidate_pythons = [
-        "/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python",
-        os.path.expanduser("~/.espressif/python_env/idf5.4_py3.14_env/bin/python"),
-    ] + glob.glob(os.path.expanduser("~/.espressif/python_env/*/bin/python"))
-    for py in candidate_pythons:
-        if os.path.isfile(py) and os.access(py, os.X_OK):
-            os.execv(py, [py] + sys.argv)
-    print("Error: 'pyserial' is not installed in the active Python environment.", file=sys.stderr)
-    print("Install it via: pip install pyserial", file=sys.stderr)
-    sys.exit(1)
+    serial = None
+    if __name__ == "__main__":
+        candidate_pythons = [
+            "/Users/roberto/.espressif/python_env/idf5.4_py3.14_env/bin/python",
+            os.path.expanduser("~/.espressif/python_env/idf5.4_py3.14_env/bin/python"),
+        ] + glob.glob(os.path.expanduser("~/.espressif/python_env/*/bin/python"))
+        for py in candidate_pythons:
+            if os.path.isfile(py) and os.access(py, os.X_OK):
+                os.execv(py, [py] + sys.argv)
+        print("Error: 'pyserial' is not installed in the active Python environment.", file=sys.stderr)
+        print("Install it via: pip install pyserial", file=sys.stderr)
+        sys.exit(1)
+
+
+def _validate_remote_path(remote_path):
+    if not remote_path.startswith("/") or len(remote_path) > 127:
+        raise ValueError("Remote path must be absolute and contain at most 127 ASCII characters")
+    if any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/" for char in remote_path):
+        raise ValueError("Remote path contains unsupported characters")
+    if "//" in remote_path or any(part in (".", "..") for part in remote_path.split("/")):
+        raise ValueError("Remote path cannot contain empty, '.' or '..' components")
+    if remote_path.endswith("/"):
+        raise ValueError("Remote path must name a file, not a directory")
+    return remote_path
+
+
+def _validate_chunk_size(chunk_size):
+    if not isinstance(chunk_size, int) or chunk_size < 1 or chunk_size > 256:
+        raise ValueError("Chunk size must be between 1 and 256 bytes")
+
+
+def _max_push_chunk_size(remote_path):
+    remote_path = _validate_remote_path(remote_path)
+    append_prefix = f"hexwrite -a {remote_path} "
+    return (MAX_SHELL_SEGMENT_CHARS - len(append_prefix)) // 2
 
 
 def find_default_port():
@@ -55,8 +82,17 @@ class MaiaSerialClient:
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
+        if serial is None:
+            raise RuntimeError("pyserial is not installed")
         try:
-            self.ser = serial.Serial(port, baudrate, timeout=timeout)
+            self.ser = serial.Serial()
+            self.ser.port = port
+            self.ser.baudrate = baudrate
+            self.ser.timeout = timeout
+            # Keep opening the USB port from asserting the ESP32 reset lines.
+            self.ser.dtr = False
+            self.ser.rts = False
+            self.ser.open()
         except Exception as e:
             print(f"Error opening serial port '{port}': {e}", file=sys.stderr)
             sys.exit(1)
@@ -68,10 +104,7 @@ class MaiaSerialClient:
             self.ser.close()
 
     def flush_input(self):
-        try:
-            self.ser.reset_input_buffer()
-        except Exception:
-            pass
+        self.ser.reset_input_buffer()
 
     def wait_for_prompt(self, timeout=2.0):
         buf = ""
@@ -87,88 +120,91 @@ class MaiaSerialClient:
         return buf
 
     def execute_command(self, cmd, timeout=3.0):
+        cmd = cmd.strip()
+        if not cmd:
+            raise ValueError("Cannot execute an empty shell command")
         self.flush_input()
-        self.ser.write((cmd.strip() + "\n").encode("utf-8"))
+        self.ser.write((cmd + "\n").encode("utf-8"))
         buf = ""
         t0 = time.time()
         while (time.time() - t0) < timeout:
             chunk = self.ser.read(256).decode("utf-8", errors="ignore")
             if chunk:
                 buf += chunk
-                if "msh> " in buf and len(buf.strip()) > len(cmd):
+                if "msh> " in buf:
                     break
             else:
                 time.sleep(0.01)
+        if "msh> " not in buf:
+            raise TimeoutError(f"Timed out waiting for shell prompt after: {cmd}")
         # Strip echo command and prompt from output
         lines = buf.splitlines()
         clean = []
         for line in lines:
             line_str = line.strip()
-            if line_str == cmd.strip():
+            if line_str == cmd:
                 continue
-            if line_str.startswith("msh> "):
-                line_str = line_str[5:].strip()
+            if line_str == "msh>":
+                continue
+            if line_str.startswith("msh>"):
+                line_str = line_str[4:].strip()
             if line_str:
                 clean.append(line_str)
         return "\n".join(clean)
 
-    def push_file(self, local_path, remote_path, chunk_size=32):
+    def push_file(self, local_path, remote_path, chunk_size=32,
+                  verify_each_chunk=True):
         if not os.path.isfile(local_path):
             raise FileNotFoundError(f"Local file not found: {local_path}")
+        remote_path = _validate_remote_path(remote_path)
+        _validate_chunk_size(chunk_size)
+        max_chunk_size = _max_push_chunk_size(remote_path)
+        if chunk_size > max_chunk_size:
+            raise ValueError(
+                f"Chunk size {chunk_size} exceeds the command-line limit for {remote_path}"
+            )
 
-        file_size = os.path.getsize(local_path)
         with open(local_path, "rb") as f:
             data = f.read()
+        file_size = len(data)
 
         print(f"[*] Uploading: {local_path} ({file_size} bytes)")
         print(f"[*] Target   : {remote_path}")
 
-        total_chunks = (file_size + chunk_size - 1) // chunk_size if file_size > 0 else 1
         t_start = time.time()
 
-        # Remove target file first to prevent stale FAT32 cluster chain issues
-        self.flush_input()
-        self.ser.write(f"rm {remote_path}\n".encode("utf-8"))
-        self.wait_for_prompt(timeout=1.5)
-
-        # Handle empty file
         if file_size == 0:
-            self.ser.write(f"hexwrite {remote_path} \n".encode("utf-8"))
-            self.wait_for_prompt(timeout=1.0)
+            output = self.execute_command(f"hexwrite {remote_path} --empty", timeout=4.0)
+            if any(line.startswith("hexwrite:") for line in output.splitlines()):
+                raise RuntimeError(f"Device failed to create empty file: {output}")
+            if self._read_remote_bytes(remote_path, 0, 1) != b"":
+                raise RuntimeError("Empty-file verification returned unexpected data")
             print("[+] Upload complete (empty file created)")
             return
 
         sent = 0
-        chunk_idx = 0
-        first = True
-
         while sent < file_size:
             chunk = data[sent:sent + chunk_size]
-            hex_str = chunk.hex()
-            if first:
-                cmd = f"hexwrite {remote_path} {hex_str}\n"
-            else:
-                cmd = f"hexwrite -a {remote_path} {hex_str}\n"
-
-            success = False
-            for retry in range(3):
-                self.flush_input()
-                self.ser.write(cmd.encode("utf-8"))
-                resp = self.wait_for_prompt(timeout=4.0)
-                if "msh> " in resp:
-                    success = True
-                    break
-                print(f"\n[!] Warning: chunk {chunk_idx} confirmation delayed (retry {retry + 1}/3)...")
-                time.sleep(0.05)
-
-            if not success:
-                raise RuntimeError(f"Failed to confirm chunk {chunk_idx} at offset {sent}")
-
-            if first:
-                first = False
+            append = "-a " if sent else ""
+            cmd = f"hexwrite {append}{remote_path} {chunk.hex()}"
+            # Never replay an append after a delayed prompt; verify its offset instead.
+            try:
+                output = self.execute_command(cmd, timeout=10.0)
+            except TimeoutError as error:
+                actual = self._read_remote_bytes(remote_path, sent, len(chunk))
+                if actual != chunk:
+                    raise RuntimeError(
+                        f"Upload write timed out and readback mismatched at offset {sent}"
+                    ) from error
+                output = ""
+            if any(line.startswith("hexwrite:") for line in output.splitlines()):
+                raise RuntimeError(f"Device rejected upload at offset {sent}: {output}")
+            if verify_each_chunk:
+                actual = self._read_remote_bytes(remote_path, sent, len(chunk))
+                if actual != chunk:
+                    raise RuntimeError(f"Readback verification failed at offset {sent}")
 
             sent += len(chunk)
-            chunk_idx += 1
 
             pct = (sent / file_size) * 100.0
             elapsed = time.time() - t_start
@@ -181,10 +217,40 @@ class MaiaSerialClient:
             sys.stdout.write(f"\r[{bar}] {pct:5.1f}% ({sent}/{file_size} B) @ {speed:5.1f} KB/s")
             sys.stdout.flush()
 
+        if not verify_each_chunk:
+            for offset in range(0, file_size, 256):
+                expected = data[offset:offset + 256]
+                actual = self._read_remote_bytes(remote_path, offset, len(expected))
+                if actual != expected:
+                    raise RuntimeError(f"Readback verification failed at offset {offset}")
+
         elapsed = time.time() - t_start
-        print(f"\n[+] Successfully transferred {file_size} bytes in {elapsed:.2f}s ({file_size / elapsed / 1024:.1f} KB/s)")
+        speed = file_size / max(elapsed, 0.01) / 1024
+        print(f"\n[+] Successfully transferred and verified {file_size} bytes in {elapsed:.2f}s ({speed:.1f} KB/s)")
+
+    def _read_remote_bytes(self, remote_path, offset, count):
+        cmd = f"hexread {remote_path} {offset} {count}"
+        try:
+            output = self.execute_command(cmd, timeout=10.0)
+        except TimeoutError:
+            # hexread is idempotent; retry once after a delayed/missed prompt.
+            output = self.execute_command(cmd, timeout=10.0)
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        for line in lines:
+            if line.startswith("hexread:"):
+                raise FileNotFoundError(line)
+        if not lines:
+            return b""
+        if len(lines) != 1 or re.fullmatch(r"[0-9a-fA-F]*", lines[0]) is None or len(lines[0]) % 2:
+            raise RuntimeError(f"Invalid hexread response for {remote_path} at offset {offset}")
+        data = bytes.fromhex(lines[0])
+        if len(data) > count:
+            raise RuntimeError(f"Device returned too many bytes for {remote_path} at offset {offset}")
+        return data
 
     def pull_file(self, remote_path, local_path, chunk_size=64):
+        remote_path = _validate_remote_path(remote_path)
+        _validate_chunk_size(chunk_size)
         print(f"[*] Downloading: {remote_path}")
         print(f"[*] Local target: {local_path}")
         t_start = time.time()
@@ -192,23 +258,7 @@ class MaiaSerialClient:
         received_data = bytearray()
 
         while True:
-            cmd = f"hexread {remote_path} {offset} {chunk_size}"
-            out = self.execute_command(cmd, timeout=2.0)
-            hex_line = ""
-            for l in out.splitlines():
-                l_str = l.strip()
-                if l_str and all(c in "0123456789abcdefABCDEF" for c in l_str):
-                    hex_line = l_str
-                    break
-
-            if not hex_line:
-                break
-
-            try:
-                chunk = bytes.fromhex(hex_line)
-            except ValueError:
-                break
-
+            chunk = self._read_remote_bytes(remote_path, offset, chunk_size)
             if len(chunk) == 0:
                 break
 
@@ -236,7 +286,9 @@ def cmd_push(args):
         remote = args.remote
         if not remote:
             remote = f"/sd/{os.path.basename(args.local)}"
-        elif remote.endswith("/") or remote == "/sd":
+        elif not remote.startswith("/"):
+            remote = os.path.join("/sd", remote).replace("\\", "/")
+        if remote.endswith("/") or remote == "/sd":
             remote = os.path.join(remote, os.path.basename(args.local)).replace("\\", "/")
 
         client.push_file(args.local, remote, chunk_size=args.chunk_size)
@@ -253,10 +305,11 @@ def cmd_push(args):
 def cmd_pull(args):
     client = MaiaSerialClient(args.port, args.baud)
     try:
+        remote = args.remote if args.remote.startswith("/") else f"/sd/{args.remote}"
         local = args.local
         if not local:
-            local = os.path.basename(args.remote)
-        client.pull_file(args.remote, local, chunk_size=args.chunk_size)
+            local = os.path.basename(remote)
+        client.pull_file(remote, local, chunk_size=args.chunk_size)
     finally:
         client.close()
 
@@ -278,6 +331,8 @@ def cmd_push_module(args):
         subprocess.run([sys.executable, pack_tool, local_mobj], check=True)
 
     remote_dir = args.remote_dir.rstrip("/") if args.remote_dir else "/sd"
+    if not remote_dir.startswith("/"):
+        remote_dir = f"/sd/{remote_dir}"
     remote_mobj = f"{remote_dir}/{os.path.basename(local_mobj)}"
     remote_manifest = f"{remote_dir}/{os.path.basename(manifest_local)}"
 
@@ -361,13 +416,13 @@ def main():
     # push
     p_push = sub.add_parser("push", help="Upload arbitrary file (binary/audio/image/text) to device")
     p_push.add_argument("local", help="Path to local file")
-    p_push.add_argument("remote", nargs="?", default="", help="Path on device (e.g. /sd/myfile.ext)")
+    p_push.add_argument("remote", nargs="?", default="", help="Path on device (e.g. /sd/myfile.ext; relative paths use /sd)")
     p_push.add_argument("--chunk-size", type=int, default=32, help="Binary chunk size in bytes (default: 32)")
     p_push.set_defaults(func=cmd_push)
 
     # pull
     p_pull = sub.add_parser("pull", help="Download arbitrary file from device to host")
-    p_pull.add_argument("remote", help="Path on device (e.g. /sd/myfile.ext)")
+    p_pull.add_argument("remote", help="Path on device (e.g. /sd/myfile.ext; relative paths use /sd)")
     p_pull.add_argument("local", nargs="?", default="", help="Path on local machine")
     p_pull.add_argument("--chunk-size", type=int, default=64, help="Binary chunk size in bytes (default: 64)")
     p_pull.set_defaults(func=cmd_pull)
@@ -375,7 +430,7 @@ def main():
     # push-module
     p_mod = sub.add_parser("push-module", help="Package, upload .mobj + .mnm.json and verify with modinfo")
     p_mod.add_argument("module", help="Path to local .mobj file")
-    p_mod.add_argument("remote_dir", nargs="?", default="/sd", help="Remote directory (default: /sd)")
+    p_mod.add_argument("remote_dir", nargs="?", default="/sd", help="Remote directory (default: /sd; relative paths use /sd)")
     p_mod.add_argument("--chunk-size", type=int, default=32, help="Binary chunk size in bytes (default: 32)")
     p_mod.set_defaults(func=cmd_push_module)
 
@@ -400,9 +455,12 @@ def main():
     p_info.set_defaults(func=cmd_info)
 
     parsed = parser.parse_args()
-    parsed.func(parsed)
+    try:
+        parsed.func(parsed)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":
     main()
-

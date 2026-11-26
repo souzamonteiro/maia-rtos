@@ -81,7 +81,7 @@ static inline void gui_init(const maia_module_context_t *ctx) {
 
     /* Check if custom font_scale is configured in /sd/desktop.json or /sd/apps/desktop.mnm.json */
     if (ctx && ctx->host && ctx->host->read_text_file) {
-        char cfg_buf[256];
+        static char cfg_buf[256];
         int rd = ctx->host->read_text_file("/sd/desktop.json", cfg_buf, sizeof(cfg_buf) - 1);
         if (rd <= 0) {
             rd = ctx->host->read_text_file("/sd/apps/desktop.mnm.json", cfg_buf, sizeof(cfg_buf) - 1);

@@ -9,6 +9,7 @@
 #define MAIA_RISCV_FP_OFFSET 128
 #define MAIA_RISCV_FCSR_OFFSET 256
 #define MAIA_RISCV_FS_MASK 0x6000
+#define MAIA_RISCV_FS_INITIAL 0x2000
 /* Any task frame may be restored from an ISR, including a saved ecall frame. */
 #define MAIA_RISCV_TASK_RETURN_FLAGS 0xB8000000
 

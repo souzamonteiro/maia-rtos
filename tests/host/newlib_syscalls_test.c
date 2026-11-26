@@ -18,6 +18,7 @@ static const char input[] = {'m', 'a', 'i', 'a'};
 static size_t input_offset;
 static int tx_writable = 1;
 static int tx_busy_after = -1;
+static int tx_transient_busy;
 static uint64_t monotonic_us = 1234567ULL;
 static maia_task_id_t current_task_id = 1;
 static uint32_t delayed_ticks;
@@ -50,6 +51,10 @@ void maia_task_delay_ticks(uint32_t ticks) {
 int maia_serial_tx_try_put(const void *owner, maia_serial_tx_sink_t sink, uint8_t byte) {
     (void)owner;
     if (sink != MAIA_SERIAL_TX_USB) return -3;
+    if (tx_transient_busy > 0) {
+        --tx_transient_busy;
+        return -1;
+    }
     if (tx_busy_after >= 0 && output_length >= (size_t)tx_busy_after) return -1;
     output[output_length++] = (char)byte;
     return 0;
@@ -104,6 +109,10 @@ int main(void) {
 
     if (_write(STDOUT_FILENO, "out", 3) != 3 ||
         output_length != 3U || memcmp(output, "out", 3U) != 0) return 7;
+    tx_transient_busy = 1000;
+    if (_write(STDOUT_FILENO, "ok", 2) != 2 || tx_transient_busy != 0 ||
+        output_length != 5U || memcmp(output + 3, "ok", 2U) != 0) return 40;
+    output_length = 3U;
     tx_writable = 0;
     if (_write(STDERR_FILENO, "x", 1) != -1 || errno != EBUSY) return 8;
     tx_writable = 1;

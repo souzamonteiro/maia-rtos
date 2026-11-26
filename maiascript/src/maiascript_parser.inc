@@ -231,8 +231,6 @@ struct MaiaCCParserToken {
   unsigned int type;
   const char* value;
   unsigned int length;
-  unsigned int start;
-  unsigned int end;
 };
 
 
@@ -2578,6 +2576,12 @@ static int maiaCCLexWhitespace(unsigned int value) {
       || value == 8239 || value == 8287 || value == 12288 || value == 65279;
 }
 
+static int maiaCCLexSizeBytes(size_t count, size_t itemSize, size_t* bytes) {
+  if (itemSize && count > ((size_t)-1) / itemSize) return 0;
+  *bytes = count * itemSize;
+  return 1;
+}
+
 static int maiaCCLexDecode(const char* input, unsigned int length,
     unsigned int* units, unsigned int* offsets, unsigned int* count) {
   unsigned int position = 0;
@@ -2626,14 +2630,16 @@ static int maiaCCLexerTokenize(MaiaCCLexerState* self, MaiaCCParserToken* tokens
   self->position = 0;
   self->bytePosition = 0;
   self->failed = 0;
-  if (!self->input || !tokens || !capacity || self->length > 2147483646U) { self->failed = 1; return 0; }
+  if (!self->input || (tokens && !capacity) || (!tokens && capacity)
+      || self->length > 2147483646U) { self->failed = 1; return 0; }
   size_t entries = (size_t)self->length + 1;
-  if (entries > ((size_t)-1) / (3 * sizeof(unsigned int))) { self->failed = 2; return 0; }
-  unsigned int* storage = (unsigned int*)malloc(entries * 3 * sizeof(unsigned int));
+  if (entries > ((size_t)-1) / (2 * sizeof(unsigned int))) { self->failed = 2; return 0; }
+  unsigned int* storage = (unsigned int*)malloc(entries * 2 * sizeof(unsigned int));
   if (!storage) { self->failed = 2; return 0; }
   unsigned int* units = storage;
   unsigned int* offsets = storage + entries;
-  unsigned int* braces = storage + 2 * entries;
+  unsigned int* braces = 0;
+  unsigned int braceCapacity = 0;
   unsigned int length = 0;
   unsigned int classDepth = 0;
   unsigned int templateDepth = 0;
@@ -2645,6 +2651,28 @@ static int maiaCCLexerTokenize(MaiaCCLexerState* self, MaiaCCParserToken* tokens
     if (maiaCCLexPatterns[index].role == 2) tail = (int)index;
   }
   while (!self->failed && self->position < length) {
+    if (self->position + 1 < length && units[self->position] == '/' &&
+        units[self->position + 1] == '/') {
+      self->position += 2;
+      while (self->position < length && units[self->position] != 10 &&
+             units[self->position] != 13) {
+        ++self->position;
+      }
+      self->bytePosition = offsets[self->position];
+      continue;
+    }
+    if (self->position + 1 < length && units[self->position] == '/' &&
+        units[self->position + 1] == '*') {
+      self->position += 2;
+      while (self->position + 1 < length &&
+             !(units[self->position] == '*' && units[self->position + 1] == '/')) {
+        ++self->position;
+      }
+      if (self->position + 1 >= length) { self->failed = 1; break; }
+      self->position += 2;
+      self->bytePosition = offsets[self->position];
+      continue;
+    }
     int best = -1;
     int bestEnd = -1;
     int preferred = -1;
@@ -2686,13 +2714,28 @@ static int maiaCCLexerTokenize(MaiaCCLexerState* self, MaiaCCParserToken* tokens
     if (best < 0) { self->failed = 1; break; }
     const MaiaCCLexPattern* pattern = maiaCCLexPatterns + best;
     if (!pattern->skip) {
-      if (self->tokenCount + 1 >= capacity) { self->failed = 3; break; }
-      MaiaCCParserToken* token = tokens + self->tokenCount++;
-      token->type = pattern->token;
-      token->value = self->input + offsets[self->position];
-      token->length = offsets[bestEnd] - offsets[self->position];
-      token->start = self->position;
-      token->end = (unsigned int)bestEnd;
+      if (tokens) {
+        if (self->tokenCount + 1 >= capacity) { self->failed = 3; break; }
+        MaiaCCParserToken* token = tokens + self->tokenCount;
+        token->type = pattern->token;
+        token->value = self->input + offsets[self->position];
+        token->length = offsets[bestEnd] - offsets[self->position];
+      }
+      ++self->tokenCount;
+      if (pattern->role == 3 && templateDepth == braceCapacity) {
+        unsigned int newCapacity = braceCapacity ? braceCapacity * 2 : 8;
+        if (newCapacity > entries) newCapacity = (unsigned int)entries;
+        size_t braceBytes = 0;
+        if (newCapacity <= braceCapacity
+            || !maiaCCLexSizeBytes(newCapacity, sizeof(unsigned int), &braceBytes)) {
+          self->failed = 2;
+          break;
+        }
+        unsigned int* grown = (unsigned int*)realloc(braces, braceBytes);
+        if (!grown) { self->failed = 2; break; }
+        braces = grown;
+        braceCapacity = newCapacity;
+      }
       if (pattern->role == 6) ++classDepth;
       else if (pattern->role == 7 && classDepth) --classDepth;
       else if (pattern->role == 4 && templateDepth) ++braces[templateDepth - 1];
@@ -2704,13 +2747,19 @@ static int maiaCCLexerTokenize(MaiaCCLexerState* self, MaiaCCParserToken* tokens
     self->bytePosition = offsets[self->position];
   }
   if (!self->failed) {
-    MaiaCCParserToken* token = tokens + self->tokenCount++;
-    token->type = MAIACC_TOKEN_EOF;
-    token->value = self->input + self->length;
-    token->length = 0;
-    token->start = length;
-    token->end = length;
+    if (tokens) {
+      if (self->tokenCount >= capacity) {
+        self->failed = 3;
+      } else {
+        MaiaCCParserToken* token = tokens + self->tokenCount;
+        token->type = MAIACC_TOKEN_EOF;
+        token->value = self->input + self->length;
+        token->length = 0;
+      }
+    }
+    if (!self->failed) ++self->tokenCount;
   }
+  free(braces);
   free(storage);
   return !self->failed;
 }
@@ -2782,12 +2831,23 @@ static void maiaCCParserStateInit(
   self->failureMemo = 0;
 }
 
+static int maiaCC_failureMemoContains(const MaiaCCParserState* self, size_t slot) {
+  return self->failureMemo
+      && (self->failureMemo[slot >> 3] & (unsigned char)(1u << (slot & 7)));
+}
+
+static void maiaCC_failureMemoInsert(MaiaCCParserState* self, size_t slot) {
+  if (self->failureMemo) {
+    self->failureMemo[slot >> 3] |= (unsigned char)(1u << (slot & 7));
+  }
+}
+
 static const MaiaCCParserToken* maiaCC_peek(const MaiaCCParserState* self) {
   return self->position < self->tokenCount ? self->tokens + self->position : 0;
 }
 
 static void maiaCC_recordError(MaiaCCParserState* self, unsigned int expected) {
-  if (self->errorCount == 0) {
+  if (self->errorCount == 0 || self->position >= self->errorPosition) {
     const MaiaCCParserToken* token = maiaCC_peek(self);
     self->errorPosition = self->position;
     self->expectedToken = expected;
@@ -2947,7 +3007,9 @@ static int maiaCC_parse(MaiaCCParserState* self) {
   self->errorCount = 0;
   size_t columns = (size_t)self->tokenCount + 1;
   if (columns == 0 || MAIACC_RULE_COUNT > ((size_t)-1) / columns) { self->failed = 1; self->resourceError = MAIACC_PARSE_RESOURCE_LIMIT; return 0; }
-  self->failureMemo = (unsigned char*)calloc(MAIACC_RULE_COUNT, columns);
+  size_t memoBits = (size_t)MAIACC_RULE_COUNT * columns;
+  size_t memoBytes = memoBits / 8 + (memoBits % 8 != 0);
+  self->failureMemo = (unsigned char*)calloc(memoBytes, 1);
   if (!self->failureMemo) { self->failed = 1; self->resourceError = MAIACC_PARSE_RESOURCE_NOMEM; return 0; }
   int accepted = maiaCC_parse_Program(self) && !self->failed;
   if (accepted) accepted = self->position == self->tokenCount
@@ -2981,7 +3043,7 @@ static int maiaCC_parse_Program(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)0 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Program");
     while (!self->failed) {
@@ -3001,7 +3063,7 @@ static int maiaCC_parse_Program(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Program");
   return 0;
@@ -3011,7 +3073,7 @@ static int maiaCC_parse_TopLevel(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)1 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "TopLevel");
     int _matched = 0;
@@ -3078,6 +3140,18 @@ static int maiaCC_parse_TopLevel(MaiaCCParserState* self) {
     if (!_matched && !self->failed) {
       const unsigned int _alternativeStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed && !maiaCC_parse_ExternDecl(self)) self->failed = 1;
+      if (!self->failed) {
+        _matched = 1;
+      } else {
+        self->position = _alternativeStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
+    if (!_matched && !self->failed) {
+      const unsigned int _alternativeStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
     if (!self->failed && !maiaCC_parse_FunctionDecl(self)) self->failed = 1;
       if (!self->failed) {
         _matched = 1;
@@ -3099,25 +3173,13 @@ static int maiaCC_parse_TopLevel(MaiaCCParserState* self) {
         self->failed = 0;
       }
     }
-    if (!_matched && !self->failed) {
-      const unsigned int _alternativeStart = self->position;
-      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
-    if (!self->failed && !maiaCC_parse_ExternDecl(self)) self->failed = 1;
-      if (!self->failed) {
-        _matched = 1;
-      } else {
-        self->position = _alternativeStart;
-        maiaCC_restoreEvents(self, _eventMark);
-        self->failed = 0;
-      }
-    }
     if (!_matched) self->failed = 1;
   if (!self->failed) {
     maiaCC_endNonterminal(self, "TopLevel");
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "TopLevel");
   return 0;
@@ -3127,7 +3189,7 @@ static int maiaCC_parse_ImportDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)2 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ImportDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_import);
@@ -3149,7 +3211,7 @@ static int maiaCC_parse_ImportDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ImportDecl");
   return 0;
@@ -3159,7 +3221,7 @@ static int maiaCC_parse_ExportDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)3 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ExportDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_export);
@@ -3220,7 +3282,7 @@ static int maiaCC_parse_ExportDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ExportDecl");
   return 0;
@@ -3230,7 +3292,7 @@ static int maiaCC_parse_NamespaceDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)4 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "NamespaceDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_namespace);
@@ -3253,7 +3315,7 @@ static int maiaCC_parse_NamespaceDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "NamespaceDecl");
   return 0;
@@ -3263,7 +3325,7 @@ static int maiaCC_parse_StructDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)5 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "StructDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_struct);
@@ -3287,7 +3349,7 @@ static int maiaCC_parse_StructDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "StructDecl");
   return 0;
@@ -3297,7 +3359,7 @@ static int maiaCC_parse_FieldDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)6 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "FieldDecl");
     if (!self->failed && !maiaCC_parse_Type(self)) self->failed = 1;
@@ -3319,7 +3381,7 @@ static int maiaCC_parse_FieldDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "FieldDecl");
   return 0;
@@ -3329,7 +3391,7 @@ static int maiaCC_parse_ClassDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)7 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ClassDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_class);
@@ -3353,7 +3415,7 @@ static int maiaCC_parse_ClassDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ClassDecl");
   return 0;
@@ -3363,7 +3425,7 @@ static int maiaCC_parse_ClassMember(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)8 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ClassMember");
     if (!self->failed) {
@@ -3420,7 +3482,7 @@ static int maiaCC_parse_ClassMember(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ClassMember");
   return 0;
@@ -3430,7 +3492,7 @@ static int maiaCC_parse_Visibility(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)9 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Visibility");
     int _matched = 0;
@@ -3476,7 +3538,7 @@ static int maiaCC_parse_Visibility(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Visibility");
   return 0;
@@ -3486,7 +3548,7 @@ static int maiaCC_parse_MethodDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)10 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "MethodDecl");
     if (!self->failed && !maiaCC_parse_Type(self)) self->failed = 1;
@@ -3509,7 +3571,7 @@ static int maiaCC_parse_MethodDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "MethodDecl");
   return 0;
@@ -3519,7 +3581,7 @@ static int maiaCC_parse_ConstructorDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)11 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ConstructorDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_NAME);
@@ -3540,7 +3602,7 @@ static int maiaCC_parse_ConstructorDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ConstructorDecl");
   return 0;
@@ -3550,7 +3612,7 @@ static int maiaCC_parse_FunctionDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)12 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "FunctionDecl");
     if (!self->failed && !maiaCC_parse_Type(self)) self->failed = 1;
@@ -3572,7 +3634,7 @@ static int maiaCC_parse_FunctionDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "FunctionDecl");
   return 0;
@@ -3582,7 +3644,7 @@ static int maiaCC_parse_ExternDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)13 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ExternDecl");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_extern);
@@ -3642,7 +3704,7 @@ static int maiaCC_parse_ExternDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ExternDecl");
   return 0;
@@ -3652,7 +3714,7 @@ static int maiaCC_parse_GlobalDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)14 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "GlobalDecl");
     if (!self->failed) {
@@ -3709,7 +3771,7 @@ static int maiaCC_parse_GlobalDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "GlobalDecl");
   return 0;
@@ -3719,7 +3781,7 @@ static int maiaCC_parse_ParameterList(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)15 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ParameterList");
     if (!self->failed && !maiaCC_parse_Parameter(self)) self->failed = 1;
@@ -3741,7 +3803,7 @@ static int maiaCC_parse_ParameterList(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ParameterList");
   return 0;
@@ -3751,7 +3813,7 @@ static int maiaCC_parse_Parameter(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)16 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Parameter");
     if (!self->failed && !maiaCC_parse_Type(self)) self->failed = 1;
@@ -3761,7 +3823,7 @@ static int maiaCC_parse_Parameter(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Parameter");
   return 0;
@@ -3771,7 +3833,7 @@ static int maiaCC_parse_Type(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)17 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Type");
     if (!self->failed && !maiaCC_parse_TypeAtom(self)) self->failed = 1;
@@ -3791,7 +3853,7 @@ static int maiaCC_parse_Type(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Type");
   return 0;
@@ -3801,7 +3863,7 @@ static int maiaCC_parse_TypeAtom(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)18 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "TypeAtom");
     int _matched = 0;
@@ -3867,7 +3929,7 @@ static int maiaCC_parse_TypeAtom(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "TypeAtom");
   return 0;
@@ -3877,7 +3939,7 @@ static int maiaCC_parse_PrimitiveType(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)19 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "PrimitiveType");
     int _matched = 0;
@@ -4055,7 +4117,7 @@ static int maiaCC_parse_PrimitiveType(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "PrimitiveType");
   return 0;
@@ -4065,7 +4127,7 @@ static int maiaCC_parse_TypeSuffix(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)20 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "TypeSuffix");
     int _matched = 0;
@@ -4113,7 +4175,7 @@ static int maiaCC_parse_TypeSuffix(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "TypeSuffix");
   return 0;
@@ -4123,7 +4185,7 @@ static int maiaCC_parse_QualifiedName(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)21 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "QualifiedName");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_NAME);
@@ -4145,7 +4207,7 @@ static int maiaCC_parse_QualifiedName(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "QualifiedName");
   return 0;
@@ -4155,7 +4217,7 @@ static int maiaCC_parse_Block(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)22 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Block");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN__7B_);
@@ -4176,7 +4238,7 @@ static int maiaCC_parse_Block(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Block");
   return 0;
@@ -4186,34 +4248,10 @@ static int maiaCC_parse_Statement(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)23 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Statement");
     int _matched = 0;
-    if (!_matched && !self->failed) {
-      const unsigned int _alternativeStart = self->position;
-      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
-    if (!self->failed && !maiaCC_parse_Block(self)) self->failed = 1;
-      if (!self->failed) {
-        _matched = 1;
-      } else {
-        self->position = _alternativeStart;
-        maiaCC_restoreEvents(self, _eventMark);
-        self->failed = 0;
-      }
-    }
-    if (!_matched && !self->failed) {
-      const unsigned int _alternativeStart = self->position;
-      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
-    if (!self->failed && !maiaCC_parse_LocalDecl(self)) self->failed = 1;
-      if (!self->failed) {
-        _matched = 1;
-      } else {
-        self->position = _alternativeStart;
-        maiaCC_restoreEvents(self, _eventMark);
-        self->failed = 0;
-      }
-    }
     if (!_matched && !self->failed) {
       const unsigned int _alternativeStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
@@ -4349,7 +4387,7 @@ static int maiaCC_parse_Statement(MaiaCCParserState* self) {
     if (!_matched && !self->failed) {
       const unsigned int _alternativeStart = self->position;
       const unsigned int _eventMark = maiaCC_checkpointEvents(self);
-    if (!self->failed && !maiaCC_parse_ExpressionStmt(self)) self->failed = 1;
+    if (!self->failed && !maiaCC_parse_Block(self)) self->failed = 1;
       if (!self->failed) {
         _matched = 1;
       } else {
@@ -4370,13 +4408,37 @@ static int maiaCC_parse_Statement(MaiaCCParserState* self) {
         self->failed = 0;
       }
     }
+    if (!_matched && !self->failed) {
+      const unsigned int _alternativeStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed && !maiaCC_parse_LocalDecl(self)) self->failed = 1;
+      if (!self->failed) {
+        _matched = 1;
+      } else {
+        self->position = _alternativeStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
+    if (!_matched && !self->failed) {
+      const unsigned int _alternativeStart = self->position;
+      const unsigned int _eventMark = maiaCC_checkpointEvents(self);
+    if (!self->failed && !maiaCC_parse_ExpressionStmt(self)) self->failed = 1;
+      if (!self->failed) {
+        _matched = 1;
+      } else {
+        self->position = _alternativeStart;
+        maiaCC_restoreEvents(self, _eventMark);
+        self->failed = 0;
+      }
+    }
     if (!_matched) self->failed = 1;
   if (!self->failed) {
     maiaCC_endNonterminal(self, "Statement");
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Statement");
   return 0;
@@ -4386,7 +4448,7 @@ static int maiaCC_parse_LocalDecl(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)24 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "LocalDecl");
     int _matched = 0;
@@ -4464,7 +4526,7 @@ static int maiaCC_parse_LocalDecl(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "LocalDecl");
   return 0;
@@ -4474,7 +4536,7 @@ static int maiaCC_parse_IfStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)25 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "IfStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_if);
@@ -4525,7 +4587,7 @@ static int maiaCC_parse_IfStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "IfStmt");
   return 0;
@@ -4535,7 +4597,7 @@ static int maiaCC_parse_WhileStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)26 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "WhileStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_while);
@@ -4548,7 +4610,7 @@ static int maiaCC_parse_WhileStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "WhileStmt");
   return 0;
@@ -4558,7 +4620,7 @@ static int maiaCC_parse_DoStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)27 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "DoStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_do);
@@ -4573,7 +4635,7 @@ static int maiaCC_parse_DoStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "DoStmt");
   return 0;
@@ -4583,7 +4645,7 @@ static int maiaCC_parse_ForStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)28 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ForStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_for);
@@ -4624,7 +4686,7 @@ static int maiaCC_parse_ForStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ForStmt");
   return 0;
@@ -4634,7 +4696,7 @@ static int maiaCC_parse_ForInit(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)29 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ForInit");
     int _matched = 0;
@@ -4668,7 +4730,7 @@ static int maiaCC_parse_ForInit(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ForInit");
   return 0;
@@ -4678,7 +4740,7 @@ static int maiaCC_parse_LocalInit(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)30 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "LocalInit");
     int _matched = 0;
@@ -4754,7 +4816,7 @@ static int maiaCC_parse_LocalInit(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "LocalInit");
   return 0;
@@ -4764,7 +4826,7 @@ static int maiaCC_parse_ForeachStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)31 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ForeachStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_foreach);
@@ -4780,7 +4842,7 @@ static int maiaCC_parse_ForeachStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ForeachStmt");
   return 0;
@@ -4790,7 +4852,7 @@ static int maiaCC_parse_SwitchStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)32 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "SwitchStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_switch);
@@ -4824,7 +4886,7 @@ static int maiaCC_parse_SwitchStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "SwitchStmt");
   return 0;
@@ -4834,7 +4896,7 @@ static int maiaCC_parse_SwitchArm(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)33 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "SwitchArm");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_case);
@@ -4856,7 +4918,7 @@ static int maiaCC_parse_SwitchArm(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "SwitchArm");
   return 0;
@@ -4866,7 +4928,7 @@ static int maiaCC_parse_DefaultArm(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)34 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "DefaultArm");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_default);
@@ -4887,7 +4949,7 @@ static int maiaCC_parse_DefaultArm(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "DefaultArm");
   return 0;
@@ -4897,7 +4959,7 @@ static int maiaCC_parse_ReturnStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)35 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ReturnStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_return);
@@ -4916,7 +4978,7 @@ static int maiaCC_parse_ReturnStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ReturnStmt");
   return 0;
@@ -4926,7 +4988,7 @@ static int maiaCC_parse_BreakStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)36 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "BreakStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_break);
@@ -4936,7 +4998,7 @@ static int maiaCC_parse_BreakStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "BreakStmt");
   return 0;
@@ -4946,7 +5008,7 @@ static int maiaCC_parse_ContinueStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)37 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ContinueStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_continue);
@@ -4956,7 +5018,7 @@ static int maiaCC_parse_ContinueStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ContinueStmt");
   return 0;
@@ -4966,7 +5028,7 @@ static int maiaCC_parse_DeferStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)38 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "DeferStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_defer);
@@ -5004,7 +5066,7 @@ static int maiaCC_parse_DeferStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "DeferStmt");
   return 0;
@@ -5014,7 +5076,7 @@ static int maiaCC_parse_UnsafeStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)39 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "UnsafeStmt");
     if (!self->failed) maiaCC_expectToken(self, MAIACC_TOKEN_TOKEN_unsafe);
@@ -5024,7 +5086,7 @@ static int maiaCC_parse_UnsafeStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "UnsafeStmt");
   return 0;
@@ -5034,7 +5096,7 @@ static int maiaCC_parse_ExpressionStmt(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)40 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ExpressionStmt");
     if (!self->failed && !maiaCC_parse_Expression(self)) self->failed = 1;
@@ -5044,7 +5106,7 @@ static int maiaCC_parse_ExpressionStmt(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ExpressionStmt");
   return 0;
@@ -5054,7 +5116,7 @@ static int maiaCC_parse_Expression(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)41 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Expression");
     if (!self->failed && !maiaCC_parse_Assignment(self)) self->failed = 1;
@@ -5063,7 +5125,7 @@ static int maiaCC_parse_Expression(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Expression");
   return 0;
@@ -5073,7 +5135,7 @@ static int maiaCC_parse_Assignment(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)42 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Assignment");
     if (!self->failed && !maiaCC_parse_Conditional(self)) self->failed = 1;
@@ -5093,7 +5155,7 @@ static int maiaCC_parse_Assignment(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Assignment");
   return 0;
@@ -5103,7 +5165,7 @@ static int maiaCC_parse_AssignOp(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)43 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "AssignOp");
     int _matched = 0;
@@ -5245,7 +5307,7 @@ static int maiaCC_parse_AssignOp(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "AssignOp");
   return 0;
@@ -5255,7 +5317,7 @@ static int maiaCC_parse_Conditional(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)44 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Conditional");
     if (!self->failed && !maiaCC_parse_LogicalOr(self)) self->failed = 1;
@@ -5277,7 +5339,7 @@ static int maiaCC_parse_Conditional(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Conditional");
   return 0;
@@ -5287,7 +5349,7 @@ static int maiaCC_parse_LogicalOr(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)45 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "LogicalOr");
     if (!self->failed && !maiaCC_parse_LogicalAnd(self)) self->failed = 1;
@@ -5309,7 +5371,7 @@ static int maiaCC_parse_LogicalOr(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "LogicalOr");
   return 0;
@@ -5319,7 +5381,7 @@ static int maiaCC_parse_LogicalAnd(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)46 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "LogicalAnd");
     if (!self->failed && !maiaCC_parse_BitwiseOr(self)) self->failed = 1;
@@ -5341,7 +5403,7 @@ static int maiaCC_parse_LogicalAnd(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "LogicalAnd");
   return 0;
@@ -5351,7 +5413,7 @@ static int maiaCC_parse_BitwiseOr(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)47 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "BitwiseOr");
     if (!self->failed && !maiaCC_parse_BitwiseXor(self)) self->failed = 1;
@@ -5373,7 +5435,7 @@ static int maiaCC_parse_BitwiseOr(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "BitwiseOr");
   return 0;
@@ -5383,7 +5445,7 @@ static int maiaCC_parse_BitwiseXor(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)48 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "BitwiseXor");
     if (!self->failed && !maiaCC_parse_BitwiseAnd(self)) self->failed = 1;
@@ -5405,7 +5467,7 @@ static int maiaCC_parse_BitwiseXor(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "BitwiseXor");
   return 0;
@@ -5415,7 +5477,7 @@ static int maiaCC_parse_BitwiseAnd(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)49 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "BitwiseAnd");
     if (!self->failed && !maiaCC_parse_Equality(self)) self->failed = 1;
@@ -5437,7 +5499,7 @@ static int maiaCC_parse_BitwiseAnd(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "BitwiseAnd");
   return 0;
@@ -5447,7 +5509,7 @@ static int maiaCC_parse_Equality(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)50 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Equality");
     if (!self->failed && !maiaCC_parse_Relational(self)) self->failed = 1;
@@ -5496,7 +5558,7 @@ static int maiaCC_parse_Equality(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Equality");
   return 0;
@@ -5506,7 +5568,7 @@ static int maiaCC_parse_Relational(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)51 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Relational");
     if (!self->failed && !maiaCC_parse_Shift(self)) self->failed = 1;
@@ -5579,7 +5641,7 @@ static int maiaCC_parse_Relational(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Relational");
   return 0;
@@ -5589,7 +5651,7 @@ static int maiaCC_parse_Shift(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)52 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Shift");
     if (!self->failed && !maiaCC_parse_Additive(self)) self->failed = 1;
@@ -5638,7 +5700,7 @@ static int maiaCC_parse_Shift(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Shift");
   return 0;
@@ -5648,7 +5710,7 @@ static int maiaCC_parse_Additive(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)53 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Additive");
     if (!self->failed && !maiaCC_parse_Multiplicative(self)) self->failed = 1;
@@ -5697,7 +5759,7 @@ static int maiaCC_parse_Additive(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Additive");
   return 0;
@@ -5707,7 +5769,7 @@ static int maiaCC_parse_Multiplicative(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)54 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Multiplicative");
     if (!self->failed && !maiaCC_parse_Unary(self)) self->failed = 1;
@@ -5768,7 +5830,7 @@ static int maiaCC_parse_Multiplicative(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Multiplicative");
   return 0;
@@ -5778,7 +5840,7 @@ static int maiaCC_parse_Unary(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)55 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Unary");
     int _matched = 0;
@@ -5912,7 +5974,7 @@ static int maiaCC_parse_Unary(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Unary");
   return 0;
@@ -5922,7 +5984,7 @@ static int maiaCC_parse_Postfix(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)56 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Postfix");
     if (!self->failed && !maiaCC_parse_Primary(self)) self->failed = 1;
@@ -5942,7 +6004,7 @@ static int maiaCC_parse_Postfix(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Postfix");
   return 0;
@@ -5952,7 +6014,7 @@ static int maiaCC_parse_PostfixTail(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)57 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "PostfixTail");
     int _matched = 0;
@@ -6079,7 +6141,7 @@ static int maiaCC_parse_PostfixTail(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "PostfixTail");
   return 0;
@@ -6089,7 +6151,7 @@ static int maiaCC_parse_ArgumentList(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)58 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "ArgumentList");
     if (!self->failed && !maiaCC_parse_Argument(self)) self->failed = 1;
@@ -6111,7 +6173,7 @@ static int maiaCC_parse_ArgumentList(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "ArgumentList");
   return 0;
@@ -6121,7 +6183,7 @@ static int maiaCC_parse_Argument(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)59 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Argument");
     if (!self->failed) {
@@ -6141,7 +6203,7 @@ static int maiaCC_parse_Argument(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Argument");
   return 0;
@@ -6151,7 +6213,7 @@ static int maiaCC_parse_Primary(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)60 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Primary");
     int _matched = 0;
@@ -6266,7 +6328,7 @@ static int maiaCC_parse_Primary(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Primary");
   return 0;
@@ -6276,7 +6338,7 @@ static int maiaCC_parse_Literal(MaiaCCParserState* self) {
   if (self->failed) return 0;
   const unsigned int __ruleStart = self->position;
   const size_t __memoSlot = (size_t)61 * ((size_t)self->tokenCount + 1) + __ruleStart;
-  if (self->failureMemo && self->failureMemo[__memoSlot]) { self->failed = 1; return 0; }
+  if (self->failureMemo && maiaCC_failureMemoContains(self, __memoSlot)) { self->failed = 1; return 0; }
   const unsigned int __eventMark = maiaCC_checkpointEvents(self);
   maiaCC_startNonterminal(self, "Literal");
     int _matched = 0;
@@ -6370,7 +6432,7 @@ static int maiaCC_parse_Literal(MaiaCCParserState* self) {
     return 1;
   }
   self->position = __ruleStart;
-  if (self->failureMemo) self->failureMemo[__memoSlot] = 1;
+  if (self->failureMemo) maiaCC_failureMemoInsert(self, __memoSlot);
   maiaCC_restoreEvents(self, __eventMark);
   maiaCC_abortNonterminal(self, "Literal");
   return 0;

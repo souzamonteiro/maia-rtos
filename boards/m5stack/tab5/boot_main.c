@@ -1,6 +1,10 @@
 #include <maia/console.h>
 #include <maia/arch/irq.h>
 #include <maia/boards/tab5_sdmmc_service.h>
+#ifdef MAIA_PRODUCT_FATFS
+#include <maia/boards/tab5_kv.h>
+#include <maia/boards/tab5_maiascript_kv.h>
+#endif
 #include <maia/kernel.h>
 #include <maia/runtime/newlib_locks.h>
 #ifdef MAIA_PRODUCT_FATFS
@@ -22,11 +26,11 @@
 
 extern void maia_soc_systimer_init(uint32_t tick_hz);
 
-/* 32 KiB L2MEM heap pool + task stacks in internal L2MEM_LOW (.bss) */
-static uint8_t g_heap_pool[32768] __attribute__((aligned(16)));
-static uint8_t g_stack_idle[4096] __attribute__((aligned(16)));
-static uint8_t g_stack_telem[4096] __attribute__((aligned(16)));
-static uint8_t g_stack_shell[8192] __attribute__((aligned(16)));
+/* 49 KiB L2MEM heap pool + task stacks in internal L2MEM_LOW (.bss) */
+static uint8_t g_heap_pool[50176] __attribute__((aligned(16)));
+static uint8_t g_stack_idle[1024] __attribute__((aligned(16)));
+static uint8_t g_stack_telem[1024] __attribute__((aligned(16)));
+static uint8_t g_stack_shell[16384] __attribute__((aligned(16)));
 
 static maia_mutex_t g_telem_mutex;
 static maia_queue_t g_telem_queue;
@@ -838,6 +842,27 @@ void maia_boot_main(void) {
     maia_console_puts("  sp: ");
     print_hex32(sp_val);
     maia_console_puts("\n========================================================\n");
+
+#ifdef MAIA_PRODUCT_FATFS
+    maia_kv_result_t kv_result = maia_tab5_kv_init();
+    if (kv_result == MAIA_KV_OK) {
+        maia_console_puts("[F2] MaiaKV snapshot store ready\n");
+    } else if (kv_result == MAIA_KV_RECOVERED_EMPTY) {
+        maia_console_puts("[F2] MaiaKV recovered empty; previous settings may be lost\n");
+    } else {
+        maia_console_puts("[F2] MaiaKV unavailable (error=-");
+        print_u32((uint32_t)(-(int32_t)kv_result));
+        maia_console_puts("); boot continues\n");
+    }
+    int symbol_result = maia_tab5_kv_register_maiascript_symbols();
+    if (symbol_result == 0) {
+        maia_console_puts("[F2] MaiaScript MaiaKV imports registered\n");
+    } else {
+        maia_console_puts("[F2] MaiaScript MaiaKV import registration failed (error=-");
+        print_u32((uint32_t)(-symbol_result));
+        maia_console_puts(")\n");
+    }
+#endif
 
     /* Initialize kernel subsystems (M2, M4, M5) */
     (void)maia_sched_init();

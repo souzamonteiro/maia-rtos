@@ -21,6 +21,7 @@ PHDRS
 {
     flash_text PT_LOAD FLAGS(5);
     flash_rodata PT_LOAD FLAGS(4);
+    flash_iram PT_LOAD FLAGS(5);
     psram_iram PT_LOAD FLAGS(5);
     sram_data PT_LOAD FLAGS(6);
     tls PT_TLS FLAGS(6);
@@ -28,6 +29,14 @@ PHDRS
 
 SECTIONS
 {
+    .maia_flash_iram : ALIGN(16)
+    {
+        _maia_flash_iram_start = ABSOLUTE(.);
+        KEEP(*soc_flash.c.obj(.maia_flash_iram))
+        . = ALIGN(16);
+        _maia_flash_iram_end = ABSOLUTE(.);
+    } > SRAM_LOW :flash_iram
+
     .maia_psram_iram : ALIGN(16)
     {
         _maia_psram_iram_start = ABSOLUTE(.);
@@ -163,6 +172,7 @@ ASSERT(__maia_tls_alignment <= 64,
 ASSERT(_start >= ADDR(.flash.text) && _start < ADDR(.flash.text) + SIZEOF(.flash.text),
        "Entry point must be in the flash-mapped IROM section")
 ASSERT(SIZEOF(.maia_psram_iram) > 0, "PSRAM SRAM-resident startup closure is empty")
+ASSERT(SIZEOF(.maia_flash_iram) > 0, "Flash transaction closure is empty")
 ASSERT(maia_esp32p4_psram_boot_initialize200 >= _maia_psram_iram_start &&
        maia_esp32p4_psram_boot_initialize200 < _maia_psram_iram_end,
        "PSRAM boot composition must execute from internal SRAM")
@@ -204,3 +214,5 @@ ASSERT(__maia_psram_window_end - __maia_psram_window_start == 0x400000,
 
 NOCROSSREFS_TO(.flash.text .maia_psram_iram)
 NOCROSSREFS_TO(.flash.rodata .maia_psram_iram)
+NOCROSSREFS_TO(.flash.text .maia_flash_iram)
+NOCROSSREFS_TO(.flash.rodata .maia_flash_iram)

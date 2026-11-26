@@ -47,7 +47,8 @@ int main() {
         {"29_audio_sound", 42},
         {"30_hardware_i2c", 42},
         {"31_scientific_math", 42},
-        {"32_scicalc_input", 42}
+        {"32_scicalc_input", 42},
+        {"33_maia_kv", 42}
     };
 
     std::string basePath = "/Volumes/External_SSD/Documentos/Projects/maia-rtos/maiascript/tests/pairs/";
@@ -174,6 +175,15 @@ int main() {
 
         static std::unordered_map<std::string, std::string> s_virtual_fs;
         s_virtual_fs["/home/notes.txt"] = "Hello MaiaRTOS!";
+        static std::unordered_map<std::string, std::string> s_virtual_kv;
+        static int32_t s_kv_last_get_error = 0;
+        auto read_emu_string = [](maiascript::EmulatorRV32& e, uint32_t address) {
+            std::string value;
+            while (address < e.memory.size() && e.memory[address] != 0) {
+                value += (char)e.memory[address++];
+            }
+            return value;
+        };
 
         emu.registerHostFunction("host_fs_exists", [](maiascript::EmulatorRV32& e) -> int32_t {
             uint32_t path_ptr = e.regs[10];
@@ -220,6 +230,46 @@ int main() {
             }
             return -1;
         });
+        if (name == "33_maia_kv") {
+            emu.registerHostFunction("host_kv_set_text", [&](maiascript::EmulatorRV32& e) -> int32_t {
+                std::string key = read_emu_string(e, e.regs[10]);
+                std::string value = read_emu_string(e, e.regs[11]);
+                s_virtual_kv[key] = value;
+                return 0;
+            });
+            emu.registerHostFunction("host_kv_get_text", [&](maiascript::EmulatorRV32& e) -> int32_t {
+                std::string key = read_emu_string(e, e.regs[10]);
+                auto it = s_virtual_kv.find(key);
+                if (it == s_virtual_kv.end()) {
+                    s_kv_last_get_error = -3;
+                    return 0;
+                }
+                s_kv_last_get_error = 0;
+                uint32_t address = s_test_heap;
+                if (address + it->second.size() + 1 >= e.memory.size()) {
+                    s_kv_last_get_error = -5;
+                    return 0;
+                }
+                for (char ch : it->second) e.memory[s_test_heap++] = (uint8_t)ch;
+                e.memory[s_test_heap++] = 0;
+                s_test_heap = (s_test_heap + 7) & ~7;
+                return (int32_t)address;
+            });
+            emu.registerHostFunction("host_kv_last_get_error", [&](maiascript::EmulatorRV32&) -> int32_t {
+                return s_kv_last_get_error;
+            });
+            emu.registerHostFunction("host_kv_free_text", [](maiascript::EmulatorRV32&) -> int32_t {
+                return 0;
+            });
+            emu.registerHostFunction("host_kv_delete_text", [&](maiascript::EmulatorRV32& e) -> int32_t {
+                std::string key = read_emu_string(e, e.regs[10]);
+                return s_virtual_kv.erase(key) == 1U ? 0 : -3;
+            });
+            emu.registerHostFunction("host_kv_contains_text", [&](maiascript::EmulatorRV32& e) -> int32_t {
+                std::string key = read_emu_string(e, e.regs[10]);
+                return s_virtual_kv.count(key) != 0U ? 1 : 0;
+            });
+        }
         for (const char* symbol : {"print", "println", "print_int", "play_beep"}) {
             emu.registerHostFunction(symbol, [](maiascript::EmulatorRV32&) -> int32_t { return 0; });
         }

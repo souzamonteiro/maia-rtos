@@ -14,9 +14,9 @@ TopLevel ::= ImportDecl
            | NamespaceDecl
            | StructDecl
            | ClassDecl
+           | ExternDecl
            | FunctionDecl
            | GlobalDecl
-           | ExternDecl
 
 ImportDecl ::= 'import' QualifiedName ('as' NAME)? ';'
 ExportDecl ::= 'export' (StructDecl | ClassDecl | FunctionDecl | GlobalDecl)
@@ -51,9 +51,7 @@ TypeSuffix ::= '*' | '[' INTEGER? ']' | '?'
 QualifiedName ::= NAME ('.' NAME)*
 
 Block ::= '{' Statement* '}'
-Statement ::= Block
-            | LocalDecl
-            | IfStmt
+Statement ::= IfStmt
             | WhileStmt
             | DoStmt
             | ForStmt
@@ -64,8 +62,10 @@ Statement ::= Block
             | ContinueStmt
             | DeferStmt
             | UnsafeStmt
-            | ExpressionStmt
+            | Block
             | ';'
+            | LocalDecl
+            | ExpressionStmt
 LocalDecl ::= ('const' | 'auto') NAME '=' Expression ';'
             | Type NAME ('=' Expression)? ';'
 IfStmt ::= 'if' '(' Expression ')' Block ('else' (IfStmt | Block))?

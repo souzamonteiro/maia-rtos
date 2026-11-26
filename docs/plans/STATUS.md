@@ -1,9 +1,117 @@
 # Project status
 
-Date: 2026-11-10
+Date: 2026-11-25
 
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
+
+## Leitura ELF por offsets e probe SciCalc — 2026-11-24
+
+O caminho `runelf <arquivo.mobj>` agora mantém o arquivo aberto e fornece ao
+loader um leitor por offsets, evitando uma cópia integral do ELF no heap. A
+API de carregamento em memória continua disponível pelo mesmo núcleo. Os
+testes host do loader passaram com ASan/UBSan (3/3), os testes da CLI passaram
+(14/14), e a imagem P4 atual foi empacotada pelo alvo `maia_m0_image` e validada
+(5 segmentos).
+
+No Tab5, o arquivo existente `/sd/apps/scicalc.mobj` (57.256 bytes) foi aberto
+pelo loader, que alocou 36.096 bytes e registrou a entrada em
+`maia_module_main`. A captura permaneceu sem marcadores fatais por 20 s; a
+shell foi recuperada após o reset. O runner confirmou `probe_pass=true` e
+`restore_verified=true`, com o SHA-256 original
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Isso comprova o caminho de leitura/dispatch, mas não confirma que a interface
+SciCalc desenhou ou aceitou interação.
+
+Foi implementado um adaptador para os imports legados `host_app_quit`,
+`host_app_run`, `draw_window`, `draw_text`, `draw_button`, `draw_rect`,
+`draw_line`, `host_bind_key`, `host_bind_button` e `powf`, com gráficos
+encaminhados pelo lease do serviço LCD e entrada pelo host nativo. Os testes
+host focados com ASan/UBSan passaram (6/6), e a imagem P4 foi reconstruída e
+validada. No novo probe USB, SciCalc voltou a chegar à entrada e permaneceu
+sem marcador fatal por 20 s; o log interativo não contém avisos de imports não
+resolvidos. O runner confirmou `probe_pass=true` e `restore_verified=true`;
+o firmware original e o app instalado foram preservados.
+
+A aceitação visual e de interação ainda estava pendente nessa etapa; o resultado
+posterior está registrado abaixo.
+Evidências:
+[probe USB inicial](../../../maia-rtos-recovery/native-tab5-scicalc-streaming-observe-20261124/),
+[probe com compatibilidade legada](../../../maia-rtos-recovery/native-tab5-scicalc-legacy-compat-20261124/).
+
+## ABI RV32F e SciCalc nativa — 2026-11-24
+
+A disassembly do módulo marcou o ELF como single-float (`Flags=0x2`) e mostrou
+que a execução parava no primeiro `fmv.w.x`/`fsw` de `g_last_val`: o produto
+estava compilado RV32IMAC/ILP32, sem contexto FP, e `_start` deixava `FS=Off`.
+O alvo de produto Tab5 e suas bibliotecas estáticas nativas agora usam
+RV32IMAFC/ILP32F; o startup habilita `FS=Initial` com MIE ainda desabilitado.
+Build e validação da imagem passaram, com 5 segmentos.
+
+Depois disso, a SciCalc chegou ao loop de eventos; a primeira leitura de toque
+pode retornar indisponível até existir um snapshot válido. O adaptador legado
+agora registra essa condição uma vez, preserva o estado anterior e continua o
+app, em vez de encerrá-lo antes da primeira amostra.
+
+No Tab5, o dono confirmou título/controles visíveis e interação por toque e
+teclado. O log registrou `2+3*4 = 14` e retorno normal código 0 após o dono
+encerrar o app. O runner marcou `probe_pass=false` porque a saída ocorreu antes
+dos 60 s solicitados; não houve marcador fatal e `restore_verified=true`. O
+firmware original foi restaurado com SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Testes host focados do scheduler/loader/compatibilidade passaram (5/5), e o
+teste de regressão para toque indisponível passou isoladamente (1/1).
+
+Evidências:
+[probe de toque e SciCalc](../../../maia-rtos-recovery/native-tab5-scicalc-rv32f-integration-followup-20261124/),
+[probe de teclado](../../../maia-rtos-recovery/native-tab5-scicalc-rv32f-keyboard-20261124/).
+
+## Ponte gráfica MNM para o owner LCD — 2026-11-24
+
+O build de produto P4 agora publica a API de display MNM. `put_pixel` e
+`fill_rect` mantêm a orientação lógica 1280x720; o primeiro desenho do lote
+solicita ao serviço LCD um lease do backbuffer, que é inicializado copiando o
+quadro frontal atual. `sync` envia a publicação pelo owner e espera a
+apresentação. `get_framebuffer` permanece NULL para não expor um ponteiro que
+escaparia do lease. A exclusividade é contada por escopos de execução aninhados:
+o loader fecha lotes e libera aquisições esquecidas quando cada módulo retorna,
+sem permitir que um app filho solte a exclusividade do desktop pai. Ao voltar
+ao terminal, todas as linhas são marcadas para redesenho.
+
+O owner continua sendo o único responsável por adquirir/publicar os buffers e
+serializa o lease com atualizações do terminal. O DMA só lê o framebuffer
+frontal enquanto o backbuffer é semeado; o caminho existente de write-back
+publica as alterações antes da troca. O custo de copiar e sincronizar o quadro
+completo ainda não foi medido no Tab5. `sync` continua sendo `void`; falhas são
+registradas no console, enquanto as primitivas retornam erro. `gui_kit` ignora
+os retornos das primitivas, portanto a confirmação visual continua necessária.
+
+Validação host: `lcd_output_test`, `native_display_api_test` e
+`native_shell_display_test` passaram (3/3); firmware `maia_m0.elf` P4/XIP
+compilado. No Tab5, o smoke USB publicou os dois lotes, o módulo retornou zero,
+a shell respondeu e o diretório de teste foi removido. O runner restaurou a
+aplicação anterior com verificação (`probe_pass=true`,
+`restore_verified=true`). O usuário confirmou visualmente o quadro e sua
+preservação após a atualização parcial; desktop e SciCalc continuam pendentes.
+[Arquitetura](../shell/MaiaRTOS_Native_Execution_Architecture.md#54-native-host-abi-v1).
+
+Foi adicionada uma fixture MNM de hardware que desenha fundo e quatro
+marcadores coloridos, publica, aguarda 8 s, altera um retângulo central,
+publica novamente e aguarda mais 8 s. O runner
+[run_mnm_graphics_display_probe_usb.py](../../tests/hardware/run_mnm_graphics_display_probe_usb.py)
+usa o runner F0 existente para fazer backup, gravar e restaurar a aplicação
+via USB. A fixture foi compilada como ELF32/RISC-V relocável e empacotada; seu
+ELF usa apenas tipos de relocação tratados pelo loader. O smoke foi executado
+duas vezes no Tab5; na segunda, cada quadro permaneceu 8 s para observação. Nos
+dois casos, os marcadores dos dois lotes apareceram, o módulo retornou zero, a
+shell respondeu e o diretório temporário foi removido. O runner confirmou
+`probe_pass=true` e `restore_verified=true`; o backup da aplicação original teve SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Os logs comprovam o caminho eletrônico da API; na repetição ampliada, o usuário
+confirmou visualmente o quadro e a preservação após a atualização parcial.
+Evidências:
+[primeira execução](../../../maia-rtos-recovery/native-tab5-mnm-graphics-display-probe-20261124/)
+e [repetição com janela visual ampliada](../../../maia-rtos-recovery/native-tab5-mnm-graphics-display-probe-20261124-repeat/).
 
 ## Regressão host MaiaScript/SciCalc — 2026-11-23
 
@@ -3157,3 +3265,279 @@ Esses testes não simulam eletricamente a remoção nem comprovam o estado do
 segundo bloco em uma falha física de escrita. Falhas reais de transporte,
 cold boot e perda de energia continuam sem teste; a interrupção deliberada de
 energia exige autorização específica e um plano de segurança.
+
+## MaiaKV e guard nativo de SPI Flash
+
+Implementado um serviço C de chave/valor com dois snapshots de 8 KiB na área
+dedicada `0xC74000..0xC77FFF`. O banco novo só se torna ativo depois de gravar
+o payload, o CRC e o marcador de commit; na inicialização, o serviço escolhe
+a cópia válida mais recente e não apaga o banco anterior durante a atualização.
+O driver Tab5 limita acesso a essa região e executa as chamadas ROM em uma
+rotina residente em SRAM, com interrupções locais bloqueadas e caches L1/L2
+desabilitados/restaurados. O core secundário permanece estacionado pelo entry
+point atual.
+
+Host CTest e ASan/UBSan cobriram round-trip, atualização, exclusão, corrupção e
+falhas de operação durante o primeiro commit e atualizações subsequentes. Se
+nenhuma cópia tem commit válido, a inicialização retorna `MAIA_KV_RECOVERED_EMPTY`
+em vez de ocultar a condição. O ELF P4 linkou e a imagem foi empacotada/validada com cinco
+segmentos; `flash_transaction` está em `0x4FF00000`. Na validação inicial,
+nenhuma operação de erase/write física havia sido executada; o teste Tab5
+posterior está registrado abaixo.
+O perfil nativo registra os imports MaiaKV no ELF loader e expõe `maia.kv`
+(`get`, `set`, `remove`, `contains` e `freeText`); o teste end-to-end do
+compilador/emulador passou junto com os 32 casos anteriores (33/33).
+O módulo já está disponível em `/sd/lib/maia/kv.ms`; a leitura integral no
+Tab5 (1.259 bytes) conferiu com o fonte local, SHA-256
+`2ac4734b6bb1cea998fa5b49f1f742d0dee04ab341f80dba388ad2a35e8e60e0`. Não foi
+necessário sobrescrever o arquivo. Os testes físicos do backend e a
+compilação/execução on-device do wrapper `maia.kv` foram concluídos.
+
+Em 22/11, além do limite de reserva do vetor de tokens, foram compactados os
+eventos/CST do parser, reduzidas as alocações temporárias do codegen e o
+assembler passou a reter referências às linhas de origem entre os passes. A
+heap interna do produto ficou em 44 KiB. `make -C maiascript test` passou
+33/33 casos e os testes de lifetime do AST; `make -C assembler test` passou
+21/21 testes de disassembly e 6/6 fontes de montagem.
+
+Com a imagem instrumentada, `maiasc` compilou no Tab5 um fonte mínimo que
+importa `maia.kv` para um ELF32 de 2.224 bytes. O runner protegido confirmou
+`[SUCCESS] Compiled` e restaurou o aplicativo original com o SHA-256 esperado.
+Depois de remover as instrumentações temporárias, a imagem limpa foi
+reconstruída e também compilou um fonte equivalente que importa `maia.kv`,
+gerando 2.236 bytes ELF32. O segundo probe limpou os arquivos temporários e
+restaurou o aplicativo original.
+
+Na tentativa inicial, `maiasc --run` compilou `i32 main(){return 42;}` mas o
+loader não observou retorno. O mesmo ocorreu com um ELF C mínimo. Esse bloqueio
+foi corrigido pela sincronização de caches descrita abaixo; a evidência antiga
+foi mantida em `EVIDENCE.md`.
+
+**Execução ELF nativa destravada.** A causa era coerência de cache: o loader
+nativo só executava `fence.i`, enquanto a versão ESP-IDF chama
+`esp_cache_msync` (writeback do L1 DCache e invalidação dos L1 ICaches). No P4
+isso não é feito por `fence.i`, então a CPU buscava instruções obsoletas.
+`maia_esp32p4_cache_sync_code()` agora chama `Cache_WriteBack_Addr(L1D)` e
+`Cache_Invalidate_Addr(L1I0|L1I1)` da ROM (endereços do `esp32p4.rom.ld` do
+ESP-IDF v5.4) antes de entrar no módulo. Um segundo defeito truncava o `stdout`
+dos módulos: `_write` desistia na primeira vez em que o endpoint USB estava
+ocupado; agora espera de forma limitada, como o console. No Tab5, `maiasc --run`
+imprimiu `MAIA_ENTRY_REACHED` e retornou 42; o firmware original foi restaurado.
+
+### MaiaKV no Tab5 — 2026-11-22
+
+Com a imagem `1caec394e6ee787278e815177ebacb3417572b64b09dbdcf817474ec484da87a`,
+o runner USB protegido executou os símbolos nativos `host_kv_*` registrados no
+loader. `copilot_probe` foi consultada sem alteração e estava ausente. A chave
+temporária `mkvp_221758` foi criada (`set` retornou 0), lida como `"ok"` depois
+de uma reinicialização limpa e removida; `contains` e `get` confirmaram
+`NOT_FOUND` imediatamente e depois de outro boot. O valor não ficou ativo na
+loja após o teste. A operação de set/remove passou pelo erase e commit dos
+bancos alternados; não foi feito teste de perda de energia nem de apagamento
+seguro do conteúdo antigo do banco inativo.
+
+Cada etapa restaurou o aplicativo original e verificou SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Os probes e módulos temporários no SD foram removidos. Relatórios:
+`../../../maia-rtos-recovery/maia-kv-device-host-contains-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-set-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-get-20261122/`,
+`../../../maia-rtos-recovery/maia-kv-device-remove-20261122/` e
+`../../../maia-rtos-recovery/maia-kv-device-check-removed-20261122/`.
+
+O primeiro probe de wrapper que chamava `kv.contains` parou durante o codegen.
+No follow-up, a instrumentação mostrou que a saída de assembly já tinha 4.082
+bytes e o heap não oferecia um bloco contíguo de 8 KiB para o crescimento do
+`stringstream`; a pilha ainda tinha mais de 11 KiB de margem. Redistribuímos a
+memória estática para um pool L2 de 49 KiB e uma pilha de shell de 16 KiB.
+Com essa configuração, o probe original — `contains`, verificação `isError()`
+e retorno `42 + r.value()` — compilou e executou no Tab5, retornando 42.
+
+A verificação foi repetida com imagem sem instrumentação temporária:
+`1d1f83ca2ed12e1fb969f1ff6e1a3e99aea8323e4fa2c3605afd4ab8f38b439c`.
+`make -C maiascript test` passou 33/33 casos e os testes de lifetime/reparse
+do AST; `make -C assembler test` passou 21/21 testes de disassembly e 6/6
+fontes de montagem. O runner USB registrou `probe_pass=true`,
+`restore_verified=true`, removeu os arquivos de probe do SD e restaurou o app
+original com SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Relatório: `../../../maia-rtos-recovery/maia-kv-device-original-clean-heap49-20261122/`.
+UQ-018 fica resolvida para esse wrapper; limites de módulos maiores continuam
+pendentes.
+
+## RX8130CE nativo — leitura somente-leitura — 2026-11-23
+
+Implementado serviço de leitura do calendário RX8130CE em
+`services/rtc_rx8130.c`, usando o I2C gerenciado compartilhado com o touch.
+Valida BCD, limites de data/hora, weekday one-hot e VLF; propaga falhas de I2C
+e mantém a saída sem alteração quando não há leitura válida. A shell do produto
+XIP oferece `rtc`, sem comando de escrita. CTest focado passou (1/1), e
+`maia_m0_image` compilou e passou a validação de estrutura da imagem (5
+segmentos, 857.088 bytes; SHA-256
+`99f38ba380db52d1f70b87f1a4959ca95b2718fce5ce33c0565bf9dbc69a92cc`).
+
+No Tab5, o primeiro limite de captura foi curto para a inicialização completa;
+o runner restaurou a app original e verificou o hash. Na repetição com janela
+de 30 s, a shell aceitou `rtc` e recebeu os registradores
+`47 45 16 0C 28 00 00`, flags `25`. O mês é zero e o weekday tem mais de um
+bit, portanto o serviço recusou o calendário; VLF está clear. O teste não
+escreveu no RTC, e o runner registrou `probe_pass=true`,
+`restore_verified=true`, restaurando a app original com SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas em `../../../maia-rtos-recovery/native-rtc-rx8130-raw-20261123/`.
+
+O driver de leitura está exercitado no hardware, mas o calendário físico ainda
+não é válido. Aguarda-se definir uma fonte/valor de horário antes de qualquer
+rotina explícita de ajuste; ver UQ-019 e a seção RX8130CE em `EVIDENCE.md`.
+
+## Teclado A164 no produto MaiaRTOS — 2026-11-23
+
+Corrigida a identificação do item F3: a unidade Tab5 conectada usa o teclado
+físico M5Stack A164 com coprocessador STM32F030 em `0x6D`; TCA8418 é somente
+uma alternativa presente no caminho legado. O produto nativo detectou A164
+firmware `0x01`. Na shell MaiaRTOS, comandos digitados no teclado físico
+(`ls`, `pwd`) foram executados; `pwd` retornou `/`. O runner USB registrou
+`probe_pass=true`, sem fatal, e restaurou a app original com hash verificado.
+Setas ainda chegam como texto literal (`[A`, `[B`, `[D`) e não são atalhos de
+edição/histórico da linha; isso permanece uma limitação de UX da shell.
+Capturas em `../../../maia-rtos-recovery/native-keyboard-a164-live-20261123/`.
+
+## INA226 em leitura somente-leitura — 2026-11-23
+
+Implementados o serviço INA226, a ligação ao I2C compartilhado do produto Tab5
+e o comando `power`. A implementação valida os IDs TI (`0x5449`/`0x2260`),
+propaga erros I2C, interpreta os registradores assinados e não escreve no
+dispositivo. O registrador Mask/Enable (`0x06`) é omitido porque sua leitura
+pode limpar flags. Corrente e potência só são calculadas quando o modo é
+contínuo; a conversão Tab5 deriva corrente/potência da leitura de tensão do
+shunt nominal de `5 mΩ` indicado pela referência M5Stack, sem depender do
+registrador CAL. Registradores e efeitos de leitura seguem o
+[datasheet INA226](../hardware/datasheets/INA226.pdf).
+
+`ina226_test` passou no host, incluindo identidade incorreta, contenção BUSY,
+preservação da saída em falha, cálculo com CAL zero e ausência de escrita.
+Imagem P4 e leitura USB passaram; a captura final retornou barramento de
+`7987 mV`, shunt bruto `0`, modo contínuo, `CAL=0x0000` e corrente/potência
+derivadas iguais a zero. Uma tentativa anterior observou shunt bruto `2`; os
+testes foram sem carga conhecida, então a magnitude/direção ainda não está
+qualificada. O runner confirmou `probe_pass=true`, `restore_verified=true` e
+restaurou a app original com SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas em `../../../maia-rtos-recovery/native-ina226-power-final-20261123/`
+e `../../../maia-rtos-recovery/native-ina226-power-derived-20261123/`.
+
+## Bateria Tab5 e contenção do I2C compartilhado — 2026-11-23
+
+O comando `battery` lê a tensão monitorada pelo INA226 e o nível bruto do
+sinal P6 do expansor `0x44`; ele não interpreta a polaridade de `CHG_STAT_LED`
+nem estima percentual. O primeiro teste USB encontrou contenção do barramento
+(`MAIA_I2C_BUSY`); os comandos de leitura I2C `battery`, `power` e `rtc` agora
+cedem a tarefa e fazem no máximo três tentativas no total, somente nesse erro
+transitório.
+
+O serviço de touch preserva o último snapshot válido e não renova sua idade
+quando encontra BUSY; a validade continua limitada pelo timeout existente.
+O produto também não registra contenção BUSY como falha/invalidação, inclusive
+antes da primeira amostra válida. `touch_input_test`, `tab5_battery_test`,
+`pi4ioe5v6408_test`, `ina226_test`, `rtc_rx8130_test` e `i2c_bus_test` passaram.
+No teste USB final, `battery` retornou `Monitor bus=7987 mV` e sinal `LOW`,
+sem mensagem de falha do touch. O runner confirmou `probe_pass=true`,
+`restore_verified=true` e hash original
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas em
+`../../../maia-rtos-recovery/native-tab5-battery-touch-busy-final-20261123/`.
+
+## Brilho LEDC do Tab5 — 2026-11-23
+
+No produto MaiaRTOS via USB, `backlight 50` selecionou o sinal LEDC em GPIO22
+e a leitura somente-leitura de `LEDC_CH1_DUTY` (`0x500D301C`) retornou
+`0x00001FF0`. `backlight 100` retornou o controle a GPIO; leituras mostraram o
+bit 22 alto em `GPIO_OUT` (`0x500E0004`) e seletor `0x100` em
+`GPIO_FUNC22_OUT_SEL` (`0x500E05B0`). O runner passou sem fatal e restaurou a
+aplicação original com hash verificado. Isso confirma a programação do caminho
+de saída, mas não substitui a confirmação visual do brilho pelo dono.
+Capturas em `../../../maia-rtos-recovery/native-tab5-backlight-20261123/`.
+
+Na varredura visual seguinte (`backlight 100`, `75`, `50`, `25`, `5`, `0`,
+`100`, uma linha a cada 5 s via `--input-line-delay`), o dono confirmou:
+**“Brilho funcionou.”** O runner restaurou a aplicação original com hash
+verificado. Capturas em
+`../../../maia-rtos-recovery/native-tab5-backlight-visual-20261123/`.
+
+## Desligamento nativo do Tab5 — 2026-11-23
+
+`boards/m5stack/tab5/power.c` porta `bsp_generate_poweroff_signal()` do BSP
+M5Stack: lê o registrador de saída do PI4IOE5V6408 `0x44` e pulsa P4
+alto/baixo três vezes (100 ms cada), preservando os demais bits, pelo barramento
+System I2C compartilhado (retry curto em BUSY; em falha parcial, P4 volta a
+baixo). O atraso é injetado, e `tab5_power_test` cobre sequência, BUSY e falha.
+O comando shell `poweroff` apaga o backlight antes dos pulsos.
+
+No Tab5, com o USB conectado, `poweroff` imprimiu `Powering off...`, a porta
+USB sumiu e o dono confirmou o aparelho desligado. Após religar, a aplicação
+original foi gravada manualmente do backup (hash
+`08cee753…abc06` verificado) e o boot capturado mostrou o desktop. Capturas em
+`../../../maia-rtos-recovery/native-tab5-poweroff-20261123/`.
+
+## BMI270 nativo — identificação, configuração e leitura — 2026-11-23
+
+O comando `imu id` confirmou CHIP_ID `0x24` no endereço `0x68`. Em seguida,
+`imu init` carregou a configuração Bosch e habilitou acelerômetro/giroscópio a
+200 Hz (±4 g / ±1000 dps); `imu read` retornou amostras brutas
+`accel=(7593,5,-2916)`, `gyro=(3,-1,-3)` com o Tab5 parado. Os testes host
+`tab5_bmi270_test`, `i2c_bus_test` e `i2c_bitbang_test` passaram. O build
+`maia_m0_image` passou; o build global ainda encontra falhas de link em probes
+não relacionados.
+
+O runner terminou com `probe_pass=true` e `restore_verified=true`, restaurando
+a aplicação original com SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas em `../../../maia-rtos-recovery/native-tab5-bmi270-id-20261123/` e
+`../../../maia-rtos-recovery/native-tab5-bmi270-clean-init-read-20261123/`.
+
+## Desktop nativo: redução de pilha e abertura visual — 2026-11-25
+
+O loader mantinha o escopo de compatibilidade legada mesmo para módulos que
+importam apenas a API host v1. O desktop excedia a pilha shell durante uma
+leitura SDMMC. O escopo legado passou a ser ativado somente quando a resolução
+de imports encontra símbolos legados; o helper fica `noinline` para que o frame
+de 848 bytes não seja incorporado ao caminho direto. A tabela de offsets e
+endereços do ELF agora reutiliza o mesmo buffer de 256 bytes em fases
+sucessivas. Os buffers de 256 bytes (configuração) e 512 bytes (manifest) do
+desktop foram movidos da pilha para o BSS do módulo.
+
+Uma primeira execução após a separação do escopo ainda reportou
+`MAIA_STACK_FAULT` em `send_command` (`sp=0x4ff0cbd0`); o runner restaurou a
+aplicação original e confirmou o hash. Após reduzir mais 256 bytes do frame do
+loader, a execução final permaneceu ativa por 60 s sem `MAIA_STACK_FAULT` ou
+`MAIA_NATIVE_FATAL`. O usuário confirmou o desktop visível e estável. O runner
+removeu o módulo temporário e verificou a restauração da aplicação original
+(SHA-256 `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`).
+
+Validação: `legacy_host_compat_test`, `elf_loader_context_test` e
+`elf_loader_context_no_tls_test` passaram (3/3); `maia_m0_image` foi reconstruída
+sem warnings, com imagem estruturalmente válida de 889.216 bytes e cinco
+segmentos; `git diff --check` passou. O módulo `desktop.mobj` foi regenerado e
+o SHA-256 no manifesto atualizado para
+`c6818372711b42925266ac5d3881e41c9a0a8c79ca7d063a5b2ab6ec1c21b7e4`.
+O prólogo do loader no ELF final reserva 1.648 bytes para seu frame local; isso
+não mede a margem livre total da pilha nem substitui medição de high-water.
+
+Captura final: `../../../maia-rtos-recovery/native-tab5-desktop-native-visual-probe-20261125-05/`.
+Falha anterior preservada em
+`../../../maia-rtos-recovery/native-tab5-desktop-native-visual-probe-20261125-04/`.
+Em um segundo probe USB, o desktop ficou ativo por 120 s sem fatal e o usuário
+confirmou que tocou no Banner, que abriu e retornou ao desktop. O runner removeu
+o módulo temporário e restaurou o app original com hash verificado. Isso valida
+o fluxo de touch/abertura/retorno do Banner neste caminho de boot; atalhos,
+outros aplicativos, boot frio e margem high-water continuam pendentes. Captura:
+`../../../maia-rtos-recovery/native-tab5-desktop-interaction-probe-20261125-06/`.
+
+A suíte host ampliada não ficou verde. O build completo não linkou
+`product_touch_test` (faltam símbolos `maia_tab5_*_bind`) nem
+`tab5_panel_reset_test` (falta `maia_i2c_bus_read8`). Com o build continuando
+os demais alvos e o CTest excluindo `product_touch_test`, 107/109 testes
+passaram: `tab5_panel_reset_test` não pôde rodar e `f0_flash_runner_test`
+falhou com incompatibilidade de assinatura (`capture()` recebeu oito
+argumentos, mas aceita no máximo sete). Os três testes focados do loader
+passaram.

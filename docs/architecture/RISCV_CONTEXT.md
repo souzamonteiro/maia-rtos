@@ -2,8 +2,12 @@
 
 Current scope: ESP32-P4 HP core, single-core M-mode, non-nested native traps.
 Shared private layout: `include/maia/arch/riscv_context.h`. Scheduler and trap
-objects must have the same ISA/ABI. The default remains RV32IMAC/ILP32. The
-optional diagnostic profile uses RV32IMAFC/ILP32F; RV32D is rejected.
+objects must have the same ISA/ABI. The generic toolchain baseline remains
+RV32IMAC/ILP32; the Tab5 flash-product target and its native static dependencies
+use RV32IMAFC/ILP32F to match MaiaScript single-float modules. The product
+startup sets FS=Initial with machine interrupts disabled before entering C.
+Standalone integer diagnostics remain integer; the optional FP diagnostic uses
+the same RV32IMAFC/ILP32F profile. RV32D is rejected.
 
 | Bytes from saved sp | Contents |
 |---|---|
@@ -26,6 +30,8 @@ Fresh frames are zeroed, including tp, FP registers and fcsr. Initial mepc is th
 task trampoline, a0 its task index, mstatus has MPP=M/MPIE=1/MIE=0, and mcause has
 INT=1/MPP=M/MPIE=1/MPIL=0. RV32F also starts with FS=Initial. Actual hardware
 return/assembly validation is documented in the native context audit reports.
+The early product startup enables FS before boot C code can execute F
+instructions; first-task restore then loads the task's zeroed FP frame.
 
 RV32F traps eagerly save all FP state whenever FS is enabled (Initial, Clean or
 Dirty). FS=Off skips FP instructions/CSRs on save and restore. Restoring enabled

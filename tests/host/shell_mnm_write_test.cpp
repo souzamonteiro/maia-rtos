@@ -11,11 +11,12 @@
 
 #include <maia_shell/maia_shell.hpp>
 
-enum class Scenario { Console, Redirect, Pipeline, AtCapacity, Overflow, PipelineOverflow, NoSink };
+enum class Scenario { Console, Redirect, Pipeline, AtCapacity, Overflow, PipelineOverflow, NoSink, File };
 
 static Scenario scenario;
 static std::string console_output;
 static unsigned module_calls;
+static const char file_module_bytes[] = "reader-backed module";
 
 static void capture_console(const char *text) {
     if (text) console_output += text;
@@ -86,6 +87,23 @@ extern "C" int mnm_load_and_run(const void *elf, size_t elf_size,
     return MNM_LOAD_OK;
 }
 
+extern "C" int mnm_load_and_run_reader(const elf_reader_t *reader,
+                                        int, const char *const *,
+                                        const maia_host_api_v1 *host,
+                                        int *exit_code,
+                                        void (*)(const char *)) {
+    assert(scenario == Scenario::File);
+    assert(reader != nullptr && reader->read_at != nullptr);
+    assert(reader->size == sizeof(file_module_bytes));
+    assert(host != nullptr && exit_code != nullptr);
+    char content[sizeof(file_module_bytes)] = {};
+    assert(reader->read_at(reader->context, 0U, content, sizeof(content)) == 0);
+    assert(memcmp(content, file_module_bytes, sizeof(content)) == 0);
+    ++module_calls;
+    *exit_code = 0;
+    return MNM_LOAD_OK;
+}
+
 static std::string read_file(const std::string &path) {
     FILE *file = fopen(path.c_str(), "rb");
     assert(file != nullptr);
@@ -146,6 +164,17 @@ int main() {
     assert(shell.execute(command.c_str()) == 0);
     assert(read_file(target) == std::string(65535, 'q'));
 
+    const std::string module_path = std::string(temp_dir) + "/reader.mobj";
+    FILE *module_file = fopen(module_path.c_str(), "wb");
+    assert(module_file != nullptr);
+    assert(fwrite(file_module_bytes, 1U, sizeof(file_module_bytes),
+                  module_file) == sizeof(file_module_bytes));
+    assert(fclose(module_file) == 0);
+    const std::string module_command = "runelf " + module_path;
+    scenario = Scenario::File;
+    assert(shell.execute(module_command.c_str()) == 0);
+    assert(unlink(module_path.c_str()) == 0);
+
     assert(unlink(target.c_str()) == 0);
     assert(rmdir(temp_dir) == 0);
 
@@ -153,6 +182,6 @@ int main() {
     no_sink.init(nullptr);
     scenario = Scenario::NoSink;
     assert(no_sink.execute("runelf") == 0);
-    assert(module_calls == 8U);
+    assert(module_calls == 9U);
     return 0;
 }

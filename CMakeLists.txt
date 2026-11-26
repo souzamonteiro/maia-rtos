@@ -39,6 +39,12 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(maia_vfs PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+add_library(maia_kv STATIC services/kv.c)
+target_include_directories(maia_kv PUBLIC include)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(maia_kv PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(MAIA_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/linker.ld")
   set(MAIA_F0_FLASH_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/tab5/flash_boot_probe.ld")
@@ -123,11 +129,28 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     target_sources(maia_m0.elf PRIVATE
       runtime/newlib_vfs.c
       soc/espressif/esp32p4/soc_display_product.c
+      shell/native_display.c
+      components/exec/legacy_host_compat.c
       boards/m5stack/tab5/product_touch.c
+      boards/m5stack/tab5/battery.c
+      boards/m5stack/tab5/bmi270_probe.c
+      boards/m5stack/tab5/bmi270_driver.c
+      platforms/tab5/components/sensor_bmi270/src/bmi2.c
+      platforms/tab5/components/sensor_bmi270/src/bmi270.c
+      boards/m5stack/tab5/power.c
+      boards/m5stack/tab5/ina226.c
+      boards/m5stack/tab5/rtc.c
       services/lcd_output.c
       services/i2c_bus.c
+      services/ina226.c
+      services/rtc_rx8130.c
       services/touch_input.c
       drivers/input/st712x.c
+      )
+      target_compile_definitions(maia_m0.elf PRIVATE MAIA_NATIVE_LCD_DISPLAY=1)
+    target_include_directories(maia_m0.elf PRIVATE
+      platforms/tab5/components/sensor_bmi270/include)
+    target_sources(maia_m0.elf PRIVATE
       soc/espressif/esp32p4/soc_dw_dma_irq.c
       soc/espressif/esp32p4/soc_psram_boot.c
       soc/espressif/esp32p4/soc_psram_clock.c
@@ -166,8 +189,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     lib/maiaglob
   )
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
-    target_link_libraries(maia_m0.elf PRIVATE maia_vfs)
+    target_sources(maia_m0.elf PRIVATE
+      soc/espressif/esp32p4/soc_flash.c
+      boards/m5stack/tab5/kv.c
+      boards/m5stack/tab5/maiascript_kv.c
+    )
+    target_link_libraries(maia_m0.elf PRIVATE maia_vfs maia_kv)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_FATFS=1)
+    set(MAIA_TAB5_PRODUCT_RISCV_FLAGS
+      -march=rv32imafc_zicsr_zifencei
+      -mabi=ilp32f
+    )
+    foreach(target maia_m0.elf maia_sd_read maia_fatfs maia_vfs maia_kv)
+      target_compile_options(${target} PRIVATE ${MAIA_TAB5_PRODUCT_RISCV_FLAGS})
+    endforeach()
+    target_link_options(maia_m0.elf PRIVATE ${MAIA_TAB5_PRODUCT_RISCV_FLAGS})
   endif()
   target_compile_options(maia_m0.elf PRIVATE -Wall -Wextra -O2)
   target_compile_definitions(maia_m0.elf PRIVATE
@@ -175,6 +211,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     MAIA_ENABLE_CXX_INIT_ARRAY=1
     MAIA_ENABLE_COMPILER_TLS=1
     MAIA_SDMMC_RUNTIME=1
+    MAIA_EXEC_ESP32P4_CACHE_SYNC=1
   )
   if(MAIA_DIAGNOSTIC_SDMMC_CMD8_TIMEOUT)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT=1)
@@ -1187,6 +1224,13 @@ else()
     endif()
     add_test(NAME sd_read_test COMMAND sd_read_test)
 
+    add_executable(maia_kv_test tests/host/kv_test.c)
+    target_link_libraries(maia_kv_test PRIVATE maia_kv)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(maia_kv_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME maia_kv_test COMMAND maia_kv_test)
+
     add_executable(fatfs_test tests/host/fatfs_test.c runtime/newlib_vfs.c)
     target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
     target_compile_definitions(fatfs_test PRIVATE
@@ -1577,6 +1621,20 @@ else()
       target_compile_options(pi4ioe5v6408_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME pi4ioe5v6408_test COMMAND pi4ioe5v6408_test)
+    add_executable(tab5_battery_test tests/host/tab5_battery_test.c
+      boards/m5stack/tab5/battery.c drivers/gpio/pi4ioe5v6408.c services/ina226.c)
+    target_include_directories(tab5_battery_test PRIVATE include)
+    target_compile_options(tab5_battery_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_battery_test COMMAND tab5_battery_test)
+    add_executable(tab5_bmi270_test tests/host/tab5_bmi270_test.c
+      boards/m5stack/tab5/bmi270_probe.c)
+    target_include_directories(tab5_bmi270_test PRIVATE include)
+    target_compile_options(tab5_bmi270_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_bmi270_test COMMAND tab5_bmi270_test)
+    add_executable(tab5_power_test tests/host/tab5_power_test.c boards/m5stack/tab5/power.c)
+    target_include_directories(tab5_power_test PRIVATE include)
+    target_compile_options(tab5_power_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_power_test COMMAND tab5_power_test)
     add_executable(touch_input_test tests/host/touch_input_test.c services/touch_input.c drivers/input/st712x.c)
     target_include_directories(touch_input_test PRIVATE include)
     target_compile_definitions(touch_input_test PRIVATE MAIA_TOUCH_INPUT_TEST=1)
@@ -1586,6 +1644,15 @@ else()
     target_include_directories(i2c_bus_test PRIVATE include)
     target_compile_options(i2c_bus_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_test(NAME i2c_bus_test COMMAND i2c_bus_test)
+    add_executable(rtc_rx8130_test tests/host/rtc_rx8130_test.c services/rtc_rx8130.c)
+    target_include_directories(rtc_rx8130_test PRIVATE include)
+    target_compile_options(rtc_rx8130_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME rtc_rx8130_test COMMAND rtc_rx8130_test)
+    add_executable(ina226_test tests/host/ina226_test.c services/ina226.c
+      boards/m5stack/tab5/ina226.c)
+    target_include_directories(ina226_test PRIVATE include)
+    target_compile_options(ina226_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME ina226_test COMMAND ina226_test)
     add_executable(i2c_bitbang_test tests/host/i2c_bitbang_test.c drivers/i2c/bitbang.c
       boards/m5stack/tab5/touch_identify.c)
     target_include_directories(i2c_bitbang_test PRIVATE include)
@@ -1670,6 +1737,8 @@ else()
     add_test(NAME lcd_lifecycle_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_lifecycle_capture_test.py)
     add_test(NAME lcd_stream_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/lcd_stream_capture_test.py)
     add_test(NAME framebuffer_capture_test COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/framebuffer_capture_test.py)
+    add_test(NAME maia_cli_transfer_test
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/maia_cli_transfer_test.py)
     add_test(NAME native_probe_result_test
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_result_test.py)
     add_test(NAME sdmmc_cmd8_runner_test
@@ -1722,6 +1791,21 @@ else()
       target_compile_options(native_shell_display_test PRIVATE -fno-builtin)
     endif()
     add_test(NAME native_shell_display_test COMMAND native_shell_display_test)
+
+    add_executable(native_display_api_test
+      tests/host/native_display_api_test.c shell/native_display.c)
+    target_include_directories(native_display_api_test PRIVATE include)
+    target_compile_definitions(native_display_api_test PRIVATE MAIA_NATIVE_DISPLAY_TEST=1)
+    target_compile_options(native_display_api_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME native_display_api_test COMMAND native_display_api_test)
+
+    add_executable(legacy_host_compat_test
+      tests/host/legacy_host_compat_test.c
+      components/exec/legacy_host_compat.c)
+    target_include_directories(legacy_host_compat_test PRIVATE include)
+    target_compile_options(legacy_host_compat_test PRIVATE -Wall -Wextra -Werror)
+    set_target_properties(legacy_host_compat_test PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+    add_test(NAME legacy_host_compat_test COMMAND legacy_host_compat_test)
 
     add_executable(elf_loader_context_test tests/host/elf_loader_context_test.c
       components/exec/elf_validator.c)

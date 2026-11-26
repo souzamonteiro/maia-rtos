@@ -6,25 +6,41 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <filesystem>
+#include <cstdio>
 #include <sys/stat.h>
-
 #include "../../lib/maiaregex/maia_regex.h"
 #include "maiascript_parser.inc"
 
 namespace maiascript {
 
-enum EventKind { EV_START, EV_END, EV_TERMINAL };
+enum EventKind : unsigned int {
+   EV_START = 0,
+   EV_END = 1,
+   EV_TERMINAL = 2
+};
 
 struct ParseEvent {
-    EventKind kind;
-    std::string name;
-    unsigned int tokenType;
-    unsigned int pos;
+   uint32_t packed;
 };
 
 struct EventCollector {
-    std::vector<ParseEvent> log;
+   std::vector<ParseEvent> log;
+   std::vector<const char*> ruleNames;
 };
+
+static uint32_t packEvent(EventKind kind, uint32_t value) {
+    return (value << 2U) | static_cast<uint32_t>(kind);
+}
+
+static uint32_t internRuleName(EventCollector& collector, const char* name) {
+    for (size_t i = 0U; i < collector.ruleNames.size(); ++i) {
+        if (std::strcmp(collector.ruleNames[i], name) == 0) {
+            return static_cast<uint32_t>(i);
+        }
+    }
+    collector.ruleNames.push_back(name);
+    return static_cast<uint32_t>(collector.ruleNames.size() - 1U);
+}
 
 static unsigned int cbCheckpoint(void* ctx) {
     return ((EventCollector*)ctx)->log.size();
@@ -35,47 +51,111 @@ static void cbRestore(void* ctx, unsigned int mark) {
 }
 
 static void cbStartNonterminal(void* ctx, const char* name, unsigned int pos) {
+    auto& collector = *static_cast<EventCollector*>(ctx);
+    (void)pos;
     ParseEvent ev;
-    ev.kind = EV_START;
-    ev.name = name;
-    ev.tokenType = 0;
-    ev.pos = pos;
-    ((EventCollector*)ctx)->log.push_back(ev);
+    ev.packed = packEvent(EV_START, internRuleName(collector, name));
+    collector.log.push_back(ev);
 }
 
 static void cbEndNonterminal(void* ctx, const char* name, unsigned int pos) {
+    auto& collector = *static_cast<EventCollector*>(ctx);
+    (void)pos;
     ParseEvent ev;
-    ev.kind = EV_END;
-    ev.name = name;
-    ev.tokenType = 0;
-    ev.pos = pos;
-    ((EventCollector*)ctx)->log.push_back(ev);
+    ev.packed = packEvent(EV_END, internRuleName(collector, name));
+    collector.log.push_back(ev);
 }
 
-static void cbAbortNonterminal(void* ctx, const char* name, unsigned int pos) {}
+static void cbAbortNonterminal(void*, const char*, unsigned int) {}
 
-static void cbTerminal(void* ctx, unsigned int type, const char* val, unsigned int len, unsigned int pos) {
+static void cbTerminal(void* ctx, unsigned int type, const char*, unsigned int, unsigned int pos) {
+    auto& collector = *static_cast<EventCollector*>(ctx);
+    (void)type;
     ParseEvent ev;
-    ev.kind = EV_TERMINAL;
-    ev.name = std::string(val, len);
-    ev.tokenType = type;
-    ev.pos = pos;
-    ((EventCollector*)ctx)->log.push_back(ev);
+    ev.packed = packEvent(EV_TERMINAL, pos);
+    collector.log.push_back(ev);
 }
+
+struct CSTNode;
+
+struct CSTName {
+    const char* value;
+
+    operator std::string_view() const {
+        return value != nullptr ? std::string_view(value) : std::string_view();
+    }
+
+    bool operator==(std::string_view other) const {
+        return static_cast<std::string_view>(*this) == other;
+    }
+};
+
+struct CSTText {
+    const MaiaCCParserToken* token;
+
+    std::string_view view() const {
+        return token != nullptr
+            ? std::string_view(token->value, token->length)
+            : std::string_view();
+    }
+
+    operator std::string() const {
+        const std::string_view text = view();
+        return std::string(text.data(), text.size());
+    }
+
+    bool operator==(std::string_view other) const {
+        return view() == other;
+    }
+
+    bool operator!=(std::string_view other) const {
+        return view() != other;
+    }
+};
+
+struct CSTChildren {
+    CSTNode* first;
+
+    class const_iterator {
+    public:
+        explicit const_iterator(const CSTNode* node) : node_(node) {}
+        const CSTNode* operator*() const { return node_; }
+        const_iterator& operator++();
+        bool operator!=(const const_iterator& other) const {
+            return node_ != other.node_;
+        }
+
+    private:
+        const CSTNode* node_;
+    };
+
+    void push_back(CSTNode* child);
+    const_iterator begin() const { return const_iterator(first); }
+    const_iterator end() const { return const_iterator(nullptr); }
+    size_t size() const;
+    const CSTNode* operator[](size_t index) const;
+};
 
 struct CSTNode {
-    std::string name;
-    std::string tokenVal;
-    unsigned int tokenType;
-    std::vector<CSTNode*> children;
+    CSTName name;
+    union {
+        CSTChildren children;
+        CSTText tokenVal;
+    };
+    CSTNode* nextSibling;
 
-    CSTNode(const std::string& n = "") : name(n), tokenType(0) {}
+    CSTNode(const char* n = "", const MaiaCCParserToken* token = nullptr)
+        : name{n}, children{nullptr}, nextSibling(nullptr) {
+        if (token != nullptr) {
+            tokenVal = CSTText{token};
+        }
+    }
 
-    bool isToken() const { return name == "@token"; }
+    bool isToken() const { return std::string_view(name) == "@token"; }
 
     const CSTNode* findFirst(const std::string& childName) const {
         for (const auto& ch : children) {
-            if (ch->name == childName) return ch;
+            if (std::string_view(ch->name) == childName) return ch;
         }
         return nullptr;
     }
@@ -83,43 +163,90 @@ struct CSTNode {
     std::vector<const CSTNode*> findAll(const std::string& childName) const {
         std::vector<const CSTNode*> res;
         for (const auto& ch : children) {
-            if (ch->name == childName) res.push_back(ch);
+            if (std::string_view(ch->name) == childName) res.push_back(ch);
         }
         return res;
     }
 };
 
+inline CSTChildren::const_iterator& CSTChildren::const_iterator::operator++() {
+    node_ = node_->nextSibling;
+    return *this;
+}
+
+inline void CSTChildren::push_back(CSTNode* child) {
+    if (first == nullptr) {
+        first = child;
+        return;
+    }
+    CSTNode* last = first;
+    while (last->nextSibling != nullptr) {
+        last = last->nextSibling;
+    }
+    last->nextSibling = child;
+}
+
+inline size_t CSTChildren::size() const {
+    size_t count = 0U;
+    for (const CSTNode* child = first; child != nullptr; child = child->nextSibling) {
+        ++count;
+    }
+    return count;
+}
+
+inline const CSTNode* CSTChildren::operator[](size_t index) const {
+    const CSTNode* child = first;
+    while (child != nullptr && index > 0U) {
+        child = child->nextSibling;
+        --index;
+    }
+    return child;
+}
+
 // One parse owns the entire temporary CST. Edges and converter views borrow
 // nodes; no shared ownership or per-node pthread mutex is needed. AST nodes
 // copy their data and retain their existing public shared_ptr representation.
 struct CSTStorage {
-    std::vector<std::unique_ptr<CSTNode>> nodes;
+    std::vector<CSTNode> nodes;
 
-    CSTNode* create(const std::string& name) {
-        nodes.push_back(std::make_unique<CSTNode>(name));
-        return nodes.back().get();
+    CSTNode* create(const char* name, const MaiaCCParserToken* token = nullptr) {
+        nodes.emplace_back(name, token);
+        return &nodes.back();
     }
 };
 
-static CSTNode* buildCST(const std::vector<ParseEvent>& log, CSTStorage& storage) {
+static CSTNode* buildCST(
+    const std::vector<ParseEvent>& log,
+    const std::vector<MaiaCCParserToken>& tokens,
+    const std::vector<const char*>& ruleNames,
+    CSTStorage& storage) {
     std::vector<CSTNode*> stack;
+    size_t nodeCount = 1U;
+    for (const auto& ev : log) {
+        const uint32_t kind = ev.packed & 3U;
+        if (kind == EV_START || kind == EV_TERMINAL) {
+            ++nodeCount;
+        }
+    }
+    storage.nodes.reserve(nodeCount);
     auto root = storage.create("ROOT");
     stack.push_back(root);
 
     for (const auto& ev : log) {
-        if (ev.kind == EV_START) {
-            auto n = storage.create(ev.name);
+        const uint32_t kind = ev.packed & 3U;
+        const uint32_t value = ev.packed >> 2U;
+        if (kind == EV_START) {
+            auto n = storage.create(ruleNames[value]);
             stack.back()->children.push_back(n);
             stack.push_back(n);
-        } else if (ev.kind == EV_TERMINAL) {
-            auto n = storage.create("@token");
-            n->tokenVal = ev.name;
-            n->tokenType = ev.tokenType;
-            stack.back()->children.push_back(n);
-        } else if (ev.kind == EV_END) {
+        } else if (kind == EV_END) {
             if (stack.size() > 1) {
                 stack.pop_back();
             }
+        } else {
+            const auto& token = tokens[value];
+            auto n = storage.create("@token", &token);
+            stack.back()->children.push_back(n);
         }
     }
     return root;
@@ -1176,18 +1303,36 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
 
     MaiaCCLexerState lexer;
     maiaCCLexerStateInit(&lexer, finalSource.c_str(), finalSource.length());
-    size_t max_toks = (finalSource.length() < 256) ? 512 : (finalSource.length() * 2);
-    if (max_toks < 1024) max_toks = 1024;
-    if (max_toks > 32768) max_toks = 32768;
-    std::vector<MaiaCCParserToken> tokens(max_toks);
+    if (!maiaCCLexerTokenize(&lexer, nullptr, 0)) {
+        size_t pos = lexer.position;
+        std::string snippet = (pos < finalSource.size()) ? finalSource.substr(pos, 40) : "";
+        outError = "Lexical error in token count pass (code " + std::to_string(lexer.failed)
+            + ", source " + std::to_string(finalSource.size()) + " bytes) at pos "
+            + std::to_string(pos) + " near '" + snippet + "'";
+        return nullptr;
+    }
+    const unsigned int tokenCount = lexer.tokenCount;
+    std::vector<MaiaCCParserToken> tokens(tokenCount);
+    maiaCCLexerStateInit(&lexer, finalSource.c_str(), finalSource.length());
     if (!maiaCCLexerTokenize(&lexer, tokens.data(), tokens.size())) {
         size_t pos = lexer.position;
         std::string snippet = (pos < finalSource.size()) ? finalSource.substr(pos, 40) : "";
-        outError = "Lexical error at pos " + std::to_string(pos) + " near '" + snippet + "'";
+        outError = "Lexical error in token output pass (code " + std::to_string(lexer.failed)
+            + ", source " + std::to_string(finalSource.size()) + " bytes) at pos "
+            + std::to_string(pos) + " near '" + snippet + "'";
+        return nullptr;
+    }
+    if (lexer.tokenCount != tokenCount) {
+        outError = "Lexer token count changed between passes";
         return nullptr;
     }
 
     EventCollector ec;
+    size_t initialEventCapacity = static_cast<size_t>(tokenCount) * 8;
+    if (initialEventCapacity > 4096) {
+        initialEventCapacity = 4096;
+    }
+    ec.log.reserve(initialEventCapacity);
     MaiaCCParseEvents events;
     memset(&events, 0, sizeof(events));
     events.context = &ec;
@@ -1212,7 +1357,8 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
     }
 
     CSTStorage cstStorage;
-    auto cst = buildCST(ec.log, cstStorage);
+    auto cst = buildCST(ec.log, tokens, ec.ruleNames, cstStorage);
+    std::vector<ParseEvent>().swap(ec.log);
     auto programNode = cst->findFirst("Program");
     if (!programNode) {
         outError = "Failed to locate Program root in CST";
@@ -1220,7 +1366,8 @@ std::shared_ptr<Program> Parser::parseSource(const std::string& source, std::str
     }
 
     auto program = std::make_shared<Program>();
-    for (const auto& top : programNode->findAll("TopLevel")) {
+    const auto topLevels = programNode->findAll("TopLevel");
+    for (const auto& top : topLevels) {
         processTopLevel(top, program, "");
     }
 

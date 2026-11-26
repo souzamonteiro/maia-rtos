@@ -24,8 +24,9 @@ maia_status_t maia_touch_transform(uint16_t x,uint16_t y,uint16_t width,uint16_t
  * owner; BUSY already initialized. No runtime callbacks during init. */
 maia_status_t maia_touch_input_init(maia_task_id_t,maia_touch_read_fn,void *,const maia_st712x_info_t *,uint16_t width,uint16_t height,uint16_t rotation);
 /* Owner task/IRQs-on, polls once, never masks IRQs for the wire read. OK includes
- * no fresh report (holds state). Error/context -> BUSY/PERM; wire errors recorded
- * invalidate snapshot, never synthesize UP. A later complete report recovers.
+ * no fresh report (holds state). A wire BUSY retains the last valid snapshot;
+ * it still ages out after 100 ticks without a successful poll. Other wire errors
+ * invalidate the snapshot, never synthesize UP. A later complete report recovers.
  * Caller schedules polling. No ISR/SMP; reader must have bounded completion. */
 maia_status_t maia_touch_input_poll(void);
 /* Owner task/IRQs-on only; stop invalidates held contacts (no synthetic UP) and

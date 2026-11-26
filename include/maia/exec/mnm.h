@@ -33,6 +33,7 @@ typedef struct maia_display_api_t {
     void (*sync)(void);
     int32_t (*acquire_exclusive)(void);
     int32_t (*release_exclusive)(void);
+    /* Optional; may be NULL when the backend only supports leased primitives. */
     uint16_t *(*get_framebuffer)(void);
 } maia_display_api_t;
 
@@ -40,6 +41,7 @@ typedef struct maia_display_api_t {
  * @brief Input driver callbacks for native modules (Touchscreen & Keyboard).
  */
 typedef struct maia_input_api_t {
+    /* Negative means no valid sample; consumers retain the prior touch state. */
     int32_t (*get_touch)(int32_t *x, int32_t *y, int32_t *pressed);
     int32_t (*read_key)(void); /* Non-blocking: returns char code (0..255) or -1 if empty */
 } maia_input_api_t;
@@ -111,4 +113,3 @@ typedef int (*maia_module_entry_fn)(const maia_module_context_t *ctx);
 #ifdef __cplusplus
 }
 #endif
-

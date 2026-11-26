@@ -35,7 +35,7 @@ static char s_term_lines[TERM_ROWS][TERM_COLS + 1];
 static uint8_t s_term_cur_row = PROMPT_ROW_START;
 static uint8_t s_term_cur_col;
 static uint8_t s_display_ready;
-static int s_exclusive_mode;
+static volatile int s_exclusive_mode;
 static volatile uint32_t s_dirty_rows;
 static uint8_t s_lcd_stack[8192] __attribute__((aligned(16)));
 static uint8_t s_term_stack[2048] __attribute__((aligned(16)));
@@ -217,7 +217,7 @@ static void lcd_task(void *arg) {
 static void terminal_task(void *arg) {
     (void)arg;
     for (;;) {
-        if (s_dirty_rows != 0U) {
+        if (!s_exclusive_mode && s_dirty_rows != 0U) {
             (void)maia_lcd_output_request_update(lcd_draw, NULL);
         }
         maia_task_delay_ticks(20U);
@@ -331,7 +331,12 @@ void maia_display_init(uint32_t panel_type) {
 }
 
 void maia_display_set_exclusive(int exclusive) {
-    s_exclusive_mode = exclusive;
+    uintptr_t irq = maia_arch_irq_save();
+    s_exclusive_mode = exclusive != 0;
+    if (!s_exclusive_mode) {
+        s_dirty_rows = (1UL << TERM_ROWS) - 1UL;
+    }
+    maia_arch_irq_restore(irq);
 }
 
 void maia_display_putc(char ch) {

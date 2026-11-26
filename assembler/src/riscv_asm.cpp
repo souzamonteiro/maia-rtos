@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <string_view>
 
 namespace maia {
 namespace riscv {
@@ -1241,9 +1242,73 @@ struct ParsedLine {
     std::string directive;
     std::string instruction;
     std::vector<std::string> args;
-    std::string section_at_entry;
-    uint32_t pc_at_entry;
 };
+
+struct SourceLine {
+    std::string_view text;
+    int line_num;
+};
+
+static ParsedLine parsePass2Line(const SourceLine& sourceLine) {
+    ParsedLine parsed;
+    parsed.line_num = sourceLine.line_num;
+    std::string raw(sourceLine.text);
+
+    size_t comment = raw.find('#');
+    if (comment != std::string::npos) raw = raw.substr(0, comment);
+    comment = raw.find("//");
+    if (comment != std::string::npos) raw = raw.substr(0, comment);
+    raw = trim(raw);
+    if (raw.empty()) return parsed;
+
+    bool inString = false;
+    size_t colon = std::string::npos;
+    for (size_t i = 0U; i < raw.size(); ++i) {
+        if (raw[i] == '"') inString = !inString;
+        else if (raw[i] == ':' && !inString) {
+            colon = i;
+            break;
+        }
+    }
+    if (colon != std::string::npos) {
+        raw = trim(raw.substr(colon + 1U));
+    }
+    if (raw.empty()) return parsed;
+
+    const size_t space = raw.find_first_of(" \t");
+    if (raw[0] == '.') {
+        parsed.directive = space == std::string::npos ? raw : raw.substr(0, space);
+        const std::string args = space == std::string::npos
+            ? std::string() : trim(raw.substr(space + 1U));
+        std::string argument;
+        bool inQuotes = false;
+        for (char ch : args) {
+            if (ch == '"') inQuotes = !inQuotes;
+            if (ch == ',' && !inQuotes) {
+                parsed.args.push_back(trim(argument));
+                argument.clear();
+            } else {
+                argument += ch;
+            }
+        }
+        if (!argument.empty()) parsed.args.push_back(trim(argument));
+    } else {
+        parsed.instruction = space == std::string::npos ? raw : raw.substr(0, space);
+        const std::string args = space == std::string::npos
+            ? std::string() : trim(raw.substr(space + 1U));
+        std::string argument;
+        for (char ch : args) {
+            if (ch == ',') {
+                parsed.args.push_back(trim(argument));
+                argument.clear();
+            } else {
+                argument += ch;
+            }
+        }
+        if (!argument.empty()) parsed.args.push_back(trim(argument));
+    }
+    return parsed;
+}
 
 bool Assembler::assemble_string(const std::string &source) {
     m_diagnostics.clear();
@@ -1254,14 +1319,24 @@ bool Assembler::assemble_string(const std::string &source) {
 
     set_active_section(".text", SEC_TEXT, 4);
 
-    std::vector<ParsedLine> parsed_lines;
-    std::istringstream stream(source);
-    std::string line_str;
+    std::vector<SourceLine> parsed_lines;
+    parsed_lines.reserve(std::min<size_t>(source.size() / 16U, 512U));
     int line_num = 0;
+    size_t source_offset = 0U;
 
     /* ---------------- Passagem 1: Lexing de Linhas e Coleta de Labels ---------------- */
 
-    while (std::getline(stream, line_str)) {
+    while (source_offset < source.size()) {
+        const size_t line_end = source.find('\n', source_offset);
+        const size_t line_limit = line_end == std::string::npos
+            ? source.size() : line_end;
+        const size_t next_offset = line_end == std::string::npos
+            ? source.size() : line_end + 1U;
+        const SourceLine source_line{
+            std::string_view(source.data() + source_offset, line_limit - source_offset),
+            line_num + 1
+        };
+        std::string line_str(source_line.text);
         line_num++;
         std::string raw = line_str;
 
@@ -1272,12 +1347,13 @@ bool Assembler::assemble_string(const std::string &source) {
         if (c_pos != std::string::npos) raw = raw.substr(0, c_pos);
 
         raw = trim(raw);
-        if (raw.empty()) continue;
+        if (raw.empty()) {
+            source_offset = next_offset;
+            continue;
+        }
 
         ParsedLine pl;
         pl.line_num = line_num;
-        pl.section_at_entry = active_section().name;
-        pl.pc_at_entry = (uint32_t)active_section().data.size();
 
         /* Verifica se há Label ("label:") ignorando colons dentro de aspas */
         bool in_str = false;
@@ -1303,7 +1379,7 @@ bool Assembler::assemble_string(const std::string &source) {
         }
 
         if (raw.empty()) {
-            parsed_lines.push_back(pl);
+            source_offset = next_offset;
             continue;
         }
 
@@ -1438,7 +1514,8 @@ bool Assembler::assemble_string(const std::string &source) {
             }
         }
 
-        parsed_lines.push_back(pl);
+        parsed_lines.push_back(source_line);
+        source_offset = next_offset;
     }
 
     /* ---------------- Passagem 2: Emissão Real dos Bytes e Opcodes ---------------- */
@@ -1460,7 +1537,7 @@ bool Assembler::assemble_string(const std::string &source) {
     m_active_section_idx = -1;
 
     for (size_t i = 0; i < parsed_lines.size(); i++) {
-        const ParsedLine &pl = parsed_lines[i];
+        const ParsedLine pl = parsePass2Line(parsed_lines[i]);
 
         if (!pl.directive.empty()) {
             std::string d = to_lower(pl.directive);

@@ -3,8 +3,12 @@
 #include <maia/arch/irq.h>
 #include "lcd_async.h"
 void maia_lcd_output_test_reset(void);
+void maia_lcd_output_test_set_running(void);
+maia_status_t maia_lcd_output_test_service_edit(void);
+void maia_lcd_output_test_present(void);
 static uintptr_t mask;static maia_task_id_t current;
 static uint64_t ticks;static unsigned prepared,active,paused,pause_requested,pending,notify_bit,frames,waits,cancels,stops,edits,publishes,edit_fail,publish_fail,drawn,timeout_mode,early_stop,drain_once,delays,stop_fails,update_during_run,update_queued,stop_after_frames,swap_pending,first_frame_pending,presented;
+static unsigned preserve_calls,preserve_fail,client_notify;
 static maia_lcd_wake_t wake_fn;static void *wake_arg;
 static void draw(uint16_t *,uint32_t,uint32_t,void *);
 uintptr_t maia_arch_irq_save(void){uintptr_t previous=mask;mask=0;return previous;}
@@ -12,8 +16,15 @@ void maia_arch_irq_restore(uintptr_t saved){mask=saved;}
 maia_task_id_t maia_task_current_id(void){return current;}
 maia_status_t maia_task_get_info(uint32_t id,maia_task_info_t *r){if(id!=7)return MAIA_ERR_INVALID;r->state=MAIA_TASK_READY;return MAIA_OK;}
 uint64_t maia_tick_get(void){return ticks;}
-maia_status_t maia_task_notify(maia_task_id_t id){assert(id==7);notify_bit=1;return MAIA_OK;}
+maia_status_t maia_task_notify(maia_task_id_t id){assert(id==7||id==8);if(id==7)notify_bit=1;else client_notify=1;return MAIA_OK;}
 maia_status_t maia_task_wait_notification(uint32_t timeout){
+ if(current==8){
+  assert(mask==8&&timeout==MAIA_TASK_WAIT_FOREVER);
+  if(client_notify){client_notify=0;return MAIA_OK;}
+  current=7;(void)maia_lcd_output_test_service_edit();
+  maia_lcd_output_test_present();current=8;
+  assert(client_notify);client_notify=0;return MAIA_OK;
+ }
  assert(mask==8&&timeout>0&&timeout<=100);++waits;
  if(notify_bit){notify_bit=0;return MAIA_OK;}
  if(early_stop&&waits==2){assert(maia_lcd_output_request_stop()==MAIA_OK);notify_bit=0;return MAIA_OK;}
@@ -40,6 +51,7 @@ maia_dsi_access_result_t maia_lcd_async_cancel(void){assert(!mask);++cancels;act
 maia_dsi_access_result_t maia_lcd_async_stop(void){assert(!mask&&!active);++stops;if(!stop_fails)prepared=paused=0;return stop_fails?MAIA_DSI_ACCESS_VERIFY:MAIA_DSI_ACCESS_OK;}
 static uint16_t pixels[4];
 uint16_t *maia_lcd_async_edit_begin(void){assert(!mask&&prepared&&!swap_pending&&!first_frame_pending);++edits;return edit_fail?0:pixels;}
+int maia_lcd_async_edit_preserve(void){assert(mask==8&&prepared);++preserve_calls;return !preserve_fail;}
 maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
  assert(mask==8&&prepared);++publishes;if(publish_fail)return MAIA_DSI_ACCESS_VERIFY;
  if(active)swap_pending=1;else first_frame_pending=1;return MAIA_DSI_ACCESS_OK;
@@ -49,7 +61,7 @@ static void draw(uint16_t *p,uint32_t w,uint32_t h,void *arg){
  assert(maia_lcd_output_request_update(draw,arg)==MAIA_ERR_BUSY);
  p[0]=0xF800;
 }
-static void setup(void){maia_lcd_output_test_reset();mask=0;current=-1;ticks=0;prepared=active=paused=pause_requested=pending=notify_bit=frames=waits=cancels=stops=edits=publishes=edit_fail=publish_fail=drawn=timeout_mode=early_stop=drain_once=delays=stop_fails=update_during_run=update_queued=swap_pending=first_frame_pending=presented=0;stop_after_frames=2;}
+static void setup(void){maia_lcd_output_test_reset();mask=0;current=-1;ticks=0;prepared=active=paused=pause_requested=pending=notify_bit=frames=waits=cancels=stops=edits=publishes=edit_fail=publish_fail=drawn=timeout_mode=early_stop=drain_once=delays=stop_fails=update_during_run=update_queued=swap_pending=first_frame_pending=presented=preserve_calls=preserve_fail=client_notify=0;stop_after_frames=2;}
 int main(void){
  maia_lcd_output_stats_t r;
  setup();assert(maia_lcd_output_request_stop()==MAIA_ERR_INVALID);
@@ -70,6 +82,19 @@ int main(void){
  setup();assert(maia_lcd_output_init(7)==MAIA_OK);mask=8;current=7;update_during_run=1;stop_after_frames=4;
  assert(maia_lcd_output_run()==MAIA_OK&&drawn==1&&frames==5&&edits==1&&publishes==1);
  assert(maia_lcd_output_stats(&r)==MAIA_OK&&r.updates==1&&r.presented==1&&r.frames==5);
+
+ setup();assert(maia_lcd_output_init(7)==MAIA_OK);maia_lcd_output_test_set_running();current=8;mask=8;
+ uint16_t *leased=0;assert(maia_lcd_output_edit_begin(&leased)==MAIA_OK&&leased==pixels&&preserve_calls==1);
+ assert(maia_lcd_output_request_update(draw,&drawn)==MAIA_ERR_BUSY);
+ assert(maia_lcd_output_request_stop()==MAIA_ERR_BUSY);
+ uint16_t *other=0;current=9;assert(maia_lcd_output_edit_begin(&other)==MAIA_ERR_BUSY&&other==0);
+ current=8;
+ leased[0]=0x07E0;assert(maia_lcd_output_edit_publish()==MAIA_OK);
+ assert(publishes==1&&maia_lcd_output_stats(&r)==MAIA_OK&&r.updates==1&&r.presented==1);
+ current=7;mask=8;assert(maia_lcd_output_request_stop()==MAIA_OK);
+
+ setup();assert(maia_lcd_output_init(7)==MAIA_OK);maia_lcd_output_test_set_running();current=8;mask=8;preserve_fail=1;
+ leased=0;assert(maia_lcd_output_edit_begin(&leased)==MAIA_ERR_BUSY&&leased==0&&preserve_calls==1);
 
  setup();assert(maia_lcd_output_init(7)==MAIA_OK);mask=8;current=7;
  assert(maia_lcd_output_request_update(draw,&drawn)==MAIA_OK);

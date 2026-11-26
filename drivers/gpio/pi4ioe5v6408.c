@@ -17,6 +17,11 @@ maia_i2c_result_t maia_pi4io_read_config(const maia_i2c_lines_t *bus,
     if (!config(address, reg)) return MAIA_I2C_INVALID;
     return maia_i2c_read_register8(bus, address, reg, out);
 }
+maia_i2c_result_t maia_pi4io_read_input_status(maia_i2c_bus_t *bus,
+                                               uint8_t address, uint8_t *out) {
+    if (!bus || !out || (address != 0x43U && address != 0x44U)) return MAIA_I2C_INVALID;
+    return maia_i2c_bus_read8(bus, address, MAIA_PI4IO_INPUT_STATUS, out, 1U);
+}
 maia_i2c_result_t maia_pi4io_update_config(const maia_i2c_lines_t *bus,
                                          uint8_t address, uint8_t reg,
                                          uint8_t mask, uint8_t value) {

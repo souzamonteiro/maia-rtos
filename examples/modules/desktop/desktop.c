@@ -48,6 +48,7 @@ typedef struct {
 } desktop_app_t;
 
 static desktop_app_t g_apps[MAX_DESKTOP_APPS];
+static char g_manifest_json[512];
 static int g_app_count = 0;
 
 /* String helpers */
@@ -340,27 +341,28 @@ static void scan_manifests(void) {
         if (g_app_count >= MAX_DESKTOP_APPS) break;
         const char *p = manifest_paths[i];
 
-        char json[512] = {0};
+        g_manifest_json[0] = '\0';
         bool read_ok = false;
         if (g_gui_ctx && g_gui_ctx->host && g_gui_ctx->host->read_text_file) {
-            int rd = g_gui_ctx->host->read_text_file(p, json, sizeof(json) - 1);
-            if (rd > 0) { json[rd] = '\0'; read_ok = true; }
+            int rd = g_gui_ctx->host->read_text_file(
+                p, g_manifest_json, sizeof(g_manifest_json) - 1);
+            if (rd > 0) { g_manifest_json[rd] = '\0'; read_ok = true; }
         }
 
         desktop_app_t *app = &g_apps[g_app_count];
         memset(app, 0, sizeof(desktop_app_t));
 
         if (read_ok) {
-            json_get_string(json, "name", app->name, sizeof(app->name));
-            json_get_string(json, "title", app->title, sizeof(app->title));
-            json_get_string(json, "icon", app->icon, sizeof(app->icon));
+            json_get_string(g_manifest_json, "name", app->name, sizeof(app->name));
+            json_get_string(g_manifest_json, "title", app->title, sizeof(app->title));
+            json_get_string(g_manifest_json, "icon", app->icon, sizeof(app->icon));
             char col_str[16];
-            json_get_string(json, "color", col_str, sizeof(col_str));
+            json_get_string(g_manifest_json, "color", col_str, sizeof(col_str));
             app->color = parse_hex_color(col_str);
             char hk[4];
-            json_get_string(json, "hotkey", hk, sizeof(hk));
+            json_get_string(g_manifest_json, "hotkey", hk, sizeof(hk));
             app->hotkey = hk[0];
-            json_get_string(json, "exec", app->exec_path, sizeof(app->exec_path));
+            json_get_string(g_manifest_json, "exec", app->exec_path, sizeof(app->exec_path));
         } else {
             /* Defaults */
             if (i == 0) { str_copy(app->name, "files", 24); str_copy(app->title, "Files", 24); str_copy(app->icon, "files", 16); app->color = COLOR_GOLD; app->hotkey = 'f'; str_copy(app->exec_path, "/sd/apps/files.mobj", 80); }

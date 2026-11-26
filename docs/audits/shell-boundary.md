@@ -33,7 +33,7 @@ O MaiaShell atualmente interage com o ambiente por meio das seguintes chamadas d
    - Todos operam sobre o ponto de montagem VFS `/sd` suportado pelo driver de 4 bits SDMMC do ESP32-P4.
 
 3. **Carregamento e Relocação Nativa:**
-   - `mnm_load_and_run`: função pura C sem dependência de SO, aloca memória executável em `sram_low`, aplica relocação ELF32, invoca a barreira de sincronização de cache `esp_cache_msync` / `fence.i`, e despacha a execução para `maia_module_main(&ctx)`.
+   - `mnm_load_and_run` mantém a API para ELF já em memória; `mnm_load_and_run_reader` valida e lê metadados, seções e relocações por offsets via callback. `runelf` em arquivo não mantém uma cópia integral do `.mobj` no heap: apenas a imagem executável é alocada em SRAM interna, seguida pela sincronização de cache e despacho para `maia_module_main(&ctx)`.
 
 ---
 

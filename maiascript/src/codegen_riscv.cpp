@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <algorithm>
 #include <cstring>
+#include <string_view>
+#include <utility>
 
 namespace maiascript {
 
@@ -406,22 +408,19 @@ std::string CodegenRISCV::generateAssembly(const std::shared_ptr<Program>& progr
         out << "\n";
     }
 
-    return optimizeAssembly(out.str());
+    std::string rawAssembly = out.str();
+    out.str(std::string());
+    out.clear();
+    std::string assembly = optimizeAssembly(std::move(rawAssembly));
+    return assembly;
 }
 
-std::string CodegenRISCV::optimizeAssembly(const std::string& input) {
-    std::vector<std::string> lines;
-    std::stringstream in(input);
-    std::string line;
-    while (std::getline(in, line)) {
-        lines.push_back(line);
-    }
-
-    auto trim_str = [](const std::string& s) -> std::string {
-        size_t b = s.find_first_not_of(" \t\r\n");
-        if (b == std::string::npos) return "";
-        size_t e = s.find_last_not_of(" \t\r\n");
-        return s.substr(b, e - b + 1);
+std::string CodegenRISCV::optimizeAssembly(std::string input) {
+    auto trim = [](std::string_view text) -> std::string_view {
+        const size_t first = text.find_first_not_of(" \t\r\n");
+        if (first == std::string_view::npos) return {};
+        const size_t last = text.find_last_not_of(" \t\r\n");
+        return text.substr(first, last - first + 1U);
     };
 
     bool changed = true;
@@ -429,77 +428,103 @@ std::string CodegenRISCV::optimizeAssembly(const std::string& input) {
     while (changed && passes < 10) {
         changed = false;
         passes++;
-        std::vector<std::string> next_lines;
-        for (size_t i = 0; i < lines.size(); ++i) {
-            std::string cur = lines[i];
-            std::string cur_t = trim_str(cur);
+        std::string next;
+        next.reserve(input.size());
+        size_t offset = 0U;
+        while (offset < input.size()) {
+            const size_t lineEnd = input.find('\n', offset);
+            const size_t currentEnd = lineEnd == std::string::npos
+                ? input.size() : lineEnd;
+            const std::string_view current(input.data() + offset,
+                                           currentEnd - offset);
+            const size_t nextStart = lineEnd == std::string::npos
+                ? input.size() : lineEnd + 1U;
+            const size_t nextEnd = nextStart < input.size()
+                ? input.find('\n', nextStart) : std::string::npos;
+            const bool hasNext = nextStart < input.size();
+            const std::string_view following = hasNext
+                ? std::string_view(input.data() + nextStart,
+                    (nextEnd == std::string::npos ? input.size() : nextEnd) - nextStart)
+                : std::string_view();
+            const std::string_view currentTrimmed = trim(current);
+            const std::string_view followingTrimmed = trim(following);
+            size_t nextOffset = nextStart;
 
             // 1. Remove NOP: addi r, r, 0 or mv r, r
-            if (cur_t.rfind("addi ", 0) == 0) {
-                std::string rest = cur_t.substr(5);
-                size_t c1 = rest.find(',');
-                size_t c2 = rest.rfind(',');
-                if (c1 != std::string::npos && c2 != std::string::npos && c1 < c2) {
-                    std::string r1 = trim_str(rest.substr(0, c1));
-                    std::string r2 = trim_str(rest.substr(c1 + 1, c2 - c1 - 1));
-                    std::string imm = trim_str(rest.substr(c2 + 1));
+            if (currentTrimmed.rfind("addi ", 0) == 0) {
+                const std::string_view rest = currentTrimmed.substr(5);
+                const size_t c1 = rest.find(',');
+                const size_t c2 = rest.rfind(',');
+                if (c1 != std::string_view::npos &&
+                    c2 != std::string_view::npos && c1 < c2) {
+                    const std::string_view r1 = trim(rest.substr(0, c1));
+                    const std::string_view r2 = trim(rest.substr(c1 + 1, c2 - c1 - 1));
+                    const std::string_view imm = trim(rest.substr(c2 + 1));
                     if (r1 == r2 && imm == "0") {
                         changed = true;
+                        offset = nextStart;
                         continue;
                     }
                 }
             }
-            if (cur_t.rfind("mv ", 0) == 0) {
-                std::string rest = cur_t.substr(3);
-                size_t c = rest.find(',');
-                if (c != std::string::npos) {
-                    std::string r1 = trim_str(rest.substr(0, c));
-                    std::string r2 = trim_str(rest.substr(c + 1));
+            if (currentTrimmed.rfind("mv ", 0) == 0) {
+                const std::string_view rest = currentTrimmed.substr(3);
+                const size_t c = rest.find(',');
+                if (c != std::string_view::npos) {
+                    const std::string_view r1 = trim(rest.substr(0, c));
+                    const std::string_view r2 = trim(rest.substr(c + 1));
                     if (r1 == r2) {
                         changed = true;
+                        offset = nextStart;
                         continue;
                     }
                 }
             }
 
             // 2. Lookahead optimizations
-            if (i + 1 < lines.size()) {
-                std::string next = lines[i + 1];
-                std::string next_t = trim_str(next);
-
+            if (hasNext) {
                 // 2a. sw r, off(sp) followed immediately by lw r, off(sp)
-                if (cur_t.rfind("sw ", 0) == 0 && next_t.rfind("lw ", 0) == 0) {
-                    std::string sw_rest = cur_t.substr(3);
-                    std::string lw_rest = next_t.substr(3);
+                if (currentTrimmed.rfind("sw ", 0) == 0 &&
+                    followingTrimmed.rfind("lw ", 0) == 0) {
+                    const std::string_view sw_rest = currentTrimmed.substr(3);
+                    const std::string_view lw_rest = followingTrimmed.substr(3);
                     if (sw_rest == lw_rest) {
-                        next_lines.push_back(cur);
-                        i++; // skip lw
+                        next.append(current.data(), current.size());
+                        next.push_back('\n');
+                        nextOffset = nextEnd == std::string::npos
+                            ? input.size() : nextEnd + 1U;
                         changed = true;
+                        offset = nextOffset;
                         continue;
                     }
                 }
 
                 // 2b. Jump to immediate next label: j .L or jal zero, .L followed by .L:
-                if (cur_t.rfind("jal zero, ", 0) == 0 || cur_t.rfind("j ", 0) == 0) {
-                    std::string tgt = (cur_t.rfind("jal zero, ", 0) == 0) ? cur_t.substr(10) : cur_t.substr(2);
-                    tgt = trim_str(tgt);
-                    if (next_t == tgt + ":") {
+                if (currentTrimmed.rfind("jal zero, ", 0) == 0 ||
+                    currentTrimmed.rfind("j ", 0) == 0) {
+                    const std::string_view target = trim(
+                        currentTrimmed.rfind("jal zero, ", 0) == 0
+                            ? currentTrimmed.substr(10)
+                            : currentTrimmed.substr(2));
+                    const bool nextIsTargetLabel =
+                        followingTrimmed.size() == target.size() + 1U &&
+                        followingTrimmed.substr(0, target.size()) == target &&
+                        followingTrimmed.back() == ':';
+                    if (nextIsTargetLabel) {
                         changed = true;
+                        offset = nextStart;
                         continue; // drop jump to next line
                     }
                 }
             }
 
-            next_lines.push_back(cur);
+            next.append(current.data(), current.size());
+            next.push_back('\n');
+            offset = nextStart;
         }
-        lines = next_lines;
+        input.swap(next);
     }
-
-    std::stringstream out;
-    for (const auto& l : lines) {
-        out << l << "\n";
-    }
-    return out.str();
+    return input;
 }
 
 void CodegenRISCV::emitFunction(const std::shared_ptr<FunctionDecl>& fn, std::stringstream& out) {

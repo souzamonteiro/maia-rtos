@@ -525,3 +525,22 @@ The warm-reset capture identified `VO2_ENABLED` and `DIVIDER_NOT_XTAL`
 This explains the warm-state refusal only; it does not validate the required
 cold-entry profile, electrical startup, PSRAM contents or the LCD/touch
 pipeline. Keep the entry guards unchanged.
+
+- [ ] **UQ-017 (Native SPI Flash KV qualification):** The Tab5 now passes
+  functional read/set/erase/remove and reboot-persistence checks in the
+  dedicated `0xC74000..0xC77FFF` region using the SRAM-resident ROM guard.
+  `copilot_probe` was absent; the temporary `mkvp_221758` value was read back
+  after reset, deleted, and confirmed absent after another reset. The runner
+  restored and hash-verified the original app. Still open: single-core
+  interrupt/tick latency and power-loss behavior; neither secure erase of the
+  previous snapshot nor power-loss recovery is claimed. See the MaiaKV section
+  in `EVIDENCE.md`.
+
+- [x] **UQ-018 (Native MaiaScript compiler memory/complexity — resolved for the MaiaKV wrapper):** The original `import maia.kv` probe with `kv.contains`, `isError()`, and `42 + r.value()` compiled and returned 42 on a clean Tab5 image. The stall was caused by the L2 heap lacking a contiguous 8 KiB block when the assembly `stringstream` grew past 4 KiB, not by parser complexity or shell-stack exhaustion. A 49 KiB heap / 16 KiB shell-stack configuration passed the hardware probe; host compiler/AST tests and assembler tests passed. See the clean capture at `../../../maia-rtos-recovery/maia-kv-device-original-clean-heap49-20261122/`. Larger-module limits and broader resource qualification remain open; no PSRAM general-purpose-heap assumption is made.
+
+- [ ] **UQ-019 (RX8130CE time initialization):** The read-only native driver
+  reaches the physical RTC over the shared I2C bus, but the Tab5 returned
+  `month=0x00` and weekday `0x0C` (multiple weekday bits), so the calendar is
+  invalid; VLF is clear. Decide an authoritative time source/value before
+  adding or invoking any RTC write path. No RTC registers were changed during
+  the read probe; the original app was restored and hash-verified.

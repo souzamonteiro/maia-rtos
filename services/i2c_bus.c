@@ -33,6 +33,10 @@ maia_i2c_result_t maia_i2c_bus_write8(maia_i2c_bus_t *b,uint8_t address,uint8_t 
     maia_i2c_result_t r=begin(b);if(r!=MAIA_I2C_OK)return r;
     return end(b,maia_i2c_write_register8(b->lines,address,reg,value));
 }
+maia_i2c_result_t maia_i2c_bus_write8_block(maia_i2c_bus_t *b,uint8_t address,uint8_t reg,const uint8_t *data,uint32_t count){
+    maia_i2c_result_t r=begin(b);if(r!=MAIA_I2C_OK)return r;
+    return end(b,maia_i2c_write_register8_block(b->lines,address,reg,data,count));
+}
 static maia_status_t transition(maia_i2c_bus_t *b,unsigned from,unsigned to){
     if(!b)return MAIA_ERR_INVALID;
     uintptr_t irq=maia_arch_irq_save();maia_status_t r=MAIA_OK;

@@ -4,6 +4,9 @@
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia_shell/shell_engine.h>
 #include <maia_shell/maia_shell.hpp>
+#if defined(MAIA_NATIVE_LCD_DISPLAY)
+#include <maia/services/native_display.h>
+#endif
 
 static maia_input_api_t s_shell_input_api = {
     .get_touch = [](int32_t *x, int32_t *y, int32_t *pressed) -> int32_t {
@@ -102,8 +105,13 @@ static void shell_console_out(const char *str) {
 void maia_shell_engine_init(void) {
     s_shell.init(shell_console_out);
     MaiaShell::set_input_driver(&s_shell_input_api);
+#if defined(MAIA_NATIVE_LCD_DISPLAY)
+    MaiaShell::set_display_driver(maia_native_display_api());
+    maia_console_puts("[DISPLAY] Native module graphics integrated with LCD service\n");
+#else
     MaiaShell::set_display_driver(nullptr);
     maia_console_puts("[DISPLAY] Native module graphics unavailable (framebuffer ownership not integrated)\n");
+#endif
     s_line_len = 0;
     s_line_buf[0] = '\0';
 }

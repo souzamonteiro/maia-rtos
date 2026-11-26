@@ -188,15 +188,26 @@ occur after earlier chunks were accepted; failed redirections are not committed
 to the target file. This is not a binary-capable file-descriptor implementation
 or a complete realization of the draft error-code contract.
 
-**Native shell graphics capability:** `host->display` is currently NULL.
-The native LCD service owns its double buffers and accepts complete frames
-through its draw callback; it does not grant modules a persistent framebuffer.
-Modules must check the display table and its callbacks before use. The loader's
-imported `fill_rect` wrapper returns `-1` when no implementation is available;
-the existing `display_sync` wrapper returns `void` and cannot report this.
-This capability gate does not prevent an application that ignores missing
-graphics from running without a visible UI. The ESP-based display adapter is
-separate and is not changed by this native gate.
+**Native P4 graphics:** the product build now provides `host->display` with
+logical 1280x720 RGB565 `put_pixel`/`fill_rect` operations. The first primitive
+in a batch asks the LCD owner for a backbuffer lease, seeded from the currently
+displayed frame; the module edits only that borrowed buffer. `sync` publishes
+the lease and waits for presentation. The native API intentionally returns
+NULL from `get_framebuffer`: callers must not retain or write a framebuffer
+pointer outside the lease. Coordinates are rotated to the panel's physical
+720x1280 layout. Exclusive mode is scoped to nested module execution; on final
+return the loader flushes any open batch and the terminal is redrawn.
+
+The LCD owner serializes module leases with terminal updates and retains
+ownership of both PSRAM buffers. The DMA reads the front buffer while the
+owner copies it to the back buffer; publication uses the existing PSRAM
+write-back path before the frame-boundary swap. `sync` is still `void`, so
+transaction failures are logged rather than returned by that callback. Primitive
+callbacks return errors, although existing `gui_kit` helpers ignore them.
+Host tests and the P4 firmware build pass; visual validation of the desktop and
+SciCalc on the device is still pending. Full-frame copy/cache costs have no
+measured bandwidth or WCET bound. The ESP-based display adapter is separate
+and is not changed by this native implementation.
 
 ### 5.5 Toolchain and packaging
 

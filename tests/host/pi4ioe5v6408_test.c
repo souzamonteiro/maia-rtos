@@ -3,9 +3,13 @@
 #include <stdlib.h>
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"line %d: %s\n",__LINE__,#x); exit(1); } } while(0)
 static maia_i2c_lines_t bus;
+static maia_i2c_bus_t managed_bus;
 static unsigned reads,writes,fail_at,corrupt;
 static uint8_t current,written;
 static maia_i2c_result_t error;
+static unsigned managed_reads;
+static uint8_t input_status;
+static maia_i2c_result_t managed_error;
 static void reset(uint8_t old) { reads=0U;writes=0U;fail_at=0U;corrupt=0U;current=old;error=MAIA_I2C_NACK; }
 maia_i2c_result_t maia_i2c_read_register8(const maia_i2c_lines_t *b,uint8_t address,uint8_t reg,uint8_t *out) {
     CHECK(b == &bus && (address == 0x43U || address == 0x44U));(void)reg;
@@ -18,6 +22,14 @@ maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *b,uint8_t add
     CHECK(b == &bus && (address == 0x43U || address == 0x44U));(void)reg;
     ++writes;written=value;current=value; /* An error may follow application. */
     return reads+writes == fail_at ? error : MAIA_I2C_OK;
+}
+maia_i2c_result_t maia_i2c_bus_read8(maia_i2c_bus_t *b,uint8_t address,uint8_t reg,uint8_t *out,uint32_t bytes) {
+    CHECK(b == &managed_bus);
+    ++managed_reads;
+    CHECK((address == 0x43U || address == 0x44U) && reg == MAIA_PI4IO_INPUT_STATUS && bytes == 1U);
+    if (managed_error != MAIA_I2C_OK) return managed_error;
+    *out = input_status;
+    return MAIA_I2C_OK;
 }
 int main(void) {
     for (unsigned old=0U;old<256U;++old) for (unsigned mask=0U;mask<256U;++mask) {
@@ -52,6 +64,17 @@ int main(void) {
     }
     reset(0);
     CHECK(maia_pi4io_update_config(&bus,0x43U,5U,0x10U,0x01U) == MAIA_I2C_INVALID && !reads && !writes);
+    managed_reads=0U;input_status=0x40U;managed_error=MAIA_I2C_OK;
+    uint8_t input=0xA5U;
+    CHECK(maia_pi4io_read_input_status(&managed_bus,0x44U,&input) == MAIA_I2C_OK);
+    CHECK(input == input_status && managed_reads == 1U);
+    input=0xA5U;managed_error=MAIA_I2C_BUSY;
+    CHECK(maia_pi4io_read_input_status(&managed_bus,0x44U,&input) == MAIA_I2C_BUSY);
+    CHECK(input == 0xA5U && managed_reads == 2U);
+    CHECK(maia_pi4io_read_input_status(NULL,0x44U,&input) == MAIA_I2C_INVALID);
+    CHECK(maia_pi4io_read_input_status(&managed_bus,0x42U,&input) == MAIA_I2C_INVALID);
+    CHECK(maia_pi4io_read_input_status(&managed_bus,0x44U,NULL) == MAIA_I2C_INVALID);
+    CHECK(managed_reads == 2U);
     puts("PASS: 65536 bit-preserving updates, no-op, stage failures, full-byte verify and register/address policy");
     return 0;
 }

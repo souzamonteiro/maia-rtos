@@ -99,6 +99,51 @@ int main() {
     s_last_out[0] = '\0';
     assert(shell.execute("ls") == 0);
     assert(strstr(s_last_out, "poc.txt (8 bytes)") != nullptr);
+
+    char transfer_path[256];
+    char preserved_path[256];
+    char empty_path[256];
+    snprintf(transfer_path, sizeof(transfer_path), "%s/transfer.bin", temp_dir);
+    snprintf(preserved_path, sizeof(preserved_path), "%s/preserved.bin", temp_dir);
+    snprintf(empty_path, sizeof(empty_path), "%s/empty.bin", temp_dir);
+    snprintf(command, sizeof(command), "hexwrite %s 4142", transfer_path);
+    assert(shell.execute(command) == 0);
+    snprintf(command, sizeof(command), "hexwrite -a %s 4344", transfer_path);
+    assert(shell.execute(command) == 0);
+    FILE *transfer = fopen(transfer_path, "rb");
+    assert(transfer != nullptr);
+    char transfer_data[4];
+    assert(fread(transfer_data, 1, sizeof(transfer_data), transfer) == sizeof(transfer_data));
+    assert(fclose(transfer) == 0);
+    assert(memcmp(transfer_data, "ABCD", sizeof(transfer_data)) == 0);
+
+    FILE *preserved = fopen(preserved_path, "wb");
+    assert(preserved != nullptr);
+    assert(fwrite("keep", 1, 4, preserved) == 4);
+    assert(fclose(preserved) == 0);
+    s_last_out[0] = '\0';
+    snprintf(command, sizeof(command), "hexwrite %s 4g", preserved_path);
+    assert(shell.execute(command) == 1);
+    assert(strstr(s_last_out, "invalid hex data") != nullptr);
+    preserved = fopen(preserved_path, "rb");
+    assert(preserved != nullptr);
+    char preserved_data[4];
+    assert(fread(preserved_data, 1, sizeof(preserved_data), preserved) == sizeof(preserved_data));
+    assert(fclose(preserved) == 0);
+    assert(memcmp(preserved_data, "keep", sizeof(preserved_data)) == 0);
+
+    snprintf(command, sizeof(command), "hexwrite %s --empty", empty_path);
+    assert(shell.execute(command) == 0);
+    struct stat empty_info;
+    assert(stat(empty_path, &empty_info) == 0);
+    assert(empty_info.st_size == 0);
+    snprintf(command, sizeof(command), "rm %s", transfer_path);
+    assert(shell.execute(command) == 0);
+    snprintf(command, sizeof(command), "rm %s", preserved_path);
+    assert(shell.execute(command) == 0);
+    snprintf(command, sizeof(command), "rm %s", empty_path);
+    assert(shell.execute(command) == 0);
+
     assert(shell.execute("mkdir held") == 0);
     shell.execute("if mkdir held; then echo WRONG > poc.txt; fi");
     s_last_out[0] = '\0';

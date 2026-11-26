@@ -147,10 +147,16 @@ maia_i2c_result_t maia_i2c_read_register8_block(const maia_i2c_lines_t *b,
 }
 maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *b,
                                         uint8_t address, uint8_t reg, uint8_t value) {
-    if (!valid(b, address)) return MAIA_I2C_INVALID;
+    return maia_i2c_write_register8_block(b, address, reg, &value, 1U);
+}
+maia_i2c_result_t maia_i2c_write_register8_block(const maia_i2c_lines_t *b,
+                                        uint8_t address, uint8_t reg, const uint8_t *data, uint32_t bytes) {
+    if (!valid(b, address) || !data || !bytes || bytes > 70U) return MAIA_I2C_INVALID;
     maia_i2c_result_t r = start(b);
     if (r == MAIA_I2C_OK) r = send(b, (uint8_t)(address << 1U));
     if (r == MAIA_I2C_OK) r = send(b, reg);
-    if (r == MAIA_I2C_OK) r = send(b, value);
+    for (uint32_t i = 0U; i < bytes && r == MAIA_I2C_OK; ++i) {
+        r = send(b, data[i]);
+    }
     return finish(b, r);
 }

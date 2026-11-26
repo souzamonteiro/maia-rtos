@@ -126,6 +126,16 @@ typedef struct {
 #define ELF_ERR_NOT_RISCV         -8
 #define ELF_ERR_BAD_SHOFF         -9
 #define ELF_ERR_BAD_SHSTRNDX      -10
+#define ELF_ERR_IO                -11
+
+typedef int (*elf_read_at_fn)(void *context, size_t offset,
+                              void *buffer, size_t length);
+
+typedef struct elf_reader {
+    elf_read_at_fn read_at;
+    void *context;
+    size_t size;
+} elf_reader_t;
 
 /**
  * @brief Strictly validate an in-memory buffer as a trusted RISC-V ELF32 ET_REL object.
@@ -138,7 +148,14 @@ typedef struct {
  */
 int elf_validate_relocatable(const void *data, size_t size, char *report, size_t report_max);
 
+/**
+ * @brief Validate an ELF object using bounded random-access reads.
+ *
+ * The callback returns zero only when the requested range was read in full.
+ */
+int elf_validate_relocatable_reader(const elf_reader_t *reader,
+                                    char *report, size_t report_max);
+
 #ifdef __cplusplus
 }
 #endif
-

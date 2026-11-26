@@ -58,6 +58,10 @@ maia_i2c_result_t maia_i2c_read_register8_block(const maia_i2c_lines_t *bus,
     uint8_t address, uint8_t reg, uint8_t *out, uint32_t bytes);
 maia_i2c_result_t maia_i2c_write_register8(const maia_i2c_lines_t *bus,
                                         uint8_t address, uint8_t reg, uint8_t value);
+/* Sequential register write,1..70 bytes. On failure, a prefix may have reached
+ * the device; callers must not assume rollback or blindly retry. */
+maia_i2c_result_t maia_i2c_write_register8_block(const maia_i2c_lines_t *bus,
+    uint8_t address, uint8_t reg, const uint8_t *data, uint32_t bytes);
 #ifdef __cplusplus
 }
 #endif

@@ -223,7 +223,9 @@ namespace matrix {
 ---
 
 ### 3.5 Module `maia.fs` (or `fs`)
-Direct VFS file input/output interfacing with the SD Card and SPI Flash.
+Direct VFS file input/output currently targets the SD card. The native Tab5
+profile exposes MaiaKV through `maia.kv`; it is a separate settings store and
+does not provide direct file access to SPI Flash.
 
 ```maiascript
 enum FileMode {
@@ -268,7 +270,43 @@ namespace fs {
 
 ---
 
-### 3.6 Module `maia.ui` (or `ui`)
+### 3.6 Module `maia.kv` (native Tab5 profile)
+
+`maia.kv` stores infrequent textual settings in the dedicated MaiaKV flash
+region. Keys are limited to 31 bytes and values to 1024 bytes; values containing
+an embedded NUL are not exposed as MaiaScript strings. The returned string from
+`get` is allocated and must be released with `freeText`. Errors use
+`Result<T, i32>` with positive MaiaKV error codes.
+
+```maiascript
+import maia.kv;
+
+i32 saveTheme() {
+    Result<i32, i32> saved = kv.set("theme", "dark");
+    if (saved.isError()) {
+        return saved.error();
+    }
+
+    Result<string, i32> loaded = kv.get("theme");
+    if (loaded.isError()) {
+        return loaded.error();
+    }
+
+    string value = loaded.value();
+    i32 matches = value[0] == 100;
+    kv.freeText(value);
+    return matches;
+}
+```
+
+`contains` returns `Result<i32, i32>` where the successful value is 0 or 1;
+`remove` returns `Result<i32, i32>`. This module is registered only by the
+native Tab5 product profile. The SPI Flash backend has not yet been qualified
+on the physical device. To compile scripts on the device, deploy
+[`kv.ms`](../lib/maia/kv.ms) as `/sd/lib/maia/kv.ms`; automated transfer is
+still pending in the `maia.py` work item.
+
+### 3.7 Module `maia.ui` (or `ui`)
 Desktop graphical user interface over LVGL using opaque Capability Handles.
 
 ```maiascript
@@ -332,7 +370,7 @@ namespace ui {
 | `core.matrix(val, r, c)` | `matrix.create(r, c, val)` | Contiguous PSRAM allocation instead of dynamic JS array |
 | `core.add(a, b)` | `a + b` | Native machine instruction (`add` / `fadd.s`) |
 | `core.push(arr, val)` | `slice[idx] = val` | Bounded slice write; eliminates realloc storms |
-| `core.openSQLDatabase(...)` | *Deprecated* | Replaced by `maia.fs` or `maia.kv` persistent storage |
+| `core.openSQLDatabase(...)` | *Deprecated* | Replaced by `maia.fs` for files or `maia.kv` for small persistent settings |
 | `core.eval(script)` | *Deprecated* | AOT / on-the-go compiler (`maiasc`) creates native ELFs |
 | `system.print(text)` | `system.print(text)` | Direct terminal UART/framebuffer emission |
 | `system.println(text)` | `system.println(text)` | Direct terminal emission with newline |

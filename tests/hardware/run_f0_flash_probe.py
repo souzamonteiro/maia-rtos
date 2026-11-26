@@ -54,8 +54,17 @@ def image_length(data):
     return offset
 
 
+def send_input(ser, data, log):
+    written = ser.write(data)
+    if written != len(data):
+        raise RuntimeError(f"short serial input write: {written}/{len(data)} bytes")
+    ser.flush()
+    log.write(f"\n[HOST] SENT_INPUT bytes={len(data)} hex={data.hex()}\n")
+    log.flush()
+
+
 def capture(port, seconds, log, marker=None, observe_seconds=0.0,
-            input_marker=None, input_data=None):
+            input_marker=None, input_data=None, input_line_delay=0.0):
     ser = serial.Serial()
     ser.port = port
     ser.baudrate = 115200
@@ -65,6 +74,8 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0,
     text = ""
     marker_seen = False
     input_sent = False
+    pending_lines = []
+    next_line_at = 0.0
     try:
         ser.open()
         ser.rts = True
@@ -72,6 +83,9 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0,
         ser.rts = False
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
+            if pending_lines and time.monotonic() >= next_line_at:
+                send_input(ser, pending_lines.pop(0), log)
+                next_line_at = time.monotonic() + input_line_delay
             try:
                 chunk = ser.read(4096)
             except serial.SerialException:
@@ -88,18 +102,12 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0,
                 log.write(decoded)
                 log.flush()
                 if input_marker and not input_sent and input_marker in text:
-                    written = ser.write(input_data)
-                    if written != len(input_data):
-                        raise RuntimeError(
-                            f"short serial input write: {written}/{len(input_data)} bytes"
-                        )
-                    ser.flush()
+                    if input_line_delay > 0:
+                        pending_lines = input_data.splitlines(keepends=True)
+                        next_line_at = time.monotonic()
+                    else:
+                        send_input(ser, input_data, log)
                     input_sent = True
-                    log.write(
-                        f"\n[HOST] SENT_INPUT bytes={len(input_data)} "
-                        f"hex={input_data.hex()}\n"
-                    )
-                    log.flush()
                 if marker and ("MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text):
                     break
                 if marker and not marker_seen and marker in text:
@@ -116,6 +124,8 @@ def capture(port, seconds, log, marker=None, observe_seconds=0.0,
         ser.close()
     if input_marker and not input_sent:
         raise RuntimeError(f"input marker {input_marker!r} was not seen; input was not sent")
+    if pending_lines:
+        raise RuntimeError(f"capture ended with {len(pending_lines)} input line(s) unsent")
     return text
 
 
@@ -143,6 +153,8 @@ def main():
                         help="hex bytes to send after --input-marker appears")
     parser.add_argument("--observe-seconds", type=float, default=0.0,
                         help="keep capturing for up to 120 seconds after the marker for visual inspection")
+    parser.add_argument("--input-line-delay", type=float, default=0.0,
+                        help="send --input-hex one line at a time, this many seconds apart")
     args = parser.parse_args()
 
     if args.boots < 1:
@@ -151,6 +163,8 @@ def main():
         parser.error("--capture-seconds must be finite and positive")
     if not 0 <= args.observe_seconds <= 120:
         parser.error("--observe-seconds must be between 0 and 120")
+    if not math.isfinite(args.input_line_delay) or not 0 <= args.input_line_delay <= 30:
+        parser.error("--input-line-delay must be between 0 and 30 seconds")
     if not args.marker:
         parser.error("--marker must not be empty")
     if (args.input_marker is None) != (args.input_hex is None):
@@ -204,7 +218,8 @@ def main():
             for boot in range(args.boots):
                 log.write(f"\n[HOST] probe boot {boot + 1}\n")
                 text = capture(args.port, args.capture_seconds, log, args.marker,
-                               args.observe_seconds, args.input_marker, input_data)
+                               args.observe_seconds, args.input_marker, input_data,
+                               args.input_line_delay)
                 (args.out / f"probe-boot-{boot + 1}.log").write_text(text)
                 fatal = "MAIA_NATIVE_FATAL" in text or "MAIA_STACK_FAULT" in text
                 reached = args.marker in text

@@ -126,24 +126,53 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] API MaiaVFS de arquivos em `/sd`: open/read/write/seek/sync/close/unlink, caminhos confinados e handles fixos; host, sanitizers, build P4 e diagnóstico no Tab5 passaram (21/11)
 - [x] Listagem de diretórios e integração do VFS com shell/Newlib: `cd/pwd/ls`, `cat`, `echo >`/`>>`, `mkdir/rmdir/rm`; lifecycle de arquivo de 17 bytes verificado no Tab5 e POC shell/LCD sem desktop aprovada pelo dono (21/11). Estresse de dois workers, recuperação de falhas injetadas e persistência após reset morno passaram; falhas físicas e perda de energia permanecem pendentes.
 - [ ] Configurações persistentes na flash
+  - [x] Serviço C MaiaKV com snapshots alternados de 8 KiB, CRC e marcador de commit; falhas injetadas no host preservam a última cópia válida e a recuperação de estado vazio/corrompido é reportada explicitamente. CTest, ASan/UBSan e imagem P4 passaram; nenhuma gravação foi feita no Tab5.
+  - [x] Expor `maia.kv` no perfil nativo Tab5, registrar os imports MaiaKV no ELF loader e testar `get/set/remove/contains` pelo compilador/emulador MaiaScript (33/33).
+  - [x] Reduzir a reserva excessiva do vetor de tokens; testes host 33/33 e AST lifetime passaram, e um script mínimo compilou no Tab5 para ELF32 de 416 bytes com imagem limpa (22/11).
+  - [x] Reduzir o uso temporário de memória no parser/CST, codegen e assembler; o fonte mínimo que importa `maia.kv` compilou no Tab5 para ELF32 de 2.224 bytes, e os testes do assembler passaram (22/11).
+  - [x] Executar o módulo compilado no Tab5: corrigida a coerência de cache do loader (writeback L1D + invalidação L1I pela ROM, como `esp_cache_msync` no IDF) e a truncagem do `stdout`; `maiasc --run` imprimiu `MAIA_ENTRY_REACHED` e retornou 42.
+  - [x] Qualificar o serviço MaiaKV e os imports nativos de flash no Tab5: chave temporária gravada (set=0), lida após reinicialização ("ok"), removida e confirmada ausente no boot seguinte; `copilot_probe` estava ausente. Runner USB restaurou o aplicativo original em cada etapa (22/11). Sem teste de perda de energia.
+  - [x] Executar os wrappers de `import maia.kv` no Tab5: o probe original com `kv.contains`, `isError()` e `42 + r.value()` compilou e retornou 42 em imagem limpa. A investigação identificou o crescimento contíguo do `stringstream`; pool L2 ajustado para 49 KiB e pilha do shell para 16 KiB. Runner USB restaurou o app original e removeu os arquivos temporários (22/11). A cópia de `kv.ms` no SD foi conferida integralmente; sem gravação duplicada.
 - [x] Teste de estresse multi-task de leitura/escrita no Tab5: 32 registros de 512 bytes verificados e removidos; recovery runner restaurou o firmware (21/11)
 - [ ] Transferência de arquivos pelo `maia.py`
+  - [x] Cliente host valida caminhos, confirma cada bloco por leitura de volta, não repete append após timeout e cobre arquivos vazios/erros com serial simulado (9 testes, incluindo abertura com DTR/RTS baixos).
+    - [x] Validar `/sd/lib/maia/kv.ms` no Tab5 pelo cliente de transferência do `maia.py`: o arquivo já existia; pull completo de 1.259 bytes conferiu com o fonte local (SHA-256 `2ac4734b6bb1cea998fa5b49f1f742d0dee04ab341f80dba388ad2a35e8e60e0`). Não foi sobrescrito; app original restaurado pelo runner USB (22/11).
 
 ## F3 — Periféricos da placa
 
-- [ ] Teclado TCA8418 (teclas no console)
+- [x] Teclado físico M5Stack A164 (STM32F030, 0x6D): entrada nativa na shell verificada com `ls` e `pwd` digitados no teclado (23/11); TCA8418 permanece como fallback sem validação física
 - [ ] RTC RX8130 (data e hora)
+  - [x] Implementar leitura somente-leitura pelo I2C compartilhado; testes host validam BCD, calendário, weekday, VLF e erros
+  - [x] Exercitar `rtc` no Tab5 por USB sem escrita; dados físicos inválidos detectados (`month=00`, `weekday=0x0C`), app original restaurada e hash verificado (23/11)
+  - [ ] Definir fonte/valor de data e hora e autorizar inicialização do RTC; não ajustar automaticamente
 - [ ] INA226 (consumo)
+  - [x] Serviço INA226 somente-leitura no I2C compartilhado; valida IDs TI, configuração, calibração e medições, sem escrever registradores nem ler Mask/Enable
+  - [x] Teste host cobre ordem/decodificação, identidade, erros BUSY, ausência de escrita e cálculo pela tensão do shunt Tab5 de 5 mΩ sem depender de CAL
+  - [x] Teste USB: modo contínuo e leitura de barramento/shunt confirmados; CAL veio zero, então corrente/potência são derivadas do shunt sem alterar o INA226; app original restaurada e hash verificado (23/11)
+  - [ ] Repetir sob carga conhecida para qualificar a magnitude/direção de corrente e potência (adiado: dono sem carga de referência no momento)
 - [ ] Bateria IP2326 (carga e nível)
-- [ ] Brilho da tela (LEDC) 👀
-- [ ] Desligamento
-- [ ] Sensor de movimento BMI270
+  - [x] Comando `battery` lê a tensão pelo INA226 e informa o nível bruto do sinal P6 do expansor, sem afirmar estado de carga nem estimar percentual
+  - [x] Teste USB no Tab5: `7987 mV`, sinal `LOW`; contenção BUSY foi tratada com retry limitado, touch não invalidou entrada e o app original foi restaurado/verificado (23/11)
+  - [ ] Confirmar polaridade/semântica do sinal de carga e definir método de estado de carga antes de exibir percentual
+- [x] Brilho da tela (LEDC)
+  - [x] Teste USB `backlight 50`/`100`: LEDC duty `0x1FF0` e GPIO22 reassociado ao LEDC/GPIO; app original restaurado/verificado (23/11)
+  - [x] Varredura visual `100→75→50→25→5→0→100` confirmada pelo dono ("Brilho funcionou."); app original restaurado/verificado (23/11)
+- [x] Desligamento
+  - [x] `maia_tab5_power_off` (porta nativa de `bsp_generate_poweroff_signal`): 3 pulsos de 100 ms em P4 do expansor 0x44, preservando os demais bits, retry em BUSY e P4 sempre devolvido a baixo em falha parcial; teste host `tab5_power_test`
+  - [x] Comando shell `poweroff` apaga o backlight antes dos pulsos e informa se o aparelho continuar ligado
+  - [x] Teste USB no Tab5: desligou com o USB conectado (confirmado pelo dono); após religar, app original restaurada com hash verificado e desktop de volta (23/11)
+- [x] Sensor de movimento BMI270
+  - [x] Identificação somente-leitura no endereço `0x68`: `imu id` leu CHIP_ID `0x24`; app original restaurada e verificada (23/11)
+  - [x] `imu init` carregou a configuração Bosch e habilitou accel/gyro em 200 Hz; `imu read` retornou amostras brutas no Tab5; app original restaurada e verificada (23/11)
 
 ## F4 — Sistema utilizável sem FreeRTOS
 
 - [ ] Shell completa sobre o kernel nativo
 - [ ] Jobs e processos da shell
 - [ ] Carregador `.mobj` (memória executável + sincronização de cache)
+  - [x] `runelf <arquivo.mobj>` lê ELF por offsets sem buffer integral; testes host com ASan/UBSan (3/3) e probe USB abriram SciCalc de 57.256 bytes, alocaram 36.096 bytes e chegaram a `maia_module_main` (20 s sem marcador fatal; firmware original restaurado/verificado, 24/11). Isso valida o caminho de leitura/dispatch, não a interface.
+  - [x] Adaptador nativo para `draw_*`, `host_bind_*`, `host_app_*` e `powf`; 6 testes host focados com ASan/UBSan e build P4 validados. O produto agora usa RV32IMAFC/ILP32F, compatível com os módulos MaiaScript single-float, e preserva o último estado de toque quando ainda não há amostra válida.
+  - [x] Confirmar SciCalc nativa no Tab5: título/controles visíveis, toque e teclado produziram `2+3*4 = 14`, saída normal código 0 após encerramento pelo dono; firmware original restaurado/verificado (24/11). O runner encerrou antes dos 60 s solicitados por causa dessa saída normal.
 - [ ] Compilador MaiaScript no device
   - [x] Suíte host compilador → assembler → emulador RV32: 33/33, incluindo lógica real da SciCalc (`2+3*4=14`, potência e divisão por zero); interface gráfica simulada, sem validação visual nativa (23/11)
 - [ ] MNM (serviços nativos) sobre o kernel
@@ -151,10 +180,20 @@ boot frio e recuperação segura de falhas continuam pendentes.
   - [x] Preservar o host dos wrappers MNM em chamadas aninhadas e falhas de validação; testes host com/sem TLS e smoke no Tab5, com app original restaurada/verificada (23/11). O carregador ainda exige serialização.
   - [x] `write_fd` da shell retorna a contagem correta ou erro observável; testes host e módulo no Tab5 confirmaram stdout, stderr e redirecionamento, com app original restaurada/verificada (23/11). A saída atual é textual, sem NUL embutido, e o callback não confirma transmissão física.
   - [x] Impedir anúncio de framebuffer fixo não qualificado: gráficos MNM nativos são informados como indisponíveis e `fill_rect` retorna erro; teste host e smoke USB passaram (23/11).
-  - [ ] Integrar os callbacks gráficos ao serviço LCD sem violar a propriedade dos framebuffers
-- [ ] Desktop 👀
-- [ ] Apps: SciCalc (`2+3*4=14`), Alarm, Notes, Files, Term, Editor, Clock, Sysinfo, Banner 👀
-- [ ] Suíte de testes do `maia.py` passando
+  - 🔧 Integrar os callbacks gráficos ao serviço LCD sem violar a propriedade dos framebuffers
+    - [x] Lease incremental, preservação do quadro e apresentação serializados pelo owner LCD; exclusividade aninhada e limpeza ao retorno de módulos (testes host focados).
+    - [x] Build do firmware nativo P4 concluído.
+      - [x] Criar e compilar fixture MNM que desenha quadro colorido e publica uma atualização parcial; runner USB usa gravação/restauração verificadas.
+      - [x] Executar duas vezes o smoke gráfico no Tab5 via USB: dois lotes publicados, módulo retornou 0, shell viva, diretório temporário limpo e firmware original restaurado/verificado; na repetição, cada quadro ficou 8 s (24/11).
+      - [x] Confirmar visualmente o quadro colorido e sua preservação após a atualização parcial; confirmação do usuário na repetição com quadros de 8 s (24/11).
+      - [x] Confirmar SciCalc nativa com controles, toque, teclado e saída normal (24/11).
+      - [x] Confirmar desktop nativo visualmente por 60 s, com elementos visíveis e estáveis, sem fatal; confirmação do usuário e restauração verificada (25/11).
+- [x] Desktop nativo — abertura visual confirmada 👀
+- [x] Desktop nativo — toque, abertura e retorno do app Banner confirmados pelo usuário (probe USB de 120 s, 25/11)
+- [ ] Validar abertura/retorno dos demais aplicativos a partir do desktop
+- [ ] Validar funcionalidade dos apps: Alarm, Notes, Files, Term, Editor, Clock, Sysinfo e Banner (Banner teve apenas abertura/retorno confirmados) 👀
+  - [x] SciCalc (`2+3*4=14`): desenho, toque, teclado e saída confirmados no firmware nativo (24/11)
+- [x] Suíte host de transferências do `maia.py` passando (14/14, 24/11)
 
 ## F9 — Segundo núcleo (SMP)
 

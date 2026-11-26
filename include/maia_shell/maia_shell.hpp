@@ -12,6 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 
 #if defined(ARDUINO)
 #include <Arduino.h>
@@ -102,6 +103,13 @@ static inline int32_t host_webserver_status(char *buf, size_t max_len) { if (buf
 #if (defined(__riscv) || defined(MAIA_TARGET)) && !defined(ESP_PLATFORM)
 #include <maia/kernel.h>
 #include <maia/soc/esp32p4_board_io.h>
+#endif
+#if defined(MAIA_PRODUCT_FATFS)
+#include <maia/boards/tab5_battery.h>
+#include <maia/boards/tab5_bmi270.h>
+#include <maia/boards/tab5_power.h>
+#include <maia/boards/tab5_ina226.h>
+#include <maia/boards/tab5_rtc.h>
 #endif
 
 #include <stdarg.h>
@@ -1287,6 +1295,13 @@ public:
         else if (strcmp(cmd, "wifi") == 0)     ret = cmd_wifi(argc, argv);
         else if (strcmp(cmd, "sntp") == 0)     ret = cmd_sntp(argc, argv);
         else if (strcmp(cmd, "date") == 0)     ret = cmd_date(argc, argv);
+#if defined(MAIA_PRODUCT_FATFS)
+        else if (strcmp(cmd, "battery") == 0)  ret = cmd_battery(argc, argv);
+        else if (strcmp(cmd, "imu") == 0)      ret = cmd_imu(argc, argv);
+        else if (strcmp(cmd, "power") == 0)    ret = cmd_power(argc, argv);
+        else if (strcmp(cmd, "rtc") == 0)      ret = cmd_rtc(argc, argv);
+        else if (strcmp(cmd, "poweroff") == 0) ret = cmd_poweroff(argc, argv);
+#endif
         else if (strcmp(cmd, "camera") == 0)   ret = cmd_camera(argc, argv);
         else if (strcmp(cmd, "vidrec") == 0)   ret = cmd_vidrec(argc, argv);
         else if (strcmp(cmd, "vidplay") == 0)  ret = cmd_vidplay(argc, argv);
@@ -1987,6 +2002,13 @@ private:
         println("  wifi [scan|connect|status|disconnect] - Manage Wi-Fi via ESP32-C6 Hosted");
         println("  sntp [server]     - Synchronize system clock with NTP pool");
         println("  date              - Print current system date and time");
+#if defined(MAIA_PRODUCT_FATFS)
+        println("  battery           - Read Tab5 monitor voltage and raw charge signal (no SOC estimate)");
+        println("  imu <id|init|read> - Inspect, initialize, or read the Tab5 BMI270");
+        println("  power             - Read Tab5 INA226 voltage/current/power (read-only)");
+        println("  rtc               - Read the native Tab5 RX8130 clock (read-only)");
+        println("  poweroff          - Turn off the Tab5 (backlight off, then power-off pulses)");
+#endif
         println("  camera [init|snap|view] - MIPI CSI camera control, photo capture and live preview");
         println("  vidrec <file> [s] - Record camera video to .mvid file with hardware PPA");
         println("  vidplay <file>    - Playback video stream on display with hardware PPA");
@@ -2368,7 +2390,8 @@ private:
     int cmd_runelf(int argc, char **argv) {
         const void *elf_bytes = nullptr;
         size_t elf_len = 0;
-        void *file_buffer = nullptr;
+        FILE *module_file = nullptr;
+        elf_reader_t file_reader = {};
         const char *mod_name = "hello.mobj";
         int mod_argc = argc;
         const char *const *mod_argv = (const char *const *)argv;
@@ -2384,37 +2407,43 @@ private:
         }
 
         if (load_from_file) {
-            FILE *f = fopen(resolved_path, "rb");
-            if (!f) {
+            module_file = fopen(resolved_path, "rb");
+            if (!module_file) {
                 char err[160];
                 snprintf(err, sizeof(err), "runelf: cannot open '%s'", resolved_path);
                 println(err);
                 return 1;
             }
-            fseek(f, 0, SEEK_END);
-            long fsz = ftell(f);
-            fseek(f, 0, SEEK_SET);
+            if (fseek(module_file, 0, SEEK_END) != 0) {
+                println("runelf: cannot seek module file");
+                fclose(module_file);
+                return 1;
+            }
+            long fsz = ftell(module_file);
             if (fsz <= 0 || fsz > 1024 * 1024) {
                 println("runelf: invalid file size");
-                fclose(f);
+                fclose(module_file);
                 return 1;
             }
-#if defined(ESP_PLATFORM)
-            file_buffer = heap_caps_malloc(fsz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-            if (!file_buffer) file_buffer = malloc(fsz);
-#else
-            file_buffer = malloc(fsz);
-#endif
-            if (!file_buffer) {
-                println("runelf: out of memory reading file");
-                fclose(f);
+            if (fseek(module_file, 0, SEEK_SET) != 0) {
+                println("runelf: cannot rewind module file");
+                fclose(module_file);
                 return 1;
             }
-            fread(file_buffer, 1, fsz, f);
-            fclose(f);
 
-            elf_bytes = file_buffer;
             elf_len = (size_t)fsz;
+            file_reader.read_at = [](void *context, size_t offset,
+                                     void *buffer, size_t length) -> int {
+                FILE *file = static_cast<FILE *>(context);
+                if (file == nullptr || offset > static_cast<size_t>(LONG_MAX) ||
+                    (length > 0U && buffer == nullptr) ||
+                    fseek(file, static_cast<long>(offset), SEEK_SET) != 0) {
+                    return -1;
+                }
+                return fread(buffer, 1U, length, file) == length ? 0 : -1;
+            };
+            file_reader.context = module_file;
+            file_reader.size = elf_len;
             mod_name = resolved_path;
             mod_argc = argc - 1;
             mod_argv = (const char *const *)(argv + 1);
@@ -2707,20 +2736,21 @@ private:
         host_api.video_play = host_video_play;
 
         int exit_code = 0;
-        int res = mnm_load_and_run(elf_bytes, elf_len,
-                                   mod_argc, mod_argv,
-                                   &host_api, &exit_code,
-                                   [](const char *msg) {
-                                       bool redir = (get_global_redir_stage().buf != nullptr);
-                                       OutputFn c_cb = get_global_console_cb();
-                                       if (!redir && c_cb && msg) {
-                                           c_cb(msg);
-                                           c_cb("\n");
-                                       }
-                                   });
-
-        if (file_buffer) {
-            free(file_buffer);
+        auto loader_log = [](const char *msg) {
+            bool redir = (get_global_redir_stage().buf != nullptr);
+            OutputFn c_cb = get_global_console_cb();
+            if (!redir && c_cb && msg) {
+                c_cb(msg);
+                c_cb("\n");
+            }
+        };
+        int res = module_file != nullptr
+            ? mnm_load_and_run_reader(&file_reader, mod_argc, mod_argv,
+                                      &host_api, &exit_code, loader_log)
+            : mnm_load_and_run(elf_bytes, elf_len, mod_argc, mod_argv,
+                               &host_api, &exit_code, loader_log);
+        if (module_file != nullptr && fclose(module_file) != 0) {
+            println("runelf: warning: could not close module file cleanly");
         }
 
         if (!is_redirected && console_cb) {
@@ -2861,6 +2891,8 @@ private:
             snprintf(ok_msg, sizeof(ok_msg), "[SUCCESS] Compiled %s -> %s (%u bytes ELF32)\n",
                      resolved_in, out_path, (unsigned int)elf_data.size());
             print(ok_msg);
+        } else {
+            println("maiasc: output open failed");
         }
 
         if (do_run || !output_arg) {
@@ -2875,56 +2907,11 @@ private:
         return 0;
     }
 
-#if defined(ESP_PLATFORM)
-    struct MaiascWorkerArg {
-        MaiaShell *shell;
-        int argc;
-        char **argv;
-        int result;
-        SemaphoreHandle_t sem;
-    };
-
-    static void maiasc_worker_task(void *pv) {
-        MaiascWorkerArg *arg = static_cast<MaiascWorkerArg*>(pv);
-        arg->result = arg->shell->cmd_maiasc_impl(arg->argc, arg->argv);
-        xSemaphoreGive(arg->sem);
-        vTaskDelete(NULL);
-    }
-
     int cmd_maiasc(int argc, char **argv) {
-        MaiascWorkerArg arg;
-        arg.shell = this;
-        arg.argc = argc;
-        arg.argv = argv;
-        arg.result = -1;
-        arg.sem = xSemaphoreCreateBinary();
-        if (!arg.sem) {
-            return cmd_maiasc_impl(argc, argv);
-        }
-
-        TaskHandle_t hTask = NULL;
-        // A CPU-bound compiler must share CPU0 with idle in the one-core
-        // migration profile; keeping priority 5 there starves its watchdog.
-        const UBaseType_t worker_priority = (portNUM_PROCESSORS > 1) ? 5 : tskIDLE_PRIORITY;
-        BaseType_t ret = xTaskCreateWithCaps(maiasc_worker_task, "maiasc_psram", 131072, &arg, worker_priority, &hTask, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (ret != pdPASS) {
-            ret = xTaskCreate(maiasc_worker_task, "maiasc_iram", 32768, &arg, worker_priority, &hTask);
-        }
-
-        if (ret == pdPASS) {
-            xSemaphoreTake(arg.sem, portMAX_DELAY);
-            vSemaphoreDelete(arg.sem);
-            return arg.result;
-        } else {
-            vSemaphoreDelete(arg.sem);
-            return cmd_maiasc_impl(argc, argv);
-        }
-    }
-#else
-    int cmd_maiasc(int argc, char **argv) {
+        // Keep the compiler on a Maia-managed stack so trap stack validation
+        // remains synchronized with the active task.
         return cmd_maiasc_impl(argc, argv);
     }
-#endif
 
     int cmd_maiaasm(int argc, char **argv) {
         if (argc < 2) {
@@ -3968,6 +3955,252 @@ private:
         return 0;
     }
 
+#if defined(MAIA_PRODUCT_FATFS)
+    int cmd_imu(int argc, char **argv) {
+        if (argc != 2) {
+            println("Usage: imu <id|init|read>");
+            return 1;
+        }
+
+        if (strcmp(argv[1], "id") == 0) {
+            uint8_t chip_id;
+            maia_i2c_result_t bus_error;
+            maia_tab5_bmi270_result_t result = MAIA_TAB5_BMI270_INVALID;
+            for (unsigned attempt = 0;; ++attempt) {
+                result = maia_tab5_bmi270_read_chip_id(&chip_id, &bus_error);
+                if (result != MAIA_TAB5_BMI270_BUS_ERROR ||
+                    bus_error != MAIA_I2C_BUSY || attempt == 2U) break;
+                maia_task_yield();
+            }
+            if (result == MAIA_TAB5_BMI270_BUS_ERROR) {
+                char error[80];
+                snprintf(error, sizeof(error), "imu: I2C read failed (status=%d)", (int)bus_error);
+                println(error);
+                return 1;
+            }
+            if (result == MAIA_TAB5_BMI270_ID_MISMATCH) {
+                char error[64];
+                snprintf(error, sizeof(error), "imu: unexpected chip ID 0x%02X", (unsigned)chip_id);
+                println(error);
+                return 1;
+            }
+            if (result != MAIA_TAB5_BMI270_OK) {
+                println("imu: invalid service state");
+                return 1;
+            }
+
+            char output[40];
+            snprintf(output, sizeof(output), "BMI270 chip_id=0x%02X", (unsigned)chip_id);
+            println(output);
+            return 0;
+        }
+
+        if (strcmp(argv[1], "init") == 0) {
+            int8_t driver_error = 0;
+            maia_i2c_result_t bus_error;
+            maia_tab5_bmi270_result_t result =
+                maia_tab5_bmi270_init(&driver_error, &bus_error);
+            if (result == MAIA_TAB5_BMI270_BUS_ERROR) {
+                char error[80];
+                snprintf(error, sizeof(error), "imu: I2C initialization failed (status=%d)", (int)bus_error);
+                println(error);
+                return 1;
+            }
+            if (result != MAIA_TAB5_BMI270_OK) {
+                char error[80];
+                snprintf(error, sizeof(error), "imu: initialization failed (driver status=%d)",
+                         (int)driver_error);
+                println(error);
+                return 1;
+            }
+            println("BMI270 initialized: accel 200Hz +/-4g, gyro 200Hz +/-1000dps");
+            return 0;
+        }
+
+        if (strcmp(argv[1], "read") == 0) {
+            maia_tab5_bmi270_sample_t sample;
+            int8_t driver_error = 0;
+            maia_i2c_result_t bus_error;
+            maia_tab5_bmi270_result_t result =
+                maia_tab5_bmi270_read(&sample, &driver_error, &bus_error);
+            if (result == MAIA_TAB5_BMI270_NOT_INITIALIZED) {
+                println("imu: run 'imu init' first");
+                return 1;
+            }
+            if (result == MAIA_TAB5_BMI270_BUS_ERROR) {
+                char error[80];
+                snprintf(error, sizeof(error), "imu: I2C read failed (status=%d)", (int)bus_error);
+                println(error);
+                return 1;
+            }
+            if (result != MAIA_TAB5_BMI270_OK) {
+                char error[80];
+                snprintf(error, sizeof(error), "imu: sensor read failed (driver status=%d)",
+                         (int)driver_error);
+                println(error);
+                return 1;
+            }
+            char output[128];
+            snprintf(output, sizeof(output),
+                     "BMI270 raw accel=(%d,%d,%d) gyro=(%d,%d,%d)",
+                     (int)sample.accel_x, (int)sample.accel_y, (int)sample.accel_z,
+                     (int)sample.gyro_x, (int)sample.gyro_y, (int)sample.gyro_z);
+            println(output);
+            return 0;
+        }
+
+        println("Usage: imu <id|init|read>");
+        return 1;
+    }
+
+    int cmd_battery(int argc, char **argv) {
+        (void)argc; (void)argv;
+        maia_tab5_battery_sample_t sample;
+        maia_i2c_result_t bus_error;
+        maia_tab5_battery_result_t result;
+        for (unsigned attempt = 0;; ++attempt) {
+            result = maia_tab5_battery_read(&sample, &bus_error);
+            if (result != MAIA_TAB5_BATTERY_BUS_ERROR || bus_error != MAIA_I2C_BUSY || attempt == 2U) break;
+            maia_task_yield();
+        }
+        if (result == MAIA_TAB5_BATTERY_BUS_ERROR) {
+            char error[80];
+            snprintf(error, sizeof(error), "battery: I2C read failed (status=%d)", (int)bus_error);
+            println(error);
+            return 1;
+        }
+        if (result == MAIA_TAB5_BATTERY_DEVICE_ID) {
+            println("battery: INA226 identity mismatch");
+            return 1;
+        }
+        if (result != MAIA_TAB5_BATTERY_OK) {
+            println("battery: invalid service state");
+            return 1;
+        }
+        char output[112];
+        snprintf(output, sizeof(output),
+                 "Monitor bus=%lu mV, IP2326 charge signal=%s (raw; no SOC percent)",
+                 (unsigned long)sample.monitor_bus_millivolts,
+                 sample.charge_signal_high ? "HIGH" : "LOW");
+        println(output);
+        return 0;
+    }
+
+    static void poweroff_delay_ms(uint32_t milliseconds) {
+        maia_task_delay_ticks(milliseconds);
+    }
+
+    int cmd_poweroff(int argc, char **argv) {
+        (void)argc; (void)argv;
+        println("Powering off...");
+        maia_tab5_backlight_set_duty(0U);
+        maia_i2c_result_t bus_error;
+        maia_tab5_power_result_t result = maia_tab5_power_off(poweroff_delay_ms, &bus_error);
+        maia_tab5_backlight_set_duty(4095U);
+        char output[96];
+        if (result == MAIA_TAB5_POWER_OK) {
+            snprintf(output, sizeof(output),
+                     "poweroff: signal sent but device still running (external power present?)");
+        } else if (result == MAIA_TAB5_POWER_BUS_ERROR) {
+            snprintf(output, sizeof(output), "poweroff: I2C failed (status=%d)", (int)bus_error);
+        } else {
+            snprintf(output, sizeof(output), "poweroff: invalid service state");
+        }
+        println(output);
+        return 1;
+    }
+
+    int cmd_power(int argc, char **argv) {
+        (void)argc; (void)argv;
+        maia_ina226_sample_t sample;
+        maia_i2c_result_t bus_error;
+        maia_ina226_result_t result;
+        for (unsigned attempt = 0;; ++attempt) {
+            result = maia_tab5_ina226_read(&sample, &bus_error);
+            if (result != MAIA_INA226_BUS_ERROR || bus_error != MAIA_I2C_BUSY || attempt == 2U) break;
+            maia_task_yield();
+        }
+        if (result == MAIA_INA226_BUS_ERROR) {
+            char error[80];
+            snprintf(error, sizeof(error), "power: I2C read failed (status=%d)", (int)bus_error);
+            println(error);
+            return 1;
+        }
+        if (result == MAIA_INA226_DEVICE_ID) {
+            char error[96];
+            snprintf(error, sizeof(error), "power: unexpected device IDs (manufacturer=0x%04X die=0x%04X)",
+                     (unsigned)sample.manufacturer_id, (unsigned)sample.die_id);
+            println(error);
+            return 1;
+        }
+        if (result != MAIA_INA226_OK) {
+            println("power: invalid service state");
+            return 1;
+        }
+
+        maia_tab5_ina226_measurements_t measurements;
+        char output[160];
+        if (maia_tab5_ina226_derive(&sample, &measurements)) {
+            snprintf(output, sizeof(output),
+                     "INA226: bus=%lu mV, shunt_raw=%d, current=%ld uA, power=%ld uW (shunt-derived, CAL=0x%04X)",
+                     (unsigned long)measurements.bus_millivolts, (int)sample.shunt_raw,
+                     (long)measurements.current_microamps, (long)measurements.power_microwatts,
+                     (unsigned)sample.calibration);
+        } else {
+            snprintf(output, sizeof(output),
+                     "INA226: mode=%u; shunt-derived current/power unavailable (CAL=0x%04X)",
+                     (unsigned)(sample.config & 0x0007U),
+                     (unsigned)sample.calibration);
+        }
+        println(output);
+        return 0;
+    }
+
+    int cmd_rtc(int argc, char **argv) {
+        (void)argc; (void)argv;
+        maia_rtc_time_t time;
+        maia_rtc_raw_t raw;
+        maia_i2c_result_t bus_error;
+        maia_rtc_result_t result;
+        for (unsigned attempt = 0;; ++attempt) {
+            result = maia_tab5_rtc_read(&time, &raw, &bus_error);
+            if (result != MAIA_RTC_BUS_ERROR || bus_error != MAIA_I2C_BUSY || attempt == 2U) break;
+            maia_task_yield();
+        }
+        if (result == MAIA_RTC_TIME_LOST) {
+            println("rtc: clock data lost (RX8130 VLF is set); no registers were changed");
+            return 1;
+        }
+        if (result == MAIA_RTC_INVALID_DATA) {
+            char error[128];
+            snprintf(error, sizeof(error),
+                     "rtc: invalid data (raw=%02X %02X %02X %02X %02X %02X %02X flags=%02X)",
+                     (unsigned)raw.calendar[0], (unsigned)raw.calendar[1],
+                     (unsigned)raw.calendar[2], (unsigned)raw.calendar[3],
+                     (unsigned)raw.calendar[4], (unsigned)raw.calendar[5],
+                     (unsigned)raw.calendar[6], (unsigned)raw.flags);
+            println(error);
+            return 1;
+        }
+        if (result == MAIA_RTC_BUS_ERROR) {
+            char error[80];
+            snprintf(error, sizeof(error), "rtc: I2C read failed (status=%d)", (int)bus_error);
+            println(error);
+            return 1;
+        }
+        static const char *const weekdays[] = {
+            "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+        };
+        char output[64];
+        snprintf(output, sizeof(output), "%04u-%02u-%02u %02u:%02u:%02u %s",
+                 (unsigned)time.year, (unsigned)time.month, (unsigned)time.day,
+                 (unsigned)time.hour, (unsigned)time.minute, (unsigned)time.second,
+                 weekdays[time.weekday]);
+        println(output);
+        return 0;
+    }
+#endif
+
     int cmd_camera(int argc, char **argv) {
         if (argc < 2 || strcmp(argv[1], "status") == 0) {
             char st[160];
@@ -4132,7 +4365,7 @@ private:
 
     int cmd_hexwrite(int argc, char **argv) {
         if (argc < 3) {
-            println("Usage: hexwrite [-a] <file> <hex_data>");
+            println("Usage: hexwrite [-a] <file> <hex_data|--empty>");
             return 1;
         }
         bool append = false;
@@ -4142,11 +4375,36 @@ private:
             arg_idx++;
         }
         if (arg_idx + 1 >= argc) {
-            println("Usage: hexwrite [-a] <file> <hex_data>");
+            println("Usage: hexwrite [-a] <file> <hex_data|--empty>");
             return 1;
         }
         const char *file_path = argv[arg_idx++];
         const char *hex_data = argv[arg_idx++];
+        const bool create_empty = strcmp(hex_data, "--empty") == 0;
+        if (create_empty && append) {
+            println("hexwrite: --empty cannot be appended");
+            return 1;
+        }
+
+        auto hex_val = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        };
+        size_t hlen = strlen(hex_data);
+        if (!create_empty) {
+            if (hlen == 0 || (hlen & 1U) != 0U) {
+                println("hexwrite: hex data must contain complete byte pairs");
+                return 1;
+            }
+            for (size_t i = 0; i < hlen; ++i) {
+                if (hex_val(hex_data[i]) < 0) {
+                    println("hexwrite: invalid hex data");
+                    return 1;
+                }
+            }
+        }
 
         char resolved[128];
         resolve_path(file_path, resolved, sizeof(resolved));
@@ -4158,23 +4416,18 @@ private:
             return 1;
         }
 
-        auto hex_val = [](char c) -> int {
-            if (c >= '0' && c <= '9') return c - '0';
-            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-            return -1;
-        };
-
-        size_t hlen = strlen(hex_data);
-        for (size_t i = 0; i + 1 < hlen; i += 2) {
+        bool write_failed = false;
+        for (size_t i = 0; !create_empty && i < hlen; i += 2) {
             int hi = hex_val(hex_data[i]);
             int lo = hex_val(hex_data[i + 1]);
-            if (hi >= 0 && lo >= 0) {
-                uint8_t b = (uint8_t)((hi << 4) | lo);
-                fputc(b, f);
-            }
+            uint8_t b = (uint8_t)((hi << 4) | lo);
+            if (fputc(b, f) == EOF) write_failed = true;
         }
-        fclose(f);
+        if (fclose(f) != 0) write_failed = true;
+        if (write_failed) {
+            println("hexwrite: write failed");
+            return 1;
+        }
         return 0;
     }
 

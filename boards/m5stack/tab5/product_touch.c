@@ -1,5 +1,10 @@
 /* Native Tab5 product touch owner and system-I2C handoff. */
 #include "product_touch.h"
+#include <maia/boards/tab5_ina226.h>
+#include <maia/boards/tab5_bmi270.h>
+#include <maia/boards/tab5_battery.h>
+#include <maia/boards/tab5_power.h>
+#include <maia/boards/tab5_rtc.h>
 #include <maia/console.h>
 #include <maia/kernel.h>
 #include <maia/services/i2c_bus.h>
@@ -26,6 +31,9 @@ static maia_i2c_result_t read_task(void *context, uint16_t reg, uint8_t *out, ui
 static void touch_poll_once(void) {
     if (!touch_active) return;
     maia_status_t result = maia_touch_input_poll();
+    maia_touch_snapshot_t snapshot;
+    (void)maia_touch_input_snapshot(&snapshot);
+    if (result != MAIA_OK && snapshot.last_error == MAIA_I2C_BUSY) return;
     if (result != MAIA_OK && !poll_failed) {
         maia_console_puts("[TOUCH] Poll failed; input invalidated\n");
         poll_failed = 1U;
@@ -33,8 +41,6 @@ static void touch_poll_once(void) {
         maia_console_puts("[TOUCH] Poll recovered; awaiting fresh report\n");
         poll_failed = 0U;
     }
-    maia_touch_snapshot_t snapshot;
-    (void)maia_touch_input_snapshot(&snapshot);
     if (snapshot.sequence != previous_sequence) {
         previous_sequence = snapshot.sequence;
         maia_product_display_touch_changed();
@@ -58,6 +64,12 @@ void maia_tab5_product_touch_start(const maia_i2c_lines_t *lines) {
         return;
     }
     maia_tab5_system_i2c_adopt(&system_bus);
+    maia_tab5_ina226_bind(&system_bus);
+    maia_tab5_bmi270_bind(&system_bus);
+    maia_tab5_bmi270_driver_bind(&system_bus);
+    maia_tab5_battery_bind(&system_bus);
+    maia_tab5_power_bind(&system_bus);
+    maia_tab5_rtc_bind(&system_bus);
     if (identified != MAIA_I2C_OK || info.firmware != 1U ||
         info.max_x != 720U || info.max_y != 1280U) {
         maia_console_puts("[TOUCH] ST7121 identification failed; touch disabled\n");

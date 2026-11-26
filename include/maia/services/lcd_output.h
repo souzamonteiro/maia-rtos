@@ -25,6 +25,16 @@ typedef void (*maia_lcd_draw_fn)(uint16_t *,uint32_t width,uint32_t height,void 
  * frame boundary without pausing DMA or reinitializing DPI/DSI video. updates
  * counts cache publication; presented counts completed frames after each swap. */
 maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn,void *);
+/* Task-only incremental edit lease for native modules. The single LCD owner
+ * leases and seeds the backbuffer from the current front before returning it.
+ * The caller may edit only the borrowed buffer and must publish it before
+ * requesting another lease. Publish waits until the new frame is presented.
+ * Only one client lease may exist; stop is rejected while a lease is active.
+ * The client must be a different task from the LCD owner and keep the lease
+ * pointer only until publish returns. OK; BUSY for another client/stop; PERM
+ * for IRQ-off/non-task/owner callers; INVALID if the service is not running. */
+maia_status_t maia_lcd_output_edit_begin(uint16_t **pixels);
+maia_status_t maia_lcd_output_edit_publish(void);
 /* Owner thread, IRQs enabled, only after run returned a clean graceful stop.
  * Reclaims the same warm panel/window/config; clears per-session counters.
  * OK; PERM wrong context; BUSY active/faulted/backend refusal. Not cold init. */

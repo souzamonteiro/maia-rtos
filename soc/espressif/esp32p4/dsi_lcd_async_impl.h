@@ -121,6 +121,13 @@ uint16_t *maia_lcd_async_edit_begin(void){
     if(maia_psram_window_edit_begin(source,DSI_FB_BYTES)!=source)return 0;
     async_editing=1;return (uint16_t *)(uintptr_t)source;
 }
+int maia_lcd_async_edit_preserve(void){
+    if(!async_editing||!async_source||!async_back_source||async_source==async_back_source)return 0;
+    const uint16_t *front=(const uint16_t *)(uintptr_t)async_source;
+    uint16_t *back=(uint16_t *)(uintptr_t)async_back_source;
+    for(uint32_t i=0;i<DSI_FB_BYTES/sizeof(uint16_t);++i)back[i]=front[i];
+    return 1;
+}
 maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
     uintptr_t irq=maia_arch_irq_save();
     if(!async_editing||(async_phase!=ASYNC_READY&&async_phase!=ASYNC_ACTIVE)){

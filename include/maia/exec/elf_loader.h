@@ -16,6 +16,7 @@ extern "C" {
 #define MNM_ERR_UNSUPPORTED_RELOC -4
 #define MNM_ERR_OUT_OF_MEMORY     -5
 #define MNM_ERR_EXECUTION_FAULT   -6
+#define MNM_ERR_IO                -7
 
 /**
  * @brief Load, relocate and execute an in-memory RISC-V ELF32 ET_REL module.
@@ -40,6 +41,18 @@ int mnm_load_and_run(const void *elf_data, size_t elf_size,
                      void (*log_fn)(const char *msg));
 
 /**
+ * @brief Load, relocate and execute an ELF module from a random-access source.
+ *
+ * The reader callback must return zero only after filling the entire requested
+ * range. The source remains borrowed until this function returns.
+ */
+int mnm_load_and_run_reader(const elf_reader_t *reader,
+                            int argc, const char *const *argv,
+                            const maia_host_api_v1 *host,
+                            int *exit_code,
+                            void (*log_fn)(const char *msg));
+
+/**
  * @brief Register a global host C symbol dynamically for ELF module relocation.
  *
  * @param name Symbol name (e.g. "lv_btn_create").
@@ -61,4 +74,3 @@ int mnm_get_registered_symbols(const char **names, uintptr_t *addrs, int max);
 #ifdef __cplusplus
 }
 #endif
-
