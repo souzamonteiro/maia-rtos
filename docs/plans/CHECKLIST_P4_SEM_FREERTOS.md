@@ -197,7 +197,9 @@ boot frio e recuperação segura de falhas continuam pendentes.
 
 ## F9 — Segundo núcleo (SMP)
 
-- [ ] Partida do core 1
+- [ ] Integrar a partida do core 1 ao produto
+  - [x] Partida isolada via USB no Tab5: worker e pilha em SRAM interna, `hart=1`, 1.024 trocas atômicas verificadas e estacionamento confirmado em duas partidas; app original restaurado/verificado (26/11). Testes host positivos/negativos e validação da imagem passaram.
+  - [ ] Integrar após preparar estado de traps/TLS por núcleo e sincronização; o firmware de produto continua single-core, sem mudança no seu binário.
 - [ ] Interrupções entre processadores (IPI)
 - [ ] Filas de execução por núcleo
 - [ ] Spinlocks e revisão das seções críticas dos drivers

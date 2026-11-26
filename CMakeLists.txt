@@ -269,6 +269,31 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
   )
 
+  add_executable(maia_core1_probe.elf
+    arch/riscv/start.S
+    arch/riscv/core1_probe.S
+    soc/espressif/esp32p4/soc_early_init.c
+    soc/espressif/esp32p4/soc_console.c
+    soc/espressif/esp32p4/soc_serial_tx.c
+    soc/espressif/esp32p4/soc_core1.c
+    boards/m5stack/tab5/app_desc.c
+    tests/hardware/native_core1_probe.c
+  )
+  target_include_directories(maia_core1_probe.elf PRIVATE include)
+  target_compile_definitions(maia_core1_probe.elf PRIVATE MAIA_FLASH_PROBE_RECOVERABLE=1)
+  target_compile_options(maia_core1_probe.elf PRIVATE
+    -Wall -Wextra -Werror -O2 -ffreestanding -fno-builtin
+    -ffunction-sections -fdata-sections
+  )
+  target_link_options(maia_core1_probe.elf PRIVATE
+    "-T${MAIA_F0_FLASH_LINKER_SCRIPT}" "-Wl,--gc-sections"
+    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/maia_core1_probe.map"
+  )
+  target_link_libraries(maia_core1_probe.elf PRIVATE gcc)
+  set_target_properties(maia_core1_probe.elf PROPERTIES
+    LINK_DEPENDS "${MAIA_F0_FLASH_LINKER_SCRIPT}"
+  )
+
   add_executable(maia_f1_runtime_probe.elf
     arch/riscv/start.S
     arch/riscv/trap_context.S
@@ -362,6 +387,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       VERBATIM
     )
     add_custom_target(maia_f0_flash_probe_image DEPENDS "${MAIA_F0_FLASH_PROBE_IMAGE}")
+
+    set(MAIA_CORE1_PROBE_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_core1_probe.bin")
+    add_custom_command(
+      OUTPUT "${MAIA_CORE1_PROBE_IMAGE}"
+      COMMAND "${MAIA_ESPTOOL_EXECUTABLE}" --chip esp32p4 elf2image
+        --flash_mode dio --flash_freq 80m --flash_size 16MB
+        --flash-mmu-page-size 64KB
+        --output "${MAIA_CORE1_PROBE_IMAGE}" "$<TARGET_FILE:maia_core1_probe.elf>"
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+        "${MAIA_CORE1_PROBE_IMAGE}" --sram-window 0x4FF00000:0x4FF28000
+      DEPENDS maia_core1_probe.elf
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/f0_flash_image_test.py"
+      VERBATIM
+    )
+    add_custom_target(maia_core1_probe_image DEPENDS "${MAIA_CORE1_PROBE_IMAGE}")
 
     set(MAIA_F1_RUNTIME_PROBE_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/maia_f1_runtime_probe.bin")
     add_custom_command(
@@ -1193,6 +1234,14 @@ else()
     )
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(core1_start_test tests/host/core1_start_test.c)
+    target_include_directories(core1_start_test PRIVATE include)
+    target_compile_definitions(core1_start_test PRIVATE MAIA_CORE1_TEST=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(core1_start_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME core1_start_test COMMAND core1_start_test)
+
     add_test(NAME native_probe_gate
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/host/native_probe_gate_test.py)
 

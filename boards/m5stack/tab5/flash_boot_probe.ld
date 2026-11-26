@@ -18,6 +18,7 @@ PHDRS
 {
     flash_text PT_LOAD FLAGS(5);
     flash_rodata PT_LOAD FLAGS(4);
+    core1_text PT_LOAD FLAGS(5);
     sram_data PT_LOAD FLAGS(6);
     tls PT_TLS FLAGS(6);
 }
@@ -76,6 +77,11 @@ SECTIONS
            "Application descriptor must be contiguous with DROM read-only data")
     ASSERT(SIZEOF(.flash.appdesc) >= 256,
            "ESP application descriptor is missing or truncated")
+
+    .maia_core1 : ALIGN(64)
+    {
+        KEEP(*(.maia_core1.text))
+    } > SRAM_LOW :core1_text
 
     .data : ALIGN(16)
     {

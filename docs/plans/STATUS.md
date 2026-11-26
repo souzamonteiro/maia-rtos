@@ -1,9 +1,39 @@
 # Project status
 
-Date: 2026-11-25
+Date: 2026-11-26
 
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
+
+## F9: primeira execução nativa no core 1 — 2026-11-26
+
+Um probe separado do produto iniciou o HP core 1 sem FreeRTOS ou runtime
+ESP-IDF. O worker, mailbox e pilha ficam em SRAM interna; somente o core 0
+escreve no console. O core 1 mantém interrupções desabilitadas, usa uma entrada
+de exceção própria e não chama scheduler, libc, TLS, drivers, flash ou PSRAM.
+Após 1.024 trocas request/ack com payload e resultado conferidos, confirma o
+estacionamento. Há limites de polling e falhas explícitas, sem retry após a
+partida. A API é apenas diagnóstica, na fase de boot com o secundário ainda
+pertencendo à inicialização da ROM; não permite assumir um core já em uso.
+
+No Tab5 rev-v1.3, duas partidas registraram `hart=1`, `sp=0x4ff00510`,
+`rounds=1024`, estágio final 5 e nenhum fatal. O runner confirmou
+`probe_pass=true` e `restore_verified=true`, com o hash original
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Capturas e relatório:
+[partida do core 1](../../../maia-rtos-recovery/native-tab5-core1-startup-20261126-02/).
+Uma primeira tentativa parou sem escritas por uma precondição excessiva sobre
+clock/reset; a condição foi alinhada ao protocolo do fabricante e coberta no
+teste host. Essa tentativa também restaurou o app original.
+
+`core1_start_test`, `native_probe_gate` e `f0_flash_runner_test` passaram (3/3).
+O novo probe e o probe F0 anterior passaram na validação estrutural das imagens.
+O binário de produto continua idêntico, SHA-256
+`b0337655064a6a6271cdb12a2fed73dac25446317f9facb6dbe25fc6ddb2a7ee`.
+Não há ainda IPI, scheduler SMP, TLS/traps por núcleo, qualificação de caches
+do core 1 ou concorrência dos drivers. Nenhuma melhoria na abertura de Files
+é atribuída a este probe. Próximo passo: IPI isolado e estado de interrupções
+por núcleo, antes de integrar a partida ao produto.
 
 ## Leitura ELF por offsets e probe SciCalc — 2026-11-24
 

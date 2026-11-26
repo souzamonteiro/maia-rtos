@@ -4103,3 +4103,100 @@ touch-to-launch-and-return flow for Banner only, on the tested warm boot path.
 Other app launches, keyboard shortcuts, cold boot, and stack high-water margin
 remain unverified. Capture:
 `../../../maia-rtos-recovery/native-tab5-desktop-interaction-probe-20261125-06/`.
+
+### HP core 1 startup reference — 2026-11-26
+
+The isolated probe does not enable the single-core scheduler/trap metadata on
+core 1. The source protocol and subsequent target evidence are recorded below.
+Pinned primary source: ESP-IDF v5.4.2 local HEAD
+`f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0` (the files below have no local diff).
+
+- [cpu_start.c, start_other_core](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/esp_system/port/cpu_start.c#L293):
+  unstall core 1, enable its clock, release global reset, then publish the entry
+  via `ets_set_appcpu_boot_addr`. `call_start_cpu1` clears that boot address.
+- [cpu_utility_ll.h, unstall](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/hal/esp32p4/include/hal/cpu_utility_ll.h#L43):
+  PMU core-1 stall code `0xff`, with core-stalled status checked before proceeding.
+- [hp_sys_clkrst_reg.h, SOC_CLK_CTRL0 and HP_RST_EN0](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/hp_sys_clkrst_reg.h#L144):
+  clock register `0x500e6014`, core-1 clock bit 4; reset register `0x500e60c0`,
+  core-1 global-reset bit 8.
+- [pmu_reg.h, CPU_SW_STALL](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/pmu_reg.h#L4718):
+  core-1 stall code is bits 23:16 at PMU + `0x200` (`0x50115200`).
+- [hp_system_reg.h, CPU_CORESTALLED_ST](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/hp_system_reg.h#L359):
+  core-1 stalled status is bit 1 at HP_SYS + `0x64` (`0x500e5064`).
+- [lp_system_reg.h, BOOT_ADDR_HP_CORE1](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/lp_system_reg.h#L827):
+  full-width boot mailbox at LP_SYS + `0x164` (`0x50110164`).
+  Base addresses come from the same revision's
+  [reg_base.h](https://github.com/espressif/esp-idf/blob/f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0/components/soc/esp32p4/register/soc/reg_base.h).
+  The local official `esp-rom-elfs/20241011/esp32p4_rev0_rom.elf` independently
+  disassembles `ets_set_appcpu_boot_addr` at `0x4fc05640` as a store to this
+  address (ROM jump-table entry `0x4fc000a8`). This checks the published API;
+  actual rev-v1.3 startup still requires target evidence.
+
+The probe adapts only that register protocol, preserving Apache-2.0 attribution;
+no vendor header, FreeRTOS scheduler, or ESP-IDF runtime is linked. The secondary
+entry and worker must reside in the already qualified low-SRAM window so the
+probe does not assume core-1 flash/PSRAM cache setup. Shared aligned 32-bit words
+use release/acquire ordering; the existing single-core drivers stay unused.
+
+The first protected flash run returned `MAIA_CORE1_BUSY` before writes:
+`clock=e6dfb7ff reset=38000040 stall=00ff0000 boot=00000000`.
+It reported no fatal and restored the original app with hash verification.
+The initial diagnostic guard incorrectly rejected an already clocked,
+reset-released secondary; the vendor startup explicitly permits that state.
+The corrected guard rejects a nonzero boot mailbox and restricts use to initial
+boot while ROM still owns the secondary, not runtime takeover. Capture:
+`../../../maia-rtos-recovery/native-tab5-core1-startup-20261126-01/`.
+
+The corrected isolated image ran twice on the rev-v1.3 Tab5 over the existing
+USB cable. Each boot produced:
+
+```text
+CORE1 result=00000000 completed=00000005 hart=00000001 sp=4ff00510 rounds=00000400 cause=00000000 pc=00000000
+CORE1_INITIAL clock=e6dfb7ff reset=38000040 stall=00ff0000 boot=00000000
+MAIA_NATIVE_CORE1_PASS
+```
+
+Each round publishes a distinct payload using a release command, checks the
+core-1-transformed result after an acquire acknowledgement, then proceeds.
+The final stop acknowledgement is accepted only with state 2 and intact stack
+guard. The dedicated secondary code (including its fault sink) occupies a
+256-byte SRAM section at `0x4ff00000`; the stack is at `0x4ff00110` and the
+mailbox at `0x4ff00510`. The worker does not call any function or access
+flash/PSRAM and does not use floating-point instructions. No core-1 interrupt,
+scheduler, TLS, cache behavior or driver concurrency is qualified by this test.
+The stack pointer and guard are checked; this assembly worker has no C call
+frames, so it does not qualify future task-stack requirements.
+
+The [protected runner report](../../../maia-rtos-recovery/native-tab5-core1-startup-20261126-02/report.json)
+records two boots with `marker=true`, `fatal=false`, `probe_pass=true` and
+`restore_verified=true`. Probe SHA-256:
+`e699a73d179343c42b0454cbc374fc9598ee4b069a65a76a7a76d6061bff99a3`.
+Restored original app SHA-256:
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Only the app region was temporarily flashed; bootloader, partitions and SD
+contents were not written. Procedure:
+
+```sh
+cmake --build <p4-build> --target maia_core1_probe_image maia_f0_flash_probe_image -j 8
+<idf-python> tests/hardware/run_f0_flash_probe.py \
+  --image <p4-build>/maia_core1_probe.bin --out <new-recovery-directory> \
+  --port /dev/cu.usbmodem1301 --marker MAIA_NATIVE_CORE1_PASS \
+  --capture-seconds 15 --boots 2
+```
+
+Host validation on macOS: build `core1_start_test`, then
+`ctest --test-dir <host-build> --output-on-failure -R '^(core1_start_test|native_probe_gate|f0_flash_runner_test)$'`
+passed 3/3. The new host test covers wrong context, occupied boot mailbox,
+already-clocked startup, dropped writes, stuck unstall, boot/round/stop
+timeouts, fault reporting, wrong hart/SP, uncleared ROM mailbox, corrupt
+results, wrong stop state, guard damage, and rejection of retries.
+The same C test passed under host ASan/UBSan, and the public header passed a
+C++11 syntax check. The isolated ELF has no undefined symbols and no symbols
+matching the checked `FreeRTOS|xTask|vTask|esp_` runtime-name patterns; this
+supports, but is not by itself a complete dependency audit.
+Both isolated flash images passed the existing image validator. Rebuilding the
+product with the pre-existing working-tree Files changes retained its exact
+pre-probe SHA-256
+`b0337655064a6a6271cdb12a2fed73dac25446317f9facb6dbe25fc6ddb2a7ee`.
+No product performance improvement is claimed; IPI and per-core interrupt
+state are the next independent gate.
