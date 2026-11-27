@@ -52,10 +52,11 @@ static __attribute__((noreturn)) void fatal_halt(uint32_t cause, uint32_t pc,
     /* Flush a possible partial normal-console packet; use no console globals. */
     MAIA_MMIO32(MAIA_ESP32P4_USB_EP1_CONF_REG) = MAIA_ESP32P4_USB_WR_DONE;
     if (reason != 0U) {
-        uintptr_t top = maia_trap_stack_metadata.emergency_top;
+        volatile maia_trap_stack_metadata_t *meta = maia_arch_trap_stack_current();
+        uintptr_t top = meta->emergency_top;
         int emergency = handler_sp >= top-MAIA_EMERGENCY_STACK_BYTES+MAIA_RISCV_STACK_GUARD_BYTES &&
                         handler_sp < top && maia_stack_guard_valid(top-MAIA_EMERGENCY_STACK_BYTES);
-        int guard = maia_stack_guard_valid(maia_trap_stack_metadata.low-MAIA_RISCV_STACK_GUARD_BYTES);
+        int guard = maia_stack_guard_valid(meta->low-MAIA_RISCV_STACK_GUARD_BYTES);
         panic_literal("MAIA_STACK_FAULT reason="); panic_byte((char)('0'+reason));
         panic_literal(" emergency="); panic_byte(emergency ? '1' : '0');
         panic_literal(" guard="); panic_byte(guard ? '1' : '0');

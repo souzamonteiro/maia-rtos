@@ -16,17 +16,32 @@ static unsigned exclusive_depth;
 static unsigned scope_depth;
 static unsigned scope_baselines[NATIVE_DISPLAY_MAX_SCOPES];
 static maia_status_t graphics_error;
+/* Leases draw directly into the scanout buffer; sync writes back this
+ * physical-orientation box (empty when x0>=x1) and releases the lease. */
+static int32_t dirty_x0, dirty_y0, dirty_x1, dirty_y1;
+
+static void mark_dirty(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    if (dirty_x0 >= dirty_x1) {
+        dirty_x0 = x0; dirty_y0 = y0; dirty_x1 = x1; dirty_y1 = y1;
+        return;
+    }
+    if (x0 < dirty_x0) dirty_x0 = x0;
+    if (y0 < dirty_y0) dirty_y0 = y0;
+    if (x1 > dirty_x1) dirty_x1 = x1;
+    if (y1 > dirty_y1) dirty_y1 = y1;
+}
 
 static int32_t ensure_lease(void) {
     if (exclusive_depth == 0U) return -1;
     if (leased_pixels) return 0;
     uint16_t *pixels = 0;
-    maia_status_t status = maia_lcd_output_edit_begin(&pixels);
+    maia_status_t status = maia_lcd_output_direct_begin(&pixels);
     if (status != MAIA_OK || !pixels) {
         graphics_error = status == MAIA_OK ? MAIA_ERR_INVALID : status;
         return -1;
     }
     leased_pixels = pixels;
+    dirty_x0 = dirty_y0 = dirty_x1 = dirty_y1 = 0;
     graphics_error = MAIA_OK;
     return 0;
 }
@@ -37,6 +52,7 @@ static int32_t put_pixel(int32_t x, int32_t y, uint16_t color) {
     int32_t px = y;
     int32_t py = NATIVE_DISPLAY_PHYSICAL_HEIGHT - 1 - x;
     leased_pixels[py * NATIVE_DISPLAY_PHYSICAL_WIDTH + px] = color;
+    mark_dirty(px, py, px + 1, py + 1);
     return 0;
 }
 
@@ -53,6 +69,8 @@ static int32_t fill_rect(int32_t x, int32_t y, int32_t width, int32_t height, ui
     if (right > NATIVE_DISPLAY_WIDTH) right = NATIVE_DISPLAY_WIDTH;
     if (bottom > NATIVE_DISPLAY_HEIGHT) bottom = NATIVE_DISPLAY_HEIGHT;
     if (ensure_lease() != 0) return -1;
+    mark_dirty((int32_t)top, NATIVE_DISPLAY_PHYSICAL_HEIGHT - (int32_t)right,
+               (int32_t)bottom, NATIVE_DISPLAY_PHYSICAL_HEIGHT - (int32_t)left);
     for (int64_t logical_x = left; logical_x < right; ++logical_x) {
         int32_t physical_y = NATIVE_DISPLAY_PHYSICAL_HEIGHT - 1 - (int32_t)logical_x;
         uint16_t *row = leased_pixels + physical_y * NATIVE_DISPLAY_PHYSICAL_WIDTH + (int32_t)top;
@@ -65,7 +83,13 @@ static int32_t fill_rect(int32_t x, int32_t y, int32_t width, int32_t height, ui
 
 static int32_t publish_lease(void) {
     if (!leased_pixels) return graphics_error == MAIA_OK ? 0 : -1;
-    maia_status_t status = maia_lcd_output_edit_publish();
+    maia_status_t status = MAIA_OK;
+    if (dirty_x0 < dirty_x1) {
+        status = maia_lcd_output_direct_flush(
+            (uint32_t)dirty_x0, (uint32_t)dirty_y0, (uint32_t)dirty_x1, (uint32_t)dirty_y1);
+    }
+    maia_status_t ended = maia_lcd_output_direct_end();
+    if (status == MAIA_OK) status = ended;
     leased_pixels = 0;
     if (status != MAIA_OK) {
         graphics_error = status;

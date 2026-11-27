@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <errno.h>
@@ -393,6 +394,74 @@ static void test_vfs_directories(void) {
     assert(maia_vfs_rmdir("/sd/Native directory") == MAIA_VFS_OK);
 }
 
+typedef struct registered_symbol {
+    const char *name;
+    uintptr_t address;
+} registered_symbol_t;
+static registered_symbol_t registered_symbols[16];
+static unsigned registered_count;
+
+int mnm_register_symbol(const char *name, uintptr_t address) {
+    assert(registered_count < sizeof(registered_symbols) / sizeof(registered_symbols[0]));
+    registered_symbols[registered_count].name = name;
+    registered_symbols[registered_count++].address = address;
+    return 0;
+}
+
+static uintptr_t registered(const char *name) {
+    for (unsigned i = 0U; i < registered_count; ++i)
+        if (strcmp(registered_symbols[i].name, name) == 0) return registered_symbols[i].address;
+    assert(!"symbol not registered");
+    return 0U;
+}
+
+int maia_tab5_fs_register_maiascript_symbols(void);
+
+static void test_maiascript_fs_imports(void) {
+    typedef int32_t (*path_fn)(const char *);
+    typedef char *(*read_fn)(const char *);
+    typedef int32_t (*write_fn)(const char *, const char *);
+    typedef const char *(*name_fn)(const char *, int32_t);
+    typedef int32_t (*is_dir_fn)(const char *, int32_t);
+    assert(maia_tab5_fs_register_maiascript_symbols() == 0 && registered_count == 7U);
+    path_fn exists = (path_fn)registered("host_fs_exists");
+    read_fn read_text = (read_fn)registered("host_fs_read_text");
+    write_fn write_text = (write_fn)registered("host_fs_write_text");
+    path_fn remove_file = (path_fn)registered("host_fs_remove");
+    path_fn list_count = (path_fn)registered("host_fs_list_count");
+    name_fn item_name = (name_fn)registered("host_fs_list_item_name");
+    is_dir_fn item_is_dir = (is_dir_fn)registered("host_fs_list_item_is_dir");
+
+    assert(mkdir("/sd/msfs", 0777) == 0 && mkdir("/sd/msfs/sub", 0777) == 0);
+    assert(exists("/sd/msfs/notes.txt") == 0 && read_text("/sd/msfs/notes.txt")[0] == '\0');
+    assert(write_text("/sd/msfs/notes.txt", "MaiaScript\nnotes") == 16);
+    assert(exists("/sd/msfs/notes.txt") == 1);
+    char *text = read_text("/sd/msfs/notes.txt");
+    assert(strcmp(text, "MaiaScript\nnotes") == 0);
+    free(text);
+    assert(write_text("/sd/msfs/notes.txt", "x") == 1);
+    text = read_text("/sd/msfs/notes.txt");
+    assert(strcmp(text, "x") == 0);
+    free(text);
+    assert(write_text("/sd/msfs/notes.txt", NULL) == 0 && read_text("/sd/msfs/notes.txt")[0] == '\0');
+    assert(write_text("/sd/../escape", "x") < 0 && write_text(NULL, "x") < 0);
+
+    assert(list_count("/sd/msfs") == 2 && list_count("/sd/missing") == 0);
+    unsigned saw_dir = 0U, saw_file = 0U;
+    for (int32_t i = 0; i < 2; ++i) {
+        const char *name = item_name("/sd/msfs", i);
+        if (strcmp(name, "sub") == 0) saw_dir = item_is_dir("/sd/msfs", i) == 1;
+        else if (strcmp(name, "notes.txt") == 0) saw_file = item_is_dir("/sd/msfs", i) == 0;
+    }
+    assert(saw_dir && saw_file);
+    assert(item_name("/sd/msfs", 2)[0] == '\0' && item_name("/sd/msfs", -1)[0] == '\0');
+    assert(item_is_dir("/sd/msfs", 5) == 0);
+
+    assert(remove_file("/sd/msfs/notes.txt") == 0 && exists("/sd/msfs/notes.txt") == 0);
+    assert(remove_file("/sd/msfs/notes.txt") < 0);
+    assert(rmdir("/sd/msfs/sub") == 0 && rmdir("/sd/msfs") == 0);
+}
+
 static void test_newlib_adapter(void) {
     static const char path[] = "/sd/Newlib file.txt";
     struct stat st;
@@ -669,6 +738,7 @@ int main(void) {
     test_vfs_file_operations();
     test_vfs_directories();
     test_newlib_adapter();
+    test_maiascript_fs_imports();
     test_diskio_fault_recovery();
     test_vfs_transport_faults();
     test_remount_persistence();

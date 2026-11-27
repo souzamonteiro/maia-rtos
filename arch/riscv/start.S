@@ -48,6 +48,15 @@ _start:
 .Lbss_done:
     /* Early SoC init (disable ROM flashboot watchdogs). */
     call maia_soc_early_init
+#ifdef MAIA_PRODUCT_HIGH_SRAM
+    /* Zero high L2MEM data before TLS/C++ init may touch it. */
+    call maia_esp32p4_sram_high_init
+    beqz a0, .Lhigh_sram_done
+    la a0, .Lhigh_sram_failure_message
+    call maia_console_puts
+    j .Lstartup_failed
+.Lhigh_sram_done:
+#endif
 #ifdef MAIA_ENABLE_COMPILER_TLS
     call maia_tls_boot_init
     beqz a0, .Ltls_init_done
@@ -70,6 +79,12 @@ _start:
     j .Lsecondary_park
 
     .size _start, . - _start
+
+#ifdef MAIA_PRODUCT_HIGH_SRAM
+    .section .rodata.high_sram_failure, "a"
+.Lhigh_sram_failure_message:
+    .asciz "[MaiaRTOS] high SRAM unavailable (L2 cache size or verify)\n"
+#endif
 
 #ifdef MAIA_ENABLE_COMPILER_TLS
     .section .rodata.tls_boot_failure, "a"

@@ -6,6 +6,7 @@
 #include <maia/soc/esp32p4_board_io.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/soc/esp32p4_psram.h>
+#include <maia/soc/esp32p4_sram.h>
 
 #include "dsi_framebuffer_probe.h"
 #include "soc_display_native.h"
@@ -37,8 +38,8 @@ static uint8_t s_term_cur_col;
 static uint8_t s_display_ready;
 static volatile int s_exclusive_mode;
 static volatile uint32_t s_dirty_rows;
-static uint8_t s_lcd_stack[8192] __attribute__((aligned(16)));
-static uint8_t s_term_stack[2048] __attribute__((aligned(16)));
+static uint8_t s_lcd_stack[8192] MAIA_SRAM_HIGH_BSS __attribute__((aligned(16)));
+static uint8_t s_term_stack[2048] MAIA_SRAM_HIGH_BSS __attribute__((aligned(16)));
 
 #include "font_8x16.h"
 
@@ -261,7 +262,21 @@ static int native_lcd_start(void) {
     if (result != MAIA_PSRAM_OK) return -1;
     result = maia_esp32p4_psram_x8_mode(0U, 10000U, &mode);
     report_step("x8_mode", (uint32_t)result, mode.stage);
-    if (result != MAIA_PSRAM_OK) return -1;
+    if (result != MAIA_PSRAM_OK) {
+        static const uint32_t regs[4] = {0U, 2U, 4U, 8U};
+        for (unsigned i = 0; i < 4U; ++i) {
+            maia_psram_mode_report_t mr;
+            maia_psram_result_t r = maia_esp32p4_psram_read_mode(regs[i], 10000U, &mr);
+            maia_console_puts("[DISPLAY] PSRAM MR");
+            disp_print_hex32(regs[i]);
+            maia_console_puts(" r=");
+            disp_print_hex32((uint32_t)r);
+            maia_console_puts(" v=");
+            disp_print_hex32(mr.value);
+            maia_console_puts("\n");
+        }
+        return -1;
+    }
     result = maia_esp32p4_psram_fast_start(200U, 10000U, &fast);
     report_step("fast_start", (uint32_t)result, fast.mhz);
     if (result != MAIA_PSRAM_OK) return -1;

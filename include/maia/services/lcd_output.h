@@ -35,6 +35,23 @@ maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn,void *);
  * for IRQ-off/non-task/owner callers; INVALID if the service is not running. */
 maia_status_t maia_lcd_output_edit_begin(uint16_t **pixels);
 maia_status_t maia_lcd_output_edit_publish(void);
+/* Same as edit_publish, declaring that only the native-orientation half-open box
+ * [x0,x1)x[y0,y1) (720x1280) changed since the lease began. The next lease then
+ * seeds only that box instead of copying the whole frame. An understated box
+ * leaves stale pixels in the other buffer; an empty box is legal. INVALID for a
+ * box outside the panel. */
+maia_status_t maia_lcd_output_edit_publish_region(uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1);
+/* Task-only direct scanout lease (any core, non-owner): returns the buffer DMA
+ * is scanning, as the ESP-IDF reference's single framebuffer. Draw in place and
+ * flush the changed native-orientation box [x0,x1)x[y0,y1) with a cache
+ * writeback; no frame wait, tearing is possible. While held, owner updates and
+ * backbuffer edits wait. Begin waits up to 200 ticks for an in-flight owner
+ * update/presentation: OK; BUSY on timeout; PERM for IRQ-off/owner callers;
+ * INVALID if not running or already held by the caller. flush/end: INVALID if
+ * the caller does not hold the lease; flush BUSY on a cache failure. */
+maia_status_t maia_lcd_output_direct_begin(uint16_t **pixels);
+maia_status_t maia_lcd_output_direct_flush(uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1);
+maia_status_t maia_lcd_output_direct_end(void);
 /* Owner thread, IRQs enabled, only after run returned a clean graceful stop.
  * Reclaims the same warm panel/window/config; clears per-session counters.
  * OK; PERM wrong context; BUSY active/faulted/backend refusal. Not cold init. */

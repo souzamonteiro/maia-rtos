@@ -88,7 +88,10 @@ static void fm_refresh(void) {
     if (!g_gui_ctx || !g_gui_ctx->host || !g_gui_ctx->host->list_dir) return;
 
     g_fm_entry_count = g_gui_ctx->host->list_dir(g_fm_current_path, g_fm_entries, FM_MAX_ENTRIES);
-    if (g_fm_entry_count < 0) g_fm_entry_count = 0;
+    if (g_fm_entry_count < 0) {
+        g_fm_entry_count = 0;
+        set_fm_status("[ERROR] Unable to list this directory.", COLOR_RED);
+    }
     g_fm_selected_idx = -1;
     g_fm_scroll_offset = 0;
 
@@ -549,4 +552,3 @@ int maia_module_main(const maia_module_context_t *ctx) {
     gui_out_str("<<< File Manager GUI exited cleanly.\n");
     return 0;
 }
-

@@ -12,16 +12,22 @@ static unsigned lease_active,lease_begins,lease_publishes,exclusive_calls;
 static int exclusive_value,begin_fails,publish_fails;
 static char console_log[128];
 
-maia_status_t maia_lcd_output_edit_begin(uint16_t **pixels){
+maia_status_t maia_lcd_output_direct_begin(uint16_t **pixels){
     ++lease_begins;
     if(begin_fails)return MAIA_ERR_BUSY;
     assert(!lease_active);
     lease_active=1;*pixels=frame;return MAIA_OK;
 }
 
-maia_status_t maia_lcd_output_edit_publish(void){
+static uint32_t box[4];
+maia_status_t maia_lcd_output_direct_flush(uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1){
+    assert(lease_active);
+    box[0]=x0;box[1]=y0;box[2]=x1;box[3]=y1;
+    return publish_fails?MAIA_ERR_BUSY:MAIA_OK;
+}
+
+maia_status_t maia_lcd_output_direct_end(void){
     ++lease_publishes;
-    if(publish_fails)return MAIA_ERR_BUSY;
     assert(lease_active);lease_active=0;return MAIA_OK;
 }
 
@@ -66,12 +72,14 @@ int main(void){
     assert(api->put_pixel(-1,0,0)<0&&api->put_pixel(0,720,0)<0);
     assert(api->fill_rect(0,0,-1,2,0)<0);
     api->sync();assert(lease_publishes==1&&!lease_active);
+    assert(box[0]==0&&box[1]==0&&box[2]==720&&box[3]==1280);
 
     assert(api->acquire_exclusive()==0&&exclusive_calls==1);
     assert(api->fill_rect(10,10,2,2,0xF800U)==0);
     assert(api->release_exclusive()==0&&exclusive_calls==1&&exclusive_value==1);
     assert(lease_active&&lease_publishes==1);
     api->sync();assert(!lease_active&&lease_publishes==2);
+    assert(box[0]==10&&box[1]==1268&&box[2]==12&&box[3]==1270);
     assert(api->fill_rect(20,20,1,1,0xFFFFU)==0);
     assert(api->release_exclusive()==0&&exclusive_calls==2&&exclusive_value==0);
     assert(!lease_active&&lease_publishes==3);

@@ -87,6 +87,7 @@ typedef struct test_elf_source {
     int fail_reads;
     int fail_at_offset;
     size_t failed_offset;
+    unsigned releases;
 } test_elf_source_t;
 
 static int test_elf_read_at(void *context, size_t offset,
@@ -150,6 +151,10 @@ static size_t make_no_entry_elf(uint8_t *buffer, size_t capacity) {
     return total_size;
 }
 
+static void test_elf_release(void *context) {
+    ((test_elf_source_t *)context)->releases++;
+}
+
 static void check_streaming_loader(void) {
     uint8_t bytes[256];
     size_t size = make_no_entry_elf(bytes, sizeof(bytes));
@@ -160,7 +165,8 @@ static void check_streaming_loader(void) {
     elf_reader_t reader = {
         .read_at = test_elf_read_at,
         .context = &source,
-        .size = size
+        .size = size,
+        .release = test_elf_release
     };
     char report[256];
 
@@ -171,6 +177,7 @@ static void check_streaming_loader(void) {
     assert(mnm_load_and_run_reader(&reader, 0, NULL, NULL, NULL, NULL) ==
            MNM_ERR_NO_ENTRY_POINT);
     assert(source.reads > 0U);
+    assert(source.releases == 0U);
     assert(mnm_load_and_run(bytes, size, 0, NULL, NULL, NULL, NULL) ==
            MNM_ERR_NO_ENTRY_POINT);
 

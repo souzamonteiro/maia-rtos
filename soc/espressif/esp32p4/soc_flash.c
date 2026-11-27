@@ -1,12 +1,15 @@
 #include <maia/arch/irq.h>
 #include <maia/soc/esp32p4_flash.h>
+#include <maia/soc/esp32p4_smp.h>
 
 #include <stddef.h>
 #include <stdint.h>
 
 #define ESP32P4_FLASH_ERASE_BYTES UINT32_C(0x1000)
+/* Internal L2MEM below the L2 cache window: stays usable while L2 is suspended
+ * (image, reclaimed bootloader area and high SRAM stacks/heap). */
 #define ESP32P4_SRAM_LOW_START UINT32_C(0x4FF00000)
-#define ESP32P4_SRAM_LOW_END UINT32_C(0x4FF28000)
+#define ESP32P4_SRAM_LOW_END UINT32_C(0x4FF80000)
 
 #define ESP32P4_ROM_CACHE_SUSPEND_L2 UINT32_C(0x4FC00508)
 #define ESP32P4_ROM_CACHE_RESUME_L2 UINT32_C(0x4FC0050C)
@@ -105,18 +108,41 @@ static int valid_range(uint32_t offset, uint32_t length) {
            length <= MAIA_ESP32P4_KV_FLASH_BYTES - offset;
 }
 
+/* Single-core images have no SMP port: these weak defaults keep core 0 only. */
+__attribute__((weak)) int maia_esp32p4_smp_core0_begin(uint8_t *saved) {
+    if (saved) *saved = 0U;
+    return maia_arch_core_id() == 0U ? 0 : -1;
+}
+__attribute__((weak)) void maia_esp32p4_smp_core0_end(uint8_t saved) { (void)saved; }
+__attribute__((weak)) int maia_esp32p4_smp_freeze_core1(void) { return 0; }
+__attribute__((weak)) void maia_esp32p4_smp_thaw_core1(void) {}
+
+/* The L2 cache is suspended on core 0 only, with core 1 parked in SRAM. */
+static int run_transaction(flash_operation_t operation, uint32_t address,
+                           uintptr_t buffer, uint32_t length) {
+    uint8_t saved = 0U;
+    if (maia_esp32p4_smp_core0_begin(&saved) != 0) return -1;
+    uintptr_t local = maia_arch_irq_save_local();
+    int result = -1;
+    if (maia_esp32p4_smp_freeze_core1() == 0) {
+        uintptr_t irq = maia_arch_irq_save();
+        result = flash_transaction(operation, address, buffer, length);
+        maia_arch_irq_restore(irq);
+        maia_esp32p4_smp_thaw_core1();
+    }
+    maia_arch_irq_restore_local(local);
+    maia_esp32p4_smp_core0_end(saved);
+    return result;
+}
+
 int maia_esp32p4_kv_flash_read(uint32_t offset, void *buffer,
                                uint32_t length) {
     if (!valid_range(offset, length) || (offset & 3U) != 0U ||
         (length & 3U) != 0U || !valid_buffer(buffer, length)) {
         return -1;
     }
-    uintptr_t irq = maia_arch_irq_save();
-    int result = flash_transaction(FLASH_OPERATION_READ,
-                                   MAIA_ESP32P4_KV_FLASH_BASE + offset,
-                                   (uintptr_t)buffer, length);
-    maia_arch_irq_restore(irq);
-    return result;
+    return run_transaction(FLASH_OPERATION_READ, MAIA_ESP32P4_KV_FLASH_BASE + offset,
+                           (uintptr_t)buffer, length);
 }
 
 int maia_esp32p4_kv_flash_write(uint32_t offset, const void *buffer,
@@ -125,12 +151,8 @@ int maia_esp32p4_kv_flash_write(uint32_t offset, const void *buffer,
         (length & 3U) != 0U || !valid_buffer(buffer, length)) {
         return -1;
     }
-    uintptr_t irq = maia_arch_irq_save();
-    int result = flash_transaction(FLASH_OPERATION_WRITE,
-                                   MAIA_ESP32P4_KV_FLASH_BASE + offset,
-                                   (uintptr_t)buffer, length);
-    maia_arch_irq_restore(irq);
-    return result;
+    return run_transaction(FLASH_OPERATION_WRITE, MAIA_ESP32P4_KV_FLASH_BASE + offset,
+                           (uintptr_t)buffer, length);
 }
 
 int maia_esp32p4_kv_flash_erase(uint32_t offset, uint32_t length) {
@@ -139,10 +161,6 @@ int maia_esp32p4_kv_flash_erase(uint32_t offset, uint32_t length) {
         (length % ESP32P4_FLASH_ERASE_BYTES) != 0U) {
         return -1;
     }
-    uintptr_t irq = maia_arch_irq_save();
-    int result = flash_transaction(FLASH_OPERATION_ERASE,
-                                   MAIA_ESP32P4_KV_FLASH_BASE + offset,
-                                   0U, length);
-    maia_arch_irq_restore(irq);
-    return result;
+    return run_transaction(FLASH_OPERATION_ERASE, MAIA_ESP32P4_KV_FLASH_BASE + offset,
+                           0U, length);
 }

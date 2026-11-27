@@ -27,12 +27,21 @@ maia_core1_entry:
     sw t1, MAIA_CORE1_STATE(t0)
 
 .Lcore1_wait:
+    lw t3, MAIA_CORE1_HEARTBEAT(t0)
+    addi t3, t3, 1
+    sw t3, MAIA_CORE1_HEARTBEAT(t0)
+    li t4, MAIA_CORE1_IDLE_SPIN
+.Lcore1_spin:
+    addi t4, t4, -1
+    bnez t4, .Lcore1_spin
     lw t1, MAIA_CORE1_COMMAND(t0)
     fence r, rw
     lw t2, MAIA_CORE1_ACK(t0)
     beq t1, t2, .Lcore1_wait
     li t2, MAIA_CORE1_STOP
     beq t1, t2, .Lcore1_stop
+    li t2, MAIA_CORE1_LAUNCH
+    beq t1, t2, .Lcore1_launch
     lw t2, MAIA_CORE1_PAYLOAD(t0)
     li t3, MAIA_CORE1_XOR
     xor t2, t2, t3
@@ -41,6 +50,16 @@ maia_core1_entry:
     fence rw, w
     sw t1, MAIA_CORE1_ACK(t0)
     j .Lcore1_wait
+
+.Lcore1_launch:
+    lw t2, MAIA_CORE1_PAYLOAD(t0)
+    lw sp, MAIA_CORE1_RESULT(t0)
+    li t3, MAIA_CORE1_STATE_LAUNCHED
+    sw t3, MAIA_CORE1_STATE(t0)
+    fence rw, w
+    sw t1, MAIA_CORE1_ACK(t0)
+    fence.i
+    jr t2
 
 .Lcore1_stop:
     li t2, 2

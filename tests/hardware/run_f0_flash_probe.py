@@ -26,14 +26,20 @@ PROBE_MARKER = "MAIA_F0_FLASH_PROBE"
 
 def esptool(port, *args, log):
     cmd = [ESPTOOL, "--chip", "esp32p4", "--port", port, *args]
-    log.write("$ " + " ".join(cmd) + "\n")
-    log.flush()
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    log.write(result.stdout + result.stderr)
-    log.flush()
-    if result.returncode != 0:
-        raise RuntimeError(f"esptool failed: {' '.join(args)}\n{result.stdout}{result.stderr}")
-    return result.stdout
+    # USB-Serial/JTAG can drop mid-transfer; writes are idempotent, so retry.
+    attempts = 3 if "write_flash" in args else 1
+    for attempt in range(1, attempts + 1):
+        log.write("$ " + " ".join(cmd) + "\n")
+        log.flush()
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        log.write(result.stdout + result.stderr)
+        log.flush()
+        if result.returncode == 0:
+            return result.stdout
+        if attempt < attempts:
+            log.write(f"[HOST] esptool attempt {attempt} failed; retrying\n")
+            time.sleep(3.0)
+    raise RuntimeError(f"esptool failed: {' '.join(args)}\n{result.stdout}{result.stderr}")
 
 
 def image_length(data):
@@ -152,7 +158,7 @@ def main():
     parser.add_argument("--input-hex",
                         help="hex bytes to send after --input-marker appears")
     parser.add_argument("--observe-seconds", type=float, default=0.0,
-                        help="keep capturing for up to 120 seconds after the marker for visual inspection")
+                        help="keep capturing for up to 660 seconds after the marker for visual inspection")
     parser.add_argument("--input-line-delay", type=float, default=0.0,
                         help="send --input-hex one line at a time, this many seconds apart")
     args = parser.parse_args()
@@ -161,8 +167,8 @@ def main():
         parser.error("--boots must be at least one")
     if not math.isfinite(args.capture_seconds) or args.capture_seconds <= 0:
         parser.error("--capture-seconds must be finite and positive")
-    if not 0 <= args.observe_seconds <= 120:
-        parser.error("--observe-seconds must be between 0 and 120")
+    if not 0 <= args.observe_seconds <= 660:
+        parser.error("--observe-seconds must be between 0 and 660")
     if not math.isfinite(args.input_line_delay) or not 0 <= args.input_line_delay <= 30:
         parser.error("--input-line-delay must be between 0 and 30 seconds")
     if not args.marker:

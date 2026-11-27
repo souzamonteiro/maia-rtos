@@ -4,6 +4,7 @@
 #ifdef MAIA_PRODUCT_FATFS
 #include <maia/boards/tab5_kv.h>
 #include <maia/boards/tab5_maiascript_kv.h>
+#include <maia/boards/tab5_maiascript_fs.h>
 #endif
 #include <maia/kernel.h>
 #include <maia/runtime/newlib_locks.h>
@@ -14,6 +15,13 @@
 #include <maia/services/vfs.h>
 #endif
 #include <maia/soc/esp32p4_board_io.h>
+#ifdef MAIA_PRODUCT_CORE1
+#include <maia/soc/esp32p4_core1.h>
+#ifdef MAIA_PRODUCT_SMP
+#include <maia/soc/esp32p4_smp.h>
+#endif
+#endif
+#include <maia/soc/esp32p4_sram.h>
 #include <maia/soc/esp32p4_display.h>
 #include <maia/version.h>
 #include <maia_shell/shell_engine.h>
@@ -26,11 +34,20 @@
 
 extern void maia_soc_systimer_init(uint32_t tick_hz);
 
-/* 49 KiB L2MEM heap pool + task stacks in internal L2MEM_LOW (.bss) */
-static uint8_t g_heap_pool[50176] __attribute__((aligned(16)));
+/* First heap region (low L2MEM .bss, DMA-reachable) + task stacks. With
+ * MAIA_PRODUCT_HIGH_SRAM the shell/LCD/touch stacks move to high L2MEM, so
+ * the low pool grows; extra regions are added in maia_boot_main. */
+#ifdef MAIA_PRODUCT_HIGH_SRAM
+#define MAIA_LOW_HEAP_BYTES 78848
+#define MAIA_SHELL_STACK_BYTES 32768
+#else
+#define MAIA_LOW_HEAP_BYTES 50176
+#define MAIA_SHELL_STACK_BYTES 16384
+#endif
+static uint8_t g_heap_pool[MAIA_LOW_HEAP_BYTES] __attribute__((aligned(16)));
 static uint8_t g_stack_idle[1024] __attribute__((aligned(16)));
 static uint8_t g_stack_telem[1024] __attribute__((aligned(16)));
-static uint8_t g_stack_shell[16384] __attribute__((aligned(16)));
+static uint8_t g_stack_shell[MAIA_SHELL_STACK_BYTES] MAIA_SRAM_HIGH_BSS __attribute__((aligned(16)));
 
 static maia_mutex_t g_telem_mutex;
 static maia_queue_t g_telem_queue;
@@ -823,6 +840,37 @@ static void task_shell_entry(void *arg) {
     }
 }
 
+#ifdef MAIA_PRODUCT_CORE1
+/* IRQs are still off here: start the SRAM-only core-1 worker once per reset.
+ * Failure is reported and boot continues single-core. */
+static int g_core1_started;
+
+static void start_core1(void) {
+    maia_core1_report_t report;
+    maia_core1_result_t result = maia_esp32p4_core1_start(&report);
+    if (result == MAIA_CORE1_OK) {
+        g_core1_started = 1;
+        maia_console_puts("[F9] MAIA_CORE1_ONLINE hart=");
+        print_u32(report.hart);
+        maia_console_puts(" sp=");
+        print_hex32(report.stack_pointer);
+        maia_console_puts(" rounds=");
+        print_u32(report.rounds);
+        maia_console_puts("\n");
+        return;
+    }
+    maia_console_puts("[F9] MAIA_CORE1_START_FAIL result=-");
+    print_u32((uint32_t)(-(int32_t)result));
+    maia_console_puts(" completed=");
+    print_u32(report.completed);
+    maia_console_puts(" cause=");
+    print_hex32(report.cause);
+    maia_console_puts(" pc=");
+    print_hex32(report.pc);
+    maia_console_puts("; boot continues single-core\n");
+}
+#endif
+
 void maia_boot_main(void) {
     uint32_t mhartid = 0U;
     uint32_t misa    = 0U;
@@ -843,6 +891,10 @@ void maia_boot_main(void) {
     print_hex32(sp_val);
     maia_console_puts("\n========================================================\n");
 
+#ifdef MAIA_PRODUCT_CORE1
+    start_core1();
+#endif
+
 #ifdef MAIA_PRODUCT_FATFS
     maia_kv_result_t kv_result = maia_tab5_kv_init();
     if (kv_result == MAIA_KV_OK) {
@@ -859,6 +911,12 @@ void maia_boot_main(void) {
         maia_console_puts("[F2] MaiaScript MaiaKV imports registered\n");
     } else {
         maia_console_puts("[F2] MaiaScript MaiaKV import registration failed (error=-");
+        print_u32((uint32_t)(-symbol_result));
+        maia_console_puts(")\n");
+    }
+    symbol_result = maia_tab5_fs_register_maiascript_symbols();
+    if (symbol_result != 0) {
+        maia_console_puts("[F2] MaiaScript fs import registration failed (error=-");
         print_u32((uint32_t)(-symbol_result));
         maia_console_puts(")\n");
     }
@@ -895,11 +953,44 @@ void maia_boot_main(void) {
             maia_console_puts("); boot continues\n");
         }
     }
+#ifdef MAIA_PRODUCT_HIGH_SRAM
+    /* After core 1 left ROM and the DMA buffer came from the low pool. */
+    void *reclaim_base = NULL;
+    size_t reclaim_bytes = 0U;
+    maia_esp32p4_sram_reclaim_region(&reclaim_base, &reclaim_bytes);
+    if (maia_mem_add_region(reclaim_base, reclaim_bytes) == MAIA_OK) {
+        maia_console_puts("[F1] Heap += bootloader SRAM ");
+        print_hex32((uint32_t)(uintptr_t)reclaim_base);
+        maia_console_puts(" bytes=");
+        print_u32((uint32_t)reclaim_bytes);
+        maia_console_puts("\n");
+    } else {
+        maia_console_puts("[F1] Bootloader SRAM reclaim failed; heap unchanged\n");
+    }
+    void *high_base = NULL;
+    size_t high_bytes = 0U;
+    maia_esp32p4_sram_high_heap_region(&high_base, &high_bytes);
+    if (!maia_esp32p4_sram_exec_probe(high_base)) {
+        maia_console_puts("[F1] High SRAM exec probe failed; heap unchanged\n");
+    } else if (maia_mem_add_region(high_base, high_bytes) == MAIA_OK) {
+        maia_console_puts("[F1] Heap += high SRAM ");
+        print_hex32((uint32_t)(uintptr_t)high_base);
+        maia_console_puts(" bytes=");
+        print_u32((uint32_t)high_bytes);
+        maia_console_puts("\n");
+    } else {
+        maia_console_puts("[F1] High SRAM heap region rejected\n");
+    }
+#endif
     (void)maia_mutex_init(&g_telem_mutex);
     (void)maia_queue_init(&g_telem_queue, g_telem_qbuf, sizeof(uint32_t), 8U);
 
     /* Initialize M1 CLIC Trap Vector + 1000 Hz SYSTIMER tick */
     maia_soc_systimer_init(1000U);
+#ifdef MAIA_PRODUCT_SMP
+    /* Must claim CLIC line 17 before the display allocates dynamic lines. */
+    maia_esp32p4_smp_init_core0();
+#endif
 
     /* Initialize M5Stack Tab5 IO expanders, backlight, touch/display detect & keyboard */
     maia_tab5_board_io_init();
@@ -928,6 +1019,23 @@ void maia_boot_main(void) {
     maia_console_puts(", maia_shell=");
     print_u32((uint32_t)tid_shell);
     maia_console_puts(") — starting scheduler...\n");
+
+#ifdef MAIA_PRODUCT_SMP
+    if (g_core1_started) {
+        int launch = maia_esp32p4_smp_launch_core1();
+        if (launch == MAIA_CORE1_OK) {
+            /* Desktop/apps run on core 1; drivers and LCD owners stay on core 0. */
+            (void)maia_task_set_affinity(tid_shell, MAIA_PRODUCT_SHELL_AFFINITY);
+            maia_console_puts("[F9] MAIA_SMP_LAUNCH ok shell_affinity=");
+            print_u32((uint32_t)MAIA_PRODUCT_SHELL_AFFINITY);
+            maia_console_puts("\n");
+        } else {
+            maia_console_puts("[F9] MAIA_SMP_LAUNCH_FAIL result=-");
+            print_u32((uint32_t)(-(int32_t)launch));
+            maia_console_puts("; scheduler stays single-core\n");
+        }
+    }
+#endif
 
     maia_sched_start();
 

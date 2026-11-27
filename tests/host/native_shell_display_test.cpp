@@ -14,6 +14,11 @@ static unsigned module_calls;
 static unsigned exclusive_calls;
 static char console_output[4096];
 static size_t console_length;
+static int32_t keyboard_input[16];
+static size_t keyboard_input_count;
+static size_t keyboard_input_index;
+static int32_t expected_keys[8];
+static size_t expected_key_count;
 
 extern "C" void maia_console_putc(char ch) {
     assert(console_length + 1U < sizeof(console_output));
@@ -26,7 +31,21 @@ extern "C" void maia_console_puts(const char *text) {
 }
 
 extern "C" int maia_tab5_keyboard_getc_nonblocking(void) {
-    return 'K';
+    if (keyboard_input_index >= keyboard_input_count) return -1;
+    return keyboard_input[keyboard_input_index++];
+}
+
+static void set_keyboard_input(const int32_t *keys, size_t count) {
+    assert(count <= sizeof(keyboard_input) / sizeof(keyboard_input[0]));
+    memcpy(keyboard_input, keys, count * sizeof(keys[0]));
+    keyboard_input_count = count;
+    keyboard_input_index = 0U;
+}
+
+static void expect_module_keys(const int32_t *keys, size_t count) {
+    assert(count <= sizeof(expected_keys) / sizeof(expected_keys[0]));
+    memcpy(expected_keys, keys, count * sizeof(keys[0]));
+    expected_key_count = count;
 }
 
 extern "C" void maia_display_set_exclusive(int) {
@@ -55,7 +74,11 @@ extern "C" int mnm_load_and_run(const void *elf, size_t elf_size,
     assert(elf != nullptr && elf_size != 0U);
     assert(host != nullptr && host->display == nullptr);
     assert(host->input != nullptr && host->input->read_key != nullptr);
-    assert(host->input->get_touch != nullptr && host->input->read_key() == 'K');
+    assert(host->input->get_touch != nullptr);
+    for (size_t i = 0U; i < expected_key_count; ++i) {
+        assert(host->input->read_key() == expected_keys[i]);
+    }
+    assert(host->input->read_key() == -1);
     int32_t x = 0, y = 0, pressed = 0;
     assert(host->input->get_touch(&x, &y, &pressed) == 0);
     assert(x == 10 && y == 20 && pressed == 1);
@@ -78,7 +101,29 @@ int main() {
     maia_shell_engine_init();
     assert(MaiaShell::get_global_display_api() == nullptr);
     assert(strstr(console_output, "Native module graphics unavailable") != nullptr);
+
+    const int32_t ordinary_key[] = {'K'};
+    expect_module_keys(ordinary_key, 1U);
+    set_keyboard_input(ordinary_key, 1U);
     assert(maia_shell_engine_eval_line("runelf") == 0);
-    assert(module_calls == 1U && exclusive_calls == 0U);
+    assert(module_calls == 1U);
+
+    const int32_t arrow_sequence[] = {
+        27, '[', 'A', 27, '[', 'B', 27, '[', 'D', 27, '[', 'C'
+    };
+    const int32_t arrow_keys[] = {0x80, 0x81, 0x82, 0x83};
+    expect_module_keys(arrow_keys, 4U);
+    set_keyboard_input(arrow_sequence,
+                       sizeof(arrow_sequence) / sizeof(arrow_sequence[0]));
+    assert(maia_shell_engine_eval_line("runelf") == 0);
+    assert(module_calls == 2U);
+
+    const int32_t ordinary_escape[] = {27, 'x'};
+    const int32_t expected_escape[] = {27, 'x'};
+    expect_module_keys(expected_escape, 2U);
+    set_keyboard_input(ordinary_escape,
+                       sizeof(ordinary_escape) / sizeof(ordinary_escape[0]));
+    assert(maia_shell_engine_eval_line("runelf") == 0);
+    assert(module_calls == 3U && exclusive_calls == 0U);
     return 0;
 }

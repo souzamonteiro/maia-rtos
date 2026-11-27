@@ -1,4 +1,5 @@
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
 #include <maia/arch/riscv_stack.h>
 #include <maia/runtime/pthread.h>
 #include <maia/scheduler_internal.h>
@@ -89,6 +90,19 @@ __attribute__((weak)) void maia_pthread_task_exit_complete(maia_task_id_t task_i
     (void)task_id;
 }
 
+/* SMP port (soc_smp.c) services the IPI line; single-core images have none. */
+int maia_esp32p4_smp_ipi_isr(void);
+__attribute__((weak)) int maia_esp32p4_smp_ipi_isr(void) { return 0; }
+
+/* Commit + select run under one kernel-lock hold: once the outgoing task is
+ * READY/BLOCKED another core may resume it, so its frame must be final. */
+static uintptr_t reschedule(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval, uintptr_t lock) {
+    uintptr_t next = maia_sched_select_next_sp(sp);
+    maia_arch_irq_restore(lock);
+    if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
+    return next;
+}
+
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval);
 uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, uint32_t mtval) {
     uint32_t *frame = (uint32_t *)sp;
@@ -99,15 +113,16 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
         if (irq_id == MAIA_ESP32P4_CLIC_SYSTIMER_INTR_ID) {
             MAIA_MMIO32(MAIA_ESP32P4_SYSTIMER_INT_CLR_REG) = MAIA_ESP32P4_SYSTIMER_TARGET0_INT_BIT;
             maia_display_refresh_dma_if_needed();
+            uintptr_t lock = maia_arch_irq_save();
             (void)maia_sched_tick_isr();
-            uintptr_t next = maia_sched_select_next_sp(sp);
-            if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
-            return next;
+            return reschedule(sp, mcause, mepc, mtval, lock);
+        }
+        /* The IPI may park this core for a flash operation: no lock held. */
+        if (irq_id == MAIA_ESP32P4_CLIC_IPI_INTR_ID && maia_esp32p4_smp_ipi_isr()) {
+            return reschedule(sp, mcause, mepc, mtval, maia_arch_irq_save());
         }
         if(maia_soc_external_irq_dispatch(irq_id)){
-            uintptr_t next=maia_sched_select_next_sp(sp);
-            if(!next)maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
-            return next;
+            return reschedule(sp, mcause, mepc, mtval, maia_arch_irq_save());
         }
         maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
     }
@@ -115,7 +130,11 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
     uint32_t resume_pc;
     if (maia_riscv_yield_resume_pc(mcause, mepc, &resume_pc) &&
         maia_task_count() != 0U && maia_task_current_id() >= 0) {
+        /* A task must never trap/yield inside a kernel critical section. */
+        if (maia_arch_klock_depth() != 0U) maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
+        uintptr_t lock = maia_arch_irq_save();
         maia_status_t status = MAIA_OK;
+        frame[28] = resume_pc;
         if (mepc == (uint32_t)(uintptr_t)maia_arch_delay_ecall) {
             status = maia_sched_delay_current_isr(frame[6]);
         } else if (mepc == (uint32_t)(uintptr_t)maia_arch_wait_notification_ecall) {
@@ -128,10 +147,7 @@ uintptr_t maia_riscv_trap_handler(uintptr_t sp, uint32_t mcause, uint32_t mepc, 
             }
         }
         if (status != MAIA_OK) maia_esp32p4_fatal_trap(mcause, mepc, mtval, sp);
-        frame[28] = resume_pc;
-        uintptr_t next = maia_sched_select_next_sp(sp);
-        if (next == 0U) maia_arch_stack_panic(mcause,mepc,mtval,sp+MAIA_RISCV_CONTEXT_BYTES,MAIA_STACK_BAD_CONTEXT);
-        return next;
+        return reschedule(sp, mcause, mepc, mtval, lock);
     }
 
     /* Unknown exceptions/breakpoints preserve the original PC and halt.

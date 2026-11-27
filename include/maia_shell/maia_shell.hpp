@@ -34,6 +34,29 @@
 #include <freertos/idf_additions.h>
 #include "maia/exec/elf_loader.h"
 #endif
+#if defined(MAIA_PRODUCT_FATFS) && !defined(ESP_PLATFORM)
+#include <maia/services/vfs.h>
+#endif
+#if defined(MAIA_PRODUCT_CORE1) && !defined(ESP_PLATFORM)
+#include <maia/soc/esp32p4_core1.h>
+#endif
+#if defined(MAIA_PRODUCT_SMP) && !defined(ESP_PLATFORM)
+#include <maia/arch/irq.h>
+#include <maia/soc/esp32p4_smp.h>
+#endif
+
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+static inline uint64_t maia_shell_profile_time_us(void) {
+#if defined(ESP_PLATFORM)
+    return (uint64_t)esp_timer_get_time();
+#else
+    struct timespec ts = {0, 0};
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) return 0U;
+    return (uint64_t)ts.tv_sec * 1000000ULL +
+           (uint64_t)(ts.tv_nsec / 1000L);
+#endif
+}
+#endif
 
 #if defined(ESP_PLATFORM)
 extern "C" int32_t host_apply_wallpaper(const char *path);
@@ -1246,6 +1269,7 @@ public:
         else if (strcmp(cmd, "uptime") == 0) ret = cmd_uptime(argc, argv);
         else if (strcmp(cmd, "ticks") == 0)  ret = cmd_ticks(argc, argv);
         else if (strcmp(cmd, "cpuinfo") == 0 || strcmp(cmd, "chip") == 0) ret = cmd_cpuinfo(argc, argv);
+        else if (strcmp(cmd, "smp") == 0)    ret = cmd_smp(argc, argv);
         else if (strcmp(cmd, "checkelf") == 0 || strcmp(cmd, "elfcheck") == 0) ret = cmd_checkelf(argc, argv);
         else if (strcmp(cmd, "runelf") == 0 || strcmp(cmd, "exec") == 0) ret = cmd_runelf(argc, argv);
         else if (strcmp(cmd, "run") == 0)     ret = cmd_run(argc, argv);
@@ -1975,6 +1999,7 @@ private:
         println("  ps                - List RTOS tasks (ID, prio, state, stack, ticks)");
         println("  mem               - Show PSRAM & L2 SRAM memory telemetry");
         println("  cpuinfo / chip    - Show ESP32-P4 CPU & silicon profile");
+        println("  smp               - Ping core 1 and show its heartbeat");
         println("  checkelf          - Run MNM-1 ELF32 RISC-V validator self-test");
         println("  runelf [path] [args] - Load, relocate & run native RISC-V ELF module");
         println("  run <file.ms|mobj>   - Execute MaiaScript script or native ELF binary");
@@ -2045,7 +2070,7 @@ private:
     int cmd_ps(int argc, char **argv) {
         (void)argc; (void)argv;
 #if defined(MAIA_KERNEL_H)
-        println("TID  PRIO  STATE  STACK   SWITCHES  TICKS  NAME");
+        println("TID  PRIO  STATE  STACK   SWITCHES  TICKS  CPU AFF  NAME");
         for (uint32_t i = 0; i < MAIA_MAX_TASKS; ++i) {
             maia_task_info_t info;
             if (maia_task_get_info((maia_task_id_t)i, &info) == MAIA_OK) {
@@ -2059,10 +2084,12 @@ private:
                     default: break;
                 }
                 char buf[128];
-                snprintf(buf, sizeof(buf), "  %ld     %u  %s  %5u      %5lu  %5lu  %s",
+                char cpu[4] = " - ";
+                if (info.core >= 0) snprintf(cpu, sizeof(cpu), " %d ", (int)info.core);
+                snprintf(buf, sizeof(buf), "  %ld     %u  %s  %5u      %5lu  %5lu  %s  %u   %s",
                          (long)info.id, (unsigned int)info.priority, st,
                          (unsigned int)info.stack_size, (unsigned long)info.switches,
-                         (unsigned long)info.run_ticks, info.name);
+                         (unsigned long)info.run_ticks, cpu, (unsigned)info.affinity, info.name);
                 println(buf);
             }
         }
@@ -2158,8 +2185,53 @@ private:
         println(buf);
 #else
         println("CPU: RISC-V RV32IMAFCP Dual-Core @ 360MHz (ESP32-P4)");
+#if defined(MAIA_PRODUCT_CORE1)
+        maia_core1_status_t st;
+        bool core1_ok = maia_esp32p4_core1_ping(&st) == MAIA_CORE1_OK;
+        if (!core1_ok) println("Cores: 1 online (core 1 offline)");
+        else if (maia_esp32p4_core1_launched())
+            println("Cores: 2 online (SMP scheduler on both cores)");
+        else println("Cores: 2 online (core 0: kernel/tasks, core 1: SRAM worker)");
+#endif
 #endif
         return 0;
+    }
+
+    int cmd_smp(int argc, char **argv) {
+        (void)argc; (void)argv;
+#if defined(MAIA_PRODUCT_CORE1) && !defined(ESP_PLATFORM)
+        maia_core1_status_t st;
+        maia_core1_result_t r = maia_esp32p4_core1_ping(&st);
+        char buf[160];
+        snprintf(buf, sizeof(buf),
+                 "core1: %s result=%d hart=%u pings=%u heartbeat=%u->%u",
+                 r == MAIA_CORE1_OK ? "online" : "offline", (int)r,
+                 (unsigned)st.hart, (unsigned)st.pings,
+                 (unsigned)st.heartbeat_before, (unsigned)st.heartbeat_after);
+        println(buf);
+        if (r == MAIA_CORE1_FAULT) {
+            snprintf(buf, sizeof(buf), "core1 fault: mcause=0x%08x mepc=0x%08x",
+                     (unsigned)st.cause, (unsigned)st.pc);
+            println(buf);
+        }
+#if defined(MAIA_PRODUCT_SMP)
+        maia_esp32p4_smp_stats_t smp;
+        maia_esp32p4_smp_get_stats(&smp);
+        snprintf(buf, sizeof(buf),
+                 "smp: %s cores=0x%x ipi0=%u ipi1=%u freezes=%u migrations=%u",
+                 smp.online ? "scheduler" : "off", (unsigned)maia_sched_online_cores(),
+                 (unsigned)smp.ipi[0], (unsigned)smp.ipi[1],
+                 (unsigned)smp.freezes, (unsigned)smp.migrations);
+        println(buf);
+        snprintf(buf, sizeof(buf), "smp: shell runs on core %u",
+                 (unsigned)maia_arch_core_id());
+        println(buf);
+#endif
+        return r == MAIA_CORE1_OK ? 0 : 1;
+#else
+        println("smp: core 1 is not enabled in this build");
+        return 1;
+#endif
     }
 
     int cmd_checkelf(int argc, char **argv) {
@@ -2388,9 +2460,21 @@ private:
     }
 
     int cmd_runelf(int argc, char **argv) {
+        struct file_reader_context_t {
+            FILE *file;
+            size_t size;
+            size_t cache_offset;
+            size_t cache_length;
+            bool cache_valid;
+            uint8_t *cache;
+            uint8_t *whole;
+        };
+
+        static uint8_t module_read_cache[512];
         const void *elf_bytes = nullptr;
         size_t elf_len = 0;
         FILE *module_file = nullptr;
+        file_reader_context_t file_reader_context = {};
         elf_reader_t file_reader = {};
         const char *mod_name = "hello.mobj";
         int mod_argc = argc;
@@ -2432,17 +2516,76 @@ private:
             }
 
             elf_len = (size_t)fsz;
+            file_reader_context.file = module_file;
+            file_reader_context.size = elf_len;
+            file_reader_context.cache = module_read_cache;
+            /* Relocation reads headers, symbols and strings at random offsets;
+             * a single 512-byte page thrashes on the SD card (Files took
+             * ~17 s). Read the module once when memory allows. */
+            file_reader_context.whole = static_cast<uint8_t *>(malloc(elf_len));
+            if (file_reader_context.whole != nullptr &&
+                fread(file_reader_context.whole, 1U, elf_len, module_file) != elf_len) {
+                free(file_reader_context.whole);
+                file_reader_context.whole = nullptr;
+            }
+            file_reader.release = [](void *context) {
+                file_reader_context_t *source =
+                    static_cast<file_reader_context_t *>(context);
+                if (source != nullptr && source->whole != nullptr) {
+                    free(source->whole);
+                    source->whole = nullptr;
+                }
+            };
             file_reader.read_at = [](void *context, size_t offset,
                                      void *buffer, size_t length) -> int {
-                FILE *file = static_cast<FILE *>(context);
-                if (file == nullptr || offset > static_cast<size_t>(LONG_MAX) ||
-                    (length > 0U && buffer == nullptr) ||
-                    fseek(file, static_cast<long>(offset), SEEK_SET) != 0) {
+                file_reader_context_t *source =
+                    static_cast<file_reader_context_t *>(context);
+                if (source == nullptr || source->file == nullptr ||
+                    offset > static_cast<size_t>(LONG_MAX) ||
+                    offset > source->size || length > source->size - offset ||
+                    (length > 0U && buffer == nullptr)) {
                     return -1;
                 }
-                return fread(buffer, 1U, length, file) == length ? 0 : -1;
+                if (length == 0U) return 0;
+                if (source->whole != nullptr) {
+                    memcpy(buffer, source->whole + offset, length);
+                    return 0;
+                }
+
+                const size_t cache_size = 512U;
+                const size_t page_offset = offset & ~(cache_size - 1U);
+                const size_t page_position = offset - page_offset;
+                if (length <= cache_size && length <= cache_size - page_position) {
+                    if (!source->cache_valid ||
+                        source->cache_offset != page_offset) {
+                        size_t page_length = source->size - page_offset;
+                        if (page_length > cache_size) page_length = cache_size;
+                        if (page_offset > static_cast<size_t>(LONG_MAX) ||
+                            fseek(source->file, static_cast<long>(page_offset),
+                                  SEEK_SET) != 0 ||
+                            fread(source->cache, 1U, page_length, source->file) !=
+                                page_length) {
+                            source->cache_valid = false;
+                            return -1;
+                        }
+                        source->cache_offset = page_offset;
+                        source->cache_length = page_length;
+                        source->cache_valid = true;
+                    }
+                    if (page_position > source->cache_length ||
+                        length > source->cache_length - page_position) {
+                        return -1;
+                    }
+                    memcpy(buffer, source->cache + page_position, length);
+                    return 0;
+                }
+
+                if (fseek(source->file, static_cast<long>(offset), SEEK_SET) != 0) {
+                    return -1;
+                }
+                return fread(buffer, 1U, length, source->file) == length ? 0 : -1;
             };
-            file_reader.context = module_file;
+            file_reader.context = &file_reader_context;
             file_reader.size = elf_len;
             mod_name = resolved_path;
             mod_argc = argc - 1;
@@ -2638,8 +2781,74 @@ private:
                 }
                 return (int32_t)count;
             }
+#if defined(MAIA_PRODUCT_FATFS) && !defined(ESP_PLATFORM)
+            if (strncmp(path, "/sd", 3U) == 0 &&
+                (path[3] == '\0' || path[3] == '/')) {
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+                const uint64_t list_started_us = maia_shell_profile_time_us();
+#endif
+                maia_vfs_dir_t directory = 0U;
+                if (maia_vfs_opendir(path, &directory) != MAIA_VFS_OK) {
+                    return -2;
+                }
+
+                uint32_t count = 0U;
+                while (count < max_entries) {
+                    maia_vfs_dirent_t source_entry;
+                    int has_entry = 0;
+                    maia_vfs_result_t status =
+                        maia_vfs_readdir(directory, &source_entry, &has_entry);
+                    if (status != MAIA_VFS_OK) {
+                        (void)maia_vfs_closedir(directory);
+                        return -2;
+                    }
+                    if (!has_entry) break;
+                    if (strcmp(source_entry.name, ".") == 0 ||
+                        strcmp(source_entry.name, "..") == 0) continue;
+
+                    maia_dir_entry_t &entry = entries[count];
+                    strncpy(entry.name, source_entry.name,
+                            sizeof(entry.name) - 1U);
+                    entry.name[sizeof(entry.name) - 1U] = '\0';
+                    entry.is_dir = source_entry.info.is_directory;
+                    entry.size = source_entry.info.size;
+
+                    size_t name_length = strlen(entry.name);
+                    entry.is_exec = !entry.is_dir &&
+                        ((name_length > 5U &&
+                          strcmp(entry.name + name_length - 5U, ".mobj") == 0) ||
+                         (name_length > 3U &&
+                          strcmp(entry.name + name_length - 3U, ".ms") == 0));
+                    ++count;
+                }
+
+                if (maia_vfs_closedir(directory) != MAIA_VFS_OK) return -2;
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+                const uint64_t list_finished_us = maia_shell_profile_time_us();
+                const uint64_t elapsed_us = list_finished_us >= list_started_us
+                    ? list_finished_us - list_started_us : 0U;
+                printf("[PERF] list_dir %s entries=%u elapsed_us=%llu\n", path,
+                       (unsigned int)count, (unsigned long long)elapsed_us);
+                fflush(stdout);
+#endif
+                return (int32_t)count;
+            }
+#endif
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+            const uint64_t list_started_us = maia_shell_profile_time_us();
+#endif
             DIR *d = opendir(path);
-            if (!d) return -2;
+            if (!d) {
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+                const uint64_t list_finished_us = maia_shell_profile_time_us();
+                const uint64_t elapsed_us = list_finished_us >= list_started_us
+                    ? list_finished_us - list_started_us : 0U;
+                printf("[PERF] list_dir %s failed elapsed_us=%llu\n", path,
+                       (unsigned long long)elapsed_us);
+                fflush(stdout);
+#endif
+                return -2;
+            }
 
             uint32_t count = 0;
             struct dirent *de;
@@ -2681,6 +2890,14 @@ private:
                 count++;
             }
             closedir(d);
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+            const uint64_t list_finished_us = maia_shell_profile_time_us();
+            const uint64_t elapsed_us = list_finished_us >= list_started_us
+                ? list_finished_us - list_started_us : 0U;
+            printf("[PERF] list_dir %s entries=%u elapsed_us=%llu\n", path,
+                   (unsigned int)count, (unsigned long long)elapsed_us);
+            fflush(stdout);
+#endif
             return (int32_t)count;
         };
         host_api.remove_file = [](const char *path) -> int32_t {
@@ -2749,6 +2966,9 @@ private:
                                       &host_api, &exit_code, loader_log)
             : mnm_load_and_run(elf_bytes, elf_len, mod_argc, mod_argv,
                                &host_api, &exit_code, loader_log);
+        if (file_reader.release != nullptr) {
+            file_reader.release(file_reader.context);
+        }
         if (module_file != nullptr && fclose(module_file) != 0) {
             println("runelf: warning: could not close module file cleanly");
         }

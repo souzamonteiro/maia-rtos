@@ -72,6 +72,10 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Observação visual do produto XIP por 60 s: dono confirmou tela correta e estável, sem ciano, piscada ou artefatos (reset morno, 20/11)
 - [x] Interação touch no produto XIP atual: dono confirmou cruz seguindo o dedo e sumindo ao soltar (reset morno, 20/11)
 - [x] Gravação com verificação e restauração pelo `maia-rtos-recovery` (`tests/hardware/run_f0_flash_probe.py`)
+- [x] PSRAM/LCD robusto a reset morno: dispositivo já em X8 adotado com perfil verificado; 4 resets seguidos e Files → desktop na mesma sessão passaram (26/11)
+- [x] Carregamento de `.mobj` sem gargalo: leitura do arquivo inteiro e liberação do buffer após a relocação; Files 16,8 s → 9 ms e desktop 24,9 s → 12 ms; abertura rápida confirmada pelo dono (26/11)
+- [x] Desenho da calculadora MaiaScript com velocidade equivalente à referência (cópia só da região alterada entre framebuffers)
+- [x] Imports `host_fs_*` do MaiaScript (Notes) e `strncpy` (Terminal) no loader nativo; Notes, calculadora, Files e Terminal validados no desktop
 - [ ] Boot a frio repetido no device (10×) sem falha
 
 ## F1 — Biblioteca C/C++ sobre o kernel
@@ -89,6 +93,8 @@ boot frio e recuperação segura de falhas continuam pendentes.
 - [x] Link e empacotamento do produto XIP com Newlib/gthread atuais (ELF e imagem passaram em 20/11; boot do produto registrado abaixo)
 - [x] Boot morno do produto XIP no device: shell `msh>`, `qtest`, serviços LCD/touch; tela estável e interação touch confirmadas visualmente (20/11; cold boot pendente)
   - [x] Repetir boot eletrônico do produto XIP com o runtime TLS integrado: `msh>`, `qtest`, serviços LCD/touch; restauração verificada (20/11; 1 boot morno, sem nova observação visual)
+- [x] Heap ampliado de 50 KB para ~257 KB (263.044 B): pool baixo 77 KB + área do bootloader de 2º estágio recuperada (76 KB, `0x4FF28000`) + 104 KB da SRAM alta (`0x4FF4B800`); pilhas da shell (agora 32 KB), LCD, terminal e touch movidas para a SRAM alta. Execução de código na SRAM alta confirmada por sonda no boot (exige writeback do L1D). Dois boots via USB com `mem`/`smp`, desktop 120 s sem fatal, app original restaurado/verificado (26/11). Opção CMake `MAIA_PRODUCT_HIGH_SRAM` (ON).
+  - [ ] Pendência pré-existente (também no build sem SRAM alta): abrir o desktop depois do Files na mesma sessão falha com `Native graphics transaction failed`.
 - [x] Auditoria de símbolos/runtime no ELF e mapa de link do produto: zero nomes proibidos, zero símbolos indefinidos e zero caminhos de runtimes FreeRTOS/ESP-IDF (20/11; ELF, mapa e relatório preservados em `maia-rtos-recovery/native-product-xip-link-20261120/`)
 
 ## F2 — Armazenamento
@@ -190,20 +196,29 @@ boot frio e recuperação segura de falhas continuam pendentes.
       - [x] Confirmar desktop nativo visualmente por 60 s, com elementos visíveis e estáveis, sem fatal; confirmação do usuário e restauração verificada (25/11).
 - [x] Desktop nativo — abertura visual confirmada 👀
 - [x] Desktop nativo — toque, abertura e retorno do app Banner confirmados pelo usuário (probe USB de 120 s, 25/11)
+- [x] Files — execução direta, navegação, setas ↑/↓ sem fechar o app e fechamento no X confirmados no Tab5; o usuário confirmou tempo de resposta normal e setas funcionando. A API MNM normaliza as sequências ANSI do teclado; testes host passaram. O caminho de listagem VFS direta mediu `/sd` (74 entradas) em 130–137 ms e `/sd/DCIM` (2 entradas) em 59 ms, contra ~4,35 s na medição anterior de `/sd`. O loader registrou 16,75 s para carregar `files.mobj`; `/sd/apps` não foi cronometrado novamente.
+- [x] Files — abertura pelo ícone do desktop nativo revalidada via USB com a imagem P4 sem diagnóstico (26/11). O usuário confirmou entrada quase instantânea em `/sd/apps`, navegação com ↑/↓ e retorno imediato ao desktop pelo X. A abertura levou ~15 s; firmware original restaurado e verificado.
+- [ ] Investigar e reduzir a demora de ~15 s entre o toque no ícone e a abertura do Files (separada da navegação após a abertura)
 - [ ] Validar abertura/retorno dos demais aplicativos a partir do desktop
-- [ ] Validar funcionalidade dos apps: Alarm, Notes, Files, Term, Editor, Clock, Sysinfo e Banner (Banner teve apenas abertura/retorno confirmados) 👀
+- [ ] Validar funcionalidade completa dos apps: Alarm, Notes, Term, Editor, Clock, Sysinfo e Banner (Banner teve apenas abertura/retorno confirmados); operações de arquivos do Files também permanecem sem validação 👀
+  - [x] Files: navegação por pastas, setas ↑/↓ e fechamento no X confirmados; ainda falta validar as operações de arquivos.
   - [x] SciCalc (`2+3*4=14`): desenho, toque, teclado e saída confirmados no firmware nativo (24/11)
 - [x] Suíte host de transferências do `maia.py` passando (14/14, 24/11)
+- [x] Restabelecer a suíte host após o primeiro desktop nativo: build limpo no Mac e 110/110 testes CTest aprovados, sem exclusões (25/11).
 
 ## F9 — Segundo núcleo (SMP)
 
-- [ ] Integrar a partida do core 1 ao produto
+- [x] Integrar a partida do core 1 ao produto
   - [x] Partida isolada via USB no Tab5: worker e pilha em SRAM interna, `hart=1`, 1.024 trocas atômicas verificadas e estacionamento confirmado em duas partidas; app original restaurado/verificado (26/11). Testes host positivos/negativos e validação da imagem passaram.
-  - [ ] Integrar após preparar estado de traps/TLS por núcleo e sincronização; o firmware de produto continua single-core, sem mudança no seu binário.
-- [ ] Interrupções entre processadores (IPI)
-- [ ] Filas de execução por núcleo
-- [ ] Spinlocks e revisão das seções críticas dos drivers
-- [ ] Teste de estresse concorrente com drivers ativos
+  - [x] Produto `maia_m0` liga o core 1 no boot (`[F9] MAIA_CORE1_ONLINE hart=1`), que fica online como worker em SRAM com heartbeat; comando `smp` e `cpuinfo` na shell. Duas partidas via USB: 3/3 pings OK por partida, heartbeat crescendo; desktop por 120 s sem fatal; app original restaurado/verificado (26/11).
+  - [x] Executar tarefas do kernel no core 1: o scheduler roda nos dois núcleos; `maia_shell`, desktop e apps ficam no core 1 (afinidade 2, opção `MAIA_PRODUCT_SHELL_AFFINITY`); LCD, touch, telemetria e idle ficam no core 0. `ps` mostra `lcd` (CPU 0) e `maia_shell` (CPU 1) em RUN ao mesmo tempo (26/11).
+- [x] Interrupções entre processadores (IPI): `FROM_CPU` 0/1 na linha CLIC 17 dos dois núcleos; tick de 1 kHz no core 0 dispara IPI de time-slice no core 1; acordar uma tarefa avisa o núcleo dela (26/11).
+- [x] Filas de execução por núcleo: tarefa atual, idle e afinidade por núcleo no `ksched`; teste host `scheduler_smp_test` (26/11).
+- [x] Spinlocks e revisão das seções críticas: `maia_arch_irq_save` agora também pega um lock global recursivo do kernel; trap mantém o lock entre commit e seleção (migração segura); não há seções só-locais nos drivers (26/11).
+  - [x] Flash/KV a partir do core 1: a operação migra para o core 0 e o core 1 espera em SRAM durante o suspend do L2. Módulo KV no core 1: 234 operações, 234 freezes e 234 migrações, sem erro (26/11).
+- [x] Desktop no core 1 com o dono no aparelho: Files, Notes e calculadora funcionando (26/11).
+- [x] Desempenho dos apps MaiaScript igual à referência: apps desenham direto no framebuffer exibido, e o `display_sync` só faz writeback da área alterada, como na referência. Dono: "Está excelente! Parece mais rápido para carregar os apps" (26/11)
+- [x] Estresse concorrente de 10 min no Tab5: 3.703 iterações no core 1, com leituras KV/SD e desenho direto via LCD/DMA; serviço touch ST7121 pronto no boot. 19 checkpoints, `MAIA_SMP_STRESS_PASS`, exit 0, sem fatal; módulo temporário removido e firmware de referência restaurado/verificado (26/11).
 
 ## F5 — Áudio
 

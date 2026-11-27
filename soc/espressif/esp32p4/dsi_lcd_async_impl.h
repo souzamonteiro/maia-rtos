@@ -4,7 +4,7 @@
 #include <maia/soc/esp32p4_psram.h>
 enum { ASYNC_FREE,ASYNC_READY,ASYNC_ACTIVE,ASYNC_ERROR,ASYNC_STOPPED,ASYNC_PAUSED };
 static unsigned async_phase,async_pending,async_irq_bad,async_pause_requested,async_video_active;
-static unsigned async_editing,async_swap_pending,async_first_frame_pending;
+static unsigned async_editing,async_swap_pending,async_first_frame_pending,async_direct;
 static uint32_t async_source,async_back_source;
 static maia_lcd_wake_t async_wake;
 static void *async_arg;
@@ -13,7 +13,7 @@ static maia_lcd_async_report_t async_report;
 #ifdef MAIA_DSI_ACCESS_TEST
 static void lcd_async_reset_state(void){
     async_phase=ASYNC_FREE;async_pending=async_irq_bad=async_pause_requested=async_video_active=0;
-    async_editing=async_swap_pending=async_first_frame_pending=0;async_source=async_back_source=0;async_wake=0;
+    async_editing=async_swap_pending=async_first_frame_pending=async_direct=0;async_source=async_back_source=0;async_wake=0;
     for(unsigned i=0;i<sizeof async_report;++i)((volatile unsigned char *)&async_report)[i]=0;
 }
 #endif
@@ -83,6 +83,15 @@ static void lcd_irq(void *unused){
     async_pending=1;
     if(async_wake){++async_report.notifications;async_wake(async_arg);}
 }
+#define ASYNC_FB_WIDTH 720U
+#define ASYNC_FB_HEIGHT 1280U
+/* Region where the two framebuffers may differ; full until a boxed publish. */
+static maia_lcd_async_box_t async_stale={0U,0U,ASYNC_FB_WIDTH,ASYNC_FB_HEIGHT};
+static void async_set_stale(const maia_lcd_async_box_t *b){
+    if(!b||b->x1>ASYNC_FB_WIDTH||b->y1>ASYNC_FB_HEIGHT||b->x0>b->x1||b->y0>b->y1){
+        async_stale.x0=async_stale.y0=0U;async_stale.x1=ASYNC_FB_WIDTH;async_stale.y1=ASYNC_FB_HEIGHT;
+    }else async_stale=*b;
+}
 maia_dsi_access_result_t maia_lcd_async_prepare(maia_lcd_wake_t fn,void *arg){
     if(!fn)return MAIA_DSI_ACCESS_INVALID;
     if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
@@ -96,8 +105,8 @@ maia_dsi_access_result_t maia_lcd_async_prepare(maia_lcd_wake_t fn,void *arg){
     if(source!=DSI_FB_SOURCE||source+2U*DSI_FB_BYTES>MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES)return MAIA_DSI_ACCESS_BUSY;
     framebuffer_claim=1;lcd_stream_mode=1;
     async_video_active=async_pause_requested=async_pending=async_irq_bad=0;
-    async_source=source;async_back_source=source+DSI_FB_BYTES;
-    async_editing=async_swap_pending=async_first_frame_pending=0;
+    async_source=source;async_back_source=source+DSI_FB_BYTES;async_set_stale(0);
+    async_editing=async_swap_pending=async_first_frame_pending=async_direct=0;
     async_report.init_stage=2;
     maia_dsi_dma_stage_report_t stage;
     if(!reuse){maia_dsi_access_result_t result=dma_stage_body(source,0,&stage);if(result!=MAIA_DSI_ACCESS_OK)return result;}
@@ -111,9 +120,35 @@ maia_dsi_access_result_t maia_lcd_async_prepare(maia_lcd_wake_t fn,void *arg){
     async_report.init_stage=4;if(!maia_dw_irq_claim(lcd_irq,0))return MAIA_DSI_ACCESS_VERIFY;
     async_report.init_stage=5;async_phase=ASYNC_READY;return MAIA_DSI_ACCESS_OK;
 }
+uint16_t *maia_lcd_async_direct_begin(void){
+    if((async_phase!=ASYNC_ACTIVE)||!async_video_active||async_direct||async_editing||
+       async_swap_pending||async_first_frame_pending||async_pause_requested||!async_source)return 0;
+    async_direct=1;return (uint16_t *)(uintptr_t)async_source;
+}
+maia_dsi_access_result_t maia_lcd_async_direct_flush(const maia_lcd_async_box_t *b){
+    if(!b||b->x1>ASYNC_FB_WIDTH||b->y1>ASYNC_FB_HEIGHT||b->x0>b->x1||b->y0>b->y1)return MAIA_DSI_ACCESS_INVALID;
+    if(b->x0==b->x1||b->y0==b->y1)return MAIA_DSI_ACCESS_OK;
+    uintptr_t irq=maia_arch_irq_save();
+    if(!async_direct){maia_arch_irq_restore(irq);return MAIA_DSI_ACCESS_BUSY;}
+    maia_lcd_async_box_t s=async_stale;
+    if(s.x0>=s.x1||s.y0>=s.y1)s=*b;
+    else{
+        if(b->x0<s.x0)s.x0=b->x0;
+        if(b->y0<s.y0)s.y0=b->y0;
+        if(b->x1>s.x1)s.x1=b->x1;
+        if(b->y1>s.y1)s.y1=b->y1;
+    }
+    async_stale=s;
+    uint32_t first=async_source+(b->y0*ASYNC_FB_WIDTH+b->x0)*2U;
+    uint32_t last=async_source+((b->y1-1U)*ASYNC_FB_WIDTH+b->x1)*2U;
+    int ok=maia_psram_window_direct_flush(first,last-first);
+    maia_arch_irq_restore(irq);
+    return ok?MAIA_DSI_ACCESS_OK:MAIA_DSI_ACCESS_VERIFY;
+}
+void maia_lcd_async_direct_end(void){async_direct=0;}
 uint16_t *maia_lcd_async_edit_begin(void){
     if(!dsi_context()||(async_phase!=ASYNC_READY&&async_phase!=ASYNC_ACTIVE)||
-       async_editing||async_swap_pending||async_first_frame_pending||async_pause_requested)return 0;
+       async_direct||async_editing||async_swap_pending||async_first_frame_pending||async_pause_requested)return 0;
     if(async_phase==ASYNC_READY){
         if(async_video_active||!frame_guard(saved_command_table[0],dpi_staged_phy[3],dpi_staged_phy[4],0)||!dma_quiet())return 0;
     }else if(!async_video_active||async_source==async_back_source)return 0;
@@ -123,12 +158,22 @@ uint16_t *maia_lcd_async_edit_begin(void){
 }
 int maia_lcd_async_edit_preserve(void){
     if(!async_editing||!async_source||!async_back_source||async_source==async_back_source)return 0;
-    const uint16_t *front=(const uint16_t *)(uintptr_t)async_source;
-    uint16_t *back=(uint16_t *)(uintptr_t)async_back_source;
-    for(uint32_t i=0;i<DSI_FB_BYTES/sizeof(uint16_t);++i)back[i]=front[i];
+    maia_lcd_async_box_t b=async_stale;
+    if(b.x0<b.x1&&b.y0<b.y1){
+        uint32_t x0=b.x0&~1U,x1=(b.x1+1U)&~1U,words=(x1-x0)/2U;
+        for(uint32_t y=b.y0;y<b.y1;++y){
+            const uint32_t *front=(const uint32_t *)(uintptr_t)(async_source+(y*ASYNC_FB_WIDTH+x0)*2U);
+            uint32_t *back=(uint32_t *)(uintptr_t)(async_back_source+(y*ASYNC_FB_WIDTH+x0)*2U);
+            for(uint32_t i=0;i<words;++i)back[i]=front[i];
+        }
+    }
+    async_stale.x0=async_stale.y0=async_stale.x1=async_stale.y1=0U;
     return 1;
 }
-maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
+static maia_dsi_access_result_t async_edit_publish(const maia_lcd_async_box_t *box,unsigned boxed);
+maia_dsi_access_result_t maia_lcd_async_edit_publish(void){return async_edit_publish(0,0);}
+maia_dsi_access_result_t maia_lcd_async_edit_publish_box(const maia_lcd_async_box_t *box){return async_edit_publish(box,1);}
+static maia_dsi_access_result_t async_edit_publish(const maia_lcd_async_box_t *box,unsigned boxed){
     uintptr_t irq=maia_arch_irq_save();
     if(!async_editing||(async_phase!=ASYNC_READY&&async_phase!=ASYNC_ACTIVE)){
         maia_arch_irq_restore(irq);return MAIA_DSI_ACCESS_BUSY;
@@ -145,6 +190,7 @@ maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
         return MAIA_DSI_ACCESS_FAILED;
     }
     ++async_report.updates;
+    async_set_stale(boxed?box:0);
     if(async_video_active)async_swap_pending=1;
     else{
         uint32_t old_source=async_source;async_source=async_back_source;async_back_source=old_source;
@@ -195,7 +241,7 @@ maia_dsi_access_result_t maia_lcd_async_request_pause(void){
     if(!dsi_context())return MAIA_DSI_ACCESS_CONTEXT;
     if(async_phase==ASYNC_ERROR)return MAIA_DSI_ACCESS_FAILED;
     if(async_phase==ASYNC_ACTIVE){
-        if(async_editing||async_swap_pending||async_first_frame_pending)return MAIA_DSI_ACCESS_BUSY;
+        if(async_direct||async_editing||async_swap_pending||async_first_frame_pending)return MAIA_DSI_ACCESS_BUSY;
         async_pause_requested=1;
     }
     return MAIA_DSI_ACCESS_OK;

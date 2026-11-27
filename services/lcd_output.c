@@ -14,6 +14,9 @@ static maia_task_id_t edit_client=-1;
 static uint16_t *edit_pixels;
 static maia_status_t edit_status;
 static uint32_t edit_target;
+static maia_lcd_async_box_t edit_box;
+static unsigned edit_boxed;
+static maia_task_id_t direct_client=-1;
 static void wake(void *arg){(void)arg;(void)maia_task_notify(stats.owner);}
 static void edit_fail(maia_status_t status){
     uintptr_t irq=maia_arch_irq_save();
@@ -63,7 +66,13 @@ maia_status_t maia_lcd_output_edit_begin(uint16_t **pixels){
     if(result!=MAIA_OK)return result;
     return edit_wait(EDIT_READY,client,pixels);
 }
-maia_status_t maia_lcd_output_edit_publish(void){
+static maia_status_t edit_publish(unsigned boxed,uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1);
+maia_status_t maia_lcd_output_edit_publish(void){return edit_publish(0,0,0,0,0);}
+maia_status_t maia_lcd_output_edit_publish_region(uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1){
+    if(x0>x1||y0>y1||x1>720U||y1>1280U)return MAIA_ERR_INVALID;
+    return edit_publish(1,x0,y0,x1,y1);
+}
+static maia_status_t edit_publish(unsigned boxed,uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1){
     maia_task_id_t client=maia_task_current_id();
     uintptr_t irq=maia_arch_irq_save();maia_status_t result=MAIA_OK;
     if(!irq)result=MAIA_ERR_PERM;
@@ -71,6 +80,7 @@ maia_status_t maia_lcd_output_edit_publish(void){
     else if(client<0||client==stats.owner)result=MAIA_ERR_PERM;
     else if(edit_client!=client||edit_state!=EDIT_ACTIVE)result=MAIA_ERR_INVALID;
     else {
+        edit_boxed=boxed;edit_box.x0=x0;edit_box.y0=y0;edit_box.x1=x1;edit_box.y1=y1;
         edit_state=EDIT_PUBLISH_REQUESTED;
         result=maia_task_notify(stats.owner);
         if(result!=MAIA_OK)edit_state=EDIT_FAILED,edit_status=result;
@@ -78,6 +88,46 @@ maia_status_t maia_lcd_output_edit_publish(void){
     maia_arch_irq_restore(irq);
     if(result!=MAIA_OK)return result;
     return edit_wait(EDIT_COMPLETE,client,0);
+}
+maia_status_t maia_lcd_output_direct_begin(uint16_t **pixels){
+    if(!pixels)return MAIA_ERR_INVALID;
+    *pixels=0;
+    maia_task_id_t client=maia_task_current_id();
+    uint64_t began=maia_tick_get();
+    for(;;){
+        uintptr_t irq=maia_arch_irq_save();maia_status_t result=MAIA_ERR_BUSY;
+        if(!irq)result=MAIA_ERR_PERM;
+        else if(!initialized||!running||stats.stopped||stats.stop_requested)result=MAIA_ERR_INVALID;
+        else if(client<0||client==stats.owner)result=MAIA_ERR_PERM;
+        else if(direct_client==client)result=MAIA_ERR_INVALID;
+        else if(direct_client<0&&!pending_draw&&!editing&&edit_state==EDIT_IDLE&&stats.presented>=stats.updates){
+            uint16_t *front=maia_lcd_async_direct_begin();
+            if(front){direct_client=client;*pixels=front;result=MAIA_OK;}
+        }
+        maia_arch_irq_restore(irq);
+        if(result!=MAIA_ERR_BUSY)return result;
+        if(maia_tick_get()-began>=200U)return MAIA_ERR_BUSY;
+        maia_task_delay_ticks(1);
+    }
+}
+maia_status_t maia_lcd_output_direct_flush(uint32_t x0,uint32_t y0,uint32_t x1,uint32_t y1){
+    if(x0>x1||y0>y1||x1>720U||y1>1280U)return MAIA_ERR_INVALID;
+    maia_task_id_t client=maia_task_current_id();
+    uintptr_t irq=maia_arch_irq_save();unsigned owned=client>=0&&direct_client==client;maia_arch_irq_restore(irq);
+    if(!owned)return MAIA_ERR_INVALID;
+    maia_lcd_async_box_t box={x0,y0,x1,y1};
+    maia_dsi_access_result_t flushed=maia_lcd_async_direct_flush(&box);
+    return flushed==MAIA_DSI_ACCESS_OK?MAIA_OK:MAIA_ERR_BUSY;
+}
+maia_status_t maia_lcd_output_direct_end(void){
+    maia_task_id_t client=maia_task_current_id();
+    uintptr_t irq=maia_arch_irq_save();maia_status_t result=MAIA_OK;
+    if(client<0||direct_client!=client)result=MAIA_ERR_INVALID;
+    else {
+        maia_lcd_async_direct_end();direct_client=-1;
+        if(initialized&&running)(void)maia_task_notify(stats.owner);
+    }
+    maia_arch_irq_restore(irq);return result;
 }
 static maia_dsi_access_result_t wait_frame(void){
     uint64_t began=maia_tick_get();
@@ -109,7 +159,7 @@ maia_status_t maia_lcd_output_request_update(maia_lcd_draw_fn draw,void *arg){
     if(!draw)return MAIA_ERR_INVALID;
     uintptr_t irq=maia_arch_irq_save();maia_status_t result=MAIA_OK;
     if(!initialized||stats.stopped||stats.stop_requested)result=MAIA_ERR_INVALID;
-    else if(pending_draw||editing||edit_state!=EDIT_IDLE||stats.presented<stats.updates)result=MAIA_ERR_BUSY;
+    else if(pending_draw||editing||edit_state!=EDIT_IDLE||direct_client>=0||stats.presented<stats.updates)result=MAIA_ERR_BUSY;
     else {
         pending_arg=arg;pending_draw=draw;
         result=maia_task_notify(stats.owner);
@@ -124,8 +174,9 @@ static maia_status_t service_edit(void){
         maia_arch_irq_restore(irq);return MAIA_OK;
     }
     if(edit_state==EDIT_PUBLISH_REQUESTED){
+        maia_lcd_async_box_t box=edit_box;unsigned boxed=edit_boxed;
         maia_arch_irq_restore(irq);
-        maia_dsi_access_result_t published=maia_lcd_async_edit_publish();
+        maia_dsi_access_result_t published=boxed?maia_lcd_async_edit_publish_box(&box):maia_lcd_async_edit_publish();
         irq=maia_arch_irq_save();
         if(published!=MAIA_DSI_ACCESS_OK){
             edit_status=MAIA_ERR_BUSY;edit_pixels=0;edit_state=EDIT_FAILED;
@@ -135,7 +186,7 @@ static maia_status_t service_edit(void){
         editing=0;++stats.updates;edit_target=stats.updates;edit_state=EDIT_WAIT_PRESENTED;
         maia_arch_irq_restore(irq);return MAIA_OK;
     }
-    if(edit_state==EDIT_REQUESTED&&!pending_draw&&!editing&&stats.presented>=stats.updates){
+    if(edit_state==EDIT_REQUESTED&&!pending_draw&&!editing&&direct_client<0&&stats.presented>=stats.updates){
         editing=1;
         uint16_t *pixels=maia_lcd_async_edit_begin();
         maia_arch_irq_restore(irq);
@@ -173,7 +224,7 @@ maia_status_t maia_lcd_output_init(maia_task_id_t owner){
 }
 maia_status_t maia_lcd_output_request_stop(void){
     uintptr_t irq=maia_arch_irq_save();maia_status_t result=initialized&&!stats.stopped?MAIA_OK:MAIA_ERR_INVALID;
-    if(result==MAIA_OK&&edit_state!=EDIT_IDLE)result=MAIA_ERR_BUSY;
+    if(result==MAIA_OK&&(edit_state!=EDIT_IDLE||direct_client>=0))result=MAIA_ERR_BUSY;
     if(result==MAIA_OK){
         stats.stop_requested=1;
         result=maia_task_notify(stats.owner);
@@ -249,6 +300,7 @@ maia_status_t maia_lcd_output_run(void){
     if(failed){++stats.errors;(void)maia_lcd_async_cancel();}
     maia_dsi_access_result_t stopped=maia_lcd_async_stop();stats.stopped=stopped==MAIA_DSI_ACCESS_OK;
     if(!stats.stopped)++stats.errors;
+    if(direct_client>=0){maia_lcd_async_direct_end();direct_client=-1;}
     if(edit_state!=EDIT_IDLE){
         edit_status=MAIA_ERR_BUSY;edit_pixels=0;edit_state=EDIT_FAILED;
         if(edit_client>=0)(void)maia_task_notify(edit_client);
@@ -258,7 +310,7 @@ maia_status_t maia_lcd_output_run(void){
 }
 #ifdef MAIA_LCD_OUTPUT_TEST
 void maia_lcd_output_test_reset(void);
-void maia_lcd_output_test_reset(void){initialized=running=editing=0;pending_draw=0;pending_arg=0;edit_state=EDIT_IDLE;edit_client=-1;edit_pixels=0;edit_status=MAIA_ERR_BUSY;edit_target=0;for(unsigned i=0;i<sizeof stats;++i)((unsigned char *)&stats)[i]=0;}
+void maia_lcd_output_test_reset(void){initialized=running=editing=0;direct_client=-1;pending_draw=0;pending_arg=0;edit_state=EDIT_IDLE;edit_client=-1;edit_pixels=0;edit_status=MAIA_ERR_BUSY;edit_target=0;for(unsigned i=0;i<sizeof stats;++i)((unsigned char *)&stats)[i]=0;}
 void maia_lcd_output_test_set_running(void){running=1;}
 maia_status_t maia_lcd_output_test_service_edit(void){return service_edit();}
 void maia_lcd_output_test_present(void){stats.presented=stats.updates;(void)service_edit();}

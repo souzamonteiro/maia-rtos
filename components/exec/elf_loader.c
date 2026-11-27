@@ -355,12 +355,32 @@ int mnm_load_and_run_reader(const elf_reader_t *reader,
                             const maia_host_api_v1 *host,
                             int *exit_code,
                             void (*log_fn)(const char *msg)) {
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+    uint64_t validation_started_us =
+        host != NULL && host->get_time_us != NULL ? host->get_time_us() : 0U;
+#endif
     char report[256];
     int validation = elf_validate_relocatable_reader(reader, report, sizeof(report));
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+    if (host != NULL && host->get_time_us != NULL && log_fn != NULL) {
+        uint64_t validation_finished_us = host->get_time_us();
+        uint64_t elapsed_us = validation_finished_us >= validation_started_us
+            ? validation_finished_us - validation_started_us : 0U;
+        char message[96];
+        snprintf(message, sizeof(message),
+                 "Loader timing: validation=%llu us",
+                 (unsigned long long)elapsed_us);
+        log_fn(message);
+    }
+#endif
     if (validation != ELF_VALID_OK) {
         if (log_fn) log_fn(report);
         return validation == ELF_ERR_IO ? MNM_ERR_IO : MNM_ERR_VALIDATION_FAILED;
     }
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+    uint64_t load_started_us =
+        host != NULL && host->get_time_us != NULL ? host->get_time_us() : 0U;
+#endif
 
     Elf32_Ehdr ehdr;
     int result = source_read_exact(reader, 0U, &ehdr, sizeof(ehdr));
@@ -637,6 +657,7 @@ int mnm_load_and_run_reader(const elf_reader_t *reader,
                             else if (strcmp(symbol_name, "memcmp") == 0) sym_val = (uintptr_t)memcmp;
                             else if (strcmp(symbol_name, "strcmp") == 0) sym_val = (uintptr_t)strcmp;
                             else if (strcmp(symbol_name, "strncmp") == 0) sym_val = (uintptr_t)strncmp;
+                            else if (strcmp(symbol_name, "strncpy") == 0) sym_val = (uintptr_t)strncpy;
                             else if (strcmp(symbol_name, "print") == 0) sym_val = (uintptr_t)maia_host_print;
                             else if (strcmp(symbol_name, "println") == 0) sym_val = (uintptr_t)maia_host_println;
                             else if (strcmp(symbol_name, "print_int") == 0) sym_val = (uintptr_t)maia_host_print_int;
@@ -841,8 +862,24 @@ int mnm_load_and_run_reader(const elf_reader_t *reader,
     asm volatile("fence.i" ::: "memory");
 #endif
 
+#if defined(MAIA_DIAGNOSTIC_MODULE_TIMING)
+    if (host != NULL && host->get_time_us != NULL && log_fn != NULL) {
+        uint64_t load_finished_us = host->get_time_us();
+        uint64_t elapsed_us = load_finished_us >= load_started_us
+            ? load_finished_us - load_started_us : 0U;
+        char message[96];
+        snprintf(message, sizeof(message),
+                 "Loader timing: load-relocate=%llu us",
+                 (unsigned long long)elapsed_us);
+        log_fn(message);
+    }
+#endif
+
     if (log_fn) {
         log_fn("Loader: Relocations applied & fence.i synchronized.");
+    }
+    if (reader->release != NULL) {
+        reader->release(reader->context);
     }
 
     // 7. Prepare module context and execute

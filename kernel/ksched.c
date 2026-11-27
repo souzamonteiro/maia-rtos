@@ -20,22 +20,28 @@ typedef struct maia_tcb {
     uint64_t           wake_tick;
     unsigned           notify_pending, notify_waiting, notify_timed, notify_return;
     maia_status_t      notify_result;
+    uint8_t            affinity; /* Bit n: may run on core n. */
+    int8_t             core;     /* Core running it, -1 otherwise. */
 } maia_tcb_t;
 
 static maia_tcb_t        g_tasks[MAIA_MAX_TASKS];
-static int32_t           g_current_idx;
+/* Per-core state. Core 0 owns the tick; secondary cores join at start. */
+static int32_t           g_current[MAIA_SCHED_MAX_CORES];
+static uint8_t           g_core_online[MAIA_SCHED_MAX_CORES];
 static uint32_t          g_task_count;
 static uint32_t          g_switch_cnt;
 static volatile uint64_t g_tick_count;
 static maia_trap_stats_t g_trap_stats;
 static int g_started;
-static uint8_t g_idle_stack[2048] __attribute__((aligned(16)));
-static uintptr_t g_idle_sp;
-static int g_idle_running;
+static uint8_t g_idle_stack[MAIA_SCHED_MAX_CORES][2048] MAIA_SMP_BSS __attribute__((aligned(16)));
+static uintptr_t g_idle_sp[MAIA_SCHED_MAX_CORES];
+static int g_idle_running[MAIA_SCHED_MAX_CORES];
 static maia_idle_stats_t g_idle_stats;
 void maia_arch_yield_trap(void);
 
 #if !defined(__riscv)
+static uint32_t g_host_core;
+__attribute__((weak)) uint32_t maia_arch_core_id(void) { return g_host_core; }
 __attribute__((weak)) void maia_arch_stack_publish(uintptr_t low, uintptr_t high) { (void)low; (void)high; }
 __attribute__((weak)) int maia_arch_stack_reserved(uintptr_t base, size_t size) { (void)base; (void)size; return 0; }
 static uintptr_t g_host_irq = 8U;
@@ -57,6 +63,14 @@ __attribute__((weak)) maia_status_t maia_arch_wait_notification_trap(uint32_t ti
     return MAIA_ERR_PERM; /* Host models cannot suspend/resume native C frames. */
 }
 #endif
+
+static uint32_t this_core(void) {
+    uint32_t core = maia_arch_core_id();
+    return core < MAIA_SCHED_MAX_CORES ? core : 0U;
+}
+
+/* Port hook: make `core` reschedule soon (IPI). Called with the lock held. */
+__attribute__((weak)) void maia_arch_sched_kick(uint32_t core) { (void)core; }
 
 /* Weak platform hooks overridden by arch/soc on target hardware */
 __attribute__((weak)) uint64_t maia_soc_time_us(void) {
@@ -215,16 +229,21 @@ static maia_status_t sched_init_locked(void) {
         g_tasks[i].notify_pending = g_tasks[i].notify_waiting = 0U;
         g_tasks[i].notify_timed = g_tasks[i].notify_return = 0U;
         g_tasks[i].notify_result = MAIA_ERR_EMPTY;
+        g_tasks[i].affinity = 1U;
+        g_tasks[i].core = -1;
     }
-    g_current_idx = -1;
-    g_idle_running = 0;
     g_idle_stats.ticks = 0U;
     g_idle_stats.entries = 0U;
-    g_idle_sp = init_task_stack(g_idle_stack, sizeof g_idle_stack, 0U,
-                                maia_tls_idle_thread_pointer());
-    uint32_t *idle_frame = (uint32_t *)g_idle_sp;
-    idle_frame[28] = (uint32_t)(uintptr_t)idle_entry;
-    idle_frame[29] &= ~MAIA_RISCV_FS_MASK; /* Internal idle never uses FP. */
+    for (uint32_t core = 0U; core < MAIA_SCHED_MAX_CORES; ++core) {
+        g_current[core] = -1;
+        g_idle_running[core] = 0;
+        g_core_online[core] = core == 0U;
+        g_idle_sp[core] = init_task_stack(g_idle_stack[core], sizeof g_idle_stack[core], 0U,
+                                          maia_tls_idle_thread_pointer());
+        uint32_t *idle_frame = (uint32_t *)g_idle_sp[core];
+        idle_frame[28] = (uint32_t)(uintptr_t)idle_entry;
+        idle_frame[29] &= ~MAIA_RISCV_FS_MASK; /* Internal idle never uses FP. */
+    }
     g_task_count  = 0U;
     g_switch_cnt  = 0U;
     g_tick_count  = 0ULL;
@@ -244,6 +263,17 @@ maia_status_t maia_sched_init(void) {
     maia_status_t status = g_started ? MAIA_ERR_BUSY : sched_init_locked();
     maia_arch_irq_restore(irq);
     return status;
+}
+
+/* Wake another online core that may run task `idx`. */
+static void kick_for_task_locked(uint32_t idx) {
+    if (!g_started) return;
+    uint32_t self = this_core();
+    for (uint32_t core = 0U; core < MAIA_SCHED_MAX_CORES; ++core) {
+        if (core != self && g_core_online[core] && (g_tasks[idx].affinity & (1U << core))) {
+            maia_arch_sched_kick(core);
+        }
+    }
 }
 
 static maia_status_t task_create_locked(const char *name,
@@ -288,9 +318,15 @@ static maia_status_t task_create_locked(const char *name,
             g_tasks[i].notify_pending = g_tasks[i].notify_waiting = 0U;
             g_tasks[i].notify_timed = g_tasks[i].notify_return = 0U;
             g_tasks[i].notify_result = MAIA_ERR_EMPTY;
+            /* Runtime-created tasks inherit their creator's cores; boot ones
+             * start on core 0 (owner of the hart-0-only drivers). */
+            int32_t creator = g_started ? g_current[this_core()] : -1;
+            g_tasks[i].affinity = creator >= 0 ? g_tasks[creator].affinity : 1U;
+            g_tasks[i].core = -1;
             if (fresh_slot) g_task_count += 1U;
             /* Publish readiness only after every context/TCB field is valid. */
             g_tasks[i].state = MAIA_TASK_READY;
+            kick_for_task_locked(i);
             if (out_id != NULL) {
                 *out_id = (maia_task_id_t)i;
             }
@@ -314,16 +350,21 @@ static int tick_locked(void) {
     int woke_higher = 0;
     g_tick_count += 1ULL;
 
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
-        g_tasks[g_current_idx].run_ticks += 1U;
-    } else if (g_idle_running) {
-        g_idle_stats.ticks += 1U;
+    for (uint32_t core = 0U; core < MAIA_SCHED_MAX_CORES; ++core) {
+        if (!g_core_online[core]) continue;
+        int32_t cur = g_current[core];
+        if (cur >= 0 && (uint32_t)cur < MAIA_MAX_TASKS) {
+            g_tasks[cur].run_ticks += 1U;
+        } else if (g_idle_running[core]) {
+            g_idle_stats.ticks += 1U;
+        }
     }
 
     uint8_t cur_prio = 0U;
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
-        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
-        cur_prio = g_tasks[g_current_idx].priority;
+    int32_t self_cur = g_current[this_core()];
+    if (self_cur >= 0 && (uint32_t)self_cur < MAIA_MAX_TASKS &&
+        g_tasks[self_cur].state == MAIA_TASK_RUNNING) {
+        cur_prio = g_tasks[self_cur].priority;
     }
 
     for (uint32_t i = 0U; i < MAIA_MAX_TASKS; ++i) {
@@ -333,16 +374,23 @@ static int tick_locked(void) {
             g_tasks[i].notify_result = MAIA_ERR_TIMEOUT;
             g_tasks[i].wake_tick = 0U;
             g_tasks[i].state = MAIA_TASK_READY;
+            kick_for_task_locked(i);
         }
         if (g_tasks[i].state == MAIA_TASK_SLEEPING && (uint64_t)(g_tick_count - g_tasks[i].wake_tick) < (UINT64_C(1) << 63U)) {
             g_tasks[i].state     = MAIA_TASK_READY;
             g_tasks[i].wake_tick = 0ULL;
+            kick_for_task_locked(i);
             if (g_tasks[i].priority >= cur_prio) {
                 woke_higher = 1;
             }
         } else if (g_tasks[i].state == MAIA_TASK_READY && g_tasks[i].priority >= cur_prio) {
             woke_higher = 1;
         }
+    }
+    /* The tick lives on one core; other online cores time-slice on its kick. */
+    uint32_t self = this_core();
+    for (uint32_t core = 0U; core < MAIA_SCHED_MAX_CORES; ++core) {
+        if (core != self && g_core_online[core]) maia_arch_sched_kick(core);
     }
     return woke_higher;
 }
@@ -355,27 +403,36 @@ int maia_sched_tick_isr(void) {
 }
 
 static uintptr_t select_next_locked(uintptr_t current_sp) {
-    if (g_idle_running) {
-        uintptr_t candidate = current_sp != 0U ? current_sp : g_idle_sp;
-        if (!maia_stack_frame_valid((uintptr_t)g_idle_stack,sizeof g_idle_stack,candidate)) return 0U;
-        g_idle_sp = candidate;
-    } else if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS) {
-        uintptr_t candidate = current_sp != 0U ? current_sp : g_tasks[g_current_idx].sp;
-        if (!maia_stack_frame_valid(g_tasks[g_current_idx].stack_base,g_tasks[g_current_idx].stack_size,candidate)) return 0U;
-        g_tasks[g_current_idx].sp = candidate;
-        if (g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
-            g_tasks[g_current_idx].state = MAIA_TASK_READY;
+    uint32_t core = this_core();
+    uint8_t core_bit = (uint8_t)(1U << core);
+    uint8_t *idle_stack = g_idle_stack[core];
+    const size_t idle_size = sizeof g_idle_stack[core];
+    int32_t current = g_current[core];
+    if (g_idle_running[core]) {
+        uintptr_t candidate = current_sp != 0U ? current_sp : g_idle_sp[core];
+        if (!maia_stack_frame_valid((uintptr_t)idle_stack,idle_size,candidate)) return 0U;
+        g_idle_sp[core] = candidate;
+    } else if (current >= 0 && (uint32_t)current < MAIA_MAX_TASKS) {
+        uintptr_t candidate = current_sp != 0U ? current_sp : g_tasks[current].sp;
+        if (!maia_stack_frame_valid(g_tasks[current].stack_base,g_tasks[current].stack_size,candidate)) return 0U;
+        g_tasks[current].sp = candidate;
+        g_tasks[current].core = -1;
+        if (g_tasks[current].state == MAIA_TASK_RUNNING) {
+            g_tasks[current].state = MAIA_TASK_READY;
+            /* Re-pinned away from this core: let its new core take it now. */
+            if ((g_tasks[current].affinity & core_bit) == 0U) kick_for_task_locked((uint32_t)current);
         }
     }
 
-    /* Find highest priority among READY tasks, rotating round-robin after g_current_idx */
+    /* Highest-priority READY task allowed on this core, round-robin after the
+     * current one. RUNNING tasks belong to another core and are skipped. */
     int32_t best_idx  = -1;
     uint8_t best_prio = 0U;
-    uint32_t start = (g_current_idx >= 0) ? (((uint32_t)g_current_idx + 1U) % MAIA_MAX_TASKS) : 0U;
+    uint32_t start = (current >= 0) ? (((uint32_t)current + 1U) % MAIA_MAX_TASKS) : 0U;
 
     for (uint32_t step = 0U; step < MAIA_MAX_TASKS; ++step) {
         uint32_t idx = (start + step) % MAIA_MAX_TASKS;
-        if (g_tasks[idx].state == MAIA_TASK_READY) {
+        if (g_tasks[idx].state == MAIA_TASK_READY && (g_tasks[idx].affinity & core_bit) != 0U) {
             if (best_idx < 0 || g_tasks[idx].priority > best_prio) {
                 best_idx  = (int32_t)idx;
                 best_prio = g_tasks[idx].priority;
@@ -384,16 +441,16 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
     }
 
     if (best_idx < 0) {
-        if (!maia_stack_frame_valid((uintptr_t)g_idle_stack,sizeof g_idle_stack,g_idle_sp)) return 0U;
-        maia_arch_stack_publish(maia_stack_low((uintptr_t)g_idle_stack),maia_stack_top((uintptr_t)g_idle_stack,sizeof g_idle_stack));
+        if (!maia_stack_frame_valid((uintptr_t)idle_stack,idle_size,g_idle_sp[core])) return 0U;
+        maia_arch_stack_publish(maia_stack_low((uintptr_t)idle_stack),maia_stack_top((uintptr_t)idle_stack,idle_size));
         /* No app is runnable. Never revive a sleeping/blocked/exited task. */
-        if (!g_idle_running) {
+        if (!g_idle_running[core]) {
             g_switch_cnt += 1U;
             g_idle_stats.entries += 1U;
         }
-        g_current_idx = -1;
-        g_idle_running = 1;
-        return g_idle_sp;
+        g_current[core] = -1;
+        g_idle_running[core] = 1;
+        return g_idle_sp[core];
     }
 
     if (!maia_stack_frame_valid(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size,g_tasks[best_idx].sp)) return 0U;
@@ -404,14 +461,15 @@ static uintptr_t select_next_locked(uintptr_t current_sp) {
         g_tasks[best_idx].notify_return = 0U;
     }
     maia_arch_stack_publish(maia_stack_low(g_tasks[best_idx].stack_base),maia_stack_top(g_tasks[best_idx].stack_base,g_tasks[best_idx].stack_size));
-    if (best_idx != g_current_idx) {
+    if (best_idx != current) {
         g_switch_cnt += 1U;
     }
-    g_idle_running = 0;
-    g_current_idx = best_idx;
-    g_tasks[g_current_idx].state     = MAIA_TASK_RUNNING;
-    g_tasks[g_current_idx].switches += 1U;
-    return g_tasks[g_current_idx].sp;
+    g_idle_running[core] = 0;
+    g_current[core] = best_idx;
+    g_tasks[best_idx].state     = MAIA_TASK_RUNNING;
+    g_tasks[best_idx].core      = (int8_t)core;
+    g_tasks[best_idx].switches += 1U;
+    return g_tasks[best_idx].sp;
 }
 
 uintptr_t maia_sched_select_next_sp(uintptr_t current_sp) {
@@ -432,13 +490,14 @@ void maia_task_delay_ticks(uint32_t ticks) {
 
 maia_status_t maia_sched_delay_current_isr(uint32_t ticks) {
     uintptr_t irq = maia_arch_irq_save();
+    int32_t cur = g_current[this_core()];
     maia_status_t status = MAIA_ERR_INVALID;
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
-        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
+    if (cur >= 0 && (uint32_t)cur < MAIA_MAX_TASKS &&
+        g_tasks[cur].state == MAIA_TASK_RUNNING) {
         if (ticks != 0U) {
             /* Unsigned modular deadline; uint32 delays are less than half-range. */
-            g_tasks[g_current_idx].wake_tick = g_tick_count + (uint64_t)ticks;
-            g_tasks[g_current_idx].state = MAIA_TASK_SLEEPING;
+            g_tasks[cur].wake_tick = g_tick_count + (uint64_t)ticks;
+            g_tasks[cur].state = MAIA_TASK_SLEEPING;
         }
         status = MAIA_OK;
     }
@@ -457,6 +516,7 @@ maia_status_t maia_task_notify(maia_task_id_t id) {
             task->notify_result = MAIA_OK;
             task->wake_tick = 0U;
             task->state = MAIA_TASK_READY;
+            kick_for_task_locked((uint32_t)id);
         } else task->notify_pending = 1U; /* Coalesce while no notification wait. */
         result = MAIA_OK;
     }
@@ -466,8 +526,9 @@ maia_status_t maia_task_notify(maia_task_id_t id) {
 
 maia_status_t maia_task_wait_notification(uint32_t timeout_ticks) {
     uintptr_t irq = maia_arch_irq_save();
-    int valid = irq != 0U && g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
-                g_tasks[g_current_idx].state == MAIA_TASK_RUNNING;
+    int32_t cur = g_current[this_core()];
+    int valid = irq != 0U && cur >= 0 && (uint32_t)cur < MAIA_MAX_TASKS &&
+                g_tasks[cur].state == MAIA_TASK_RUNNING;
     maia_arch_irq_restore(irq);
     if (!valid) return MAIA_ERR_PERM;
     /* A notification here becomes pending. Check/consume/block only after the
@@ -477,10 +538,11 @@ maia_status_t maia_task_wait_notification(uint32_t timeout_ticks) {
 
 maia_status_t maia_sched_wait_notification_isr(uint32_t timeout_ticks) {
     uintptr_t irq = maia_arch_irq_save();
+    int32_t cur = g_current[this_core()];
     maia_status_t result = MAIA_ERR_INVALID;
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
-        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
-        maia_tcb_t *task = &g_tasks[g_current_idx];
+    if (cur >= 0 && (uint32_t)cur < MAIA_MAX_TASKS &&
+        g_tasks[cur].state == MAIA_TASK_RUNNING) {
+        maia_tcb_t *task = &g_tasks[cur];
         task->notify_return = 1U;
         task->notify_result = MAIA_ERR_EMPTY;
         if (task->notify_pending) { task->notify_pending = 0U;task->notify_result = MAIA_OK; }
@@ -498,12 +560,13 @@ maia_status_t maia_sched_wait_notification_isr(uint32_t timeout_ticks) {
 
 maia_status_t maia_sched_exit_current_isr(void) {
     uintptr_t irq = maia_arch_irq_save();
+    int32_t cur = g_current[this_core()];
     maia_status_t status = MAIA_ERR_INVALID;
-    if (g_current_idx >= 0 && (uint32_t)g_current_idx < MAIA_MAX_TASKS &&
-        g_tasks[g_current_idx].state == MAIA_TASK_RUNNING) {
-        g_tasks[g_current_idx].notify_pending = g_tasks[g_current_idx].notify_waiting = 0U;
-        g_tasks[g_current_idx].notify_timed = g_tasks[g_current_idx].notify_return = 0U;
-        g_tasks[g_current_idx].state = MAIA_TASK_EXITED;
+    if (cur >= 0 && (uint32_t)cur < MAIA_MAX_TASKS &&
+        g_tasks[cur].state == MAIA_TASK_RUNNING) {
+        g_tasks[cur].notify_pending = g_tasks[cur].notify_waiting = 0U;
+        g_tasks[cur].notify_timed = g_tasks[cur].notify_return = 0U;
+        g_tasks[cur].state = MAIA_TASK_EXITED;
         status = MAIA_OK;
     }
     maia_arch_irq_restore(irq);
@@ -511,9 +574,10 @@ maia_status_t maia_sched_exit_current_isr(void) {
 }
 
 maia_task_id_t maia_task_current_id(void) {
-    uintptr_t irq = maia_arch_irq_save();
-    maia_task_id_t result = g_current_idx;
-    maia_arch_irq_restore(irq);
+    /* Only this core switches its own current task: local masking suffices. */
+    uintptr_t irq = maia_arch_irq_save_local();
+    maia_task_id_t result = g_current[this_core()];
+    maia_arch_irq_restore_local(irq);
     return result;
 }
 
@@ -546,6 +610,8 @@ static maia_status_t task_get_info_locked(uint32_t index, maia_task_info_t *out_
     out_info->run_ticks  = g_tasks[index].run_ticks;
     out_info->switches   = g_tasks[index].switches;
     out_info->wake_tick  = g_tasks[index].wake_tick;
+    out_info->affinity   = g_tasks[index].affinity;
+    out_info->core       = g_tasks[index].core;
     return MAIA_OK;
 }
 
@@ -564,6 +630,10 @@ maia_status_t maia_sched_get_idle_stats(maia_idle_stats_t *out_stats) {
     return MAIA_OK;
 }
 
+#if defined(MAIA_SCHED_TEST) && !defined(__riscv)
+void maia_sched_test_set_core(uint32_t core) { g_host_core = core; }
+#endif
+
 #ifdef MAIA_SCHED_TEST
 void maia_sched_test_set_tick(uint64_t tick) {
     uintptr_t irq = maia_arch_irq_save();
@@ -577,8 +647,62 @@ void maia_sched_start(void) {
     if (g_started) { maia_arch_irq_restore(irq); return; }
     uintptr_t first_sp = select_next_locked(0U);
     if (first_sp != 0U) g_started = 1;
+#if defined(__riscv)
+    /* Native start never returns: drop the kernel lock but keep MIE off; the
+     * selected frame enables interrupts at mret. */
     if (first_sp != 0U) {
+        maia_arch_irq_restore(0U);
         maia_arch_start_first_task(first_sp);
     }
-    maia_arch_irq_restore(irq); /* Host-only return / empty boot; native mret does not return. */
+    maia_arch_irq_restore(irq);
+#else
+    if (first_sp != 0U) maia_arch_start_first_task(first_sp);
+    maia_arch_irq_restore(irq); /* Host-only return. */
+#endif
+}
+
+void maia_sched_start_secondary(void) {
+    uint32_t core = this_core();
+    if (core == 0U) return;
+    for (;;) {
+        uintptr_t irq = maia_arch_irq_save();
+        if (g_started) {
+            g_core_online[core] = 1U;
+            uintptr_t first_sp = select_next_locked(0U);
+            maia_arch_irq_restore(0U);
+            if (first_sp != 0U) maia_arch_start_first_task(first_sp);
+            maia_arch_irq_restore_local(irq);
+            return;
+        }
+        maia_arch_irq_restore(irq);
+    }
+}
+
+uint32_t maia_sched_online_cores(void) {
+    uintptr_t irq = maia_arch_irq_save();
+    uint32_t mask = 0U;
+    for (uint32_t core = 0U; core < MAIA_SCHED_MAX_CORES; ++core) {
+        if (g_core_online[core]) mask |= 1U << core;
+    }
+    maia_arch_irq_restore(irq);
+    return mask;
+}
+
+maia_status_t maia_task_set_affinity(maia_task_id_t id, uint8_t core_mask) {
+    if (core_mask == 0U || (core_mask >> MAIA_SCHED_MAX_CORES) != 0U) return MAIA_ERR_INVALID;
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = MAIA_ERR_INVALID;
+    if (id >= 0 && (uint32_t)id < MAIA_MAX_TASKS &&
+        g_tasks[id].state != MAIA_TASK_UNUSED && g_tasks[id].state != MAIA_TASK_EXITED) {
+        g_tasks[id].affinity = core_mask;
+        /* A running task moves at its next scheduling point; kick its core. */
+        if (g_tasks[id].core >= 0 && (core_mask & (1U << (uint32_t)g_tasks[id].core)) == 0U &&
+            (uint32_t)g_tasks[id].core != this_core()) {
+            maia_arch_sched_kick((uint32_t)g_tasks[id].core);
+        }
+        kick_for_task_locked((uint32_t)id);
+        status = MAIA_OK;
+    }
+    maia_arch_irq_restore(irq);
+    return status;
 }

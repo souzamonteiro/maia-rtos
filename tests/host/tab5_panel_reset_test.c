@@ -18,6 +18,11 @@ static void safe(void) {
     CHECK(!((values[0]&0x10U) && !(values[2]&0x10U) && (values[1]&0x10U)));
     for (unsigned i=0U;i<5U;++i) CHECK(((values[i]^initial[i]) & (uint8_t)~masks[i]) == 0U);
 }
+/* Panel reset runs before the shared I2C bus is adopted. */
+maia_i2c_result_t maia_i2c_bus_read8(maia_i2c_bus_t *b,uint8_t address,uint8_t reg,uint8_t *out,uint32_t count) {
+    (void)b;(void)address;(void)reg;(void)out;(void)count;
+    CHECK(0);return MAIA_I2C_INVALID;
+}
 maia_i2c_result_t maia_i2c_read_register8(const maia_i2c_lines_t *b,uint8_t address,uint8_t reg,uint8_t *out) {
     CHECK(b == &bus && address == 0x43U && out);CHECK(++calls<64U);
     stage_at[calls]=(unsigned)report.completed;

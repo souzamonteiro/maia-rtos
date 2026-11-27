@@ -70,6 +70,14 @@ void maia_core1_test_poll(void) {
     uint32_t command = maia_core1_mailbox.command;
     if (!command || command == maia_core1_mailbox.ack) return;
     if (mode == 6U && command == 7U) return;
+    if (mode == 11U && command == MAIA_CORE1_START_ROUNDS + 2U) return;
+    if (mode == 12U && command > MAIA_CORE1_START_ROUNDS) {
+        maia_core1_mailbox.cause = 5U;
+        maia_core1_mailbox.pc = 0x4ff00140U;
+        maia_core1_mailbox.state = 3U;
+        return;
+    }
+    ++maia_core1_mailbox.heartbeat;
     if (command == MAIA_CORE1_STOP) {
         if (mode == 7U) return;
         maia_core1_mailbox.state = mode == 8U ? 1U : 2U;
@@ -83,7 +91,8 @@ void maia_core1_test_poll(void) {
 }
 
 static void reset_test(void) {
-    attempted = 0U;
+    attempted = online = ping_busy = 0U;
+    last_command = pings = 0U;
     memset(&maia_core1_mailbox, 0, sizeof maia_core1_mailbox);
     memset(maia_core1_stack, 0, sizeof maia_core1_stack);
     context_ok = 1U;
@@ -138,5 +147,44 @@ int main(void) {
     reset_test(); clock_reg |= MAIA_CORE1_CLOCK_BIT; reset_reg &= ~MAIA_CORE1_RESET_BIT;
     assert(maia_esp32p4_core1_probe(&report) == MAIA_CORE1_OK);
     assert(report.completed == 5U && report.rounds == 1024U);
+
+    maia_core1_status_t status;
+    reset_test();
+    assert(maia_esp32p4_core1_ping(NULL) == MAIA_CORE1_INVALID);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_CONTEXT && !status.online);
+    assert(maia_esp32p4_core1_start(NULL) == MAIA_CORE1_INVALID && !writes);
+    context_ok = 0U;
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_CONTEXT && !writes);
+    context_ok = 1U;
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_OK);
+    assert(report.completed == 4U && report.rounds == MAIA_CORE1_START_ROUNDS);
+    assert(maia_core1_mailbox.state == 1U && writes == 4U);
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_BUSY);
+    assert(maia_esp32p4_core1_probe(&report) == MAIA_CORE1_BUSY && writes == 4U);
+    for (uint32_t i = 1U; i <= 3U; ++i) {
+        assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_OK);
+        assert(status.online && status.hart == 1U && status.pings == i);
+        assert(status.heartbeat_after > status.heartbeat_before);
+        assert(maia_core1_mailbox.ack == MAIA_CORE1_START_ROUNDS + i);
+    }
+    ping_busy = 1U;
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_BUSY);
+    ping_busy = 0U;
+
+    reset_test(); mode = 11U;
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_OK);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_OK);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_TIMEOUT && !status.online);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_CONTEXT);
+
+    reset_test(); mode = 12U;
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_OK);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_FAULT);
+    assert(!status.online && status.cause == 5U && status.pc == 0x4ff00140U);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_CONTEXT);
+
+    reset_test(); mode = 3U;
+    assert(maia_esp32p4_core1_start(&report) == MAIA_CORE1_VERIFY);
+    assert(maia_esp32p4_core1_ping(&status) == MAIA_CORE1_CONTEXT);
     return 0;
 }

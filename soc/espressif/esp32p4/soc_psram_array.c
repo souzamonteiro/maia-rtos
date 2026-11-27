@@ -102,7 +102,18 @@ maia_psram_result_t maia_esp32p4_psram_x8_mode(unsigned restore,uint32_t budget,
     if(!psram_context())return MAIA_PSRAM_CONTEXT;
     if(array_fault||mode_claim==2U||profile_state==2U)return MAIA_PSRAM_FAILED;
     if(mode_claim!=(restore?1U:0U))return MAIA_PSRAM_BUSY;
-    maia_psram_result_t result=profile(!restore,budget);if(result!=MAIA_PSRAM_OK)return result;
+    maia_psram_result_t result=profile(!restore,budget);
+    if(result==MAIA_PSRAM_BUSY&&!restore){
+        /* Warm reset (RTS/software) keeps the powered device in the X8 state
+         * left by the previous native boot; adopt it only with the full X8
+         * profile and an unchanged MR8 reread. */
+        result=profile(0,budget);if(result!=MAIA_PSRAM_OK)return result;
+        maia_psram_mode_report_t m;result=maia_esp32p4_psram_read_mode(8,budget,&m);
+        if(result!=MAIA_PSRAM_OK)return result;
+        if(m.value!=0x0BU)return MAIA_PSRAM_BUSY;
+        r->before=r->after=m.value;r->stage=4;mode_claim=1;return MAIA_PSRAM_OK;
+    }
+    if(result!=MAIA_PSRAM_OK)return result;
     maia_psram_mode_report_t m;result=maia_esp32p4_psram_read_mode(8,budget,&m);
     if(result!=MAIA_PSRAM_OK)return result;
     if(m.value!=(restore?0x0BU:0x4BU))return MAIA_PSRAM_BUSY;

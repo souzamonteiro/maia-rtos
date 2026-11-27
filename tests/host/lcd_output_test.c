@@ -8,7 +8,7 @@ maia_status_t maia_lcd_output_test_service_edit(void);
 void maia_lcd_output_test_present(void);
 static uintptr_t mask;static maia_task_id_t current;
 static uint64_t ticks;static unsigned prepared,active,paused,pause_requested,pending,notify_bit,frames,waits,cancels,stops,edits,publishes,edit_fail,publish_fail,drawn,timeout_mode,early_stop,drain_once,delays,stop_fails,update_during_run,update_queued,stop_after_frames,swap_pending,first_frame_pending,presented;
-static unsigned preserve_calls,preserve_fail,client_notify;
+static unsigned preserve_calls,preserve_fail,client_notify,box_publishes;static maia_lcd_async_box_t last_box;
 static maia_lcd_wake_t wake_fn;static void *wake_arg;
 static void draw(uint16_t *,uint32_t,uint32_t,void *);
 uintptr_t maia_arch_irq_save(void){uintptr_t previous=mask;mask=0;return previous;}
@@ -56,12 +56,19 @@ maia_dsi_access_result_t maia_lcd_async_edit_publish(void){
  assert(mask==8&&prepared);++publishes;if(publish_fail)return MAIA_DSI_ACCESS_VERIFY;
  if(active)swap_pending=1;else first_frame_pending=1;return MAIA_DSI_ACCESS_OK;
 }
+maia_dsi_access_result_t maia_lcd_async_edit_publish_box(const maia_lcd_async_box_t *b){
+ assert(b);last_box=*b;++box_publishes;return maia_lcd_async_edit_publish();
+}
+static unsigned direct_held,direct_flushes;static maia_lcd_async_box_t direct_box;
+uint16_t *maia_lcd_async_direct_begin(void){assert(!mask);if(!prepared||direct_held||swap_pending||first_frame_pending)return 0;direct_held=1;return pixels;}
+maia_dsi_access_result_t maia_lcd_async_direct_flush(const maia_lcd_async_box_t *b){assert(b&&direct_held);direct_box=*b;++direct_flushes;return MAIA_DSI_ACCESS_OK;}
+void maia_lcd_async_direct_end(void){assert(!mask&&direct_held);direct_held=0;}
 static void draw(uint16_t *p,uint32_t w,uint32_t h,void *arg){
  assert(mask==8&&p==pixels&&w==720&&h==1280&&arg==&drawn);++drawn;
  assert(maia_lcd_output_request_update(draw,arg)==MAIA_ERR_BUSY);
  p[0]=0xF800;
 }
-static void setup(void){maia_lcd_output_test_reset();mask=0;current=-1;ticks=0;prepared=active=paused=pause_requested=pending=notify_bit=frames=waits=cancels=stops=edits=publishes=edit_fail=publish_fail=drawn=timeout_mode=early_stop=drain_once=delays=stop_fails=update_during_run=update_queued=swap_pending=first_frame_pending=presented=preserve_calls=preserve_fail=client_notify=0;stop_after_frames=2;}
+static void setup(void){maia_lcd_output_test_reset();mask=0;current=-1;ticks=0;prepared=active=paused=pause_requested=pending=notify_bit=frames=waits=cancels=stops=edits=publishes=edit_fail=publish_fail=drawn=timeout_mode=early_stop=drain_once=delays=stop_fails=update_during_run=update_queued=swap_pending=first_frame_pending=presented=preserve_calls=preserve_fail=client_notify=box_publishes=direct_held=direct_flushes=0;stop_after_frames=2;}
 int main(void){
  maia_lcd_output_stats_t r;
  setup();assert(maia_lcd_output_request_stop()==MAIA_ERR_INVALID);
@@ -91,10 +98,32 @@ int main(void){
  current=8;
  leased[0]=0x07E0;assert(maia_lcd_output_edit_publish()==MAIA_OK);
  assert(publishes==1&&maia_lcd_output_stats(&r)==MAIA_OK&&r.updates==1&&r.presented==1);
+ assert(!box_publishes);first_frame_pending=swap_pending=0;
+ leased=0;assert(maia_lcd_output_edit_begin(&leased)==MAIA_OK&&leased==pixels&&preserve_calls==2);
+ assert(maia_lcd_output_edit_publish_region(0,0,721,1)==MAIA_ERR_INVALID&&publishes==1);
+ assert(maia_lcd_output_edit_publish_region(1,2,3,4)==MAIA_OK&&box_publishes==1&&publishes==2);
+ assert(last_box.x0==1&&last_box.y0==2&&last_box.x1==3&&last_box.y1==4);
  current=7;mask=8;assert(maia_lcd_output_request_stop()==MAIA_OK);
 
  setup();assert(maia_lcd_output_init(7)==MAIA_OK);maia_lcd_output_test_set_running();current=8;mask=8;preserve_fail=1;
  leased=0;assert(maia_lcd_output_edit_begin(&leased)==MAIA_ERR_BUSY&&leased==0&&preserve_calls==1);
+
+ setup();assert(maia_lcd_output_init(7)==MAIA_OK);maia_lcd_output_test_set_running();current=7;mask=8;
+ leased=0;assert(maia_lcd_output_direct_begin(&leased)==MAIA_ERR_PERM&&!direct_held);
+ current=8;assert(maia_lcd_output_direct_begin(&leased)==MAIA_OK&&leased==pixels&&direct_held&&!delays);
+ assert(maia_lcd_output_direct_begin(&leased)==MAIA_ERR_INVALID);
+ assert(maia_lcd_output_request_update(draw,&drawn)==MAIA_ERR_BUSY);
+ assert(maia_lcd_output_request_stop()==MAIA_ERR_BUSY);
+ current=9;other=0;assert(maia_lcd_output_direct_flush(0,0,1,1)==MAIA_ERR_INVALID&&!direct_flushes);
+ assert(maia_lcd_output_direct_end()==MAIA_ERR_INVALID&&direct_held);
+ current=8;assert(maia_lcd_output_direct_flush(0,0,721,1)==MAIA_ERR_INVALID);
+ assert(maia_lcd_output_direct_flush(1,2,3,4)==MAIA_OK&&direct_flushes==1);
+ assert(direct_box.x0==1&&direct_box.y0==2&&direct_box.x1==3&&direct_box.y1==4);
+ notify_bit=0;assert(maia_lcd_output_direct_end()==MAIA_OK&&!direct_held&&notify_bit);
+ assert(maia_lcd_output_direct_flush(1,2,3,4)==MAIA_ERR_INVALID);
+ assert(maia_lcd_output_request_update(draw,&drawn)==MAIA_OK);
+ setup();assert(maia_lcd_output_init(7)==MAIA_OK);maia_lcd_output_test_set_running();current=8;mask=8;swap_pending=1;
+ leased=0;assert(maia_lcd_output_direct_begin(&leased)==MAIA_ERR_BUSY&&leased==0&&delays==200&&!direct_held);
 
  setup();assert(maia_lcd_output_init(7)==MAIA_OK);mask=8;current=7;
  assert(maia_lcd_output_request_update(draw,&drawn)==MAIA_OK);

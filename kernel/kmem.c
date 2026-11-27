@@ -1,4 +1,10 @@
 #include <maia/kernel.h>
+#include <maia/arch/irq.h>
+
+#if !defined(__riscv)
+__attribute__((weak)) uintptr_t maia_arch_irq_save(void) { return 8U; }
+__attribute__((weak)) void maia_arch_irq_restore(uintptr_t previous) { (void)previous; }
+#endif
 
 #define MAIA_MEM_MAGIC_FREE 0x4D465245UL /* 'MFRE' */
 #define MAIA_MEM_MAGIC_USED 0x4D555344UL /* 'MUSD' */
@@ -91,7 +97,7 @@ maia_status_t maia_mem_init(void *pool_base, size_t pool_bytes) {
     return MAIA_OK;
 }
 
-maia_status_t maia_mem_add_region(void *pool_base, size_t pool_bytes) {
+static maia_status_t maia_mem_add_region_locked(void *pool_base, size_t pool_bytes) {
     maia_mem_region_t region;
     maia_status_t result = region_layout(pool_base, pool_bytes, &region);
     if (result != MAIA_OK || g_region_count == 0U) {
@@ -118,11 +124,8 @@ maia_status_t maia_mem_add_region(void *pool_base, size_t pool_bytes) {
     return MAIA_OK;
 }
 
-void *maia_mem_alloc(size_t size) {
-    return maia_mem_alloc_aligned(size, 8U);
-}
 
-void *maia_mem_alloc_aligned(size_t size, size_t alignment) {
+static void *maia_mem_alloc_aligned_locked(size_t size, size_t alignment) {
     if (g_region_count == 0U || size == 0U || size > SIZE_MAX - 7U ||
         alignment == 0U || (alignment & (alignment - 1U)) != 0U) {
         return NULL;
@@ -208,7 +211,7 @@ void *maia_mem_alloc_aligned(size_t size, size_t alignment) {
     return NULL;
 }
 
-maia_status_t maia_mem_free(void *ptr) {
+static maia_status_t maia_mem_free_locked(void *ptr) {
     if (ptr == NULL || g_region_count == 0U) {
         return MAIA_ERR_INVALID;
     }
@@ -268,7 +271,7 @@ maia_status_t maia_mem_free(void *ptr) {
     return MAIA_ERR_INVALID;
 }
 
-maia_status_t maia_mem_get_alloc_size(const void *ptr, size_t *out_size) {
+static maia_status_t maia_mem_get_alloc_size_locked(const void *ptr, size_t *out_size) {
     if (ptr == NULL || out_size == NULL || g_region_count == 0U) {
         return MAIA_ERR_INVALID;
     }
@@ -302,10 +305,49 @@ maia_status_t maia_mem_get_alloc_size(const void *ptr, size_t *out_size) {
     return MAIA_ERR_INVALID;
 }
 
-maia_status_t maia_mem_get_stats(maia_mem_stats_t *out_stats) {
+static maia_status_t maia_mem_get_stats_locked(maia_mem_stats_t *out_stats) {
     if (out_stats == NULL) {
         return MAIA_ERR_INVALID;
     }
     *out_stats = g_stats;
     return MAIA_OK;
+}
+
+maia_status_t maia_mem_add_region(void *pool_base, size_t pool_bytes) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = maia_mem_add_region_locked(pool_base, pool_bytes);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+void *maia_mem_alloc_aligned(size_t size, size_t alignment) {
+    uintptr_t irq = maia_arch_irq_save();
+    void *result = maia_mem_alloc_aligned_locked(size, alignment);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+maia_status_t maia_mem_free(void *ptr) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = maia_mem_free_locked(ptr);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+maia_status_t maia_mem_get_alloc_size(const void *ptr, size_t *out_size) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = maia_mem_get_alloc_size_locked(ptr, out_size);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+maia_status_t maia_mem_get_stats(maia_mem_stats_t *out_stats) {
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t result = maia_mem_get_stats_locked(out_stats);
+    maia_arch_irq_restore(irq);
+    return result;
+}
+
+void *maia_mem_alloc(size_t size) {
+    return maia_mem_alloc_aligned(size, 8U);
 }

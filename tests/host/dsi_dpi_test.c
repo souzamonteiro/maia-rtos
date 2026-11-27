@@ -76,6 +76,10 @@ int maia_psram_window_edit_publish(uint32_t source,uint32_t bytes){
  assert(frame_cfg==3U||(!frame_cfg&&!frame_channels));
  fb_lease=1;if(!frame_cfg)fb_current_source=source;return 1;
 }
+static unsigned direct_flushes;static uint32_t direct_first,direct_bytes;
+int maia_psram_window_direct_flush(uint32_t address,uint32_t bytes){
+ assert(fb_lease==1&&bytes);++direct_flushes;direct_first=address;direct_bytes=bytes;return 1;
+}
 static maia_dw_irq_callback_t stream_irq;
 static void *stream_irq_arg;
 static unsigned stream_fake,stream_claimed,stream_posts;
@@ -752,6 +756,14 @@ int main(void) {
  assert(!frame_channels);stream_irq(stream_irq_arg);assert(frame_cfg==3U&&frame_channels);
  assert(maia_lcd_async_finish()==MAIA_DSI_ACCESS_OK);
  maia_lcd_async_report(&ar);assert(ar.frames==14U&&ar.presented==1U);
+ assert(maia_lcd_async_direct_begin()==(uint16_t *)(uintptr_t)DSI_FB_BACK_SOURCE);
+ assert(!maia_lcd_async_direct_begin()&&!maia_lcd_async_edit_begin()&&maia_lcd_async_request_pause()==MAIA_DSI_ACCESS_BUSY);
+ maia_lcd_async_box_t direct={2U,3U,6U,5U},outside={0U,0U,721U,1U},empty={4U,4U,4U,9U};
+ assert(maia_lcd_async_direct_flush(&outside)==MAIA_DSI_ACCESS_INVALID&&maia_lcd_async_direct_flush(&empty)==MAIA_DSI_ACCESS_OK&&!direct_flushes);
+ assert(maia_lcd_async_direct_flush(&direct)==MAIA_DSI_ACCESS_OK&&direct_flushes==1U);
+ assert(direct_first==DSI_FB_BACK_SOURCE+(3U*720U+2U)*2U&&direct_bytes==(720U+4U)*2U);
+ maia_lcd_async_direct_end();
+ assert(maia_lcd_async_direct_flush(&direct)==MAIA_DSI_ACCESS_BUSY&&direct_flushes==1U);
  assert(maia_lcd_async_request_pause()==MAIA_DSI_ACCESS_OK);
  for(unsigned p=0;p<8U&&frame_channels;++p)(void)maia_dsi_access_test_read(MAIA_ESP32P4_GDMA_BASE+0x18U);
  assert(!frame_channels);stream_irq(stream_irq_arg);assert(!frame_cfg&&!frame_channels);

@@ -148,6 +148,8 @@ size_t        maia_queue_count(const maia_queue_t *q);
 #define MAIA_PRIO_NORMAL    2U
 #define MAIA_PRIO_HIGH      3U
 #define MAIA_PRIO_REALTIME  7U
+#define MAIA_SCHED_MAX_CORES 2U
+#define MAIA_CORE_MASK_ALL  ((uint8_t)((1U << MAIA_SCHED_MAX_CORES) - 1U))
 
 typedef int32_t maia_task_id_t;
 typedef void (*maia_task_entry_fn)(void *arg);
@@ -170,6 +172,8 @@ typedef struct maia_task_info {
     uint32_t          run_ticks;
     uint32_t          switches;
     uint64_t          wake_tick;
+    uint8_t           affinity; /* Bit n: may run on core n. */
+    int8_t            core;     /* Core currently running it, -1 if none. */
 } maia_task_info_t;
 
 /* Boot-only reset; returns BUSY once scheduling has started. */
@@ -243,6 +247,15 @@ uintptr_t      maia_sched_select_next_sp(uintptr_t current_sp);
 
 /* Starts scheduling the highest-priority ready task */
 void           maia_sched_start(void);
+/* SMP: a secondary core (IRQs off, its trap port ready) joins scheduling once
+ * core 0 has started; returns only on core 0 or if it has nothing to run. */
+void           maia_sched_start_secondary(void);
+/* Bitmask of cores executing the scheduler. */
+uint32_t       maia_sched_online_cores(void);
+/* Cores a task may run on (bit n = core n). Boot-created tasks default to
+ * core 0; runtime-created tasks inherit their creator's mask. A running task
+ * moves at its next scheduling point. INVALID for a bad id or mask. */
+maia_status_t  maia_task_set_affinity(maia_task_id_t id, uint8_t core_mask);
 
 #ifdef __cplusplus
 }

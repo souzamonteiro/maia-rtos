@@ -236,6 +236,19 @@ int maia_psram_window_edit_publish(uint32_t source,uint32_t bytes){
 #endif
     window_state=DMA_OWNED;return 1;
 }
+int maia_psram_window_direct_flush(uint32_t address,uint32_t bytes){
+    uint32_t first=MAIA_PSRAM_WINDOW_VADDR+128U,end=MAIA_PSRAM_WINDOW_VADDR+MAIA_PSRAM_WINDOW_BYTES;
+    if(window_state!=DMA_OWNED||!bytes||address<first||address>=end||bytes>end-address)return 0;
+    uint32_t start=address&~63U,stop=(address+bytes+63U)&~63U;
+    if(stop>end)stop=end;
+    if(cache_range(start,stop-start))return 0;
+#ifdef MAIA_PSRAM_TEST
+    __asm__ volatile("" ::: "memory");
+#else
+    __asm__ volatile("fence iorw, iorw" ::: "memory");
+#endif
+    return 1;
+}
 int maia_psram_window_dma_release(void){
     if(!psram_context()||window_state!=DMA_OWNED)return 0;
     window_state=FAULTED;

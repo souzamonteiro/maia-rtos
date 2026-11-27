@@ -16,4 +16,8 @@ int maia_psram_window_dma_release(void);
  * are supported. Zero on refusal/fault; failed publish is sticky. */
 uint32_t maia_psram_window_edit_begin(uint32_t source,uint32_t bytes);
 int maia_psram_window_edit_publish(uint32_t source,uint32_t bytes);
+/* Direct scanout drawing: write back [address,address+bytes) of the DMA-owned
+ * window (64-byte aligned outward). Any hart; the caller serializes ROM cache
+ * operations (kernel lock). Zero on refusal/ROM failure; no state change. */
+int maia_psram_window_direct_flush(uint32_t address,uint32_t bytes);
 #endif

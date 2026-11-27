@@ -60,6 +60,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "POC ONLY: start native LCD shell in /sd without desktop or automatic SD writes" OFF)
   option(MAIA_DIAGNOSTIC_VFS_STRESS
     "DIAGNOSTIC ONLY: run bounded concurrent MaiaVFS stress and one-shot I/O recovery checks" OFF)
+  option(MAIA_PRODUCT_HIGH_SRAM
+    "Product: reclaim bootloader SRAM and use high L2MEM for stacks and heap (~256 KiB heap)" ON)
+  option(MAIA_PRODUCT_SMP
+    "Product: run the scheduler on both P4 cores (core 1 via IPI)" ON)
+  set(MAIA_PRODUCT_SHELL_AFFINITY 2 CACHE STRING
+    "Product SMP: core mask for maia_shell and the apps it starts (1=core0, 2=core1, 3=any)")
+  option(MAIA_DIAGNOSTIC_MODULE_TIMING
+    "DIAGNOSTIC ONLY: report MNM loader and directory-list timings" OFF)
   if(MAIA_DIAGNOSTIC_VFS_SHELL AND
      (NOT MAIA_USE_FLASH_PRODUCT_LINKER OR MAIA_DIAGNOSTIC_FATFS_RW))
     message(FATAL_ERROR "VFS shell POC requires flash-XIP and excludes automatic FATFS_RW")
@@ -77,6 +85,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   add_executable(maia_m0.elf
     arch/riscv/start.S
+    arch/riscv/klock.c
     arch/riscv/trap_context.S
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
@@ -126,6 +135,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     boards/m5stack/tab5/boot_main.c
   )
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
+    target_sources(maia_m0.elf PRIVATE
+      arch/riscv/core1_probe.S
+      soc/espressif/esp32p4/soc_core1.c
+      soc/espressif/esp32p4/soc_sram.c
+    )
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_CORE1=1)
+    if(MAIA_PRODUCT_SMP)
+      target_sources(maia_m0.elf PRIVATE soc/espressif/esp32p4/soc_smp.c)
+      target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_SMP=1
+        MAIA_PRODUCT_SHELL_AFFINITY=${MAIA_PRODUCT_SHELL_AFFINITY})
+      if(MAIA_PRODUCT_HIGH_SRAM)
+        target_compile_definitions(maia_m0.elf PRIVATE MAIA_SMP_HIGH_BSS=1)
+      endif()
+    endif()
+    if(MAIA_PRODUCT_HIGH_SRAM)
+      target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_HIGH_SRAM=1)
+    endif()
     target_sources(maia_m0.elf PRIVATE
       runtime/newlib_vfs.c
       soc/espressif/esp32p4/soc_display_product.c
@@ -193,6 +219,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       soc/espressif/esp32p4/soc_flash.c
       boards/m5stack/tab5/kv.c
       boards/m5stack/tab5/maiascript_kv.c
+      boards/m5stack/tab5/maiascript_fs.c
     )
     target_link_libraries(maia_m0.elf PRIVATE maia_vfs maia_kv)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_PRODUCT_FATFS=1)
@@ -234,6 +261,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_DIAGNOSTIC_VFS_SHELL)
     target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_VFS_SHELL=1)
   endif()
+  if(MAIA_DIAGNOSTIC_MODULE_TIMING)
+    target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_MODULE_TIMING=1)
+  endif()
   target_compile_options(maia_m0.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C,CXX>:-ftls-model=local-exec>
   )
@@ -247,6 +277,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
   add_executable(maia_f0_flash_probe.elf
     arch/riscv/start.S
+    arch/riscv/klock.c
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_serial_tx.c
@@ -271,6 +302,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
   add_executable(maia_core1_probe.elf
     arch/riscv/start.S
+    arch/riscv/klock.c
     arch/riscv/core1_probe.S
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
@@ -296,6 +328,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
   add_executable(maia_f1_runtime_probe.elf
     arch/riscv/start.S
+    arch/riscv/klock.c
     arch/riscv/trap_context.S
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
@@ -427,6 +460,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
     add_executable(maia_f0_kernel_psram_probe.elf
       arch/riscv/start.S
+      arch/riscv/klock.c
       arch/riscv/trap_context.S
       soc/espressif/esp32p4/soc_early_init.c
       soc/espressif/esp32p4/soc_console.c
@@ -862,6 +896,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   add_executable(maia_sched_probe.elf EXCLUDE_FROM_ALL
     arch/riscv/start.S
+    arch/riscv/klock.c
     arch/riscv/trap_context.S
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
@@ -1175,6 +1210,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
 
   add_executable(echo_test.elf
     arch/riscv/start.S
+    arch/riscv/klock.c
     soc/espressif/esp32p4/soc_early_init.c
     soc/espressif/esp32p4/soc_console.c
     soc/espressif/esp32p4/soc_serial_rx.c
@@ -1202,6 +1238,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   if(MAIA_EXTERNAL_RGB_TEST_DIR)
     add_executable(rgb_test.elf
       arch/riscv/start.S
+      arch/riscv/klock.c
       soc/espressif/esp32p4/soc_early_init.c
       soc/espressif/esp32p4/soc_console.c
       soc/espressif/esp32p4/soc_serial_rx.c
@@ -1280,7 +1317,9 @@ else()
     endif()
     add_test(NAME maia_kv_test COMMAND maia_kv_test)
 
-    add_executable(fatfs_test tests/host/fatfs_test.c runtime/newlib_vfs.c)
+    add_executable(fatfs_test tests/host/fatfs_test.c runtime/newlib_vfs.c
+      boards/m5stack/tab5/maiascript_fs.c)
+    target_include_directories(fatfs_test PRIVATE include)
     target_include_directories(fatfs_test PRIVATE third_party/fatfs/src)
     target_compile_definitions(fatfs_test PRIVATE
       MAIA_FATFS_DIAGNOSTIC_FAULT_INJECTION=1
@@ -1752,6 +1791,13 @@ else()
       target_compile_options(scheduler_atomic_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME scheduler_atomic_test COMMAND scheduler_atomic_test)
+    add_executable(scheduler_smp_test tests/host/scheduler_smp_test.c kernel/ksched.c)
+    target_include_directories(scheduler_smp_test PRIVATE include)
+    target_compile_definitions(scheduler_smp_test PRIVATE MAIA_SCHED_TEST=1)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(scheduler_smp_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME scheduler_smp_test COMMAND scheduler_smp_test)
     add_executable(scheduler_idle_test tests/host/scheduler_idle_test.c kernel/ksched.c)
     target_include_directories(scheduler_idle_test PRIVATE include)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

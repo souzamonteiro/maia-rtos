@@ -174,8 +174,8 @@ with tempfile.TemporaryDirectory() as directory:
         return ""
 
     def capture(port, seconds, log, marker=None, observe_seconds=0,
-                input_marker=None, input_data=None):
-        capture_calls.append((marker, observe_seconds, input_marker, input_data))
+                input_marker=None, input_data=None, input_line_delay=0.0):
+        capture_calls.append((marker, observe_seconds, input_marker, input_data, input_line_delay))
         if marker is not None:
             if fail_capture:
                 raise RuntimeError("capture failed")
@@ -196,14 +196,15 @@ with tempfile.TemporaryDirectory() as directory:
     report = json.loads((directory / "success/report.json").read_text())
     assert report["probe_pass"] and report["restore_verified"]
     assert report["boots"][0]["marker"] and not report["boots"][0]["fatal"]
-    assert capture_calls == [("msh> ", 3, None, None), (None, 0, None, None)]
+    assert capture_calls == [("msh> ", 3, None, None, 0), (None, 0, None, None, 0)]
     assert writes == ["probe.bin", "factory-backup-app.bin"]
 
     capture_calls.clear()
     assert run([
-        "--marker", "msh> ", "--input-marker", "READY", "--input-hex", "4d616961"
+        "--marker", "msh> ", "--input-marker", "READY", "--input-hex", "4d616961",
+        "--input-line-delay", "0.5"
     ], "send-input") == 0
-    assert capture_calls == [("msh> ", 0, "READY", b"Maia"), (None, 0, None, None)]
+    assert capture_calls == [("msh> ", 0, "READY", b"Maia", 0.5), (None, 0, None, None, 0)]
 
     fatal = True
     writes.clear()
@@ -271,7 +272,7 @@ with tempfile.TemporaryDirectory() as directory:
         ["--capture-seconds", "inf"],
         ["--observe-seconds", "nan"],
         ["--observe-seconds", "-1"],
-        ["--observe-seconds", "121"],
+        ["--observe-seconds", "661"],
         ["--input-marker", "READY"],
         ["--input-hex", "4d"],
         ["--input-marker", "READY", "--input-hex", "not-hex"],

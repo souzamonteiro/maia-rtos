@@ -117,6 +117,12 @@ int main(void){
     unsigned n=reads;assert(maia_esp32p4_psram_x8_mode(0,10,&mode)==MAIA_PSRAM_BUSY&&reads==n);
     assert(maia_esp32p4_psram_x8_mode(1,10,&mode)==MAIA_PSRAM_OK&&mode.after==0x4BU&&!memcmp(saved,reg,sizeof reg));
     setup();drop=132;assert(maia_esp32p4_psram_x8_mode(0,10,&mode)==MAIA_PSRAM_VERIFY&&mode.after==0x4BU);sticky();
+    setup();device_mr8=0x0BU;n=writes;
+    assert(maia_esp32p4_psram_x8_mode(0,10,&mode)==MAIA_PSRAM_OK&&mode.stage==4U&&mode.before==0x0BU&&mode.after==0x0BU);
+    assert(!memcmp(saved,reg,sizeof reg)&&device_mr8==0x0BU);
+    assert(maia_esp32p4_psram_boot_transfer(0,data,64,0,10,&r)==MAIA_PSRAM_OK);
+    setup();device_mr8=0x0BU;device_mr4=0x40U;assert(maia_esp32p4_psram_x8_mode(0,10,&mode)==MAIA_PSRAM_BUSY&&!mode.stage);
+    assert(maia_esp32p4_psram_boot_transfer(0,data,64,0,10,&r)==MAIA_PSRAM_BUSY);
 
     maia_psram_profile_report_t profile;
     setup();clock_rate=200;assert(maia_esp32p4_psram_profile200(0,10,&profile)==MAIA_PSRAM_BUSY&&!reads);

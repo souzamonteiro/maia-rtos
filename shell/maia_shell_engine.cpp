@@ -8,13 +8,51 @@
 #include <maia/services/native_display.h>
 #endif
 
+static int32_t s_pending_module_keys[2];
+static size_t s_pending_module_key_count;
+
+static int32_t shell_module_read_key(void) {
+    if (s_pending_module_key_count > 0U) {
+        int32_t key = s_pending_module_keys[0];
+        if (s_pending_module_key_count > 1U) {
+            s_pending_module_keys[0] = s_pending_module_keys[1];
+        }
+        --s_pending_module_key_count;
+        return key;
+    }
+
+    int32_t key = maia_tab5_keyboard_getc_nonblocking();
+    if (key != 27) return key;
+
+    int32_t second = maia_tab5_keyboard_getc_nonblocking();
+    if (second != '[') {
+        if (second >= 0) {
+            s_pending_module_keys[0] = second;
+            s_pending_module_key_count = 1U;
+        }
+        return 27;
+    }
+
+    int32_t third = maia_tab5_keyboard_getc_nonblocking();
+    if (third == 'A') return 0x80;
+    if (third == 'B') return 0x81;
+    if (third == 'D') return 0x82;
+    if (third == 'C') return 0x83;
+
+    s_pending_module_keys[0] = '[';
+    s_pending_module_key_count = 1U;
+    if (third >= 0) {
+        s_pending_module_keys[1] = third;
+        s_pending_module_key_count = 2U;
+    }
+    return 27;
+}
+
 static maia_input_api_t s_shell_input_api = {
     .get_touch = [](int32_t *x, int32_t *y, int32_t *pressed) -> int32_t {
         return maia_tab5_touch_get(x, y, pressed);
     },
-    .read_key = [](void) -> int32_t {
-        return (int32_t)maia_tab5_keyboard_getc_nonblocking();
-    }
+    .read_key = shell_module_read_key
 };
 
 extern "C" {
@@ -103,6 +141,7 @@ static void shell_console_out(const char *str) {
 }
 
 void maia_shell_engine_init(void) {
+    s_pending_module_key_count = 0U;
     s_shell.init(shell_console_out);
     MaiaShell::set_input_driver(&s_shell_input_api);
 #if defined(MAIA_NATIVE_LCD_DISPLAY)

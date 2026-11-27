@@ -27,13 +27,20 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Private RV32 port metadata. mscratch always points to this once initialized. */
+/* Private RV32 port metadata. mscratch always points to the current hart's
+ * copy once initialized: maia_trap_stack_metadata is hart 0's. */
 typedef struct maia_trap_stack_metadata {
     uint32_t saved_t0, saved_t1, source_sp, low, high, active;
     uint32_t emergency_top, irq_top, saved_t2, cause, pc, value;
 } maia_trap_stack_metadata_t;
 extern volatile maia_trap_stack_metadata_t maia_trap_stack_metadata;
 void maia_arch_trap_stack_init(void); /* Boot-only, IRQs disabled. */
+/* Secondary hart boot, IRQs disabled: guards its IRQ/emergency/boot stacks,
+ * points its mscratch at its own metadata and returns its boot stack top. */
+uintptr_t maia_arch_trap_stack_init_secondary(void);
+uintptr_t maia_arch_trap_stack_secondary_top(void); /* Its boot stack top. */
+/* Current hart's metadata (via mscratch). */
+volatile maia_trap_stack_metadata_t *maia_arch_trap_stack_current(void);
 void maia_arch_stack_publish(uintptr_t low, uintptr_t high); /* IRQs disabled. */
 int maia_arch_stack_reserved(uintptr_t base, size_t size);
 __attribute__((noreturn)) void maia_arch_stack_panic(uint32_t cause, uint32_t pc,

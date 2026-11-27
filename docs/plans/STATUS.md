@@ -5,6 +5,144 @@ Date: 2026-11-26
 Progress checklist (owner-facing, Portuguese):
 [CHECKLIST_P4_SEM_FREERTOS.md](CHECKLIST_P4_SEM_FREERTOS.md).
 
+## Desenho direto no framebuffer exibido — 2026-11-26
+
+Depois do SMP, os apps MaiaScript ainda pareciam mais lentos que na referência:
+a calculadora desenhava uns 2 ou 3 botões por segundo, e o scroll do Files era
+mais lento. A causa estava no caminho de vídeo. Cada `display_sync`
+(cada botão, já que o `ui.ms` sincroniza após cada widget) pedia um
+backbuffer à tarefa `lcd`, que copiava a área antiga para ele. O app desenhava,
+publicava e então esperava a troca de buffers e a apresentação, o que somava
+vários quadros de vídeo por sync. A referência desenha direto no único framebuffer
+e só faz writeback do cache (`esp_cache_msync`).
+
+Agora existe um lease direto (`maia_lcd_output_direct_begin/flush/end`). O app,
+em qualquer núcleo, desenha direto no buffer que o DMA está varrendo, e o sync faz
+o writeback só do retângulo alterado (`maia_psram_window_direct_flush`, com a
+operação ROM de cache sob o lock do kernel). Não há espera de quadro, e
+o tearing é possível, como na referência. Durante o lease, as atualizações do
+terminal, as edições de backbuffer e a pausa do DMA ficam recusadas. A área
+alterada entra no stale box, para a próxima edição de backbuffer recopiá-la.
+Host: 112/112, com novos casos em `lcd_output_test`, `dsi_lcd_async_test` e
+`native_display_api_test`. Device: `direct-lcd-211624`, 120 s,
+`probe_pass=true`, `restore_verified=true`. O dono disse: "Está excelente!
+Parece mais rápido para carregar os apps."
+
+## Estresse SMP com drivers ativos — 2026-11-26
+
+O teste de 10 min executou o módulo MaiaScript no core 1 enquanto o LCD/DMA
+continuou exibindo e recebendo atualizações diretas. A cada iteração fez
+consultas KV somente de leitura, `stat` no `.mobj` do desktop no SD, desenho
+RGB565 com `display_sync` e uma pausa de 1 ms; a cada 16 iterações também
+enumerou `/sd`. O serviço nativo ST7121 reportou pronto no boot. O módulo
+concluiu 3.703 iterações, emitiu 19 checkpoints e terminou com
+`MAIA_SMP_STRESS_PASS`, código 0, sem fatal/panic. Não houve gravação em KV ou
+no SD. Runner removeu o `.mobj` temporário; `probe_pass=true` e
+`restore_verified=true` (hash da referência `08cee753…`).
+
+A primeira versão do probe chamou `touch_poll` pela API legada do módulo; ela
+não é ligada ao serviço nativo de touch no host do shell e retornou `-1`.
+Corrigido para validar o marcador de inicialização do ST7121, sem tratar a API
+legada indisponível como defeito do driver. Runner host test e sintaxe Python
+passaram; suíte CTest: 112/112.
+
+## Carregamento de módulos `.mobj` 1.800× mais rápido — 2026-11-26
+
+O tempo de carga/relocação medido com `MAIA_DIAGNOSTIC_MODULE_TIMING=ON` era
+de 16,8 s (Files) e 24,9 s (desktop). Durante a relocação o loader lê headers,
+símbolos e strings em posições aleatórias, e o leitor de arquivo do `runelf`
+tinha cache de uma única página de 512 B, por isso o cartão SD era relido o
+tempo todo. Agora o `runelf` lê o `.mobj` inteiro de uma vez, como na
+referência. Se faltar memória, ele volta ao leitor paginado. O `elf_reader_t`
+ganhou o hook opcional `release`, que o loader chama logo após a relocação,
+para que o buffer seja liberado antes de o módulo rodar (o desktop chama
+outros apps de dentro dele). Novo tempo: 9 ms (Files) e 12 ms (desktop). Na
+tela, o dono confirmou que o Files e os demais apps abrem rápido pelo desktop.
+O desenho lento da calculadora foi corrigido posteriormente usando scanout
+direto, conforme a seção acima.
+
+## PSRAM/LCD após reset morno — 2026-11-26
+
+Causa da falha antes atribuída a "Files seguido de desktop": o runner dá reset
+por RTS entre os apps. O chip PSRAM continua alimentado e mantém o MR8=0x0B
+(X8) que o boot nativo anterior deixou, e `x8_mode` exigia MR8=0x4B (X16, o
+estado deixado pelo IDF). Depois disso o LCD não subia e qualquer app gráfico
+falhava com `Native graphics transaction failed`. Agora `x8_mode(0)` adota um
+dispositivo já em X8 (`stage=4`) se o perfil X8 completo (MR0/2/4/8) bater e uma
+releitura de MR8 confirmar 0x0B. Qualquer outro estado continua recusado. Em
+caso de falha, o boot imprime MR0/2/4/8. Validado: 4 resets mornos seguidos e a
+sequência Files → desktop na mesma sessão.
+
+## Heap ampliado para ~256 KB (SRAM alta + área do bootloader) — 2026-11-26
+
+O heap do produto passou de 50 KB para 263.044 B em três regiões, todas
+executáveis (o loader de módulos aloca código no heap):
+
+| Região | Faixa | Tamanho |
+|---|---|---|
+| Pool baixo (`.bss`, alcançável por DMA) | janela `0x4FF00000–0x4FF28000` | 78.848 B |
+| Área do bootloader de 2º estágio, recuperada após o boot | `0x4FF28000–0x4FF3AFC0` | 77.760 B |
+| SRAM alta (`.maia_high_heap`) | `0x4FF4B800–0x4FF65800` | 106.496 B |
+
+As pilhas da shell (ampliada de 16 para 32 KB), LCD, terminal e touch foram
+para `.maia_high_bss` em `0x4FF40000`, zerada pelo `start.S`, que antes
+confere que a cache L2 está configurada em 128 ou 256 KB (ela ocupa
+`0x4FF80000+`). A pilha/dados da ROM (`0x4FF3AFC0–0x4FF40000`) e a cache L2
+não são tocadas. As regiões extras entram no alocador só depois da partida do
+core 1 e da alocação do buffer DMA do SDMMC, de modo que buffers restritos a
+`<0x4FF28000` continuam vindo do pool baixo (first-fit).
+
+Executar código na SRAM alta funciona no nativo. O primeiro teste deu
+Illegal instruction só porque o L1D é write-back. A sonda do boot agora usa
+`maia_esp32p4_cache_sync_code` antes do `fence.i`, como o loader ELF. Cerca de
+110 KB da SRAM alta (`0x4FF65800–0x4FF80000`) ficam livres para uso futuro.
+Opção CMake `MAIA_PRODUCT_HIGH_SRAM` (ON); com OFF, o mapa antigo volta.
+
+A falha "Files seguido de desktop" foi corrigida; veja a seção abaixo.
+
+## F9: scheduler SMP nos dois núcleos — 2026-11-26
+
+O kernel agora roda tarefas nos dois HP cores do P4. O lock do kernel é global
+e recursivo (`arch/riscv/klock.c`), tomado por `maia_arch_irq_save`. O
+scheduler mantém tarefa atual e idle por núcleo e respeita a afinidade de cada
+tarefa (`maia_task_set_affinity`); tarefas criadas em runtime herdam a afinidade
+de quem as cria. O core 1 entra no scheduler pelo comando LAUNCH do worker, com
+pilhas de trap próprias (`mscratch`) na SRAM alta. Os núcleos trocam IPIs pela
+linha CLIC 17 (`soc/espressif/esp32p4/soc_smp.c`). Operações de flash/KV migram
+para o core 0, e o core 1 aguarda em SRAM enquanto o L2 está suspenso.
+
+No produto, a shell, o desktop e os apps rodam no core 1. LCD, touch, telemetria
+e idle ficam no core 0. As opções CMake são `MAIA_PRODUCT_SMP` (ON) e
+`MAIA_PRODUCT_SHELL_AFFINITY` (2). Corrigido também: os buffers de flash podem
+estar em qualquer SRAM interna abaixo do cache L2 (pilhas na SRAM alta). Antes,
+a KV falhava com `IO_ERROR`. Pendente: os apps MaiaScript ainda estão um pouco
+mais lentos que na referência.
+
+## F9: core 1 online no firmware de produto — 2026-11-26
+
+O produto `maia_m0` (flash-XIP) agora libera o HP core 1 no boot, ainda com
+IRQs desligadas, reutilizando o protocolo e o worker validados no probe
+isolado. Depois de 64 trocas verificadas o worker não estaciona: fica online
+em SRAM interna incrementando um heartbeat e atendendo a mailbox. A shell
+ganhou `smp` (ping limitado + heartbeat) e `cpuinfo` mostra os núcleos online.
+Falha na partida é reportada (`MAIA_CORE1_START_FAIL`) e o boot segue
+single-core; timeout/fault num ping marca o core 1 offline.
+
+O código do worker fica na seção `.maia_core1` do segmento `flash_iram`
+(imagem continua com 5 segmentos). Como o worker não usa pilha, a pilha
+reservada caiu para 64 bytes; mesmo assim a SRAM interna ficou exatamente no
+limite validado (`__stack_top = 0x4ff28000`, margem zero) — qualquer
+acréscimo em SRAM exigirá liberar espaço antes.
+
+Tab5 via USB: duas partidas com `MAIA_CORE1_ONLINE hart=1 sp=0x4FF1DA50
+rounds=64`, três `smp` com `result=0` e heartbeat crescendo (~180 mil
+iterações entre pings), `cpuinfo` com 2 núcleos online, sem fatal; desktop
+por 120 s com core 1 online, sem fatal; app original restaurado e verificado.
+
+Limites: o core 1 não roda scheduler, libc, drivers, TLS, flash ou PSRAM, e
+não há IPI. Portanto não há ganho de desempenho ainda; a demora de ~15 s do
+Files continua atribuída ao caminho de load/relocate do `.mobj`.
+
 ## F9: primeira execução nativa no core 1 — 2026-11-26
 
 Um probe separado do produto iniciou o HP core 1 sem FreeRTOS ou runtime
@@ -34,6 +172,54 @@ Não há ainda IPI, scheduler SMP, TLS/traps por núcleo, qualificação de cach
 do core 1 ou concorrência dos drivers. Nenhuma melhoria na abertura de Files
 é atribuída a este probe. Próximo passo: IPI isolado e estado de interrupções
 por núcleo, antes de integrar a partida ao produto.
+
+## Files, teclado e desempenho do VFS — 2026-11-26
+
+Foi adicionada a normalização de setas ANSI (`ESC [ A/B/C/D`) na API de entrada
+dos módulos, sem alterar a entrada bruta da shell. `native_shell_display_test`
+e `elf_loader_context_test` passaram. O módulo Files foi compilado e também
+executado diretamente no Tab5: o usuário confirmou que ↑/↓ não fecha o app e
+que o X o encerra normalmente; em confirmação posterior, relatou tempo de
+resposta normal e setas funcionando. O runner marcou o segundo probe direto como
+`probe_pass=false` porque o módulo retornou código 0 antes dos 120 s após o
+fechamento pelo usuário; não houve fatal e `restore_verified=true`.
+O usuário avaliou o tempo percebido como semelhante ao app no desktop de
+referência.
+
+A listagem `/sd` (74 entradas) pelo MaiaVFS direto mediu 130–137 ms; `/sd/DCIM`
+(2 entradas), 59 ms. A medição anterior de `/sd` pelo caminho com `stat` por
+entrada era ~4,35 s. O loader do `files.mobj` (19.708 bytes) levou 187 ms na
+validação e 16,75 s em carga/relocação. O loader do desktop (27.460 bytes)
+levou 25,05 s. Esses tempos são métricas instrumentadas; o usuário considerou
+normal o tempo de resposta observado no Files já aberto. Não houve nova
+cronometragem instrumentada de `/sd/apps`.
+
+Um primeiro build diagnóstico manteve o cache de 512 bytes na pilha de
+`cmd_runelf` e causou `MAIA_STACK_FAULT` (`sp=0x4ff0ca30`, abaixo do início da
+pilha da shell em `0x4ff0cb10`). O cache foi movido para armazenamento estático.
+Com essa correção, o desktop permaneceu ativo por 120 s sem fatal e Files
+executou/navegou sem stack fault. Naquele probe diagnóstico do desktop, Files
+não chegou a abrir antes do reset automático; o teste direto confirmou a
+navegação e as setas, e o lançamento foi revalidado no probe de produção abaixo.
+
+Os probes restauraram o app original com o SHA-256
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Evidências:
+[desktop estável após correção](../../../maia-rtos-recovery/native-tab5-desktop-files-fastinput-probe-03/),
+[Files direto sem interação](../../../maia-rtos-recovery/native-tab5-files-direct-probe-01/),
+[Files direto com interação](../../../maia-rtos-recovery/native-tab5-files-direct-probe-02/),
+[primeira tentativa com stack fault](../../../maia-rtos-recovery/native-tab5-desktop-files-fastinput-probe-02/).
+
+Após os probes diagnósticos, a imagem P4 foi reconstruída com
+`MAIA_DIAGNOSTIC_MODULE_TIMING=OFF`: 889.888 bytes, cinco segmentos, SHA-256
+`b0337655064a6a6271cdb12a2fed73dac25446317f9facb6dbe25fc6ddb2a7ee`. Em
+[novo probe USB](../../../maia-rtos-recovery/native-tab5-desktop-files-production-20261126-01/report.json),
+o desktop permaneceu ativo até o fim da janela sem marcador fatal
+(`probe_pass=true`), e o app de fábrica foi restaurado com o mesmo hash
+(`restore_verified=true`). O usuário confirmou que o Files abriu pelo ícone em
+~15 s, entrou em `/sd/apps` quase instantaneamente, aceitou a navegação por
+↑/↓ e retornou imediatamente ao desktop pelo X. A interação está revalidada;
+a demora restante é a abertura inicial, não a navegação depois de abrir.
 
 ## Leitura ELF por offsets e probe SciCalc — 2026-11-24
 
@@ -3571,3 +3757,24 @@ passaram: `tab5_panel_reset_test` não pôde rodar e `f0_flash_runner_test`
 falhou com incompatibilidade de assinatura (`capture()` recebeu oito
 argumentos, mas aceita no máximo sete). Os três testes focados do loader
 passaram.
+
+**Atualização após `63df305` (25/11):** os três bloqueios acima foram
+reproduzidos e corrigidos nos testes host, sem mudar o firmware. O teste de
+touch agora verifica a associação dos seis consumidores ao barramento adotado;
+o teste de reset do painel falha se tentar usar o barramento compartilhado
+durante o boot; o teste do runner verifica que o atraso entre linhas chega à
+captura de teste, mas não à de restauração. Em build host limpo no Mac, os
+três testes focados passaram e o CTest completo passou **110/110**, sem
+exclusões. Nenhum novo teste no Tab5 nesta etapa.
+
+## LCD: cópia parcial entre framebuffers e imports de arquivo do MaiaScript — 2026-11-26
+
+- Cada edição incremental copiava o framebuffer frontal inteiro (1,8 MB de PSRAM, laço de 16 bits) para o traseiro; cada toque em botão fazia duas.
+  Agora `native_display` rastreia a caixa física alterada no lease e publica via `maia_lcd_output_edit_publish_region` → `maia_lcd_async_edit_publish_box`;
+  o próximo `edit_preserve` copia só essa caixa (por palavras de 32 bits). `edit_publish` sem caixa e `prepare` marcam o quadro inteiro como divergente.
+- Notes (MaiaScript) derrubava o sistema (tela ciano): `host_fs_read_text/write_text/exists/remove/list_*` não existiam no host nativo e o loader ligava
+  as chamadas ao endereço 0. Implementados em `boards/m5stack/tab5/maiascript_fs.c` sobre `maia_vfs_*`, registrados no boot. `strncpy` (Terminal) adicionado ao loader.
+  Varredura `nm -u` dos 14 `.mobj` embutidos: nenhum outro símbolo pendente.
+- Host: CTest 111/111 (`lcd_output_test`, `native_display_api_test` com caixa; `fatfs_test` com os imports de arquivo).
+- Aparelho: calculadora rápida como na referência; Notes, Files, Terminal e desktop funcionando (confirmação do usuário).
+- Pendente: o loader ainda executa módulos com símbolos não resolvidos (chamada a 0 derruba o sistema).

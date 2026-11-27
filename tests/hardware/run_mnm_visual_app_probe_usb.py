@@ -33,6 +33,8 @@ def main():
     parser.add_argument("--observe-seconds", type=float, default=20.0)
     parser.add_argument("--app", action="append", dest="apps",
                         help="VFS path of a module to display; may be repeated")
+    parser.add_argument("--command", action="append", dest="commands", default=[],
+                        help="Shell command to run before the apps; may be repeated")
     parser.add_argument("--upload-module", type=Path,
                         help="Upload a local module before probing")
     parser.add_argument("--upload-path",
@@ -50,8 +52,8 @@ def main():
         parser.error("--upload-path must appear exactly once as an --app")
     if args.out.exists():
         parser.error(f"output directory already exists: {args.out}")
-    if not 1.0 <= args.observe_seconds <= 120.0:
-        parser.error("--observe-seconds must be between 1 and 120")
+    if not 1.0 <= args.observe_seconds <= 660.0:
+        parser.error("--observe-seconds must be between 1 and 660")
 
     runner = load_module("f0_flash_probe", ROOT / "tests/hardware/run_f0_flash_probe.py")
     cli = load_module("maia_cli", ROOT / "tools/maia-cli/maia.py")
@@ -153,6 +155,11 @@ def main():
             shell_ready = True
             if "Native module graphics integrated with LCD service" not in text:
                 raise RuntimeError("Native LCD graphics integration was not reported")
+            stress_app = any("smp_driver_stress" in path for path in apps)
+            if stress_app and "[TOUCH] Native ST7121 service ready" not in text:
+                raise RuntimeError("Native ST7121 touch service was not ready at boot")
+            if stress_app:
+                transcript.write("[HOST] NATIVE_ST7121_TOUCH_READY\n")
 
             client = TracedClient(ser, transcript)
             if args.upload_module is not None:
@@ -168,6 +175,8 @@ def main():
                 client.push_file(str(args.upload_module), args.upload_path,
                                  chunk_size=upload_chunk_size,
                                  verify_each_chunk=False)
+            for command in args.commands:
+                client.execute_command(command, timeout=10.0)
             for app_path in apps:
                 # runelf reads ELF metadata and sections on demand from the file.
                 app_text = ""
@@ -175,6 +184,8 @@ def main():
                 started = False
                 announced = False
                 command_sent = False
+                stress_app = "smp_driver_stress" in app_path
+                stress_completed = False
                 try:
                     command = f"runelf {app_path}\n".encode("ascii")
                     written = ser.write(command)
@@ -196,11 +207,15 @@ def main():
                         if any(marker_text in app_text for marker_text in (
                                 "MAIA_NATIVE_FATAL", "MAIA_STACK_FAULT",
                                 "Guru Meditation", "task_wdt", "assert failed:",
-                                "Loader Error:", "Native graphics transaction failed")):
+                                "Loader Error:", "Native graphics transaction failed",
+                                "MAIA_SMP_STRESS_FAIL")):
                             raise RuntimeError(f"Native app error while running {app_path}")
                         if "Loader: Executing maia_module_main at " in app_text:
                             started = True
                         if "msh> " in app_text:
+                            if stress_app and "MAIA_SMP_STRESS_PASS" in app_text:
+                                stress_completed = True
+                                break
                             raise RuntimeError(
                                 f"Module returned before observation: {app_path}")
                         if started and not announced:
@@ -214,6 +229,8 @@ def main():
                     if not started:
                         raise RuntimeError(
                             f"Module did not enter runelf: {app_path}\n{app_text}")
+                    if stress_app and not stress_completed:
+                        raise TimeoutError("SMP driver stress did not complete")
                 except Exception:
                     if command_sent:
                         try:
@@ -232,6 +249,7 @@ def main():
                     "path": app_path,
                     "runelf_started": True,
                     "active_until_reset": True,
+                    "stress_completed": stress_completed,
                     "observe_seconds": args.observe_seconds,
                     "shell_recovered": True,
                 })

@@ -135,6 +135,9 @@ typedef struct elf_reader {
     elf_read_at_fn read_at;
     void *context;
     size_t size;
+    /* Optional: the loader calls this once after relocation, before running
+     * the module, when it no longer reads the source. */
+    void (*release)(void *context);
 } elf_reader_t;
 
 /**

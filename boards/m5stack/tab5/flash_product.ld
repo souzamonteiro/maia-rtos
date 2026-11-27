@@ -12,7 +12,19 @@ MEMORY
     FLASH_IROM (rx)  : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
     FLASH_DROM (r)   : ORIGIN = 0x40000020, LENGTH = 0x04000000 - 0x20
     SRAM_LOW   (rwx) : ORIGIN = 0x4FF00000, LENGTH = 0x28000
+    /* Runtime-only L2MEM (never loaded by the bootloader):
+     * - RECLAIM: 2nd-stage bootloader area, free once the app runs; still in
+     *   the executable range and below the ROM stack/data (0x4FF3AFC0).
+     * - HIGH: above the ROM-reserved window and below the 256 KiB L2 cache
+     *   (0x4FF80000..0x4FFC0000). .maia_high_bss is zeroed by start.S; the
+     *   heap part is executable under the bootloader PMP (whole L2MEM RWX)
+     *   and is probed at boot before being handed to the allocator. */
+    SRAM_RECLAIM (rwx) : ORIGIN = 0x4FF28000, LENGTH = 0x12FC0
+    SRAM_HIGH  (rwx) : ORIGIN = 0x4FF40000, LENGTH = 0x40000
 }
+
+__maia_sram_reclaim_start = ORIGIN(SRAM_RECLAIM);
+__maia_sram_reclaim_end = ORIGIN(SRAM_RECLAIM) + LENGTH(SRAM_RECLAIM);
 
 __maia_psram_window_start = 0x4B800000;
 __maia_psram_window_end = 0x4BC00000;
@@ -33,8 +45,17 @@ SECTIONS
     {
         _maia_flash_iram_start = ABSOLUTE(.);
         KEEP(*soc_flash.c.obj(.maia_flash_iram))
+        KEEP(*soc_smp.c.obj(.maia_flash_iram))
         . = ALIGN(16);
         _maia_flash_iram_end = ABSOLUTE(.);
+    } > SRAM_LOW :flash_iram
+
+    /* Core-1 SRAM-only worker: shares the flash_iram load segment so the
+     * product keeps its validated segment layout. */
+    .maia_core1 : ALIGN(64)
+    {
+        KEEP(*(.maia_core1.text))
+        . = ALIGN(16);
     } > SRAM_LOW :flash_iram
 
     .maia_psram_iram : ALIGN(16)
@@ -154,6 +175,22 @@ SECTIONS
         __stack_top = ABSOLUTE(.);
     } > SRAM_LOW :sram_data
 
+    .maia_high_bss (NOLOAD) : ALIGN(16)
+    {
+        __maia_high_bss_start = ABSOLUTE(.);
+        *(.maia_high_bss .maia_high_bss.*)
+        . = ALIGN(16);
+        __maia_high_bss_end = ABSOLUTE(.);
+    } > SRAM_HIGH :NONE
+
+    /* Brings the total heap to ~256 KiB; the rest of SRAM_HIGH stays free. */
+    .maia_high_heap (NOLOAD) : ALIGN(16)
+    {
+        __maia_high_heap_start = ABSOLUTE(.);
+        . += 0x1A000;
+        __maia_high_heap_end = ABSOLUTE(.);
+    } > SRAM_HIGH :NONE
+
     /DISCARD/ :
     {
         *(.eh_frame .eh_frame.*)
@@ -209,6 +246,8 @@ ASSERT(maia_psram_x8_claimed >= _maia_psram_iram_start &&
 ASSERT(__bss_end <= __stack_bottom, "BSS overlaps the primary boot stack")
 ASSERT(__stack_top <= ORIGIN(SRAM_LOW) + LENGTH(SRAM_LOW),
        "Internal SRAM image exceeds the validated low-memory window")
+ASSERT(__maia_high_heap_end <= ORIGIN(SRAM_HIGH) + LENGTH(SRAM_HIGH),
+       "High SRAM data overlaps the L2 cache")
 ASSERT(__maia_psram_window_end - __maia_psram_window_start == 0x400000,
        "PSRAM runtime window must reserve 4 MiB for LCD double buffering")
 

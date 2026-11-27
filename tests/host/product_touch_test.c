@@ -9,6 +9,18 @@ static maia_st712x_info_t identity = {720, 1280, 1, 10};
 static unsigned adopted, created, initialized, polls, redraws, logs, reads;
 static uint32_t sequence;
 static maia_i2c_lines_t lines;
+static unsigned bound;
+
+static void record_bind(maia_i2c_bus_t *bus, unsigned bit) {
+    assert(bus == &system_bus && adopted == 1 && !(bound & bit));
+    bound |= bit;
+}
+void maia_tab5_ina226_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 0); }
+void maia_tab5_bmi270_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 1); }
+void maia_tab5_bmi270_driver_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 2); }
+void maia_tab5_battery_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 3); }
+void maia_tab5_power_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 4); }
+void maia_tab5_rtc_bind(maia_i2c_bus_t *bus) { record_bind(bus, 1U << 5); }
 
 void maia_console_puts(const char *s) { assert(s); ++logs; }
 void maia_product_display_touch_changed(void) { ++redraws; }
@@ -59,10 +71,12 @@ static void reset(void) {
     bus_result = task_result = init_result = poll_result = MAIA_OK;
     identity = (maia_st712x_info_t){720, 1280, 1, 10};
     adopted = created = initialized = polls = redraws = logs = reads = sequence = 0;
+    bound = 0;
 }
 
 int main(void) {
     reset(); maia_tab5_product_touch_start(&lines);
+    assert(bound == 0x3fU);
     assert(adopted == 1 && created == 1 && initialized == 1 && touch_active && reads == 2);
     touch_poll_once(); assert(polls == 1 && redraws == 0);
     sequence = 1; touch_poll_once(); assert(redraws == 1);
@@ -72,12 +86,14 @@ int main(void) {
     poll_result = MAIA_OK; touch_poll_once(); assert(!poll_failed && logs == 3);
 
     reset(); identify_result = MAIA_I2C_TIMEOUT; maia_tab5_product_touch_start(&lines);
+    assert(bound == 0x3fU);
     assert(adopted == 1 && !created && !touch_active && logs == 1);
     reset(); identity.firmware = 3; maia_tab5_product_touch_start(&lines);
     assert(adopted == 1 && !created && !touch_active);
     reset(); identity.max_x = 719; maia_tab5_product_touch_start(&lines);
     assert(adopted == 1 && !created && !touch_active);
     reset(); bus_result = MAIA_ERR_BUSY; maia_tab5_product_touch_start(&lines);
+    assert(bound == 0);
     assert(!adopted && !created && !touch_active && logs == 1);
     reset(); task_result = MAIA_ERR_FULL; maia_tab5_product_touch_start(&lines);
     assert(adopted == 1 && created == 1 && !initialized && !touch_active);

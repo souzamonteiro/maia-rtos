@@ -6,6 +6,7 @@
 #include <maia/boards/tab5_power.h>
 #include <maia/boards/tab5_rtc.h>
 #include <maia/console.h>
+#include <maia/soc/esp32p4_sram.h>
 #include <maia/kernel.h>
 #include <maia/services/i2c_bus.h>
 #include <maia/services/touch_input.h>
@@ -14,7 +15,7 @@
 #define TOUCH_ADDRESS 0x55U
 
 static maia_i2c_bus_t system_bus;
-static uint8_t touch_stack[4096] __attribute__((aligned(16)));
+static uint8_t touch_stack[4096] MAIA_SRAM_HIGH_BSS __attribute__((aligned(16)));
 static unsigned touch_active;
 static uint32_t previous_sequence;
 static unsigned poll_failed;

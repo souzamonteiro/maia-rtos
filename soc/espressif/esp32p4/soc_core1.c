@@ -16,7 +16,8 @@
 maia_core1_mailbox_t maia_core1_mailbox __attribute__((aligned(16)));
 uint32_t maia_core1_stack[MAIA_CORE1_STACK_BYTES / sizeof(uint32_t)]
     __attribute__((aligned(16)));
-static unsigned attempted;
+static unsigned attempted, online, ping_busy, launched;
+static uint32_t last_command, pings;
 
 #ifdef MAIA_CORE1_TEST
 int maia_core1_test_context(void);
@@ -59,7 +60,20 @@ static maia_core1_result_t wait_word(uint32_t *word, uint32_t expected) {
     return MAIA_CORE1_TIMEOUT;
 }
 
-static maia_core1_result_t run_probe(maia_core1_report_t *report) {
+static maia_core1_result_t exchange(uint32_t command) {
+    uint32_t payload = command * 0x10203U;
+    maia_core1_mailbox.payload = payload;
+    __atomic_store_n(&maia_core1_mailbox.command, command, __ATOMIC_RELEASE);
+    maia_core1_result_t result = wait_word(&maia_core1_mailbox.ack, command);
+    if (result != MAIA_CORE1_OK) return result;
+    if (maia_core1_mailbox.result != ((payload ^ MAIA_CORE1_XOR) + command)) {
+        return MAIA_CORE1_VERIFY;
+    }
+    return MAIA_CORE1_OK;
+}
+
+static maia_core1_result_t release_worker(maia_core1_report_t *report,
+                                          uint32_t rounds) {
     report->clock_before = read32(MAIA_CORE1_CLOCK_REG);
     report->reset_before = read32(MAIA_CORE1_RESET_REG);
     report->stall_before = read32(MAIA_CORE1_STALL_REG);
@@ -107,18 +121,19 @@ static maia_core1_result_t run_probe(maia_core1_report_t *report) {
         read32(MAIA_CORE1_BOOT_REG) != 0U) return MAIA_CORE1_VERIFY;
     report->completed = 3U;
 
-    for (uint32_t round = 1U; round <= MAIA_CORE1_PROBE_ROUNDS; ++round) {
-        uint32_t payload = round * 0x10203U;
-        maia_core1_mailbox.payload = payload;
-        __atomic_store_n(&maia_core1_mailbox.command, round, __ATOMIC_RELEASE);
-        result = wait_word(&maia_core1_mailbox.ack, round);
+    for (uint32_t round = 1U; round <= rounds; ++round) {
+        result = exchange(round);
         if (result != MAIA_CORE1_OK) return result;
-        if (maia_core1_mailbox.result != ((payload ^ MAIA_CORE1_XOR) + round)) {
-            return MAIA_CORE1_VERIFY;
-        }
         report->rounds = round;
     }
+    last_command = rounds;
     report->completed = 4U;
+    return MAIA_CORE1_OK;
+}
+
+static maia_core1_result_t run_probe(maia_core1_report_t *report) {
+    maia_core1_result_t result = release_worker(report, MAIA_CORE1_PROBE_ROUNDS);
+    if (result != MAIA_CORE1_OK) return result;
     __atomic_store_n(&maia_core1_mailbox.command, MAIA_CORE1_STOP, __ATOMIC_RELEASE);
     result = wait_word(&maia_core1_mailbox.ack, MAIA_CORE1_STOP);
     if (result != MAIA_CORE1_OK) return result;
@@ -132,15 +147,97 @@ static maia_core1_result_t run_probe(maia_core1_report_t *report) {
     return MAIA_CORE1_OK;
 }
 
+static maia_core1_result_t finish(maia_core1_report_t *report,
+                                  maia_core1_result_t result) {
+    if (result == MAIA_CORE1_FAULT) {
+        report->cause = maia_core1_mailbox.cause;
+        report->pc = maia_core1_mailbox.pc;
+    }
+    return result;
+}
+
 maia_core1_result_t maia_esp32p4_core1_probe(maia_core1_report_t *report) {
     if (report == NULL) return MAIA_CORE1_INVALID;
     *report = (maia_core1_report_t){0};
     if (!boot_context()) return MAIA_CORE1_CONTEXT;
     if (attempted) return MAIA_CORE1_BUSY;
-    maia_core1_result_t result = run_probe(report);
-    if (result == MAIA_CORE1_FAULT) {
-        report->cause = maia_core1_mailbox.cause;
-        report->pc = maia_core1_mailbox.pc;
+    return finish(report, run_probe(report));
+}
+
+maia_core1_result_t maia_esp32p4_core1_start(maia_core1_report_t *report) {
+    if (report == NULL) return MAIA_CORE1_INVALID;
+    *report = (maia_core1_report_t){0};
+    if (!boot_context()) return MAIA_CORE1_CONTEXT;
+    if (attempted) return MAIA_CORE1_BUSY;
+    maia_core1_result_t result =
+        finish(report, release_worker(report, MAIA_CORE1_START_ROUNDS));
+    if (result == MAIA_CORE1_OK) {
+        __atomic_store_n(&online, 1U, __ATOMIC_RELEASE);
     }
+    return result;
+}
+
+maia_core1_result_t maia_esp32p4_core1_launch(uintptr_t entry, uintptr_t stack_top) {
+    if (!entry || (entry & 1U) || !stack_top || (stack_top & 15U)) return MAIA_CORE1_INVALID;
+    if (!boot_context()) return MAIA_CORE1_CONTEXT;
+    if (!__atomic_load_n(&online, __ATOMIC_ACQUIRE) || launched) return MAIA_CORE1_BUSY;
+    maia_core1_mailbox.payload = (uint32_t)entry;
+    maia_core1_mailbox.result = (uint32_t)stack_top;
+    __atomic_store_n(&maia_core1_mailbox.command, MAIA_CORE1_LAUNCH, __ATOMIC_RELEASE);
+    maia_core1_result_t result = wait_word(&maia_core1_mailbox.ack, MAIA_CORE1_LAUNCH);
+    if (result != MAIA_CORE1_OK) {
+        __atomic_store_n(&online, 0U, __ATOMIC_RELEASE);
+        return result;
+    }
+    if (__atomic_load_n(&maia_core1_mailbox.state, __ATOMIC_ACQUIRE) != MAIA_CORE1_STATE_LAUNCHED) {
+        __atomic_store_n(&online, 0U, __ATOMIC_RELEASE);
+        return MAIA_CORE1_VERIFY;
+    }
+    __atomic_store_n(&launched, 1U, __ATOMIC_RELEASE);
+    return MAIA_CORE1_OK;
+}
+
+int maia_esp32p4_core1_launched(void) {
+    return (int)__atomic_load_n(&launched, __ATOMIC_ACQUIRE);
+}
+
+maia_core1_result_t maia_esp32p4_core1_ping(maia_core1_status_t *status) {
+    if (status == NULL) return MAIA_CORE1_INVALID;
+    *status = (maia_core1_status_t){0};
+    if (!__atomic_load_n(&online, __ATOMIC_ACQUIRE)) return MAIA_CORE1_CONTEXT;
+    if (__atomic_load_n(&launched, __ATOMIC_ACQUIRE)) {
+        /* The scheduler owns core 1: its IPI handler advances the heartbeat. */
+        status->online = 1U;
+        status->hart = 1U;
+        status->heartbeat_before = __atomic_load_n(&maia_core1_mailbox.heartbeat, __ATOMIC_ACQUIRE);
+        for (volatile unsigned spin = 0U; spin < 400000U; ++spin) {
+        }
+        status->heartbeat_after = __atomic_load_n(&maia_core1_mailbox.heartbeat, __ATOMIC_ACQUIRE);
+        status->pings = ++pings;
+        return status->heartbeat_after != status->heartbeat_before ? MAIA_CORE1_OK : MAIA_CORE1_TIMEOUT;
+    }
+    if (__atomic_exchange_n(&ping_busy, 1U, __ATOMIC_ACQUIRE)) {
+        return MAIA_CORE1_BUSY;
+    }
+    status->online = 1U;
+    status->heartbeat_before =
+        __atomic_load_n(&maia_core1_mailbox.heartbeat, __ATOMIC_ACQUIRE);
+    uint32_t command = last_command + 1U;
+    if (command == 0U || command == MAIA_CORE1_STOP) command = 1U;
+    maia_core1_result_t result = exchange(command);
+    if (result == MAIA_CORE1_OK) {
+        last_command = command;
+        ++pings;
+    } else {
+        __atomic_store_n(&online, 0U, __ATOMIC_RELEASE);
+        status->online = 0U;
+        status->cause = maia_core1_mailbox.cause;
+        status->pc = maia_core1_mailbox.pc;
+    }
+    status->heartbeat_after =
+        __atomic_load_n(&maia_core1_mailbox.heartbeat, __ATOMIC_ACQUIRE);
+    status->pings = pings;
+    status->hart = maia_core1_mailbox.hart;
+    __atomic_store_n(&ping_busy, 0U, __ATOMIC_RELEASE);
     return result;
 }

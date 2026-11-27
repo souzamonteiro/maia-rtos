@@ -1,3 +1,4 @@
+#include <maia/arch/irq.h>
 #include <maia/arch/riscv_stack.h>
 #include <stddef.h>
 
@@ -13,18 +14,49 @@ OFFSET(cause,MAIA_STACK_CAUSE); OFFSET(pc,MAIA_STACK_PC); OFFSET(value,MAIA_STAC
 volatile maia_trap_stack_metadata_t maia_trap_stack_metadata __attribute__((aligned(16)));
 static uint8_t irq_stack[MAIA_IRQ_STACK_BYTES] __attribute__((aligned(16)));
 static uint8_t emergency_stack[MAIA_EMERGENCY_STACK_BYTES] __attribute__((aligned(16)));
+/* Hart 1: own trap metadata, IRQ/emergency stacks and boot stack. */
+#define SECONDARY_BOOT_STACK_BYTES 2048U
+static volatile maia_trap_stack_metadata_t secondary_metadata __attribute__((aligned(16)));
+static uint8_t secondary_irq_stack[MAIA_IRQ_STACK_BYTES] MAIA_SMP_BSS __attribute__((aligned(16)));
+static uint8_t secondary_emergency_stack[MAIA_EMERGENCY_STACK_BYTES] MAIA_SMP_BSS __attribute__((aligned(16)));
+static uint8_t secondary_boot_stack[SECONDARY_BOOT_STACK_BYTES] MAIA_SMP_BSS __attribute__((aligned(16)));
 extern unsigned char __stack_bottom[], __stack_top[];
 static int initialized;
 
 int maia_arch_stack_reserved(uintptr_t base, size_t size) {
     return maia_stack_overlap(base,size,(uintptr_t)irq_stack,sizeof irq_stack) ||
            maia_stack_overlap(base,size,(uintptr_t)emergency_stack,sizeof emergency_stack) ||
+           maia_stack_overlap(base,size,(uintptr_t)secondary_irq_stack,sizeof secondary_irq_stack) ||
+           maia_stack_overlap(base,size,(uintptr_t)secondary_emergency_stack,sizeof secondary_emergency_stack) ||
+           maia_stack_overlap(base,size,(uintptr_t)secondary_boot_stack,sizeof secondary_boot_stack) ||
            maia_stack_overlap(base,size,(uintptr_t)__stack_bottom,(size_t)((uintptr_t)__stack_top-(uintptr_t)__stack_bottom));
 }
+volatile maia_trap_stack_metadata_t *maia_arch_trap_stack_current(void) {
+    uintptr_t scratch;
+    __asm__ volatile("csrr %0, mscratch" : "=r"(scratch));
+    return scratch ? (volatile maia_trap_stack_metadata_t *)scratch : &maia_trap_stack_metadata;
+}
 void maia_arch_stack_publish(uintptr_t low, uintptr_t high) {
-    maia_trap_stack_metadata.low = (uint32_t)low;
-    maia_trap_stack_metadata.high = (uint32_t)high;
+    volatile maia_trap_stack_metadata_t *meta = maia_arch_trap_stack_current();
+    meta->low = (uint32_t)low;
+    meta->high = (uint32_t)high;
     __asm__ volatile("fence rw, rw" ::: "memory");
+}
+uintptr_t maia_arch_trap_stack_secondary_top(void) {
+    return maia_stack_top((uintptr_t)secondary_boot_stack,sizeof secondary_boot_stack);
+}
+uintptr_t maia_arch_trap_stack_init_secondary(void) {
+    maia_stack_guard_init((uintptr_t)secondary_boot_stack);
+    maia_stack_guard_init((uintptr_t)secondary_irq_stack);
+    maia_stack_guard_init((uintptr_t)secondary_emergency_stack);
+    secondary_metadata.low = (uint32_t)maia_stack_low((uintptr_t)secondary_boot_stack);
+    secondary_metadata.high = (uint32_t)maia_stack_top((uintptr_t)secondary_boot_stack,sizeof secondary_boot_stack);
+    secondary_metadata.irq_top = (uint32_t)((uintptr_t)secondary_irq_stack+sizeof secondary_irq_stack);
+    secondary_metadata.emergency_top = (uint32_t)((uintptr_t)secondary_emergency_stack+sizeof secondary_emergency_stack);
+    secondary_metadata.active = 0U;
+    __asm__ volatile("fence rw, rw" ::: "memory");
+    __asm__ volatile("csrw mscratch, %0" :: "r"(&secondary_metadata) : "memory");
+    return secondary_metadata.high;
 }
 void maia_arch_trap_stack_init(void) {
     if (initialized) return;

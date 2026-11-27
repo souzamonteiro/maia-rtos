@@ -131,6 +131,17 @@ extern "C" {
 #define MAIA_ESP32P4_CLIC_INT_IE                (1UL << 8U)
 #define MAIA_ESP32P4_CLIC_INT_ATTR_SHV          (1UL << 16U)
 
+/* Inter-processor interrupts (HP_SYS CPU_INT_FROM_CPU_n, level: write 1/0).
+ * FROM_CPU_0 (source 79) targets core 1, FROM_CPU_1 (source 80) core 0; both
+ * use CLIC ID 17 on their core (the CLIC is core-local at the same address). */
+#define MAIA_ESP32P4_HP_SYS_BASE                0x500E5000UL
+#define MAIA_ESP32P4_CPU_INT_FROM_CPU_REG(n)    (MAIA_ESP32P4_HP_SYS_BASE + 0x0010UL + ((n) * 4UL))
+#define MAIA_ESP32P4_INTR_SRC_FROM_CPU0         79UL
+#define MAIA_ESP32P4_INTR_SRC_FROM_CPU1         80UL
+#define MAIA_ESP32P4_INTERRUPT_CORE1_BASE       0x500D6800UL
+#define MAIA_ESP32P4_INTR_CORE1_MAP_REG(src)    (MAIA_ESP32P4_INTERRUPT_CORE1_BASE + ((src) * 4UL))
+#define MAIA_ESP32P4_CLIC_IPI_INTR_ID           17UL
+
 /* GPIO, IO_MUX, LP_IOMUX registers */
 #define MAIA_ESP32P4_GPIO_OUT_REG               (MAIA_ESP32P4_GPIO_BASE + 0x0004UL)
 #define MAIA_ESP32P4_GPIO_OUT_W1TS_REG          (MAIA_ESP32P4_GPIO_BASE + 0x0008UL)

@@ -76,22 +76,24 @@ maia_status_t maia_sem_trywait(maia_sem_t *sem) {
     if (sem == NULL) {
         return MAIA_ERR_INVALID;
     }
-    if (sem->count == 0U) {
-        return MAIA_ERR_EMPTY;
-    }
-    sem->count -= 1U;
-    return MAIA_OK;
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = MAIA_OK;
+    if (sem->count == 0U) status = MAIA_ERR_EMPTY;
+    else sem->count -= 1U;
+    maia_arch_irq_restore(irq);
+    return status;
 }
 
 maia_status_t maia_sem_post(maia_sem_t *sem) {
     if (sem == NULL) {
         return MAIA_ERR_INVALID;
     }
-    if (sem->count >= sem->max_count) {
-        return MAIA_ERR_FULL;
-    }
-    sem->count += 1U;
-    return MAIA_OK;
+    uintptr_t irq = maia_arch_irq_save();
+    maia_status_t status = MAIA_OK;
+    if (sem->count >= sem->max_count) status = MAIA_ERR_FULL;
+    else sem->count += 1U;
+    maia_arch_irq_restore(irq);
+    return status;
 }
 
 uint32_t maia_sem_getvalue(const maia_sem_t *sem) {

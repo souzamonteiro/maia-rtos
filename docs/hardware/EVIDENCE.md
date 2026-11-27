@@ -4104,6 +4104,60 @@ Other app launches, keyboard shortcuts, cold boot, and stack high-water margin
 remain unverified. Capture:
 `../../../maia-rtos-recovery/native-tab5-desktop-interaction-probe-20261125-06/`.
 
+### Files input, VFS listing, and loader timing — 2026-11-26
+
+The product shell now normalizes the A164 keyboard's ANSI arrow sequences for
+MNM modules while preserving raw shell input. Focused host tests
+(`native_shell_display_test`, `elf_loader_context_test`) passed, and the Files
+module compiled as a RV32IMAF relocatable ELF.
+
+On the Tab5, direct execution of `/sd/apps/files.mobj` loaded a 19,708-byte
+module. Diagnostic timing was 187,434 us for validation and 16,745,886 us for
+load/relocation. The MaiaVFS direct-directory path listed `/sd` (74 entries)
+in 130–137 ms and `/sd/DCIM` (2 entries) in 59,338 us. The earlier `/sd`
+listing through per-entry `stat` took about 4.35 s. The owner confirmed that
+the up/down arrows did not close Files and that X closed it normally; the
+module returned code 0. The runner reports `probe_pass=false` for this
+interaction because the app returned before the requested 120-second window,
+but it observed no fatal and verified restoration.
+The owner described the observed response time as similar to the reference
+desktop app and later confirmed that response time was normal and the arrows
+were working.
+
+The first diagnostic image kept a 512-byte read cache in `cmd_runelf`'s task
+stack and produced `MAIA_STACK_FAULT reason=1` with `sp=0x4ff0ca30`, below the
+shell stack base at `0x4ff0cb10`. The cache was moved to static storage. The
+rebuilt diagnostic image kept the desktop alive for 120 seconds without a
+fatal. Its desktop loader still measured 25,051,883 us; the Files loader and
+remaining module-load latency therefore still need optimization. During that
+diagnostic desktop probe, the owner could not open Files before the runner's
+automatic reset; the later production probe confirmed that launch path.
+
+The final diagnostic image SHA-256 was
+`c8b1b52bcec92b6354f2be7d74a4b234144574c789c2546de4aaa5000a5090db`.
+All probes restored the original app; the verified app SHA-256 was
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Captures:
+[desktop stack-fault attempt](../../../maia-rtos-recovery/native-tab5-desktop-files-fastinput-probe-02/),
+[desktop stable run](../../../maia-rtos-recovery/native-tab5-desktop-files-fastinput-probe-03/),
+[Files direct baseline](../../../maia-rtos-recovery/native-tab5-files-direct-probe-01/),
+[Files direct interaction](../../../maia-rtos-recovery/native-tab5-files-direct-probe-02/).
+
+After the device probes, the production image was rebuilt with
+`MAIA_DIAGNOSTIC_MODULE_TIMING=OFF`. Structural validation passed with five
+segments; the 889,888-byte image SHA-256 is
+`b0337655064a6a6271cdb12a2fed73dac25446317f9facb6dbe25fc6ddb2a7ee`.
+
+A [USB-only production probe](../../../maia-rtos-recovery/native-tab5-desktop-files-production-20261126-01/report.json)
+ran the installed desktop with this image. The desktop stayed active until
+reset, no fatal marker was reported, and the original factory app was restored
+with the same verified SHA-256 (`probe_pass=true`, `restore_verified=true`).
+The owner confirmed that Files opened from its desktop icon in about 15 s.
+After opening, entering `/sd/apps` was nearly instantaneous, up/down arrows
+worked, and clicking X returned immediately to the desktop. These are the
+owner's observations; the non-instrumented serial log confirms desktop
+execution but does not record the navigation or break down launch time.
+
 ### HP core 1 startup reference — 2026-11-26
 
 The isolated probe does not enable the single-core scheduler/trap metadata on
@@ -4200,3 +4254,163 @@ pre-probe SHA-256
 `b0337655064a6a6271cdb12a2fed73dac25446317f9facb6dbe25fc6ddb2a7ee`.
 No product performance improvement is claimed; IPI and per-core interrupt
 state are the next independent gate.
+
+## HP core 1 online in the product firmware — 2026-11-26
+
+`maia_m0` (flash-XIP product, `MAIA_PRODUCT_CORE1=1`) calls
+`maia_esp32p4_core1_start()` from `maia_boot_main` before any IRQ is enabled.
+It reuses the probe's register protocol and SRAM worker; after 64 verified
+exchanges the worker stays online, increments `heartbeat` and services the
+mailbox (no park). `maia_esp32p4_core1_ping()` performs one bounded exchange
+from any core-0 task, rejects concurrent callers and marks core 1 offline on
+timeout/fault. Worker code lives in `.maia_core1` inside the `flash_iram`
+segment (5 LOAD segments retained); the unused worker stack was reduced to
+64 bytes so SRAM ends exactly at `__stack_top = 0x4ff28000` (zero margin).
+
+Image SHA-256: `c591af64680bb191bbfedc7f43967b08fcf75f6ab56c840f5777c90aa667d381`.
+
+Host: `core1_start_test` (probe + start/ping, timeout/fault/verify/busy paths)
+passed natively and under ASan/UBSan; focused CTest 5/5.
+
+Tab5 rev-v1.3 over USB only:
+- `native-tab5-core1-product-20261126-01` (`run_f0_flash_probe.py --boots 2
+  --marker "Cores: 2 online" --input-marker "msh> "`, input `smp` ×3 +
+  `cpuinfo`): both boots printed `[F9] MAIA_CORE1_ONLINE hart=1
+  sp=0x4FF1DA50 rounds=64`; every `smp` returned `result=0` with heartbeat
+  advancing (e.g. 988174 → 1161297 → 1346157); `probe_pass=true`, no fatal,
+  `restore_verified=true`, restored app SHA-256
+  `08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+- `native-tab5-core1-desktop-20261126-01` (`run_mnm_visual_app_probe_usb.py
+  --app /sd/desktop.mobj --observe-seconds 120`): core 1 online, desktop
+  stayed up 120 s, `probe_pass=true`, no fatal, `restore_verified=true`.
+
+Limits: core 1 runs no scheduler, libc, TLS, drivers, flash or PSRAM code and
+there is no IPI, so no performance improvement is claimed.
+
+## Product heap expanded to ~256 KiB (high L2MEM + reclaimed bootloader SRAM) — 2026-11-26
+
+`maia_m0` with `MAIA_PRODUCT_HIGH_SRAM=ON` (default): shell/LCD/terminal/touch
+stacks live in NOLOAD `.maia_high_bss` (`0x4FF40000`, 46 KiB, zeroed by
+`start.S` after checking `CACHE_L2_CACHE_CACHESIZE_CONF_REG 0x3FF10278` is
+128 or 256 KiB). Heap = low pool 78,848 B + reclaimed 2nd-stage bootloader
+area `0x4FF28000..0x4FF3AFC0` (77,760 B) + `.maia_high_heap`
+`0x4FF4B800..0x4FF65800` (106,496 B) = 263,044 B. The image keeps 5 LOAD
+segments; high sections are `:NONE`.
+
+Before adding the high region the boot writes `li a0,0x5A; ret`, calls
+`maia_esp32p4_cache_sync_code`, `fence.i`, and executes it. Without the L1D
+writeback the first attempt (`native-tab5-sram-heap256-20261126-01`) trapped
+with Illegal instruction at `PC=0x4ff4b802`, `MCAUSE=0x30000002`, so the
+bootloader PMP does allow execution there and the cause was cache coherence.
+
+Image SHA-256: `6b7ed1442f2d5a07f4e2f86aa65b68ff0fa4cef4bd093e269a90b849f10e1587`.
+
+Tab5 over USB only (outputs in `maia-rtos-runs/`):
+- `native-tab5-sram-heap256-20261126-02` (`--boots 2`, input `mem`, `smp`,
+  `cpuinfo`): both boots printed `[F1] Heap += bootloader SRAM 0x4FF28000
+  bytes=77760` and `[F1] Heap += high SRAM 0x4FF4B800 bytes=106496`; `mem`
+  total=263044 B; core 1 online, `smp` result=0; `probe_pass=true`,
+  `restore_verified=true`.
+- `native-tab5-sram-heap256-desktop-20261126-01` (desktop 120 s):
+  `probe_pass=true`, no fatal, `restore_verified=true`.
+- Files alone 60 s passed on the intermediate image (reclaim only).
+- Control `native-tab5-control-files-desktop-20261126-01` (build with
+  `MAIA_PRODUCT_HIGH_SRAM=OFF`, SHA `4d3e23e5…06ac`): Files then desktop in the
+  same session fails with `Native graphics transaction failed`, the same as the new
+  image, so this is pre-existing. Restored and verified.
+
+Incident: an earlier run (`native-tab5-sram-expand-desktop-20261126-03`) died
+because the host disk was full (`ENOSPC`) and left the probe image on the
+device. The factory app was restored manually with `esptool write_flash
+0x10000` and verified by a full readback (SHA-256 `08cee753…bc06`). Run outputs
+now go to the external SSD.
+
+Host: focused CTest 4/4 passed.
+
+## Native PSRAM X8 adoption after warm reset — 2026-11-26
+
+Root cause of the former "Files then desktop" failure: the visual runner resets
+by RTS between apps; the powered AP HEX device keeps MR8=0x0B (X8) from the
+previous native boot, and `maia_esp32p4_psram_x8_mode(0)` required 0x4B (X16,
+IDF state), returning BUSY. Diagnostic run `native-tab5-psram-warm-diag-20261126-03`:
+boot 1 (after IDF) passed; boot 2 read MR0=0x8D30, MR2=0xA0DF, MR4=0x20,
+MR8=0x0B and failed x8_mode with 0xFFFFFFFB.
+
+Fix: `x8_mode(0)` adopts an already-X8 device only if the full X8 profile
+matches and an MR8 reread is 0x0B (`stage=4`, no writes); otherwise BUSY as
+before. The product prints MR0/2/4/8 on failure. Host test `psram_array_test`
+covers adoption and rejection of a mismatched profile (PSRAM CTest 18/18).
+
+Tab5 over USB only:
+- `native-tab5-psram-warm-fix-20261126-01` (`--boots 4`): all four boots
+  reached `Native LCD service ready`; boot 1 x8 stage=3, boots 2–4 stage=4;
+  `probe_pass=true`, `restore_verified=true`.
+- `native-tab5-files-desktop-psramfix-20261126-01` (image SHA
+  `be305dd4…f7d1c`): `/sd/apps/files.mobj` then `/sd/desktop.mobj` in the
+  same session, 40 s each: both `APP_STAGE_PASS`; restored and verified.
+
+Cold boot still pending.
+
+## Fast `.mobj` loading (whole-file read + reader release hook) — 2026-11-26
+
+Timing build (`MAIA_DIAGNOSTIC_MODULE_TIMING=ON`, `maia-rtos-runs/build-p4-timing`):
+- Before, `native-tab5-loader-timing-20261126-01`: Files validation=183481 us,
+  load-relocate=16755724 us; desktop validation=206019 us,
+  load-relocate=24941228 us.
+- After, `native-tab5-loader-timing-20261126-02`: Files validation=565 us,
+  load-relocate=9189 us; desktop validation=588 us, load-relocate=12402 us.
+
+Cause: `runelf` streamed through a single 512-byte page cache while relocation
+reads headers, symbols and strings at random offsets. Fix: `runelf` reads the
+whole module into the heap (falling back to the paged reader on allocation
+failure); new optional `elf_reader_t.release` is called by the loader after
+relocation and before execution, freeing the buffer while the module runs.
+Host: loader/shell CTest 7/7 (`elf_loader_context_test` asserts no release on
+a failed load).
+
+Product image (SHA `69b8b471…8f23`), `native-tab5-desktop-fastload-20261126-02`:
+desktop 120 s, `probe_pass=true`, `restore_verified=true`; owner opened Files
+and other apps from the desktop: fast and working. MaiaScript calculator
+drawing still slow.
+
+
+## Dirty-box framebuffer preserve and MaiaScript fs imports — 2026-11-26
+
+- `native-tab5-desktop-dirtybox-20261126-01` (SHA `3b06688f…1e91`): desktop 120 s, `probe_pass=true`, `restore_verified=true`;
+  owner: calculator fast as reference; Notes crashed to cyan.
+- `native-tab5-notes-direct-20261126-01`: loader warnings `Unresolved external symbol 'host_fs_*'` — root cause.
+- `native-tab5-notes-fsimports-20261126-01` (SHA `e8d79691…ac85`): Notes loads with no unresolved symbols.
+- `native-tab5-desktop-fsimports-20261126-01`: desktop 120 s; owner: Notes, calculator, Files and Terminal all working.
+
+## SMP scheduler on both HP cores — 2026-11-26
+
+Image built from `build-p4-threads` with `MAIA_PRODUCT_SMP=ON` and shell affinity 2. Runs are in `maia-rtos-runs/`.
+
+- `smp-2-181407`: `smp` reports `scheduler cores=0x3` and `shell runs on core 1`. `ps` shows `lcd` RUN on CPU 0 and `maia_shell` RUN on CPU 1 at the same time. `ipi1` grows at about 1 kHz.
+- `smp-3-181542`: a KV module on core 1 returned `IO_ERROR`, because `valid_buffer` only accepted low SRAM (task stacks are now in high SRAM). Fixed by widening the range to `0x4FF00000..0x4FF80000`.
+- `smp-4-181718` and `smp-5-*`: the KV module (8× set/contains, then delete) returns 0 twice. Counters show `freezes=234 migrations=234`, and the shell is back on core 1 afterwards.
+- `smp-desktop-182005` and `smp-desktop2-200302`: the USB-Serial/JTAG link dropped during `write_flash`, which left a partially written app (black screen). The reference was rewritten manually with hash `08cee753…` verified. `run_f0_flash_probe.py` now retries `write_flash` up to 3 times.
+- `smp-desktop3-200439`: desktop ran 120 s with `probe_pass=true` and `restore_verified=true`. Owner checked Files, Notes and the calculator: all working, but MaiaScript apps are "a bit slower" than the reference.
+- Host CTest: 112/112, including the new `scheduler_smp_test`.
+
+## Direct scanout drawing — 2026-11-26
+
+- Image SHA `c8186f46…5836` (`build-p4-threads`, SMP on, shell affinity 2).
+- `direct-lcd-202118`: boot OK, `probe_pass=true`, `restore_verified=true`. Nobody was watching the screen.
+- `direct-lcd-211624`: desktop ran 120 s, `probe_pass=true`, `restore_verified=true`. Owner: "Está excelente! Parece mais rápido para carregar os apps." The calculator buttons, Files scrolling and the other apps now match the reference.
+- Host CTest: 112/112.
+
+## Ten-minute SMP driver stress — 2026-11-26
+
+- `smp-driver-stress-20261126-retry-212721`, image SHA
+  `c8186f46…5836`: `probe_pass=true`, `restore_verified=true`, no fatal boot.
+- Native ST7121 service reported ready. MaiaScript ran on the shell-affined
+  core 1 for 600 s while LCD/DMA scanout continued; each iteration exercised
+  read-only KV lookup, SD stat, direct RGB565 drawing/flush, and a 1 ms yield;
+  `/sd` directory enumeration ran every 16 iterations.
+- 3,703 iterations, 19 progress checkpoints, `MAIA_SMP_STRESS_PASS`, module
+  exit code 0. Temporary module removed. No KV/SD writes were performed.
+- Initial probe incorrectly treated legacy module `touch_poll` returning `-1`
+  as a driver failure; the native shell host does not expose that legacy input
+  API. The corrected probe checks the native ST7121-ready boot marker instead.
+- Host runner test passed; full CTest: 112/112.

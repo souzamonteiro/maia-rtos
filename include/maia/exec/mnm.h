@@ -43,7 +43,8 @@ typedef struct maia_display_api_t {
 typedef struct maia_input_api_t {
     /* Negative means no valid sample; consumers retain the prior touch state. */
     int32_t (*get_touch)(int32_t *x, int32_t *y, int32_t *pressed);
-    int32_t (*read_key)(void); /* Non-blocking: returns char code (0..255) or -1 if empty */
+    /* Non-blocking: ASCII/control chars, arrows 0x80..0x83 (up/down/left/right), or -1. */
+    int32_t (*read_key)(void);
 } maia_input_api_t;
 
 /**

@@ -20,8 +20,13 @@ extern const unsigned char maia_arch_delay_ecall[];
 extern const unsigned char maia_arch_wait_notification_ecall[];
 extern const unsigned char maia_arch_exit_ecall[];
 #endif
+/* SMP port hook (weak no-op): ask `core` to reschedule; kernel lock held. */
+void maia_arch_sched_kick(uint32_t core);
 #ifdef MAIA_SCHED_TEST
 void maia_sched_test_set_tick(uint64_t tick);
+#if !defined(__riscv)
+void maia_sched_test_set_core(uint32_t core); /* Host model of mhartid. */
+#endif
 #endif
 #ifdef __cplusplus
 }
