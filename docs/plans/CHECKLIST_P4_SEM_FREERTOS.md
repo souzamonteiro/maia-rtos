@@ -222,10 +222,14 @@ boot frio e recuperação segura de falhas continuam pendentes.
 
 ## F5 — Áudio
 
-- [ ] I2S com DMA
+- [x] I2S com DMA
+  - [x] Driver nativo I2S1 TX estéreo 48 kHz/16-bit com AHB-DMA; testes host e imagem P4 passaram. Tom de prova completado em dois boots no Tab5 (26/11).
 - [ ] Codecs ES8388 e ES7210
-- [ ] Amplificador NS4150B
+  - [x] ES8388 configurado e inicializado no Tab5; ES7210/captura ainda pendentes.
+- [x] Amplificador NS4150B
+  - [x] Controle de enable via PI4IOE1 e saída acústica confirmados no Tab5.
 - [ ] Beep e som de boot 👀
+  - [x] Tom de prova de 1 kHz enviado pelo I2S, concluído em dois boots e ouvido pelo usuário; beep/som de boot do produto ainda não implementado.
 - [ ] Reprodução e gravação de WAV 👀
 - [ ] MP3 (libhelix) 👀
 

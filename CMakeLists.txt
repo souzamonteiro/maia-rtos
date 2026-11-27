@@ -68,6 +68,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     "Product SMP: core mask for maia_shell and the apps it starts (1=core0, 2=core1, 3=any)")
   option(MAIA_DIAGNOSTIC_MODULE_TIMING
     "DIAGNOSTIC ONLY: report MNM loader and directory-list timings" OFF)
+  option(MAIA_DIAGNOSTIC_AUDIO_PROBE
+    "DIAGNOSTIC ONLY: play one bounded Tab5 speaker tone after native audio init" OFF)
   if(MAIA_DIAGNOSTIC_VFS_SHELL AND
      (NOT MAIA_USE_FLASH_PRODUCT_LINKER OR MAIA_DIAGNOSTIC_FATFS_RW))
     message(FATAL_ERROR "VFS shell POC requires flash-XIP and excludes automatic FATFS_RW")
@@ -82,6 +84,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   endif()
   if(MAIA_USE_FLASH_PRODUCT_LINKER)
     set(MAIA_LINKER_SCRIPT "${MAIA_F0_PRODUCT_LINKER_SCRIPT}")
+  endif()
+  if(MAIA_DIAGNOSTIC_AUDIO_PROBE AND NOT MAIA_USE_FLASH_PRODUCT_LINKER)
+    message(FATAL_ERROR "MAIA_DIAGNOSTIC_AUDIO_PROBE requires the flash-XIP product")
   endif()
   add_executable(maia_m0.elf
     arch/riscv/start.S
@@ -106,6 +111,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     drivers/i2c/bitbang.c
     drivers/gpio/pi4ioe5v6408.c
     drivers/storage/sd_read.c
+    boards/m5stack/tab5/i2s_tx.c
     boards/m5stack/tab5/sdmmc_boot.c
     boards/m5stack/tab5/panel_reset.c
     boards/m5stack/tab5/touch_identify.c
@@ -158,6 +164,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       shell/native_display.c
       components/exec/legacy_host_compat.c
       boards/m5stack/tab5/product_touch.c
+      boards/m5stack/tab5/audio.c
       boards/m5stack/tab5/battery.c
       boards/m5stack/tab5/bmi270_probe.c
       boards/m5stack/tab5/bmi270_driver.c
@@ -174,6 +181,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
       drivers/input/st712x.c
       )
       target_compile_definitions(maia_m0.elf PRIVATE MAIA_NATIVE_LCD_DISPLAY=1)
+    if(MAIA_DIAGNOSTIC_AUDIO_PROBE)
+      target_compile_definitions(maia_m0.elf PRIVATE MAIA_DIAGNOSTIC_AUDIO_PROBE=1)
+    endif()
     target_include_directories(maia_m0.elf PRIVATE
       platforms/tab5/components/sensor_bmi270/include)
     target_sources(maia_m0.elf PRIVATE
@@ -1681,6 +1691,16 @@ else()
       MAIA_SDMMC_BOOT_TEST=1 MAIA_SDMMC_DIAGNOSTIC_CMD8_TIMEOUT=1)
     target_compile_options(tab5_sdmmc_cmd8_fault_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_test(NAME tab5_sdmmc_cmd8_fault_test COMMAND tab5_sdmmc_cmd8_fault_test)
+    add_executable(tab5_i2s_tx_test tests/host/tab5_i2s_tx_test.c boards/m5stack/tab5/i2s_tx.c)
+    target_include_directories(tab5_i2s_tx_test PRIVATE include)
+    target_compile_definitions(tab5_i2s_tx_test PRIVATE MAIA_TAB5_I2S_TEST=1)
+    target_compile_options(tab5_i2s_tx_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_i2s_tx_test COMMAND tab5_i2s_tx_test)
+    add_executable(tab5_audio_test tests/host/tab5_audio_test.c boards/m5stack/tab5/audio.c)
+    target_include_directories(tab5_audio_test PRIVATE include)
+    target_compile_definitions(tab5_audio_test PRIVATE MAIA_TAB5_AUDIO_TEST=1)
+    target_compile_options(tab5_audio_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME tab5_audio_test COMMAND tab5_audio_test)
     add_executable(ldo3_acquire_test tests/host/ldo3_acquire_test.c
       soc/espressif/esp32p4/soc_ldo3_acquire.c soc/espressif/esp32p4/soc_ldo3_snapshot.c
       soc/espressif/esp32p4/soc_ldo3_plan.c)

@@ -183,11 +183,11 @@ SECTIONS
         __maia_high_bss_end = ABSOLUTE(.);
     } > SRAM_HIGH :NONE
 
-    /* Brings the total heap to ~256 KiB; the rest of SRAM_HIGH stays free. */
+    /* Brings the total heap to ~256 KiB after reserving low-SRAM audio DMA. */
     .maia_high_heap (NOLOAD) : ALIGN(16)
     {
         __maia_high_heap_start = ABSOLUTE(.);
-        . += 0x1A000;
+        . += 0x1B000;
         __maia_high_heap_end = ABSOLUTE(.);
     } > SRAM_HIGH :NONE
 

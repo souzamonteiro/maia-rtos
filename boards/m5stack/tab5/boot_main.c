@@ -38,10 +38,10 @@ extern void maia_soc_systimer_init(uint32_t tick_hz);
  * MAIA_PRODUCT_HIGH_SRAM the shell/LCD/touch stacks move to high L2MEM, so
  * the low pool grows; extra regions are added in maia_boot_main. */
 #ifdef MAIA_PRODUCT_HIGH_SRAM
-#define MAIA_LOW_HEAP_BYTES 78848
+#define MAIA_LOW_HEAP_BYTES 74752
 #define MAIA_SHELL_STACK_BYTES 32768
 #else
-#define MAIA_LOW_HEAP_BYTES 50176
+#define MAIA_LOW_HEAP_BYTES 41984
 #define MAIA_SHELL_STACK_BYTES 16384
 #endif
 static uint8_t g_heap_pool[MAIA_LOW_HEAP_BYTES] __attribute__((aligned(16)));

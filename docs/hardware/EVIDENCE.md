@@ -1,5 +1,35 @@
 # Hardware evidence register
 
+## Native Tab5 I2S playback and ES8388 startup — 2026-11-26
+
+The native I2S1 TX clock now uses the ESP32-P4 XTAL source (40 MHz), with a
+fractional divider for 12.288 MHz MCLK and a 7:1 BCLK divider for stereo
+48 kHz/16-bit audio. This matches the ESP-IDF v5.4.2 Tab5 clock-source
+configuration; the earlier unsupported source selector left the I2S update
+handshake pending.
+
+The focused host tests (`product_touch_test`, `tab5_i2s_tx_test`, and
+`tab5_audio_test`) passed, and the diagnostic P4 image passed packaging and
+image-structure validation. On `/dev/cu.usbmodem1301`, the guarded hardware
+probe completed two boots; both logged
+`[AUDIO] ES8388 playback and speaker amp ready` and
+`[AUDIO] 1kHz probe tone completed`, with no fatal marker. The probe report
+recorded `probe_pass=true` and `restore_verified=true`. The original factory
+app SHA-256 was
+`08cee753c0c7c1bd8c69ea4bcaebf41dea5e8c19d1136f7838a8e36ca96abc06`.
+Captures and report are retained at
+`/Users/roberto/.copilot/session-state/79e3a5d6-7653-4cda-9830-edbdcc7ecc6a/files/tab5-audio-probe-xtal-20261126/`.
+
+A repeat using the cleaned diagnostic image also completed both boots, with no
+fatal marker and verified restoration. Its image SHA-256 was
+`343c6e133303bd9037d30b12c8e9532ea0fb2a45ae691b603d8d2caafdfcbd47`;
+the report and captures are retained at
+`/Users/roberto/.copilot/session-state/79e3a5d6-7653-4cda-9830-edbdcc7ecc6a/files/tab5-audio-probe-repeat-20261126/`.
+The user confirmed the 1 kHz tone was audible, validating the speaker output
+path. ES7210 microphone capture, WAV/MP3 playback and recording, and a
+product boot sound remain open. Temporary register-snapshot and timeout-delay
+instrumentation was removed after the first successful probe.
+
 ## Native MNM graphics capability gate on Tab5 — 2026-11-23
 
 The native shell previously exposed a fixed framebuffer at `0x48100000`,

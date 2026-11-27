@@ -1,5 +1,6 @@
 /* Native Tab5 product touch owner and system-I2C handoff. */
 #include "product_touch.h"
+#include <maia/boards/tab5_audio.h>
 #include <maia/boards/tab5_ina226.h>
 #include <maia/boards/tab5_bmi270.h>
 #include <maia/boards/tab5_battery.h>
@@ -65,6 +66,10 @@ void maia_tab5_product_touch_start(const maia_i2c_lines_t *lines) {
         return;
     }
     maia_tab5_system_i2c_adopt(&system_bus);
+    result = maia_tab5_audio_start(&system_bus);
+    if (result != MAIA_OK) {
+        maia_console_puts("[AUDIO] Initialization task creation failed\n");
+    }
     maia_tab5_ina226_bind(&system_bus);
     maia_tab5_bmi270_bind(&system_bus);
     maia_tab5_bmi270_driver_bind(&system_bus);
